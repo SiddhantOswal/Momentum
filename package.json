@@ -1,0 +1,29 @@
+{
+  "name": "prepagent",
+  "version": "1.0.0",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node index.mjs",
+    "dev": "node --watch index.mjs",
+    "test": "node --test"
+  },
+  "keywords": [
+    "corrugated",
+    "production",
+    "prepagent",
+    "local-development",
+    "mock-services"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "Ustaad AI local development backend for corrugated production prep",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.4",
+    "hono": "^4.13.13",
+    "zod": "^4.6.5"
+  }
+}
