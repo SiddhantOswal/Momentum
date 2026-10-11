@@ -1,0 +1,18 @@
+{
+  "projectId": "prepagent-hack",
+  "region": "asia-south1",
+  "serviceName": "prepagent",
+  "runtimeServiceAccount": "prepagent-run@prepagent-hack.iam.gserviceaccount.com",
+  "startupCommand": "npm start",
+  "healthEndpoint": "/health",
+  "deploymentStatus": "pending",
+  "billingEnabled": false,
+  "notes": [
+    "Cloud Run API is not enabled.",
+    "Cloud Build API is not enabled.",
+    "Artifact Registry API is not enabled.",
+    "Do not deploy during the no-billing setup phase.",
+    "Confirm the actual application port and health-check behavior before deployment.",
+    "Do not enable public unauthenticated access until the deployment and security requirements are reviewed."
+  ]
+}

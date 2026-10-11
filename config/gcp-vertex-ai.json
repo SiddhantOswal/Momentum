@@ -1,0 +1,16 @@
+{
+  "projectId": "prepagent-hack",
+  "location": "asia-south1",
+  "api": "aiplatform.googleapis.com",
+  "runtimeServiceAccount": "prepagent-run@prepagent-hack.iam.gserviceaccount.com",
+  "requiredIamRole": "roles/aiplatform.user",
+  "modelProvider": "Google Vertex AI",
+  "modelCallsEnabled": false,
+  "provisioningStatus": "pending",
+  "billingEnabled": false,
+  "notes": [
+    "Do not enable the Vertex AI API during the no-billing setup phase.",
+    "Do not make live Gemini calls.",
+    "Preserve only existing local validation helpers and explicit unavailable service responses; do not add a mock Vertex AI adapter."
+  ]
+}

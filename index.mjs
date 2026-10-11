@@ -1,6 +1,32 @@
+import { readFile } from "node:fs/promises";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { serve } from "@hono/node-server";
-import { formatMoney, SUPPORTED_CURRENCIES } from "./src/currency.js";
+import {
+  FeedbackInputSchema,
+  DisplayPrefsQuerySchema,
+  InsightsQuerySchema,
+  JobIdSchema,
+  JobSheetSchema,
+  LaunchCurrencySchema,
+  LocaleSchema,
+  RiskOptimizationRequestSchema,
+  RiskPredictionRequestSchema,
+  SUPPORTED_CURRENCIES,
+  SUPPORTED_LANGUAGES,
+  ValidationFailureSchema,
+} from "./src/schemas.js";
+import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.js";
+import { homePage } from "./src/operator-ui.js";
+import { createTraceRoutes } from "./src/trace-routes.js";
+import { traceRegistry } from "./src/trace-registry.js";
+import { fxRatesService } from "./src/fx-rates.js";
+import { servicePorts } from "./src/service-ports.js";
+import {
+  createPerIpRateLimitMiddleware,
+  createRequestTimeoutMiddleware,
+  REQUEST_SIGNAL_CONTEXT_KEY,
+} from "./src/request-guardrails.js";
 import {
   extractOrder,
   findSimilarRuns,
@@ -12,15 +38,141 @@ import {
 } from "./src/mock-agents.js";
 
 const app = new Hono();
+const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
+const perIpRateLimit = createPerIpRateLimitMiddleware();
+
+const requestTimeout = createRequestTimeoutMiddleware();
+app.use("*", (c, next) => {
+  if (c.req.method === "GET" && /^\/api\/runs\/[^/]+\/events$/.test(c.req.path)) {
+    return next();
+  }
+  return requestTimeout(c, next);
+});
+
+app.use("/api/*", perIpRateLimit);
+app.use("/orders/*", perIpRateLimit);
+app.use("/conditions/*", perIpRateLimit);
+app.use("/fx", perIpRateLimit);
+app.use("/risk/*", perIpRateLimit);
+app.use("/jobs", perIpRateLimit);
+app.use("/jobs/*", perIpRateLimit);
+app.use("/job-sheets/*", perIpRateLimit);
+app.use("/insights/*", perIpRateLimit);
+
+app.use("*", bodyLimit({
+  maxSize: MAX_REQUEST_BODY_BYTES,
+  onError: (c) => c.json({
+    ok: false,
+    error: {
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Request body must not exceed 10 MiB.",
+    },
+  }, 413),
+}));
+
+function responseForResult(c, result) {
+  if (result.ok) {
+    return c.json(result);
+  }
+
+  return c.json(result, result.error?.code === "SERVICE_UNAVAILABLE" ? 503 : 400);
+}
+
+function invalidJsonResponse(c) {
+  return validationResponse(c, [{
+    field: "body",
+    path: [],
+    code: "invalid_json",
+    message: "Request body must be valid JSON.",
+  }], "Request body must be valid JSON.");
+}
+
+function validationResponse(c, issues, message = "Request fields failed validation.") {
+  return c.json(ValidationFailureSchema.parse({
+    ok: false,
+    error: {
+      code: "VALIDATION_ERROR",
+      message,
+      issues,
+    },
+  }), 400);
+}
+
+function validateInput(c, schema, input, message) {
+  const parsed = schema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      response: validationResponse(
+        c,
+        parsed.error.issues.map((issue) => ({
+          field: issue.path.join(".") || "root",
+          path: issue.path,
+          code: issue.code,
+          message: issue.message,
+        })),
+        message
+      ),
+    };
+  }
+
+  return { ok: true, data: parsed.data };
+}
+
+function validateDisplayPrefs(c) {
+  return validateInput(
+    c,
+    DisplayPrefsQuerySchema,
+    {
+      lang: c.req.query("lang"),
+      currency: c.req.query("currency"),
+    },
+    "Display preferences failed validation."
+  );
+}
+
+async function readJsonBody(c) {
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return { ok: false, response: invalidJsonResponse(c) };
+  }
+
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return {
+      ok: false,
+      response: validationResponse(c, [{
+        field: "body",
+        path: [],
+        code: "invalid_type",
+        message: "Request body must be a JSON object.",
+      }], "Request body must be a JSON object."),
+    };
+  }
+
+  return { ok: true, body };
+}
 
 app.onError((err, c) => {
-  const message = err instanceof Error ? err.message : "Unexpected server error.";
+  if (c.get(REQUEST_SIGNAL_CONTEXT_KEY)?.aborted) {
+    return c.json({
+      ok: false,
+      error: {
+        code: "REQUEST_TIMEOUT",
+        message: "Request exceeded the 60-second processing limit.",
+      },
+    }, 504);
+  }
+
+  console.error("Request failed.");
 
   return c.json(
     {
       ok: false,
       error: "Internal server error",
-      message,
+      message: "The request failed unexpectedly. Please retry.",
       mode: "local-development",
       isRealModelPrediction: false,
     },
@@ -41,166 +193,63 @@ app.notFound((c) => {
   );
 });
 
-const homePage = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ustaad AI | Prep Agent</title>
-    <style>
-      :root {
-        --bg: #0b1220;
-        --panel: #111b2d;
-        --panel-alt: #15233d;
-        --ink: #dfe7f3;
-        --muted: #9bb0d1;
-        --accent: #7cc4ff;
-        --accent-strong: #4bb1ff;
-        --ok: #34d399;
-        --warning: #fbbf24;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: linear-gradient(180deg, #09111d 0%, #0d1426 100%);
-        color: var(--ink);
-      }
-      .page {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 32px 20px 48px;
-      }
-      .card {
-        background: rgba(17, 27, 45, 0.88);
-        border: 1px solid rgba(124, 196, 255, 0.2);
-        border-radius: 18px;
-        padding: 22px;
-        box-shadow: 0 12px 32px rgba(0,0,0,0.23);
-      }
-      h1 { margin-top: 0; }
-      .meta {
-        display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 18px;
-      }
-      .badge {
-        display: inline-block;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(75,177,255,0.12);
-        border: 1px solid rgba(124, 196, 255, 0.36);
-        color: var(--accent);
-        font-size: 0.82rem;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: 1.2fr 0.8fr;
-        gap: 20px;
-      }
-      label {
-        display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--muted);
-      }
-      input, select, textarea, button {
-        width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(156, 170, 192, 0.35);
-        background: rgba(17, 35, 58, 0.88); color: var(--ink);
-      }
-      textarea {
-        min-height: 120px; resize: vertical;
-      }
-      button {
-        cursor: pointer; background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
-        color: #041224; border: none; font-weight: 700; margin-top: 10px;
-      }
-      .result {
-        margin-top: 18px; background: rgba(14, 25, 39, 0.75); border: 1px solid rgba(101, 138, 190, 0.4);
-        border-radius: 12px; padding: 16px; white-space: pre-wrap; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.84rem;
-      }
-      .status-ok { color: var(--ok); }
-      .status-warn { color: var(--warning); }
-      .small { font-size: 0.82rem; color: var(--muted); }
-      @media (max-width: 760px) {
-        .grid { grid-template-columns: 1fr; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="page">
-      <div class="card">
-        <h1>Ustaad AI</h1>
-        <div class="meta">
-          <span class="badge">Corrugated Production-Prep Agent</span>
-          <span class="badge">Mode: Local development</span>
-          <span class="badge">Mock services enabled</span>
-        </div>
-        <p class="small">The local application keeps real Google Cloud services off and treats every AI response as a mock/demo value until a production backend is wired in.</p>
-
-        <div class="grid">
-          <section>
-            <h2>Sample purchase order</h2>
-            <label>Order ID<input id="orderId" value="PO-2048" /></label>
-            <label>Customer ID<input id="customerId" value="CUST-418" /></label>
-            <label>Box style<input id="boxStyle" value="RSC" /></label>
-            <label>Length (mm)<input id="lengthMm" value="520" /></label>
-            <label>Width (mm)<input id="widthMm" value="360" /></label>
-            <label>Height (mm)<input id="heightMm" value="260" /></label>
-            <label>Ply<input id="ply" value="3" /></label>
-            <label>Flute profile<input id="fluteProfile" value="B" /></label>
-            <label>Quantity<input id="quantity" value="1200" /></label>
-            <button id="extractBtn">Extract order</button>
-          </section>
-          <aside>
-            <h2>System notes</h2>
-            <ul class="small">
-              <li><span class="status-ok">Local health:</span> /health returns ok: true</li>
-              <li><span class="status-warn">Mock mode:</span> no billing, no cloud access, no real predictions</li>
-              <li>Supported currencies: INR, JPY, KRW, CNY, IDR, SGD, AUD, THB, PHP, MYR, USD</li>
-              <li>Supported languages: en, hi, mr, ja, ko, zh-CN, id</li>
-            </ul>
-            <button id="statusBtn">Load app status</button>
-            <div id="result" class="result">Waiting for a request…</div>
-          </aside>
-        </div>
-      </div>
-    </div>
-
-    <script>
-      const result = document.getElementById('result');
-      const setResult = (payload) => { result.textContent = JSON.stringify(payload, null, 2); };
-
-      const formValues = () => ({
-        orderId: document.getElementById('orderId').value,
-        customerId: document.getElementById('customerId').value,
-        boxStyle: document.getElementById('boxStyle').value,
-        lengthMm: Number(document.getElementById('lengthMm').value),
-        widthMm: Number(document.getElementById('widthMm').value),
-        heightMm: Number(document.getElementById('heightMm').value),
-        ply: Number(document.getElementById('ply').value),
-        fluteProfile: document.getElementById('fluteProfile').value,
-        quantity: Number(document.getElementById('quantity').value),
-      });
-
-      document.getElementById('extractBtn').addEventListener('click', async () => {
-        setResult({ status: 'loading', message: 'Calling mock extraction endpoint…' });
-        const response = await fetch('/api/agents/extractOrder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formValues()),
-        });
-        const payload = await response.json();
-        setResult(payload);
-      });
-
-      document.getElementById('statusBtn').addEventListener('click', async () => {
-        const response = await fetch('/api/status');
-        const payload = await response.json();
-        setResult(payload);
-      });
-    </script>
-  </body>
-</html>`;
-
-app.get("/", (c) => {
-  return c.html(homePage);
+app.get("/display-currency.js", async (c) => {
+  const source = await readFile(new URL("./src/display-currency.js", import.meta.url));
+  return c.body(source, 200, {
+    "Content-Type": "text/javascript; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
 });
+
+app.get("/operator-ui.css", async (c) => {
+  const source = await readFile(new URL("./src/operator-ui.css", import.meta.url));
+  return c.body(source, 200, {
+    "Content-Type": "text/css; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+});
+
+app.get("/localization.js", async (c) => {
+  const source = await readFile(new URL("./src/localization.js", import.meta.url));
+  return c.body(source, 200, {
+    "Content-Type": "text/javascript; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+});
+
+app.get("/locales/*", async (c) => {
+  const match = /^\/locales\/([A-Za-z-]+)\.json$/.exec(c.req.path);
+  const locale = match && LocaleSchema.safeParse(match[1]);
+  if (!locale?.success) {
+    return c.json({
+      ok: false,
+      error: {
+        code: "NOT_FOUND",
+        message: "The requested locale file is not available.",
+      },
+    }, 404);
+  }
+
+  const source = await readFile(
+    new URL(`./src/locales/${locale.data}.json`, import.meta.url)
+  );
+  return c.body(source, 200, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+});
+
+app.get("/money-contracts.js", async (c) => {
+  const source = await readFile(new URL("./src/money-contracts.js", import.meta.url));
+  return c.body(source, 200, {
+    "Content-Type": "text/javascript; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+});
+
+app.route("/api/runs", createTraceRoutes(traceRegistry));
+
+app.get("/", (c) => c.html(homePage));
 
 app.get("/health", (c) => {
   return c.json({ ok: true, mode: "local-development" });
@@ -214,96 +263,408 @@ app.get("/api/status", (c) => {
     status: "running",
     mode: "local-development",
     isRealModelPrediction: false,
-    mockServices: [
-      "order extraction",
-      "plant conditions",
-      "defect risk prediction",
-      "optimizer",
-      "similar run lookup",
-      "risk explanation",
-      "job sheet generation",
+    localCapabilities: [
+      "purchase-order field validation",
+      "run-condition validation",
+      "currency formatting",
+      "daily cached FX rates with a static fallback",
+      "local PDF rendering for a caller-supplied validated JobSheet",
+    ],
+    unconfiguredIntegrations: [
+      "Gemini on Vertex AI",
+      "BigQuery and BigQuery ML",
+      "Cloud Storage",
+      "Cloud Translation",
+      "Pub/Sub and Dataflow",
     ],
     supportedCurrencies: SUPPORTED_CURRENCIES,
-    supportedLanguages: ["en", "hi", "mr", "ja", "ko", "zh-CN", "id"],
+    supportedLanguages: SUPPORTED_LANGUAGES,
     notes: [
       "This local build does not contact Google Cloud resources.",
-      "Any predictions or evidence are mock/demo values marked as such.",
+      "Cloud-backed predictions, evidence, optimizations, JobSheet generation, persistence, and job-card storage are unavailable until integrations are configured.",
+      "The local PDF renderer does not create job records or upload files.",
     ],
   });
 });
 
-app.post("/api/agents/extractOrder", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body) {
-    return c.json({ ok: false, error: "Request body must be valid JSON.", mode: "local-development" }, 400);
+app.post("/orders/extract", async (c) => {
+  let form;
+  try {
+    form = await c.req.parseBody();
+  } catch {
+    return validationResponse(c, [{
+      field: "body",
+      path: [],
+      code: "invalid_multipart",
+      message: "Request must contain a valid multipart PDF upload.",
+    }], "Purchase order upload is invalid.");
   }
 
-  const result = extractOrder(body);
-  return result.ok ? c.json(result) : c.json(result, 400);
+  const file = form.file;
+  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
+    return validationResponse(c, [{
+      field: "file",
+      path: ["file"],
+      code: "invalid_type",
+      message: "A purchase-order PDF file is required in the file field.",
+    }], "Purchase order upload is invalid.");
+  }
+
+  const name = typeof file.name === "string" ? file.name.toLowerCase() : "";
+  if (file.type !== "application/pdf" && !name.endsWith(".pdf")) {
+    return validationResponse(c, [{
+      field: "file",
+      path: ["file"],
+      code: "invalid_format",
+      message: "The uploaded purchase order must be a PDF.",
+    }], "Purchase order upload is invalid.");
+  }
+
+  const header = Buffer.from(await file.slice(0, 1024).arrayBuffer());
+  if (!header.includes(Buffer.from("%PDF-"))) {
+    return validationResponse(c, [{
+      field: "file",
+      path: ["file"],
+      code: "invalid_pdf",
+      message: "The uploaded file does not contain a PDF header.",
+    }], "Purchase order upload is invalid.");
+  }
+
+  return responseForResult(c, await servicePorts.extractOrder({
+    file,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.get("/conditions/current", async (c) => {
+  const displayPrefs = validateDisplayPrefs(c);
+  if (!displayPrefs.ok) {
+    return displayPrefs.response;
+  }
+
+  const shift = c.req.query("shift");
+  if (shift !== undefined && shift !== "DAY" && shift !== "NIGHT") {
+    return validationResponse(c, [{
+      field: "shift",
+      path: ["shift"],
+      code: "invalid_value",
+      message: "shift must be DAY or NIGHT.",
+    }], "Condition query failed validation.");
+  }
+
+  return responseForResult(c, await servicePorts.currentConditions({
+    shift,
+    lang: displayPrefs.data.lang,
+    currency: displayPrefs.data.currency,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.get("/fx", async (c) => {
+  const displayPrefs = validateDisplayPrefs(c);
+  if (!displayPrefs.ok) {
+    return displayPrefs.response;
+  }
+
+  const base = c.req.query("base") ?? "INR";
+  const validated = validateInput(
+    c,
+    LaunchCurrencySchema,
+    base,
+    "FX base currency is not supported."
+  );
+  if (!validated.ok) {
+    return validated.response;
+  }
+
+  return c.json(await fxRatesService.getRates(validated.data));
+});
+
+app.post("/risk/predict", async (c) => {
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
+  }
+
+  const validated = validateInput(
+    c,
+    RiskPredictionRequestSchema,
+    request.body,
+    "Risk prediction request failed validation."
+  );
+  if (!validated.ok) {
+    return validated.response;
+  }
+
+  return responseForResult(c, await servicePorts.predictRisk({
+    ...validated.data,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.post("/risk/optimize", async (c) => {
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
+  }
+
+  const validated = validateInput(
+    c,
+    RiskOptimizationRequestSchema,
+    request.body,
+    "Risk optimization request failed validation."
+  );
+  if (!validated.ok) {
+    return validated.response;
+  }
+
+  return responseForResult(c, await servicePorts.optimizeRisk({
+    ...validated.data,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.post("/jobs", async (c) => {
+  let form;
+  try {
+    form = await c.req.parseBody();
+  } catch {
+    return validationResponse(c, [{
+      field: "body",
+      path: [],
+      code: "invalid_multipart",
+      message: "Request must contain a valid multipart PDF upload.",
+    }], "Job request is invalid.");
+  }
+
+  const file = form.file;
+  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
+    return validationResponse(c, [{
+      field: "file",
+      path: ["file"],
+      code: "invalid_type",
+      message: "A purchase-order PDF file is required in the file field.",
+    }], "Job request is invalid.");
+  }
+
+  const name = typeof file.name === "string" ? file.name.toLowerCase() : "";
+  if (file.type !== "application/pdf" && !name.endsWith(".pdf")) {
+    return validationResponse(c, [{
+      field: "file",
+      path: ["file"],
+      code: "invalid_format",
+      message: "The uploaded purchase order must be a PDF.",
+    }], "Job request is invalid.");
+  }
+
+  return responseForResult(c, await servicePorts.prepareJob({
+    form,
+    file,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.post("/job-sheets/render.pdf", async (c) => {
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
+  }
+
+  const validated = validateInput(
+    c,
+    JobSheetSchema,
+    request.body,
+    "JobSheet failed validation."
+  );
+  if (!validated.ok) {
+    return validated.response;
+  }
+
+  const locale = validateInput(
+    c,
+    LocaleSchema,
+    c.req.query("lang") ?? "en",
+    "PDF language preference failed validation."
+  );
+  if (!locale.ok) {
+    return locale.response;
+  }
+
+  try {
+    const pdf = await renderJobSheetPdf(validated.data, { locale: locale.data });
+    return c.body(pdf, 200, {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": 'inline; filename="job-sheet.pdf"',
+      "Cache-Control": "no-store",
+    });
+  } catch (error) {
+    if (!(error instanceof PdfFontUnavailableError)) {
+      throw error;
+    }
+
+    return c.json({
+      ok: false,
+      error: {
+        code: error.code,
+        message: error.message,
+      },
+    }, 503);
+  }
+});
+
+app.post("/jobs/:id/approve", async (c) => {
+  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
+  if (!validated.ok) {
+    return validated.response;
+  }
+
+  return responseForResult(c, await servicePorts.approveJob({
+    jobId: validated.data,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.get("/jobs/:id/card.pdf", async (c) => {
+  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
+  if (!validated.ok) {
+    return validated.response;
+  }
+  const displayPrefs = validateDisplayPrefs(c);
+  if (!displayPrefs.ok) {
+    return displayPrefs.response;
+  }
+
+  return responseForResult(c, await servicePorts.getJobCard({
+    jobId: validated.data,
+    lang: displayPrefs.data.lang,
+    currency: displayPrefs.data.currency,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.post("/jobs/:id/feedback", async (c) => {
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
+  }
+
+  const jobId = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
+  if (!jobId.ok) {
+    return jobId.response;
+  }
+  const feedback = validateInput(
+    c,
+    FeedbackInputSchema,
+    request.body,
+    "Feedback request failed validation."
+  );
+  if (!feedback.ok) {
+    return feedback.response;
+  }
+  if (feedback.data.jobId !== jobId.data) {
+    return validationResponse(c, [{
+      field: "jobId",
+      path: ["jobId"],
+      code: "custom",
+      message: "Feedback jobId must match the job ID in the URL.",
+    }], "Feedback request failed validation.");
+  }
+
+  return responseForResult(c, await servicePorts.saveFeedback({
+    ...feedback.data,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.get("/insights/summary", async (c) => {
+  const displayPrefs = validateDisplayPrefs(c);
+  if (!displayPrefs.ok) {
+    return displayPrefs.response;
+  }
+  const query = validateInput(
+    c,
+    InsightsQuerySchema,
+    { from: c.req.query("from"), to: c.req.query("to") },
+    "Insights date range failed validation."
+  );
+  if (!query.ok) {
+    return query.response;
+  }
+
+  return responseForResult(c, await servicePorts.getInsights({
+    ...query.data,
+    lang: displayPrefs.data.lang,
+    currency: displayPrefs.data.currency,
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  }));
+});
+
+app.post("/api/agents/extractOrder", async (c) => {
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
+  }
+
+  return responseForResult(c, extractOrder(request.body));
 });
 
 app.post("/api/agents/getConditions", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body) {
-    return c.json({ ok: false, error: "Request body must be valid JSON.", mode: "local-development" }, 400);
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
   }
 
-  const result = getConditions(body);
-  return result.ok ? c.json(result) : c.json(result, 400);
+  return responseForResult(c, getConditions(request.body));
 });
 
 app.post("/api/agents/predictRisk", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body) {
-    return c.json({ ok: false, error: "Request body must be valid JSON.", mode: "local-development" }, 400);
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
   }
 
-  const { order, conditions } = body;
-  const result = predictRisk(order, conditions);
-  return result.ok ? c.json(result) : c.json(result, 400);
+  const { order, conditions, levers } = request.body;
+  return responseForResult(c, predictRisk(order, conditions, levers));
 });
 
 app.post("/api/agents/optimizeLevers", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body) {
-    return c.json({ ok: false, error: "Request body must be valid JSON.", mode: "local-development" }, 400);
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
   }
 
-  const { order, conditions } = body;
-  const result = optimizeLevers(order, conditions);
-  return result.ok ? c.json(result) : c.json(result, 400);
+  const { order, conditions } = request.body;
+  return responseForResult(c, optimizeLevers(order, conditions));
 });
 
 app.post("/api/agents/findSimilarRuns", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body) {
-    return c.json({ ok: false, error: "Request body must be valid JSON.", mode: "local-development" }, 400);
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
   }
 
-  const result = findSimilarRuns(body);
-  return result.ok ? c.json(result) : c.json(result, 400);
+  const { order, conditions } = request.body;
+  return responseForResult(c, findSimilarRuns(order, conditions));
 });
 
 app.post("/api/agents/explainRisk", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body) {
-    return c.json({ ok: false, error: "Request body must be valid JSON.", mode: "local-development" }, 400);
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
   }
 
-  const { order, conditions, riskSummary } = body;
-  const result = explainRisk(order, conditions, riskSummary);
-  return result.ok ? c.json(result) : c.json(result, 400);
+  const { order, conditions, riskEvidence } = request.body;
+  return responseForResult(c, explainRisk(order, conditions, riskEvidence));
 });
 
 app.post("/api/agents/generateJobSheet", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body) {
-    return c.json({ ok: false, error: "Request body must be valid JSON.", mode: "local-development" }, 400);
+  const request = await readJsonBody(c);
+  if (!request.ok) {
+    return request.response;
   }
 
-  const { order, conditions, riskSummary } = body;
-  const result = generateJobSheet(order, conditions, riskSummary);
-  return result.ok ? c.json(result) : c.json(result, 400);
+  const { order, conditions, analysis } = request.body;
+  return responseForResult(c, generateJobSheet(order, conditions, analysis));
 });
 
 const port = Number(process.env.PORT) || 8080;

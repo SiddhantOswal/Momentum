@@ -1,0 +1,21 @@
+{
+  "projectId": "prepagent-hack",
+  "region": "asia-south1",
+  "api": "dataflow.googleapis.com",
+  "job": {
+    "name": "sensor-to-bq",
+    "template": "PubSub_Subscription_to_BigQuery",
+    "stagingBucket": "gs://prepagent-hack-data/tmp",
+    "maxWorkers": 1
+  },
+  "inputSubscription": "projects/prepagent-hack/subscriptions/sensor-readings-df",
+  "outputTable": "prepagent-hack:prepagent.sensor_readings",
+  "provisioningStatus": "pending",
+  "billingEnabled": false,
+  "jobStartAuthorized": false,
+  "notes": [
+    "Do not launch the streaming job during the no-billing phase.",
+    "Streaming jobs may incur ongoing charges.",
+    "The Storage bucket, Pub/Sub topic and subscription must exist before the job can run."
+  ]
+}

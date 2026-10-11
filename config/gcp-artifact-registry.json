@@ -1,0 +1,17 @@
+{
+  "projectId": "prepagent-hack",
+  "region": "asia-south1",
+  "api": "artifactregistry.googleapis.com",
+  "repository": {
+    "name": "prepagent",
+    "format": "DOCKER",
+    "location": "asia-south1"
+  },
+  "purpose": "Store the Ustaad AI application container image",
+  "provisioningStatus": "pending",
+  "billingEnabled": false,
+  "notes": [
+    "Repository creation is deferred until cloud prerequisites are resolved.",
+    "Do not push container images during the no-billing preparation phase."
+  ]
+}

@@ -1,39 +1,43 @@
-import { PurchaseOrderSchema } from "./types.js";
+import {
+  MissingOrderFieldSchema,
+  OrderExtractionInputSchema,
+  OrderExtractionResultSchema,
+  PURCHASE_ORDER_FIELDS,
+  ValidationFailureSchema,
+} from "./schemas.js";
 
-export function extractOrderFromMock(input) {
-  const result = PurchaseOrderSchema.safeParse(input);
-
-  if (!result.success) {
-    return {
-      ok: false,
-      errors: result.error.issues.map((issue) => ({
-        field: issue.path.join("."),
+function validationFailure(error) {
+  const response = {
+    ok: false,
+    error: {
+      code: "VALIDATION_ERROR",
+      message: "Purchase order fields failed validation.",
+      issues: error.issues.map((issue) => ({
+        field: issue.path.join(".") || "root",
+        path: issue.path,
+        code: issue.code,
         message: issue.message,
       })),
-    };
+    },
+  };
+
+  return ValidationFailureSchema.parse(response);
+}
+
+export function extractOrderFromMock(input) {
+  const result = OrderExtractionInputSchema.safeParse(input);
+
+  if (!result.success) {
+    return validationFailure(result.error);
   }
 
-  const order = result.data;
+  const missingFields = PURCHASE_ORDER_FIELDS
+    .filter((field) => result.data[field] === undefined)
+    .map((field) => MissingOrderFieldSchema.parse(field));
 
-  const requiredFields = [
-    "boxStyle",
-    "lengthMm",
-    "widthMm",
-    "heightMm",
-    "ply",
-    "fluteProfile",
-    "quantity",
-  ];
-
-  const missingFields = requiredFields.filter(
-    (field) => order[field] === undefined
-  );
-
-  return {
-    ok: true,
-    order,
+  return OrderExtractionResultSchema.parse({
+    orderProfile: result.data,
     missingFields,
     needsClarification: missingFields.length > 0,
-    mode: "mock",
-  };
+  });
 }

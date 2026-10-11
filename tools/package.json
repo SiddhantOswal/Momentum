@@ -1,0 +1,12 @@
+{
+  "name": "ustaad-ai-gcp-tools",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google-cloud/pubsub": "^6.2.0",
+    "@google/genai": "^1.11.0"
+  }
+}

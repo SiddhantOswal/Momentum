@@ -1,16 +1,6 @@
-export const SUPPORTED_CURRENCIES = [
-  "INR",
-  "JPY",
-  "KRW",
-  "CNY",
-  "IDR",
-  "SGD",
-  "AUD",
-  "THB",
-  "PHP",
-  "MYR",
-  "USD",
-];
+import { SUPPORTED_CURRENCIES } from "./schemas.js";
+
+export { SUPPORTED_CURRENCIES };
 
 export function formatMoney(value, currency = "INR", locale = "en-IN") {
   if (!Number.isFinite(value)) {

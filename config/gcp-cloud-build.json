@@ -1,0 +1,13 @@
+{
+  "projectId": "prepagent-hack",
+  "api": "cloudbuild.googleapis.com",
+  "purpose": "Build the Ustaad AI application container for Cloud Run",
+  "source": ".",
+  "provisioningStatus": "pending",
+  "billingEnabled": false,
+  "deploymentEnabled": false,
+  "notes": [
+    "Do not enable the API while billing remains disabled.",
+    "Do not start a build during the no-billing preparation phase."
+  ]
+}

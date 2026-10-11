@@ -1,0 +1,15 @@
+{
+  "projectId": "prepagent-hack",
+  "region": "asia-south1",
+  "topic": {
+    "name": "sensor-readings"
+  },
+  "subscription": {
+    "name": "sensor-readings-df",
+    "topic": "sensor-readings"
+  },
+  "publisherServiceAccount": "prepagent-run@prepagent-hack.iam.gserviceaccount.com",
+  "requiredPublisherRole": "roles/pubsub.publisher",
+  "provisioningStatus": "pending",
+  "billingEnabled": false
+}

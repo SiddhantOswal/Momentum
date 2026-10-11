@@ -1,0 +1,11 @@
+{
+  "projectId": "prepagent-hack",
+  "bucket": {
+    "name": "prepagent-hack-data",
+    "location": "asia-south1",
+    "uniformBucketLevelAccess": true
+  },
+  "billingEnabled": false,
+  "provisioningStatus": "pending",
+  "purpose": "Ustaad AI corrugated production-prep agent data and assets"
+}
