@@ -17,13 +17,11 @@ const messages = Object.freeze({
 });
 
 export function translate(language, key) {
-  const locale = Object.hasOwn(messages, language) ? language : "en";
-  return messages[locale]?.[key] ?? messages.en[key] ?? key;
+  return messages.en[key] ?? key;
 }
 
 export function hasTranslation(language, key) {
-  return Object.hasOwn(messages, language) &&
-    Object.hasOwn(messages[language], key);
+  return language === "en" && Object.hasOwn(messages.en, key);
 }
 
 export function getTranslationKeys() {

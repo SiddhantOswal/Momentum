@@ -144,6 +144,7 @@ ${navigationMarkup}
 
       <!-- MAIN -->
       <main class="app-main" id="main-content" tabindex="-1">
+        <p class="notice" role="note">Prototype with synthetic data · not production accepted · predictions and savings are estimates</p>
         <div class="topbar">
           <div class="topbar__left">
             <p class="eyebrow">USTAAD AI <span aria-hidden="true">/</span> PRODUCTION PREP</p>
@@ -278,7 +279,7 @@ ${navigationMarkup}
 
   <details class="card wide request-inputs" open>
     <summary>Production request inputs</summary>
-    <p class="muted">Enter actual values from an accepted order and current production measurements. Fields and limits follow the existing request schema; no values are prefilled.</p>
+        <p class="muted">Enter or review the simulated sensor values for this prototype. A supervisor must confirm or edit humidity, temperature, and paper moisture before requesting prediction. If no reading exists, enter values manually; the app does not invent readings.</p>
     <div class="request-groups">
       <fieldset>
         <legend>Order profile</legend>
@@ -294,6 +295,7 @@ ${navigationMarkup}
         <div class="field-grid" id="lever-request-fields">${leverFieldsMarkup}</div>
       </details>
     </div>
+    <label><input type="checkbox" id="conditions-supervisor-confirmed" /> I confirm or have edited the displayed humidity, temperature, and paper-moisture values for this order.</label>
     <div class="actions">
       <button type="button" id="request-risk" data-i18n="requestRisk">Request risk prediction</button>
       <button type="button" id="request-optimization" class="button-secondary" data-i18n="requestOptimization">Request optimization</button>
@@ -304,7 +306,7 @@ ${navigationMarkup}
   <div class="grid">
     <section class="card" aria-labelledby="conditions-title">
       <h2 id="conditions-title" data-i18n="conditions">Current conditions</h2>
-      <p class="muted">Requests the latest conditions from the existing endpoint. No local sensor values are substituted.</p>
+        <p class="muted">All plant readings are simulated for this prototype. Confirm or edit the values before prediction. Readings older than 24 hours are marked stale; if none exist, enter values manually.</p>
       <button type="button" data-json-get="/conditions/current" data-output="conditions-result" data-i18n="loadConditions">Load conditions</button>
       <pre id="conditions-result" class="result" role="status" aria-live="polite" data-i18n="noConditions">No conditions request made.</pre>
       <dl id="conditions-fields" class="field-list" hidden></dl>
@@ -468,7 +470,7 @@ ${navigationMarkup}
       <h2 id="preferences-title" data-i18n="preferences">Display preferences</h2>
       <label for="language-preference" data-i18n="language">Language preference</label>
       <select id="language-preference">${languageOptions}</select>
-      <p id="language-result" class="result" role="status" aria-live="polite" data-i18n="translationNote">Static translations cover ordinary interface labels only. Glossary-backed production text and live translation are unavailable.</p>
+      <p id="language-result" class="result" role="status" aria-live="polite">English-only prototype. No glossary dependency is required.</p>
     </section>
 
     <section class="card wide" aria-labelledby="feedback-title">
@@ -903,8 +905,8 @@ ${navigationMarkup}
               ["runDate", "shift", "ambientRhPct", "ambientTempC", "paperMoisturePct"]
                 .every((field) => Object.hasOwn(data, field))) {
             const sensorSource = {
-              simulated: "Simulated sensor data",
-              live: "Live sensor data",
+              simulated: "Simulated sensor",
+              live: "Unverified source",
               unverified: "Source unverified",
             }[payload.sensorSource] ?? "Source not supplied";
             const provenance = payload.provenance ?? {};
@@ -919,7 +921,9 @@ ${navigationMarkup}
               readingId: provenance.readingId,
               readingTimestamp: provenance.timestamp,
               readingAgeSeconds: provenance.ageSeconds,
-              freshness: provenance.freshness,
+              freshness: provenance.freshness === "stale"
+                ? "STALE — reading is over 24 hours old (" + Math.floor(provenance.ageSeconds / 3600) + " h)"
+                : provenance.freshness,
             });
           }
           return;
@@ -952,7 +956,7 @@ ${navigationMarkup}
           target.replaceChildren();
           if (payload.changes.length) {
             const heading = document.createElement("h3");
-            heading.textContent = "Provisional model-predicted changes (not plant-approved)";
+            heading.textContent = "Predicted changes from the approved optimizer contract; supervisor review required";
             const list = document.createElement("ul");
             for (const change of payload.changes) {
               if (!change || typeof change.lever !== "string" ||
@@ -965,11 +969,24 @@ ${navigationMarkup}
             }
             target.append(heading, list);
           }
+          if (typeof payload.planBaselineLabel === "string") {
+            const baseline = document.createElement("p");
+            baseline.className = "muted";
+            baseline.textContent = "Plan baseline: " + payload.planBaselineLabel;
+            target.append(baseline);
+          }
           if (typeof payload.note === "string") {
             const note = document.createElement("p");
             note.className = "muted";
             note.textContent = payload.note;
             target.append(note);
+          }
+          if (payload.savings && Number.isFinite(payload.savings.percent)) {
+            const savings = document.createElement("p");
+            savings.className = "muted";
+            savings.textContent = "Predicted savings: " + payload.savings.kg + " kg; " +
+              payload.savings.inr + " INR (" + payload.savings.percent.toFixed(1) + "% of plan baseline cost)";
+            target.append(savings);
           }
           target.hidden = target.childElementCount === 0;
         }
@@ -1034,8 +1051,12 @@ ${navigationMarkup}
           const adapterNote = payload?.source === "offline-test-adapter"
             ? " OFFLINE TEST ADAPTER — no production data was read or written."
             : "";
+          const acceptanceNote = payload?.isRealModelPrediction === true &&
+            payload?.modelAcceptance?.status !== "accepted"
+            ? " Model output is not accepted against the required R² threshold and current model versions; production preparation is blocked."
+            : "";
           return "HTTP " + response.status + " — response received. Review the structured result and expand technical details if needed." +
-            adapterNote;
+            adapterNote + acceptanceNote;
         }
         const code = payload?.error?.code;
         const serverMessage = typeof payload?.error?.message === "string" ? payload.error.message : "";
@@ -1490,6 +1511,11 @@ ${navigationMarkup}
       async function submitAnalysisRequest(kind) {
         const orderFieldsForRequest = kind === "risk" ? requestFieldNames.riskOrder : requestFieldNames.order;
         const conditionFieldsForRequest = kind === "risk" ? requestFieldNames.riskConditions : requestFieldNames.conditions;
+        const confirmation = document.getElementById("conditions-supervisor-confirmed");
+        if (!confirmation.checked) {
+          setResult("conditions-result", "Supervisor confirmation required: review or edit the condition values, then confirm before prediction or optimization.", "incomplete");
+          return;
+        }
         const order = readFieldGroup("order-profile-fields", orderFieldsForRequest);
         if (!order) return;
         const conditions = readFieldGroup("condition-request-fields", conditionFieldsForRequest);
@@ -1512,7 +1538,8 @@ ${navigationMarkup}
           outputId = "risk-result";
           onSuccess = (result) => {
             if (generation !== analysisGeneration || !result || result.source !== "bigquery-ml" ||
-                result.isRealModelPrediction !== true || !result.ratesPct) return;
+                result.isRealModelPrediction !== true || result.modelAcceptance?.status !== "accepted" ||
+                !result.ratesPct) return;
             latestRiskPayload = payload;
             latestRiskResult = pickRiskResult(result);
             document.getElementById("what-if-controls").hidden = false;
@@ -1578,6 +1605,7 @@ ${navigationMarkup}
           changes: result.changes,
           savings: result.savings,
           ...(result.modelPredicted === true ? { modelPredicted: true } : {}),
+          ...(typeof result.planBaselineLabel === "string" ? { planBaselineLabel: result.planBaselineLabel } : {}),
           ...(typeof result.note === "string" ? { note: result.note } : {}),
         };
       }
@@ -1798,9 +1826,17 @@ ${navigationMarkup}
 
       for (const groupId of ["order-profile-fields", "condition-request-fields", "lever-request-fields"]) {
         document.getElementById(groupId).addEventListener("input", () => {
+          if (groupId === "condition-request-fields") {
+            document.getElementById("conditions-supervisor-confirmed").checked = false;
+          }
           invalidateAnalysisResults();
         });
-        document.getElementById(groupId).addEventListener("change", () => invalidateAnalysisResults());
+        document.getElementById(groupId).addEventListener("change", () => {
+          if (groupId === "condition-request-fields") {
+            document.getElementById("conditions-supervisor-confirmed").checked = false;
+          }
+          invalidateAnalysisResults();
+        });
       }
 
       document.getElementById("request-risk").addEventListener("click", () => submitAnalysisRequest("risk"));
@@ -1864,6 +1900,13 @@ ${navigationMarkup}
           setResult("prepare-job-result", t("selectShift"), "error");
           return;
         }
+        const conditionConfirmation = document.getElementById("conditions-supervisor-confirmed");
+        if (!conditionConfirmation.checked) {
+          setResult("prepare-job-result", "Confirm or edit the simulated/manual condition values before preparing this job.", "error");
+          return;
+        }
+        const manualConditions = readFieldGroup("condition-request-fields", requestFieldNames.conditions);
+        if (!manualConditions) return;
         const levers = readFieldGroup("lever-request-fields", requestFieldNames.levers);
         if (!levers) return;
         const operatorFields = {};
@@ -1888,6 +1931,10 @@ ${navigationMarkup}
         body.append("reviewFingerprint", activePurchaseOrderReview.reviewFingerprint);
         body.append("confirmedSourceLine", String(itemConfirmation.checked));
         body.append("shift", shift);
+        for (const [name, value] of Object.entries({ ...manualConditions, shift })) {
+          body.append(name, String(value));
+        }
+        body.append("conditionsConfirmed", "true");
         for (const [name, value] of Object.entries(levers)) body.append(name, String(value));
         const confirmedLine = { lineIndex: selectedReviewLineIndex, itemCode, quantity };
         const result = await runJsonRequest({

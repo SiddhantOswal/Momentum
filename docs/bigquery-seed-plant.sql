@@ -8,8 +8,8 @@ USING (
     'PLANT-01' AS plant_id,
     'Pune unit' AS name,
     'INR' AS base_currency,
-    45.0 AS cost_per_kg,
-    'mr' AS default_locale
+    53.30 AS cost_per_kg,
+    'en' AS default_locale
 ) AS source
 ON target.plant_id = source.plant_id
 WHEN MATCHED THEN

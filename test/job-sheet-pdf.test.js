@@ -19,6 +19,7 @@ test("JobSheet renderer creates a valid PDF containing supplied order and produc
   assert.match(content, /Production Job Sheet JOB-TEST-42/);
   assert.match(renderedText, /Job ID: JOB-TEST-42/);
   assert.match(renderedText, /Order ID: PO-TEST-42/);
+  assert.doesNotMatch(renderedText, /Source PO line/);
   assert.match(renderedText, /Customer ID: CUSTOMER-TEST-42/);
   assert.match(renderedText, /quantity: 100 boxes/);
   assert.match(renderedText, /Dimensions: 520 x 360 x 260 mm/);
@@ -28,11 +29,39 @@ test("JobSheet renderer creates a valid PDF containing supplied order and produc
   assert.match(renderedText, /rollTempC: 160 C -> 165 C/);
   assert.match(renderedText, /Primary defect: WARP/);
   assert.match(renderedText, /Ambient humidity: 50% RH; temperature: 28 C; paper moisture: 9%/);
-  assert.match(renderedText, /Savings as supplied/);
+  const stages = [
+    "1. Printing (flexo, top liner)",
+    "2. Single facer",
+    "3. Sheet cutting",
+    "4. Pasting",
+    "5. Drying / conditioning",
+    "6. Cutting and creasing",
+    "7. Slotting",
+    "8. Stitching / gluing",
+    "9. QC and bundling",
+  ].map((stage) => renderedText.indexOf(stage));
+  assert.ok(stages.every((position) => position >= 0));
+  assert.deepEqual(stages, [...stages].sort((left, right) => left - right));
+  assert.match(renderedText, /Savings estimate \(not observed\)/);
   assert.match(renderedText, /0 kg; INR 0/);
   assert.match(renderedText, /Status: DRAFT/);
   assert.match(renderedText, /Explanation text supplied by the renderer test fixture\./);
   assert.doesNotMatch(renderedText, /Status: APPROVED/);
+});
+
+test("JobSheet renderer prints the selected PO source line using the operator-facing one-based number", async () => {
+  const pdf = await renderJobSheetPdf({
+    ...jobSheetFixture,
+    order: {
+      ...jobSheetFixture.order,
+      purchaseOrderLineIndex: 2,
+      purchaseOrderSourcePage: 3,
+    },
+  });
+  const renderedText = extractBuiltInFontText(pdf);
+
+  assert.match(renderedText, /Source PO line \(1-based\): 3/);
+  assert.match(renderedText, /Source PO page \(1-based\): 3/);
 });
 
 test("JobSheet renderer omits absent optional plant and evidence without inventing values", async () => {

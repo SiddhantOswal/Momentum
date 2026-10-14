@@ -1,0 +1,129 @@
+[
+  {
+    "file": "PO1_ClientA_single_B1047.pdf",
+    "poNumber": "CLA/PO/2026/1047",
+    "buyer": "Client A Industries Pvt. Ltd.",
+    "deliveryDate": "20-10-2026",
+    "lines": [
+      {
+        "itemCode": "PKBX0041",
+        "quantity": 1300,
+        "status": "MATCHED",
+        "resolvedItemCode": "PKBX0041",
+        "candidates": []
+      }
+    ]
+  },
+  {
+    "file": "PO2_ClientA_multiline.pdf",
+    "poNumber": "CLA/PO/2026/1052",
+    "buyer": "Client A Industries Pvt. Ltd.",
+    "deliveryDate": "24-10-2026",
+    "lines": [
+      {
+        "itemCode": "PKBX0089",
+        "quantity": 6000,
+        "status": "MATCHED",
+        "resolvedItemCode": "PKBX0089",
+        "candidates": []
+      },
+      {
+        "itemCode": "PKBX0092",
+        "quantity": 800,
+        "status": "MATCHED",
+        "resolvedItemCode": "PKBX0092",
+        "candidates": []
+      },
+      {
+        "itemCode": "PKBX0026",
+        "quantity": 1200,
+        "status": "MATCHED",
+        "resolvedItemCode": "PKBX0026",
+        "candidates": []
+      }
+    ]
+  },
+  {
+    "file": "PO3_ClientP_electronics_with_fitment.pdf",
+    "poNumber": "CLP/2026-27/0388",
+    "buyer": "Client P Electronics Pvt. Ltd.",
+    "deliveryDate": "28-10-2026",
+    "lines": [
+      {
+        "itemCode": "BXCR100E",
+        "quantity": 1500,
+        "status": "MATCHED",
+        "resolvedItemCode": "BXCR100E",
+        "candidates": []
+      },
+      {
+        "itemCode": "BXCR101E",
+        "quantity": 1200,
+        "status": "MATCHED",
+        "resolvedItemCode": "BXCR101E",
+        "candidates": []
+      },
+      {
+        "itemCode": "FITM120E",
+        "quantity": 2500,
+        "status": "MATCHED",
+        "resolvedItemCode": "FITM120E",
+        "candidates": []
+      }
+    ]
+  },
+  {
+    "file": "PO4_ClientQ_ambiguous_set.pdf",
+    "poNumber": "CLQ/PUR/0915",
+    "buyer": "Client Q Engineering Works",
+    "deliveryDate": "30-10-2026",
+    "lines": [
+      {
+        "itemCode": "PKBX0242",
+        "quantity": 400,
+        "status": "AMBIGUOUS",
+        "resolvedItemCode": null,
+        "candidates": [
+          "PKBX0242-TOPS",
+          "PKBX0242-BOTS"
+        ]
+      },
+      {
+        "itemCode": "PKBX0248",
+        "quantity": 600,
+        "status": "MATCHED",
+        "resolvedItemCode": "PKBX0248",
+        "candidates": []
+      }
+    ]
+  },
+  {
+    "file": "PO5_ClientB_scanned.jpg",
+    "poNumber": "CLB/PO/2026/219",
+    "buyer": "Client B Automotive Pvt. Ltd.",
+    "deliveryDate": "31-10-2026",
+    "lines": [
+      {
+        "itemCode": "PKBX0119",
+        "quantity": 900,
+        "status": "MATCHED",
+        "resolvedItemCode": "PKBX0119",
+        "candidates": []
+      },
+      {
+        "itemCode": "PKBX0999",
+        "quantity": 500,
+        "status": "UNKNOWN_CODE",
+        "resolvedItemCode": null,
+        "candidates": []
+      },
+      {
+        "itemCode": "PKBX0120",
+        "quantity": null,
+        "status": "MISSING_QTY",
+        "resolvedItemCode": "PKBX0120",
+        "candidates": []
+      }
+    ]
+  }
+]

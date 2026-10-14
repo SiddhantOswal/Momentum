@@ -9,10 +9,13 @@ import {
   LeversSchema,
   OrderExtractionApiResponseSchema,
   OrderExtractionInputSchema,
+  OrderExtractionResultSchema,
   OrderProfileSchema,
   OptimizationResultSchema,
   PhotoClassificationSchema,
   PlantConfigSchema,
+  PURCHASE_ORDER_FIELDS,
+  RiskPredictionRequestSchema,
   RiskResultSchema,
   RunConditionsSchema,
   ServiceUnavailableSchema,
@@ -27,6 +30,7 @@ import {
   mapLotToBigQuery,
   mapPlantFromBigQuery,
   mapPlantToBigQuery,
+  mapRiskPredictionParameters,
   mapSensorReadingFromBigQuery,
   mapSensorReadingToBigQuery,
 } from "../src/bigquery-mapper.js";
@@ -43,6 +47,7 @@ import { extractOrderFromMock } from "../src/order-extraction.js";
 
 const order = {
   orderId: "PO-TEST-1",
+  itemCode: "SKU-TEST-1",
   customerId: "CUSTOMER-TEST-1",
   boxStyle: "RSC",
   lengthMm: 520,
@@ -119,7 +124,7 @@ test("purchase-order contracts enforce the blueprint and report missing fields",
   assert.equal(OrderExtractionInputSchema.safeParse({ orderId: "PO-TEST-2" }).success, true);
   assert.equal(OrderProfileSchema.safeParse({ ...order, ply: 4 }).success, false);
   assert.equal(OrderProfileSchema.safeParse({ ...order, paperType: "Kraft" }).success, false);
-  assert.equal(OrderProfileSchema.safeParse({ ...order, lengthMm: 49 }).success, false);
+  assert.equal(OrderProfileSchema.safeParse({ ...order, lengthMm: 19 }).success, false);
   assert.equal(OrderProfileSchema.safeParse({ ...order, quantity: 0 }).success, false);
   assert.equal(OrderProfileSchema.safeParse({ ...order, extra: true }).success, false);
 
@@ -135,6 +140,78 @@ test("purchase-order contracts enforce the blueprint and report missing fields",
   const invalid = extractOrderFromMock({ ...order, ply: 4 });
   assert.equal(ValidationFailureSchema.safeParse(invalid).success, true);
   assert.equal(invalid.error.issues[0].field, "ply");
+});
+
+test("synthetic purchase-order input validates through extraction and reports every missing field", () => {
+  assert.equal(OrderProfileSchema.safeParse({}).success, false);
+
+  const complete = extractOrderFromMock(order);
+  assert.equal(OrderExtractionResultSchema.safeParse(complete).success, true);
+  assert.deepEqual(complete, {
+    orderProfile: order,
+    missingFields: [],
+    needsClarification: false,
+  });
+
+  const empty = extractOrderFromMock({});
+  assert.equal(OrderExtractionResultSchema.safeParse(empty).success, true);
+  assert.deepEqual(empty.missingFields, PURCHASE_ORDER_FIELDS);
+  assert.equal(empty.needsClarification, true);
+
+  const partial = extractOrderFromMock({ orderId: "PO-TEST-PARTIAL", boxStyle: "RSC" });
+  assert.deepEqual(partial.missingFields, PURCHASE_ORDER_FIELDS.filter(
+    (field) => !["orderId", "boxStyle"].includes(field)
+  ));
+  assert.equal(partial.needsClarification, true);
+});
+
+test("purchase-order schema accepts documented boundaries and rejects malformed values", () => {
+  const boundaryOrder = {
+    ...order,
+    lengthMm: 20,
+    widthMm: 1500,
+    heightMm: 0,
+    ply: 7,
+    topLinerGsm: 80,
+    fluteGsm: 400,
+    innerLinerGsm: 80,
+    linerBf: 12,
+    inkColors: 4,
+    inkCoveragePct: 100,
+    quantity: 1,
+  };
+  assert.equal(OrderProfileSchema.safeParse(boundaryOrder).success, true);
+  assert.equal(OrderProfileSchema.safeParse({ ...order, lengthMm: 1392 }).success, true);
+
+  for (const invalidOrder of [
+    { ...order, lengthMm: 19 },
+    { ...order, widthMm: 1501 },
+    { ...order, heightMm: -1 },
+    { ...order, heightMm: 1501 },
+    { ...order, topLinerGsm: 79 },
+    { ...order, fluteGsm: 401 },
+    { ...order, linerBf: 41 },
+    { ...order, inkColors: 5 },
+    { ...order, inkCoveragePct: 100.1 },
+    { ...order, quantity: 0 },
+    { ...order, ply: 4 },
+    { ...order, boxStyle: "UNKNOWN" },
+    { ...order, quantity: "1200" },
+    { ...order, unexpected: true },
+  ]) {
+    assert.equal(OrderProfileSchema.safeParse(invalidOrder).success, false);
+  }
+
+  const invalidExtraction = extractOrderFromMock({
+    ...order,
+    lengthMm: 19,
+    boxStyle: "UNKNOWN",
+    unexpected: true,
+  });
+  assert.equal(ValidationFailureSchema.safeParse(invalidExtraction).success, true);
+  assert.ok(invalidExtraction.error.issues.some((issue) => issue.field === "lengthMm"));
+  assert.ok(invalidExtraction.error.issues.some((issue) => issue.field === "boxStyle"));
+  assert.ok(invalidExtraction.error.issues.some((issue) => issue.message.includes("unexpected")));
 });
 
 test("conditions and lever schemas use the documented ranges and enum values", () => {
@@ -166,6 +243,10 @@ test("risk, optimization, and job-sheet schemas match the blueprint contracts", 
   }).success, false);
   assert.equal(JobSheetSchema.safeParse(jobSheet).success, true);
   assert.equal(JobSheetSchema.safeParse({ ...jobSheet, status: "approved" }).success, false);
+  assert.equal(JobSheetSchema.safeParse({
+    ...jobSheet,
+    order: { ...order, quantity: 0 },
+  }).success, false);
 });
 
 test("feedback and photo classification are explicit, BigQuery-compatible contracts", () => {
@@ -199,10 +280,14 @@ test("plant, locale, and currency contracts match the supported configuration", 
     plantId: "PLANT-TEST",
     name: "Test plant",
     baseCurrency: "INR",
-    costPerKg: 45,
-    defaultLocale: "mr",
+    costPerKg: 53.3,
+    defaultLocale: "en",
   }).success, true);
-  assert.equal(DisplayPrefsSchema.safeParse({ locale: "zh-CN", currency: "JPY" }).success, true);
+  assert.equal(PlantConfigSchema.safeParse({
+    plantId: "PLANT-TEST", name: "Test plant", baseCurrency: "INR", costPerKg: 53.3, defaultLocale: "mr",
+  }).success, false);
+  assert.equal(DisplayPrefsSchema.safeParse({ locale: "en", currency: "JPY" }).success, true);
+  assert.equal(DisplayPrefsSchema.safeParse({ locale: "zh-CN", currency: "JPY" }).success, false);
   assert.equal(CurrencySchema.safeParse("INR").success, true);
   assert.equal(CurrencySchema.safeParse("IN").success, false);
   assert.equal(DefectSchema.safeParse("CRACK").success, true);
@@ -219,8 +304,10 @@ test("BigQuery mappers convert documented camelCase API fields to snake_case row
     risk,
   });
   assert.equal(lotRow.order_id, order.orderId);
+  assert.equal(lotRow.item_code, order.itemCode);
   assert.equal(lotRow.rate_delam_pct, risk.ratesPct.DELAM);
   assert.equal(mapLotFromBigQuery(lotRow).order.orderId, order.orderId);
+  assert.equal(mapLotFromBigQuery(lotRow).order.itemCode, order.itemCode);
   assert.equal(mapLotFromBigQuery(lotRow).risk.currency, risk.currency);
 
   const sensorRow = mapSensorReadingToBigQuery({
@@ -230,8 +317,11 @@ test("BigQuery mappers convert documented camelCase API fields to snake_case row
     ambientRhPct: 54,
     ambientTempC: 29,
     paperMoisturePct: 9,
+    source: "simulated",
   });
   assert.equal(sensorRow.reading_id, "READING-TEST-1");
+  assert.equal(sensorRow.source, "simulated");
+  assert.equal(mapSensorReadingFromBigQuery(sensorRow).source, "simulated");
   assert.equal(mapSensorReadingFromBigQuery(sensorRow).plantId, "PLANT-TEST");
 
   const feedbackRow = mapFeedbackToBigQuery({
@@ -248,8 +338,8 @@ test("BigQuery mappers convert documented camelCase API fields to snake_case row
     plantId: "PLANT-TEST",
     name: "Test plant",
     baseCurrency: "INR",
-    costPerKg: 45,
-    defaultLocale: "mr",
+    costPerKg: 53.3,
+    defaultLocale: "en",
   };
   assert.deepEqual(mapPlantFromBigQuery(mapPlantToBigQuery(plant)), plant);
 
@@ -280,6 +370,47 @@ test("BigQuery mappers convert documented camelCase API fields to snake_case row
     cardUri: null,
   });
   assert.equal(StoredJobSheetSchema.safeParse(mapJobSheetFromBigQuery(jobRow)).success, true);
+});
+
+test("risk request maps the exact 15 named parameters supplied by Om", () => {
+  assert.deepEqual(mapRiskPredictionParameters({ order, conditions, levers }), {
+    item_code: order.itemCode,
+    quantity: order.quantity,
+    paper_type: order.paperType,
+    paper_supplier: order.paperSupplier,
+    shift: conditions.shift,
+    ambient_rh_pct: conditions.ambientRhPct,
+    ambient_temp_c: conditions.ambientTempC,
+    paper_moisture_pct: conditions.paperMoisturePct,
+    sf_speed_mpm: levers.sfSpeedMpm,
+    roll_temp_c: levers.rollTempC,
+    gum_application: levers.gumApplication,
+    gum_viscosity_sec: levers.gumViscositySec,
+    pasting_pressure: levers.pastingPressure,
+    drying_hours: levers.dryingHours,
+    print_speed_spm: levers.printSpeedSpm,
+  });
+
+  const minimalSqlInput = RiskPredictionRequestSchema.parse({
+    order: {
+      itemCode: "PKBX0041",
+      quantity: 1300,
+      paperType: "RECYCLED",
+      paperSupplier: "SUP-D",
+    },
+    conditions: {
+      shift: "DAY",
+      ambientRhPct: 86,
+      ambientTempC: 26,
+      paperMoisturePct: 10.8,
+    },
+    levers,
+  });
+  assert.deepEqual(Object.keys(mapRiskPredictionParameters(minimalSqlInput)), Object.keys(mapRiskPredictionParameters({ order, conditions, levers })));
+  assert.deepEqual(
+    mapRiskPredictionParameters({ ...minimalSqlInput, signal: new AbortController().signal }),
+    mapRiskPredictionParameters(minimalSqlInput),
+  );
 });
 
 test("cloud-dependent outputs fail explicitly while their services are unconfigured", () => {

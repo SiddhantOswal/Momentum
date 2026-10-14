@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scrap impact</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --ink: #1D2329;
+    --muted: #5E6873;
+    --line: #E2E5E9;
+    --page: #FFFFFF;
+    --panel: #F6F7F8;
+    --kraft: #A06A34;
+    --monsoon: #2D6A8E;
+    --agent: #2E7D5B;
+    --monsoon-band: rgba(45, 106, 142, 0.08);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #E8EBEE; --muted: #9AA4AE; --line: #2D343B; --page: #15191D; --panel: #1C2126;
+      --kraft: #D09A62; --monsoon: #6FA8CC; --agent: #5FB98C; --monsoon-band: rgba(111, 168, 204, 0.10);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #E8EBEE; --muted: #9AA4AE; --line: #2D343B; --page: #15191D; --panel: #1C2126;
+    --kraft: #D09A62; --monsoon: #6FA8CC; --agent: #5FB98C; --monsoon-band: rgba(111, 168, 204, 0.10);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { margin: 0; background: var(--page); color: var(--ink); }
+  body { font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 24px 48px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  header h1 { font-size: 15px; font-weight: 500; color: var(--muted); margin: 0 0 18px; }
+  .headline { font-size: clamp(22px, 3.1vw, 32px); line-height: 1.3; font-weight: 500; max-width: 30ch; margin: 0; letter-spacing: -0.01em; }
+  .headline strong { font-weight: 600; }
+  .facts { display: flex; flex-wrap: wrap; gap: 28px 44px; margin: 24px 0 8px; padding: 0; list-style: none; }
+  .facts li { display: flex; flex-direction: column; }
+  .facts .v { font-size: 22px; font-weight: 600; }
+  .facts .k { font-size: 13px; color: var(--muted); }
+  .facts .v.agent { color: var(--agent); }
+
+  .preview { margin: 18px 0 0; font-size: 13px; color: var(--muted); }
+  .preview[hidden] { display: none; }
+
+  section { margin-top: 40px; }
+  section h2 { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
+  section p.sub { font-size: 14px; color: var(--muted); margin: 0 0 14px; max-width: 70ch; }
+  .chart { position: relative; width: 100%; }
+  .chart.tall { height: 340px; }
+  .chart.mid { height: 320px; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } .chart.tall { height: 280px; } }
+
+  footer { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); max-width: 80ch; }
+  .error { padding: 14px 16px; background: var(--panel); border-left: 3px solid var(--kraft); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Scrap impact, PLANT-01</h1>
+    <p class="headline" id="headline">Loading scrap impact…</p>
+    <ul class="facts" id="facts"></ul>
+    <p class="preview" id="preview" hidden></p>
+  </header>
+
+  <section>
+    <h2>Scrap cost every month</h2>
+    <p class="sub">Monsoon months (shaded) cost far more. The green point is a held-out simulated estimate; none of these results are measured factory outcomes.</p>
+    <div class="chart tall"><canvas id="monthly" aria-label="Scrap cost per month, October 2024 to September 2026"></canvas></div>
+    <div class="legend">
+      <span style="--c: var(--kraft)">Simulated historical scrap cost</span>
+      <span style="--c: var(--agent)">With the agent's settings</span>
+      <span style="--c: var(--monsoon-band); outline: 1px solid var(--line)">Monsoon (June to September)</span>
+    </div>
+  </section>
+
+  <div class="pair">
+    <section>
+      <h2>Which defect, which season</h2>
+      <p class="sub">Average scrap % per defect. Humidity drives bending and delamination; dry summers crack creases.</p>
+      <div class="chart mid"><canvas id="seasonal" aria-label="Average scrap percent per defect by season"></canvas></div>
+    </section>
+    <section>
+      <h2>Boxes that lose the most</h2>
+      <p class="sub">Scrap cost over the last 12 months, coloured by each box's main defect.</p>
+      <div class="chart mid"><canvas id="items" aria-label="Top ten boxes by scrap cost"></canvas></div>
+    </section>
+  </div>
+
+  <footer id="method">
+    These are simulation estimates for held-out September 2026, a month the models never saw in training. Results use
+    the simulation's defect rules, not measured factory outcomes. The optimizer re-plans each lot with at most three
+    setting changes. This is one monsoon month; it is not annualized. Scrap is priced at paper cost only, ₹53.30 per kg.
+  </footer>
+</main>
+
+<script>
+// Live data is loaded from /impact/summary. No cached demo or preview numbers are embedded.
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const money = (v, cur = "INR") =>
+  new Intl.NumberFormat(cur === "INR" ? "en-IN" : "en", { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(v);
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const label = (ym) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(2, 4)}`;
+const isMonsoon = (ym) => { const m = Number(ym.slice(5, 7)); return m >= 6 && m <= 9; };
+const DEFECTS = [
+  ["warp", "Bending (warp)"], ["delam", "Delamination"], ["strength", "Weak box"], ["print", "Print"], ["crack", "Crease cracks"]
+];
+const defectColor = () => ({
+  WARP: css("--kraft"), DELAM: css("--monsoon"), STRENGTH: "#7A6AA8", PRINT: "#C0533A", CRACK: "#7F8F4E"
+});
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+async function load() {
+  try {
+    const r = await fetch("/impact/summary", { headers: { accept: "application/json" } });
+    if (!r.ok) throw new Error(String(r.status));
+    const d = await r.json();
+    if (!d.kpis || !d.monthly?.length) throw new Error("incomplete");
+    const k = Array.isArray(d.kpis) ? d.kpis[0] : d.kpis;
+    return { data: { ...d, kpis: k }, live: true };
+  } catch {
+    return { data: null, live: false };
+  }
+}
+
+function renderText(d, live) {
+  const k = d.kpis, cur = k.currency || "INR";
+  const headline = document.getElementById("headline");
+  headline.replaceChildren();
+  const appendText = (value) => headline.append(document.createTextNode(value));
+  const appendNumber = (value) => {
+    const strong = document.createElement("strong");
+    strong.className = "num";
+    strong.textContent = String(value);
+    headline.append(strong);
+  };
+  appendText("In the held-out September 2026 simulation, the agent's settings would have cut scrap from ");
+  appendNumber(`${k.scrap_pct_before}%`);
+  appendText(" to ");
+  appendNumber(`${k.scrap_pct_after}%`);
+  appendText(", saving ");
+  appendNumber(`${k.kg_saved_month} kg`);
+  appendText(" of board and ");
+  appendNumber(money(k.net_saving_month, cur));
+  appendText(".");
+  const facts = [
+    [money(k.scrap_cost_before, cur), "simulated baseline scrap cost"],
+    [money(k.scrap_cost_after, cur), "with the agent's settings", "agent"],
+    [`${k.lots_changed} of ${k.lots_scored}`, "lots re-planned"],
+  ];
+  if (k.model_saving_month) facts.push([money(k.model_saving_month, cur), "saving the model expected (checked: close)"]);
+  const factsList = document.getElementById("facts");
+  factsList.replaceChildren();
+  for (const [value, label, variant] of facts) {
+    const item = document.createElement("li");
+    const valueNode = document.createElement("span");
+    valueNode.className = variant === "agent" ? "v num agent" : "v num";
+    valueNode.textContent = String(value);
+    const labelNode = document.createElement("span");
+    labelNode.className = "k";
+    labelNode.textContent = String(label);
+    item.append(valueNode, labelNode);
+    factsList.append(item);
+  }
+}
+
+const monsoonBands = {
+  id: "monsoonBands",
+  beforeDatasetsDraw(chart, _args, opts) {
+    const { ctx, chartArea, scales: { x } } = chart;
+    ctx.save();
+    ctx.fillStyle = opts.color;
+    opts.months.forEach((m, i) => {
+      if (!isMonsoon(m)) return;
+      const left = x.getPixelForValue(i) - (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+      const w = x.getPixelForValue(1) - x.getPixelForValue(0);
+      ctx.fillRect(left, chartArea.top, w, chartArea.bottom - chartArea.top);
+    });
+    ctx.restore();
+  }
+};
+
+function baseOptions() {
+  return {
+    responsive: true, maintainAspectRatio: false, animation: reduceMotion ? false : { duration: 500 },
+    plugins: { legend: { display: false }, tooltip: { bodyFont: { family: "IBM Plex Sans" }, titleFont: { family: "IBM Plex Sans" } } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: css("--muted"), font: { family: "IBM Plex Sans", size: 12 } } },
+      y: { grid: { color: css("--line") }, ticks: { color: css("--muted"), font: { family: "IBM Plex Sans", size: 12 } } }
+    }
+  };
+}
+
+function renderCharts(d) {
+  const cur = d.kpis.currency || "INR";
+  const months = d.monthly.map((r) => r.month);
+  const agentPoint = months.map((m, i) => (i === months.length - 1 ? d.kpis.scrap_cost_after : null));
+
+  const o1 = baseOptions();
+  o1.scales.y.ticks.callback = (v) => money(v, cur);
+  o1.plugins.monsoonBands = { color: css("--monsoon-band"), months };
+  o1.plugins.tooltip.callbacks = { label: (c) => `${c.dataset.label}: ${money(c.parsed.y, cur)}` };
+  new Chart(document.getElementById("monthly"), {
+    type: "line",
+    data: { labels: months.map(label), datasets: [
+      { label: "Simulated historical scrap cost", data: d.monthly.map((r) => r.scrap_cost), borderColor: css("--kraft"),
+        backgroundColor: css("--kraft"), borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 4, tension: 0.12 },
+      { label: "With the agent's settings", data: agentPoint, borderColor: css("--agent"), backgroundColor: css("--agent"),
+        pointRadius: 7, pointHoverRadius: 8, showLine: false }
+    ]},
+    options: o1, plugins: [monsoonBands]
+  });
+
+  const o2 = baseOptions();
+  o2.plugins.legend = { display: true, position: "bottom",
+    labels: { boxWidth: 12, color: css("--muted"), font: { family: "IBM Plex Sans", size: 12 } } };
+  o2.scales.y.ticks.callback = (v) => `${v}%`;
+  o2.plugins.tooltip.callbacks = { label: (c) => `${c.dataset.label}: ${c.parsed.y}%` };
+  const dc = defectColor();
+  new Chart(document.getElementById("seasonal"), {
+    type: "bar",
+    data: { labels: d.seasonal.map((r) => r.season), datasets: DEFECTS.map(([key, name]) => ({
+      label: name, data: d.seasonal.map((r) => r[key]), backgroundColor: dc[key.toUpperCase()], borderRadius: 2, maxBarThickness: 18 })) },
+    options: o2
+  });
+
+  const o3 = baseOptions();
+  o3.indexAxis = "y";
+  o3.scales.x.grid = { color: css("--line") };
+  o3.scales.y.grid = { display: false };
+  o3.scales.y.afterFit = (scale) => { scale.width = Math.max(scale.width, 150); };
+  o3.layout = { padding: { left: 4 } };
+  o3.scales.x.ticks.callback = (v) => money(v, cur);
+  o3.plugins.tooltip.callbacks = {
+    label: (c) => {
+      const r = d.topItems[c.dataIndex];
+      return [`${money(r.scrap_cost_12m, cur)} in 12 months`, `Main defect: ${r.main_defect.toLowerCase()}`,
+              `${r.avg_scrap_pct}% scrap over ${r.lots} lots`];
+    }
+  };
+  new Chart(document.getElementById("items"), {
+    type: "bar",
+    data: { labels: d.topItems.map((r) => r.description), datasets: [{
+      data: d.topItems.map((r) => r.scrap_cost_12m), backgroundColor: d.topItems.map((r) => dc[r.main_defect]),
+      borderRadius: 2, maxBarThickness: 16 }] },
+    options: o3
+  });
+}
+
+(async () => {
+  if (!window.Chart) {
+    document.querySelector("main").insertAdjacentHTML("afterbegin",
+      '<p class="error">The chart library did not load. Check the network connection and reload the page.</p>');
+  }
+  const { data, live } = await load();
+  if (!data) {
+    const unavailable = document.createElement("p");
+    unavailable.className = "error";
+    unavailable.setAttribute("role", "status");
+    unavailable.textContent = "Impact data is unavailable. The dashboard requires the four configured BigQuery queries; no sample values are shown.";
+    document.querySelector("main").prepend(unavailable);
+    return;
+  }
+  renderText(data, live);
+  if (window.Chart) renderCharts(data);
+})();
+</script>
+</body>
+</html>

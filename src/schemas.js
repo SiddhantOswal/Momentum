@@ -14,7 +14,7 @@ export const SUPPORTED_CURRENCIES = [
   "USD",
 ];
 
-export const SUPPORTED_LANGUAGES = ["en", "hi", "mr", "ja", "ko", "zh-CN", "id"];
+export const SUPPORTED_LANGUAGES = ["en"];
 
 export const LevelSchema = z.enum(["LOW", "MED", "HIGH"]);
 export const DefectSchema = z.enum(["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"]);
@@ -27,14 +27,22 @@ export const TimestampSchema = z.iso.datetime({ offset: true });
 const nonEmptyString = z.string().trim().min(1);
 const finiteNumber = z.number().finite();
 const nonNegativeNumber = finiteNumber.nonnegative();
+const purchaseOrderDate = z.string().regex(/^\d{2}-\d{2}-\d{4}$/).refine((value) => {
+  const [day, month, year] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+});
 
 const orderProfileShape = {
   orderId: nonEmptyString,
+  itemCode: nonEmptyString,
   customerId: nonEmptyString,
   boxStyle: z.enum(["RSC", "DIECUT", "TRAY"]),
-  lengthMm: z.number().int().min(50).max(1200),
-  widthMm: z.number().int().min(50).max(1200),
-  heightMm: z.number().int().min(50).max(1200),
+  lengthMm: z.number().int().min(20).max(1500),
+  widthMm: z.number().int().min(20).max(1500),
+  heightMm: z.number().int().min(0).max(1500),
   ply: z.union([z.literal(3), z.literal(5), z.literal(7)]),
   fluteProfile: z.enum(["B", "C", "E", "BC", "BCB"]),
   topLinerGsm: z.number().int().min(80).max(400),
@@ -49,9 +57,60 @@ const orderProfileShape = {
 };
 
 export const OrderProfileSchema = z.object(orderProfileShape).strict();
+export const JobSheetOrderSchema = z.object({
+  ...orderProfileShape,
+  purchaseOrderLineIndex: z.number().int().nonnegative().optional(),
+  purchaseOrderSourcePage: z.number().int().positive().optional(),
+}).strict();
 export const PurchaseOrderSchema = OrderProfileSchema;
 export const CompletePurchaseOrderSchema = OrderProfileSchema;
 export const OrderExtractionInputSchema = OrderProfileSchema.partial().strict();
+export const OrderOperatorFieldsSchema = z.object({
+  orderId: orderProfileShape.orderId.optional(),
+  paperType: orderProfileShape.paperType.optional(),
+  paperSupplier: orderProfileShape.paperSupplier.optional(),
+}).strict();
+export const OperatorItemConfirmationSchema = z.object({
+  itemCode: nonEmptyString,
+  quantity: z.number().int().positive(),
+  lineIndex: z.number().int().nonnegative().optional(),
+}).strict();
+export const PurchaseOrderLineExtractionSchema = z.object({
+  itemCode: nonEmptyString.optional(),
+  quantity: z.number().int().positive().optional(),
+  sourcePage: z.number().int().positive().optional(),
+}).strict();
+export const PurchaseOrderExtractionSchema = z.object({
+  poNumber: nonEmptyString.optional(),
+  buyer: nonEmptyString.optional(),
+  deliveryDate: purchaseOrderDate.optional(),
+  lines: z.array(PurchaseOrderLineExtractionSchema).min(1).max(100),
+}).strict();
+export const PurchaseOrderLineResultSchema = z.object({
+  lineIndex: z.number().int().nonnegative(),
+  sourcePage: z.number().int().positive().optional(),
+  extractedItemCode: nonEmptyString.optional(),
+  quantity: z.number().int().positive().optional(),
+  status: z.enum(["MATCHED", "AMBIGUOUS", "UNKNOWN_CODE", "MISSING_ITEM_CODE", "MISSING_QTY", "MALFORMED"]),
+  catalogStatus: z.enum(["MATCHED", "AMBIGUOUS", "UNKNOWN_CODE"]).optional(),
+  validationIssues: z.array(z.enum([
+    "ITEM_CODE_INVALID",
+    "QUANTITY_INVALID",
+    "SOURCE_PAGE_INVALID",
+    "SOURCE_PAGE_MISSING",
+    "LINE_INVALID",
+  ])).optional(),
+  candidates: z.array(nonEmptyString),
+  resolvedItemCode: nonEmptyString.optional(),
+  confirmedItemCode: nonEmptyString.optional(),
+  confirmedQuantity: z.number().int().positive().optional(),
+  orderProfile: OrderExtractionInputSchema.optional(),
+}).strict();
+export const PurchaseOrderDocumentSchema = z.object({
+  poNumber: nonEmptyString.optional(),
+  buyer: nonEmptyString.optional(),
+  deliveryDate: purchaseOrderDate.optional(),
+}).strict();
 export const PURCHASE_ORDER_FIELDS = Object.keys(orderProfileShape);
 export const MissingOrderFieldSchema = z.enum(PURCHASE_ORDER_FIELDS);
 export const MissingPurchaseOrderFieldSchema = MissingOrderFieldSchema;
@@ -73,12 +132,23 @@ export const ValidationFailureSchema = z.object({
 }).strict();
 
 export const OrderExtractionResponseSchema = z.object({
-  orderProfile: OrderExtractionInputSchema,
+  orderProfile: OrderExtractionInputSchema.optional(),
+  purchaseOrderDocument: PurchaseOrderDocumentSchema.optional(),
+  documentMissingFields: z.array(z.enum(["poNumber", "buyer", "deliveryDate"])).optional(),
+  lines: z.array(PurchaseOrderLineResultSchema).optional(),
+  selectedLineIndex: z.number().int().nonnegative().optional(),
+  lineSelectionRequired: z.boolean().optional(),
+  reviewId: z.string().uuid().optional(),
+  reviewFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   missingFields: z.array(MissingOrderFieldSchema),
   needsClarification: z.boolean(),
 }).strict().refine(
-  (result) => result.needsClarification === (result.missingFields.length > 0),
-  { message: "needsClarification must reflect whether missingFields is empty." }
+  (result) => result.needsClarification === (
+    result.missingFields.length > 0 || result.lineSelectionRequired === true ||
+    result.documentMissingFields?.length > 0 ||
+    result.lines?.some((line) => line.status !== "MATCHED") === true
+  ),
+  { message: "needsClarification must reflect missing fields and unresolved PO lines." }
 );
 
 export const OrderExtractionResultSchema = z.union([
@@ -89,14 +159,34 @@ export const OrderExtractionResultSchema = z.union([
 export const OrderExtractionApiResponseSchema = z.object({
   ok: z.literal(true),
   agent: z.literal("extractOrder"),
-  source: z.literal("mock-demo"),
-  isRealModelPrediction: z.literal(false),
-  orderProfile: OrderExtractionInputSchema,
+  source: z.enum(["mock-demo", "vertex-gemini"]),
+  isRealModelPrediction: z.boolean(),
+  orderProfile: OrderExtractionInputSchema.optional(),
+  purchaseOrderDocument: PurchaseOrderDocumentSchema.optional(),
+  documentMissingFields: z.array(z.enum(["poNumber", "buyer", "deliveryDate"])).optional(),
+  lines: z.array(PurchaseOrderLineResultSchema).optional(),
+  selectedLineIndex: z.number().int().nonnegative().optional(),
+  lineSelectionRequired: z.boolean().optional(),
+  reviewId: z.string().uuid().optional(),
+  reviewFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   missingFields: z.array(MissingOrderFieldSchema),
   needsClarification: z.boolean(),
+  sourceDocumentUri: z.string().regex(/^gs:\/\/[a-z0-9][a-z0-9._-]*\/[A-Za-z0-9._/-]+$/).optional(),
+  operatorProvidedFields: z.array(z.enum(["orderId", "paperType", "paperSupplier"])).optional(),
+  modelUsage: z.object({
+    promptTokenCount: z.number().int().nonnegative().optional(),
+    candidatesTokenCount: z.number().int().nonnegative().optional(),
+    totalTokenCount: z.number().int().nonnegative().optional(),
+    cachedContentTokenCount: z.number().int().nonnegative().optional(),
+    thoughtsTokenCount: z.number().int().nonnegative().optional(),
+  }).strict().optional(),
 }).strict().refine(
-  (result) => result.needsClarification === (result.missingFields.length > 0),
-  { message: "needsClarification must reflect whether missingFields is empty." }
+  (result) => result.needsClarification === (
+    result.missingFields.length > 0 || result.lineSelectionRequired === true ||
+    result.documentMissingFields?.length > 0 ||
+    result.lines?.some((line) => line.status !== "MATCHED") === true
+  ),
+  { message: "needsClarification must reflect missing fields and unresolved PO lines." }
 );
 
 export const ServiceUnavailableSchema = z.object({
@@ -118,6 +208,21 @@ export const RunConditionsSchema = z.object({
 }).strict();
 export const ManufacturingConditionsSchema = RunConditionsSchema;
 export const ConditionsSchema = RunConditionsSchema;
+export const SensorProvenanceSchema = z.object({
+  readingId: nonEmptyString,
+  timestamp: TimestampSchema,
+  plantId: nonEmptyString,
+  source: z.enum(["simulated", "live", "unverified"]),
+  recordedSource: nonEmptyString,
+  retrievedAt: TimestampSchema,
+  ageSeconds: nonNegativeNumber,
+  freshness: z.enum(["fresh", "stale", "unassessed"]),
+}).strict();
+export const JobSheetConditionsSchema = RunConditionsSchema.extend({
+  provenance: SensorProvenanceSchema.optional(),
+  conditionSource: z.enum(["manual-entry", "simulated-sensor"]).optional(),
+  supervisorConfirmed: z.boolean().optional(),
+}).strict();
 
 export const SensorReadingSchema = z.object({
   readingId: nonEmptyString,
@@ -126,14 +231,17 @@ export const SensorReadingSchema = z.object({
   ambientRhPct: finiteNumber.min(0).max(100),
   ambientTempC: finiteNumber,
   paperMoisturePct: finiteNumber.min(0).max(20),
+  source: z.enum(["simulated", "live"]).optional(),
 }).strict();
 
 export const ConditionsValidationApiResponseSchema = z.object({
   ok: z.literal(true),
   agent: z.literal("getConditions"),
-  source: z.literal("local-validation"),
+  source: z.enum(["local-validation", "bigquery-last-stored", "simulated-sensor"]),
   isRealModelPrediction: z.literal(false),
   data: RunConditionsSchema,
+  sensorSource: z.enum(["simulated", "live", "unverified"]).optional(),
+  provenance: SensorProvenanceSchema.optional(),
 }).strict();
 
 export const LeversSchema = z.object({
@@ -148,24 +256,82 @@ export const LeversSchema = z.object({
 export const MachineSettingsSchema = LeversSchema;
 
 export const RiskPredictionRequestSchema = z.object({
-  order: OrderProfileSchema,
-  conditions: RunConditionsSchema,
+  // Om's predict.sql joins the authoritative item spec by item_code, so the
+  // prediction request needs only the item identity, quantity and loaded reel.
+  order: z.object({
+    itemCode: nonEmptyString,
+    quantity: z.number().int().positive(),
+    paperType: z.enum(["VIRGIN", "RECYCLED", "MIXED"]),
+    paperSupplier: nonEmptyString,
+  }),
+  conditions: z.object({
+    shift: z.enum(["DAY", "NIGHT"]),
+    ambientRhPct: finiteNumber.min(0).max(100),
+    ambientTempC: finiteNumber,
+    paperMoisturePct: finiteNumber.min(0).max(20),
+  }),
   levers: LeversSchema,
 }).strict();
 
 export const RiskOptimizationRequestSchema = z.object({
   order: OrderProfileSchema,
   conditions: RunConditionsSchema,
+  levers: LeversSchema,
 }).strict();
 
 export const RiskResultSchema = z.object({
   ratesPct: z.record(DefectSchema, finiteNumber.min(0).max(25)),
+  totalScrapPct: finiteNumber.min(0).max(125).optional(),
   totalScrapKg: nonNegativeNumber,
   scrapCost: nonNegativeNumber,
   currency: CurrencySchema,
   primaryDefect: DefectSchema,
 }).strict();
 export const RiskSchema = RiskResultSchema;
+
+const ModelEvaluationOutputSchema = z.object({
+  defect: DefectSchema,
+  resource: nonEmptyString,
+  r2: finiteNumber.nullable(),
+  modelVersion: nonEmptyString.nullable(),
+  sampleCount: z.number().int().nonnegative().nullable(),
+}).strict();
+const FiveModelEvaluationSetSchema = z.array(ModelEvaluationOutputSchema).length(5).refine(
+  (models) => new Set(models.map((model) => model.defect)).size === 5,
+  { message: "Each defect must map to one distinct model evaluation record." }
+);
+
+export const RiskPredictionApiResponseSchema = z.object({
+  ok: z.literal(true),
+  agent: z.literal("predictRisk"),
+  source: z.literal("bigquery-ml"),
+  isRealModelPrediction: z.literal(true),
+  itemCode: nonEmptyString,
+  ...RiskResultSchema.shape,
+  modelProvenance: z.object({
+    query: z.literal("sql/predict.sql"),
+    outputs: FiveModelEvaluationSetSchema,
+    currentModelVersionsLinked: z.boolean(),
+  }).strict(),
+  modelAcceptance: z.object({
+    status: z.enum(["accepted", "blocked", "prototype-thresholds-met"]),
+    requiredR2: z.object({
+      WARP: finiteNumber,
+      DELAM: finiteNumber,
+      STRENGTH: finiteNumber,
+      PRINT: finiteNumber,
+      CRACK: finiteNumber,
+    }).strict(),
+    prototypeThresholdsMet: z.boolean(),
+    completeAcceptanceEvidenceAvailable: z.boolean(),
+    evaluationId: nonEmptyString.nullable(),
+    evaluatedAt: nonEmptyString.nullable(),
+    split: nonEmptyString.nullable(),
+    linkedToCurrentResourceVersions: z.boolean(),
+    models: z.array(ModelEvaluationOutputSchema),
+    notes: z.array(nonEmptyString),
+  }).strict(),
+}).strict();
 
 export const LeverRiskProfileSchema = z.object({
   levers: LeversSchema,
@@ -190,6 +356,7 @@ export const LeverChangeSchema = z.object({
 export const SavingsSchema = z.object({
   kg: finiteNumber,
   inr: finiteNumber,
+  percent: finiteNumber.min(0).max(100).optional(),
 }).strict();
 
 export const OptimizationResultSchema = z.object({
@@ -197,6 +364,8 @@ export const OptimizationResultSchema = z.object({
   best: LeverRiskProfileSchema,
   changes: z.array(LeverChangeSchema).max(3),
   savings: SavingsSchema,
+  modelPredicted: z.literal(true).optional(),
+  note: nonEmptyString.optional(),
 }).strict();
 export const OptimizationRecommendationsSchema = OptimizationResultSchema;
 
@@ -207,15 +376,40 @@ export const SimilarRunSchema = z.object({
   orderId: nonEmptyString,
   runDate: DateSchema,
   primaryDefect: DefectSchema,
-  ratesPct: z.record(DefectSchema, finiteNumber.min(0).max(25)),
   levers: LeversSchema,
+  ratesPct: z.record(DefectSchema, finiteNumber.min(0).max(25)).optional(),
+  itemCode: nonEmptyString.optional(),
+  description: nonEmptyString.optional(),
+  shift: z.enum(["DAY", "NIGHT"]).optional(),
+  ambientRhPct: finiteNumber.min(0).max(100).optional(),
+  paperType: z.enum(["VIRGIN", "RECYCLED", "MIXED"]).optional(),
+  paperSupplier: nonEmptyString.optional(),
+  totalScrapPct: nonNegativeNumber.optional(),
+  totalScrapKg: nonNegativeNumber.optional(),
+  scrapCost: nonNegativeNumber.optional(),
+  currency: CurrencySchema.optional(),
+  distance: finiteNumber.optional(),
+  operatorNote: z.string().optional(),
+}).strict();
+
+export const SimilarRunsRequestSchema = z.object({
+  order: OrderProfileSchema,
+  conditions: RunConditionsSchema,
+}).strict();
+
+export const RiskExplanationRequestSchema = z.object({
+  order: OrderProfileSchema,
+  conditions: RunConditionsSchema,
+  prediction: RiskResultSchema,
+  optimization: OptimizationResultSchema,
+  evidence: z.array(SimilarRunSchema).max(5),
 }).strict();
 
 export const JobSheetSchema = z.object({
   jobId: nonEmptyString,
   plantId: nonEmptyString.optional(),
-  order: OrderProfileSchema,
-  conditions: RunConditionsSchema,
+  order: JobSheetOrderSchema,
+  conditions: JobSheetConditionsSchema,
   baseline: LeverRiskProfileSchema,
   recommended: LeverRiskProfileSchema,
   changes: z.array(LeverChangeSchema).max(3),
@@ -310,6 +504,11 @@ export const InsightsQuerySchema = z.object({
   { message: "from must be on or before to.", path: ["from"] }
 );
 
+export const SeenBeforeRequestSchema = z.object({
+  defect: DefectSchema,
+  ambientRhPct: finiteNumber.min(0).max(100),
+}).strict();
+
 export const FxRatesResponseSchema = z.object({
   base: CurrencySchema,
   date: DateSchema,
@@ -326,11 +525,12 @@ export const FxProviderSnapshotSchema = z.object({
 export const LotRowSchema = z.object({
   lot_id: nonEmptyString,
   order_id: nonEmptyString,
+  item_code: nonEmptyString,
   customer_id: nonEmptyString,
   box_style: z.enum(["RSC", "DIECUT", "TRAY"]),
-  length_mm: z.number().int().min(50).max(1200),
-  width_mm: z.number().int().min(50).max(1200),
-  height_mm: z.number().int().min(50).max(1200),
+  length_mm: z.number().int().min(20).max(1500),
+  width_mm: z.number().int().min(20).max(1500),
+  height_mm: z.number().int().min(0).max(1500),
   ply: z.union([z.literal(3), z.literal(5), z.literal(7)]),
   flute_profile: z.enum(["B", "C", "E", "BC", "BCB"]),
   top_liner_gsm: z.number().int().min(80).max(400),
@@ -391,8 +591,8 @@ export const StoredJobSheetSchema = z.object({
   createdAt: TimestampSchema,
   plantId: nonEmptyString,
   status: JobStatusSchema,
-  order: OrderProfileSchema,
-  conditions: RunConditionsSchema,
+  order: JobSheetOrderSchema,
+  conditions: JobSheetConditionsSchema,
   baseline: LeverRiskProfileSchema,
   recommended: LeverRiskProfileSchema,
   changes: z.array(LeverChangeSchema).max(3),
@@ -423,6 +623,7 @@ export const SensorReadingRowSchema = z.object({
   ambient_rh_pct: finiteNumber.min(0).max(100),
   ambient_temp_c: finiteNumber,
   paper_moisture_pct: finiteNumber.min(0).max(20),
+  source: z.enum(["simulated", "live"]).optional(),
 }).strict();
 
 export const PlantRowSchema = z.object({

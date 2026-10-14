@@ -3,17 +3,17 @@ function amount(path, value, currency) {
 }
 
 function isRiskResult(value) {
-  return value && typeof value === "object" &&
+  return value && typeof value === "object" && !Array.isArray(value) &&
     Number.isFinite(value.scrapCost) &&
     Number.isFinite(value.totalScrapKg) &&
     typeof value.currency === "string" &&
     /^[A-Z]{3}$/.test(value.currency) &&
-    value.ratesPct && typeof value.ratesPct === "object" &&
+    value.ratesPct && typeof value.ratesPct === "object" && !Array.isArray(value.ratesPct) &&
     typeof value.primaryDefect === "string";
 }
 
 function isLeverRiskProfile(value) {
-  return value && typeof value === "object" && isRiskResult(value.risk);
+  return value && typeof value === "object" && !Array.isArray(value) && isRiskResult(value.risk);
 }
 
 export function getDisplayableProductionAmounts(value) {

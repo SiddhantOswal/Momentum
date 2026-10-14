@@ -11,10 +11,35 @@ import {
   LeversSchema,
   OrderProfileSchema,
   RiskResultSchema,
+  RiskPredictionRequestSchema,
   SensorReadingRowSchema,
   SensorReadingSchema,
   StoredJobSheetSchema,
 } from "./schemas.js";
+
+export function mapRiskPredictionParameters(input) {
+  const requestInput = { ...input };
+  delete requestInput.signal;
+  const request = RiskPredictionRequestSchema.parse(requestInput);
+  const { order, conditions, levers } = request;
+  return Object.freeze({
+    item_code: order.itemCode,
+    quantity: order.quantity,
+    paper_type: order.paperType,
+    paper_supplier: order.paperSupplier,
+    shift: conditions.shift,
+    ambient_rh_pct: conditions.ambientRhPct,
+    ambient_temp_c: conditions.ambientTempC,
+    paper_moisture_pct: conditions.paperMoisturePct,
+    sf_speed_mpm: levers.sfSpeedMpm,
+    roll_temp_c: levers.rollTempC,
+    gum_application: levers.gumApplication,
+    gum_viscosity_sec: levers.gumViscositySec,
+    pasting_pressure: levers.pastingPressure,
+    drying_hours: levers.dryingHours,
+    print_speed_spm: levers.printSpeedSpm,
+  });
+}
 
 export function mapLotToBigQuery(input) {
   const order = OrderProfileSchema.parse(input.order);
@@ -25,6 +50,7 @@ export function mapLotToBigQuery(input) {
   return LotRowSchema.parse({
     lot_id: input.lotId,
     order_id: order.orderId,
+    item_code: order.itemCode,
     customer_id: order.customerId,
     box_style: order.boxStyle,
     length_mm: order.lengthMm,
@@ -74,6 +100,7 @@ export function mapLotFromBigQuery(input) {
     lotId: row.lot_id,
     order: OrderProfileSchema.parse({
       orderId: row.order_id,
+      itemCode: row.item_code,
       customerId: row.customer_id,
       boxStyle: row.box_style,
       lengthMm: row.length_mm,
@@ -135,6 +162,7 @@ export function mapSensorReadingToBigQuery(input) {
     ambient_rh_pct: reading.ambientRhPct,
     ambient_temp_c: reading.ambientTempC,
     paper_moisture_pct: reading.paperMoisturePct,
+    ...(reading.source === undefined ? {} : { source: reading.source }),
   });
 }
 
@@ -148,6 +176,7 @@ export function mapSensorReadingFromBigQuery(input) {
     ambientRhPct: row.ambient_rh_pct,
     ambientTempC: row.ambient_temp_c,
     paperMoisturePct: row.paper_moisture_pct,
+    ...(row.source === undefined ? {} : { source: row.source }),
   });
 }
 

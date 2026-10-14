@@ -1,0 +1,29 @@
+{
+  "status": "blocked",
+  "requiredR2": {
+    "WARP": 0.6,
+    "DELAM": 0.6,
+    "STRENGTH": 0.45,
+    "PRINT": 0.6,
+    "CRACK": 0.3
+  },
+  "recordedEvaluation": {
+    "asOf": "2026-10-14",
+    "split": "random-20-percent-row-split",
+    "linkedToCurrentResourceVersions": false,
+    "models": [
+      { "defect": "WARP", "resource": "prepagent.m_warp", "r2": 0.6051769, "modelVersion": null, "sampleCount": null },
+      { "defect": "DELAM", "resource": "prepagent.m_delam", "r2": 0.6664104, "modelVersion": null, "sampleCount": null },
+      { "defect": "STRENGTH", "resource": "prepagent.m_strength", "r2": 0.4672613, "modelVersion": null, "sampleCount": null },
+      { "defect": "PRINT", "resource": "prepagent.m_print", "r2": 0.7511529, "modelVersion": null, "sampleCount": null },
+      { "defect": "CRACK", "resource": "prepagent.m_crack", "r2": 0.3010716, "modelVersion": null, "sampleCount": null }
+    ]
+  },
+  "acceptanceEvidence": null,
+  "notes": [
+    "These are historical recorded evaluations and are not linked to the currently queried BigQuery model versions.",
+    "The historical aggregate results meet Om's prototype thresholds, including Strength 0.4672613 >= 0.45 and Crack 0.3010716 >= 0.30.",
+    "Prototype threshold met does not establish complete acceptance evidence: model versions, sample counts, version linkage, and evidence provenance remain unavailable.",
+    "Feature importance is stated as reviewed by Om for the prototype, but the supporting version-linked artifact is not present in this repository."
+  ]
+}

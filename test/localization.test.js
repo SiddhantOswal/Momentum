@@ -4,15 +4,15 @@ import test from "node:test";
 import { getTranslationKeys, hasTranslation, translate } from "../src/localization.js";
 import { SUPPORTED_LANGUAGES } from "../src/schemas.js";
 
-test("static UI labels exist for each supported language", () => {
-  assert.deepEqual(SUPPORTED_LANGUAGES, ["en", "hi", "mr", "ja", "ko", "zh-CN", "id"]);
+test("the prototype exposes English only and unsupported languages fall back to English", () => {
+  assert.deepEqual(SUPPORTED_LANGUAGES, ["en"]);
   for (const language of SUPPORTED_LANGUAGES) {
     for (const key of getTranslationKeys()) {
       assert.equal(hasTranslation(language, key), true, `${language}.${key}`);
       assert.notEqual(translate(language, key), key, `${language}.${key}`);
     }
   }
-  assert.notEqual(translate("hi", "workflow"), translate("en", "workflow"));
+  assert.equal(translate("hi", "workflow"), translate("en", "workflow"));
 });
 
 test("each supported locale is represented by a JSON label file", async () => {

@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node index.mjs",
     "dev": "node --watch index.mjs",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:acceptance": "node --test test/app.test.js test/po1-coordinator-workflow.test.js test/job-coordinator.test.js test/job-draft-persistence.test.js test/job-lifecycle-recovery.test.js test/job-idempotency.test.js test/purchase-order-review.test.js test/job-card-service.test.js test/job-sheet-pdf.test.js test/google-cloud-current-conditions.test.js test/feedback-service.test.js test/linked-feedback-service.test.js test/risk-prediction-service.test.js test/risk-optimization-service.test.js test/risk-evidence-service.test.js test/impact-summary-service.test.js test/fx-rates.test.js test/container-build-context.test.js test/runtime-config.test.js test/model-acceptance.test.js test/sensor-ingestion-sql.test.js"
   },
   "keywords": [
     "corrugated",
@@ -26,5 +27,8 @@
     "hono": "^4.13.13",
     "pdfkit": "^0.20.2",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@google-cloud/pubsub": "6.2.0"
   }
 }

@@ -2,6 +2,7 @@ export const jobSheetFixture = {
   jobId: "JOB-TEST-42",
   order: {
     orderId: "PO-TEST-42",
+    itemCode: "SKU-TEST-42",
     customerId: "CUSTOMER-TEST-42",
     boxStyle: "RSC",
     lengthMm: 520,
@@ -37,7 +38,8 @@ export const jobSheetFixture = {
       printSpeedSpm: 50,
     },
     risk: {
-      ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, PRINT: 1, CRACK: 1 },
+      ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, PRINT: 1, CRACK: 0 },
+      totalScrapPct: 5,
       totalScrapKg: 12,
       scrapCost: 120,
       currency: "INR",
@@ -55,7 +57,8 @@ export const jobSheetFixture = {
       printSpeedSpm: 50,
     },
     risk: {
-      ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, PRINT: 1, CRACK: 1 },
+      ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, PRINT: 1, CRACK: 0 },
+      totalScrapPct: 5,
       totalScrapKg: 12,
       scrapCost: 120,
       currency: "INR",

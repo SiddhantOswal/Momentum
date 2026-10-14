@@ -110,6 +110,12 @@ function collectText(jobSheet) {
   lines.push(
     ["heading", "Order"],
     ["line", `Order ID: ${jobSheet.order.orderId}`],
+    ...(jobSheet.order.purchaseOrderLineIndex === undefined
+      ? []
+      : [["line", `Source PO line (1-based): ${jobSheet.order.purchaseOrderLineIndex + 1}`]]),
+    ...(jobSheet.order.purchaseOrderSourcePage === undefined
+      ? []
+      : [["line", `Source PO page (1-based): ${jobSheet.order.purchaseOrderSourcePage}`]]),
     ["line", `Customer ID: ${jobSheet.order.customerId}`],
     ["line", `Box style: ${jobSheet.order.boxStyle}; quantity: ${jobSheet.order.quantity.toLocaleString("en-US")} boxes`],
     ["line", `Dimensions: ${jobSheet.order.lengthMm} x ${jobSheet.order.widthMm} x ${jobSheet.order.heightMm} mm`],
@@ -119,6 +125,14 @@ function collectText(jobSheet) {
     ["heading", "Production conditions"],
     ["line", `Run date: ${jobSheet.conditions.runDate}; shift: ${jobSheet.conditions.shift}`],
     ["line", `Ambient humidity: ${jobSheet.conditions.ambientRhPct}% RH; temperature: ${jobSheet.conditions.ambientTempC} C; paper moisture: ${jobSheet.conditions.paperMoisturePct}%`],
+    ...(jobSheet.conditions.conditionSource
+      ? [["line", `Conditions source: ${jobSheet.conditions.conditionSource}; supervisor confirmed: ${jobSheet.conditions.supervisorConfirmed === true ? "yes" : "no"}`]]
+      : []),
+    ...(jobSheet.conditions.provenance
+      ? [["line", `Simulated reading age: ${Math.floor(jobSheet.conditions.provenance.ageSeconds / 3600)} h${jobSheet.conditions.provenance.freshness === "stale" ? " — STALE (over 24 hours)" : ""}`]]
+      : []),
+    ["heading", "Manufacturing stages — approved prototype order"],
+    ...manufacturingStages(jobSheet.recommended.levers),
     ["heading", "Baseline production settings"],
   );
   appendLevers(lines, jobSheet.baseline.levers);
@@ -149,7 +163,7 @@ function collectText(jobSheet) {
   }
 
   lines.push(
-    ["heading", "Savings as supplied"],
+    ["heading", "Savings estimate (not observed)"],
     ["line", `${jobSheet.savings.kg} kg; INR ${jobSheet.savings.inr}`],
   );
 
@@ -162,6 +176,20 @@ function collectText(jobSheet) {
 
   lines.push(["heading", "Explanation"], ["line", jobSheet.explanation]);
   return lines;
+}
+
+function manufacturingStages(levers) {
+  return [
+    ["line", `1. Printing (flexo, top liner): print speed ${levers.printSpeedSpm} sheets/min`],
+    ["line", `2. Single facer: ${levers.sfSpeedMpm} m/min; roll ${levers.rollTempC} C; gum ${levers.gumApplication}; viscosity ${levers.gumViscositySec} sec`],
+    ["line", "3. Sheet cutting"],
+    ["line", `4. Pasting: gum ${levers.gumApplication}; pasting pressure ${levers.pastingPressure}`],
+    ["line", `5. Drying / conditioning: ${levers.dryingHours} hours`],
+    ["line", "6. Cutting and creasing"],
+    ["line", "7. Slotting"],
+    ["line", "8. Stitching / gluing"],
+    ["line", "9. QC and bundling"],
+  ];
 }
 
 function appendLevers(lines, levers) {

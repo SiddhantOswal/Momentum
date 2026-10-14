@@ -61,6 +61,52 @@ test("FX rates use the dated static snapshot if the provider is unavailable", as
   assert.equal(result.rates.USD, rates.USD);
 });
 
+test("FX refreshes coalesce concurrent requests into one provider fetch", async () => {
+  let requests = 0;
+  const service = createFxRatesService({
+    now: () => Date.parse("2026-10-10T00:00:00.000Z"),
+    fetchImpl: async () => {
+      requests += 1;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      return new Response(JSON.stringify({ base: "INR", date: "2026-10-09", rates }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    loadFallback: async () => ({ base: "INR", date: "2026-10-08", rates }),
+  });
+
+  const results = await Promise.all([
+    service.getRates("INR"),
+    service.getRates("USD"),
+    service.getRates("JPY"),
+  ]);
+
+  assert.equal(requests, 1);
+  assert.deepEqual(results.map(({ base }) => base), ["INR", "USD", "JPY"]);
+  assert.ok(results.every(({ source }) => source === "frankfurter"));
+});
+
+test("FX falls back when the provider responds with a structurally invalid snapshot", async () => {
+  const service = createFxRatesService({
+    now: () => Date.parse("2026-10-10T00:00:00.000Z"),
+    fetchImpl: async () => new Response(JSON.stringify({
+      base: "USD",
+      date: "2026-10-09",
+      rates,
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }),
+    loadFallback: async () => ({ base: "INR", date: "2026-10-08", rates }),
+  });
+
+  const result = await service.getRates("INR");
+  assert.equal(result.source, "static-fallback");
+  assert.equal(result.date, "2026-10-08");
+  assert.equal(result.rates.USD, rates.USD);
+});
+
 test("money formatting follows the requested locale and supported currency", () => {
   assert.match(formatMoney(1234567.89, "INR", "en-IN"), /12,34,567/);
   assert.doesNotMatch(formatMoney(1200.5, "JPY", "ja-JP"), /\\.\\d/);

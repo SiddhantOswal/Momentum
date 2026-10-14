@@ -1,13 +1,23 @@
 {
   "projectId": "prepagent-hack",
   "api": "cloudbuild.googleapis.com",
+  "apiStatus": "verified-enabled",
   "purpose": "Build the Ustaad AI application container for Cloud Run",
   "source": ".",
-  "provisioningStatus": "pending",
-  "billingEnabled": false,
-  "deploymentEnabled": false,
+  "provisioningStatus": "verified",
+  "billingEnabled": true,
+  "deploymentEnabled": true,
+  "latestBuildId": "e01b285a-d6d2-4729-a6e4-31dd150b3786",
+  "latestBuildStatus": "SUCCESS",
+  "latestImage": "asia-south1-docker.pkg.dev/prepagent-hack/prepagent/prepagent:remediation-20261014-1513",
+  "latestImageDigest": "sha256:7d75f6ea42f67832d0cfb2240592be4b966a68fd68e8cf98038b131cc2117e75",
+  "latestSourceArchive": "gs://prepagent-hack_cloudbuild/source/1791991267.953266-97bdc897fb85442daee0fd9ad9108374.tgz",
+  "latestSourceGeneration": "1791991277182969",
+  "latestRevision": "prepagent-00011-yew",
+  "latestDefaultTrafficPercent": 0,
   "notes": [
-    "Do not enable the API while billing remains disabled.",
-    "Do not start a build during the no-billing preparation phase."
+    "Historical build 4ba1d50b-da43-4e91-bd3d-cc6e4d0e6d3f completed SUCCESS in asia-south1 on 2026-10-11T19:11:27Z; it predates the current integration image.",
+    "The image recorded above was built by Cloud Build e01b285a-d6d2-4729-a6e4-31dd150b3786 and deployed as private, zero-default-traffic candidate prepagent-00011-yew. Production traffic remains on prepagent-00005-s5x.",
+    "The build source is a Cloud Build archive from a dirty worktree based on HEAD 844d872193793fe23aa3c1ec81243c81d760b314, not a clean commit-pinned build. It predates later independent-closure changes in the current worktree and is not a build of the current tree."
   ]
 }

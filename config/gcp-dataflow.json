@@ -2,20 +2,66 @@
   "projectId": "prepagent-hack",
   "region": "asia-south1",
   "api": "dataflow.googleapis.com",
+  "workerServiceAccount": "514663464609-compute@developer.gserviceaccount.com",
+  "requiredWorkerRoles": [
+    "roles/dataflow.worker",
+    "roles/bigquery.dataEditor",
+    "roles/pubsub.subscriber",
+    "roles/storage.objectAdmin"
+  ],
+  "requiredWorkerRoleScope": "project:prepagent-hack (per Playbook §2.11)",
+  "workerIamStatus": "verified",
+  "dataflowServiceAgent": {
+    "principal": "service-514663464609@dataflow-service-producer-prod.iam.gserviceaccount.com",
+    "requiredRole": "roles/dataflow.serviceAgent",
+    "requiredRoleScope": "project:prepagent-hack",
+    "bindingStatus": "verified",
+    "accountDescribeStatus": "permission-denied"
+  },
   "job": {
     "name": "sensor-to-bq",
     "template": "PubSub_Subscription_to_BigQuery",
-    "stagingBucket": "gs://prepagent-hack-data/tmp",
-    "maxWorkers": 1
+    "templateGcsLocation": "gs://dataflow-templates-asia-south1/2026-09-29-00_RC02/PubSub_Subscription_to_BigQuery",
+    "stagingLocation": "gs://prepagent-hack-data/tmp",
+    "runtimeEnvironment": {
+      "serviceAccountEmail": "514663464609-compute@developer.gserviceaccount.com",
+      "machineType": "n1-standard-2",
+      "numWorkers": 1,
+      "maxWorkers": 1,
+      "diskSizeGb": 30,
+      "enableStreamingEngine": false,
+      "streamingMode": "STREAMING_MODE_EXACTLY_ONCE",
+      "tempLocation": "gs://prepagent-hack-data/tmp"
+    },
+    "parameters": {
+      "inputSubscription": "projects/prepagent-hack/subscriptions/sensor-readings-df",
+      "outputTableSpec": "prepagent-hack:prepagent.sensor_readings",
+      "outputDeadletterTable": "prepagent-hack:prepagent.sensor_readings_error_records"
+    }
   },
-  "inputSubscription": "projects/prepagent-hack/subscriptions/sensor-readings-df",
-  "outputTable": "prepagent-hack:prepagent.sensor_readings",
+  "cleanup": {
+    "listActiveJobsCommand": "gcloud dataflow jobs list --region asia-south1 --status=active",
+    "drainJobCommand": "gcloud dataflow jobs drain JOB_ID --region asia-south1",
+    "verifyNoActiveJobsCommand": "gcloud dataflow jobs list --region asia-south1 --status=active"
+  },
   "provisioningStatus": "pending",
-  "billingEnabled": false,
+  "billingEnabled": true,
   "jobStartAuthorized": false,
   "notes": [
-    "Do not launch the streaming job during the no-billing phase.",
+    "Project billing is enabled; this does not authorize a Dataflow job or ongoing worker charges.",
+    "Recorded 2026-10-11 evidence confirms the Dataflow API, staging bucket, Pub/Sub subscription and BigQuery dataset/table prerequisites.",
+    "The four Playbook-documented worker roles were explicitly authorized, added at project scope, and verified in the project IAM policy for the default Compute Engine worker service account.",
+    "The Dataflow service agent has the project-level roles/dataflow.serviceAgent binding; describing its Google-managed account was denied by iam.serviceAccounts.get.",
+    "Read-only preflight found the regional template, topic/subscription, BigQuery destination schema, staging bucket and enabled APIs; no active Dataflow job was listed. The destination schema matches the six snake_case sensor JSON fields; no message was published. The tmp prefix had no objects, and staging write access was not tested.",
+    "The template's official source schema for the dead-letter table is timestamp TIMESTAMP REQUIRED, payloadString STRING REQUIRED, payloadBytes BYTES REQUIRED, attributes RECORD REPEATED with nullable key/value STRING fields, errorMessage STRING NULLABLE, and stacktrace STRING NULLABLE. The template auto-creates the absent table during execution if needed; explicit authorization is still required.",
+    "The mutable latest template alias was replaced with the inspected regional version 2026-09-29-00_RC02. RuntimeEnvironment pins n1-standard-2 (2 vCPU, 7.5 GiB), one initial/maximum worker, a 30 GiB disk, Streaming Engine disabled, exactly-once streaming mode, the verified worker service account, and the documented staging/temp bucket path. Dataflow API supports these fields; disk type is not exposed by RuntimeEnvironment. maxWorkers is not a spending cap.",
+    "A read-only `gcloud projects get-iam-policy` recheck confirmed the four required worker roles. `gcloud storage buckets get-iam-policy` returned bucket legacy bindings for project Editor/Owner; project-attached deny-policy listing returned no policies. `roles/editor` was also present for the worker but is not relied on for the four documented roles. Effective `storage.objects.create` was not confirmed because Policy Troubleshooter is disabled; its read-only command returned PERMISSION_DENIED/SERVICE_DISABLED. No API was enabled and no object was written. Folder/organization-level denies were not established.",
+    "Official Mumbai Dataflow rates used for planning: $0.0759/vCPU-hour, $0.0042684/GiB-hour memory, and $0.0000648/GiB-hour standard persistent disk. For 2 vCPU + 7.5 GiB + 30 GiB over 15 minutes: ($0.183813 compute/hour + $0.001944 disk/hour) × 0.25 = $0.04643925 (₹4.64 at an explicit planning conversion of ₹100/USD). Streaming Engine is pinned off; the source-to-sink template has no explicit shuffle transform. Add a conservative 100 MiB Logging reserve at $0.50/GiB ($4.88), 100 MiB of staging objects retained for seven days at a deliberately high $0.05/GiB-month assumption (about ₹0.12), and ₹1 for Pub/Sub, one small BigQuery streaming row, and up to 1,000 standard-class Cloud Storage operations. Modeled 15-minute total is about ₹10.65; 30 minutes under the same assumptions is about ₹15.29. These are conditional estimates, not quotes or caps; actual project free-tier consumption, log volume, object activity and runtime are unknown. No enforced shutdown/billing cap exists; Dataflow may continue billing after a drain request until it reaches DRAINED.",
+    "The Playbook estimates 3–5 minute startup. Proposed operation is one <=1 KiB message, observe delivery, then drain immediately; initiate drain no later than 10 minutes after launch if delivery is not confirmed, and verify no active jobs after DRAINED. The 15-minute/₹15 limit cannot be guaranteed if startup, drain, API access or job termination overruns the manual window.",
+    "After a future authorized drain, rerun the active-job listing command and confirm it returns no active jobs.",
     "Streaming jobs may incur ongoing charges.",
-    "The Storage bucket, Pub/Sub topic and subscription must exist before the job can run."
+    "2026-10-12 conditional-retry preflight: all three regional zones report UP; n1-standard-2 is listed in each; regional CPU usage is 0/100, disk 0/3277 GiB, and addresses 0/8; all three previous jobs are terminal; no matching Compute allocation errors were found after the last failure. These observations do not prove provider-side capacity has recovered. No retry was run.",
+    "The user authorized one retry only if read-only preflight and cost review show the earlier constraint is addressed. Keep jobStartAuthorized false until effective staging access and the dead-letter table consequence are resolved, there is positive evidence of capacity recovery, and the bounded cost plan remains accepted.",
+    "2026-10-12 bounded retry job sensor-to-bq-bounded-20261012-01 (Dataflow job 2026-10-12_07_37_28-6099673639127736697) used one n1-standard-2 worker in asia-south1-b. The worker pool repeatedly failed with ZONE_RESOURCE_POOL_EXHAUSTED; no worker provisioned. One uniquely identified simulated message was published, but no matching sensor_readings row appeared in two 10 MB-capped checks. The job was drained, then cancelled after it remained DRAINING while worker allocation retried; final state CANCELLED and active-job listing empty. Keep the task blocked; do not retry again without new capacity evidence and review of the queued test message. Actual billed amount was not independently available."
   ]
 }

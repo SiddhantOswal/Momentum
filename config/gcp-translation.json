@@ -3,6 +3,7 @@
   "applicationRegion": "asia-south1",
   "translationRegion": "us-central1",
   "api": "translate.googleapis.com",
+  "apiStatus": "verified-enabled",
   "runtimeServiceAccount": "prepagent-run@prepagent-hack.iam.gserviceaccount.com",
   "requiredIamRole": "roles/cloudtranslate.user",
   "glossary": {
@@ -13,10 +14,10 @@
   },
   "liveTranslationEnabled": false,
   "provisioningStatus": "pending",
-  "billingEnabled": false,
+  "billingEnabled": true,
   "notes": [
-    "Do not enable the Translation API during the no-billing setup phase.",
-    "Do not make live translation calls.",
+    "The Translation API is recorded as enabled by P2-GCP-005; glossary provisioning and paid translation remain separate operations.",
+    "Do not provision a glossary or make live translation calls without separate explicit authorization and cost review.",
     "Confirm the glossary CSV is available before provisioning the glossary."
   ]
 }
