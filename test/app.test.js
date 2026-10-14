@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
 
@@ -648,6 +649,35 @@ test("Cloud Run job lifecycle routes fail closed without supervisor authorizatio
       assert.equal(payload.error.code, "SERVICE_UNAVAILABLE", `${method} ${path}`);
       assert.match(payload.error.message, /authenticated supervisor identity/, `${method} ${path}`);
     }
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("Cloud Run PO extraction requires an explicit synthetic-only gate", async () => {
+  const { child } = await startServer({ K_SERVICE: "prepagent", USTAAD_SYNTHETIC_ONLY: "false" });
+  try {
+    const fixture = await readFile(new URL("../docs/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url));
+    const form = new FormData();
+    form.append("file", new Blob([fixture], { type: "application/pdf" }), "approved-po.pdf");
+    const response = await fetch(`http://127.0.0.1:${PORT}/orders/extract`, { method: "POST", body: form });
+    assert.equal(response.status, 503);
+    assert.match((await response.json()).error.message, /Synthetic-only mode must be explicitly enabled/);
+  } finally {
+    child.kill("SIGTERM");
+  }
+});
+
+test("Cloud Run PO extraction rejects modified documents in synthetic-only mode", async () => {
+  const { child } = await startServer({ K_SERVICE: "prepagent", USTAAD_SYNTHETIC_ONLY: "true" });
+  try {
+    const fixture = new Uint8Array(await readFile(new URL("../docs/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url)));
+    fixture[fixture.length - 1] ^= 1;
+    const form = new FormData();
+    form.append("file", new Blob([fixture], { type: "application/pdf" }), "modified-po.pdf");
+    const response = await fetch(`http://127.0.0.1:${PORT}/orders/extract`, { method: "POST", body: form });
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error.message, /Only the owner-approved synthetic purchase-order fixtures/);
   } finally {
     child.kill("SIGTERM");
   }
