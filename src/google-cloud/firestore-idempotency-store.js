@@ -15,12 +15,6 @@
  *   Firestore documents support field-level updates (PATCH) and deletions,
  *   mapping directly to `complete` and `release`.
  *
- * PRODUCTION READINESS:
- *   config/gcp-firestore.json records prior API, database, and service-account
- *   setup. This offline code change does not reverify current Cloud Run
- *   configuration or workload identity; do not infer live durability from
- *   this adapter or enable its runtime gate here.
- *
  * RUNTIME GATE:
  *   This adapter is only constructed when `USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY`
  *   is `"true"`. Without that flag persistent job creation is unavailable;

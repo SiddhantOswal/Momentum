@@ -657,7 +657,7 @@ test("Cloud Run job lifecycle routes fail closed without supervisor authorizatio
 test("Cloud Run PO extraction requires an explicit synthetic-only gate", async () => {
   const { child } = await startServer({ K_SERVICE: "prepagent", USTAAD_SYNTHETIC_ONLY: "false" });
   try {
-    const fixture = await readFile(new URL("../docs/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url));
+    const fixture = await readFile(new URL("./fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url));
     const form = new FormData();
     form.append("file", new Blob([fixture], { type: "application/pdf" }), "approved-po.pdf");
     const response = await fetch(`http://127.0.0.1:${PORT}/orders/extract`, { method: "POST", body: form });
@@ -671,7 +671,7 @@ test("Cloud Run PO extraction requires an explicit synthetic-only gate", async (
 test("Cloud Run PO extraction rejects modified documents in synthetic-only mode", async () => {
   const { child } = await startServer({ K_SERVICE: "prepagent", USTAAD_SYNTHETIC_ONLY: "true" });
   try {
-    const fixture = new Uint8Array(await readFile(new URL("../docs/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url)));
+    const fixture = new Uint8Array(await readFile(new URL("./fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url)));
     fixture[fixture.length - 1] ^= 1;
     const form = new FormData();
     form.append("file", new Blob([fixture], { type: "application/pdf" }), "modified-po.pdf");

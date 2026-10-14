@@ -7,7 +7,7 @@ import { createJobCoordinator } from "../src/job-coordinator.js";
 import { createTraceRegistry } from "../src/trace-registry.js";
 
 const expectedOrders = JSON.parse(readFileSync(
-  new URL("../docs/synthetic_POs/expected_results.json", import.meta.url),
+  new URL("./fixtures/synthetic_POs/expected_results.json", import.meta.url),
   "utf8",
 ));
 const multilineOrder = expectedOrders.find((order) => order.file.startsWith("PO2_"));
@@ -109,7 +109,7 @@ async function review(service, fileBytes = bytes, fields = operatorFields) {
 for (const expected of expectedOrders) {
   test(`approved fixture ${expected.file} extracts and reviews each expected line once`, async () => {
     const inputBytes = new Uint8Array(readFileSync(
-      new URL(`../docs/synthetic_POs/${expected.file}`, import.meta.url),
+      new URL(`./fixtures/synthetic_POs/${expected.file}`, import.meta.url),
     ));
     const fields = {
       orderId: expected.poNumber,

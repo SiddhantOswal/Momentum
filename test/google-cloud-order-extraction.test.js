@@ -21,7 +21,7 @@ import { OrderExtractionApiResponseSchema } from "../src/schemas.js";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
 
 const syntheticPoResults = JSON.parse(readFileSync(
-  fileURLToPath(new URL("../../docs/synthetic_POs/expected_results.json", import.meta.url)),
+  fileURLToPath(new URL("./fixtures/synthetic_POs/expected_results.json", import.meta.url)),
   "utf8",
 ));
 

@@ -1,41 +1,12 @@
-# Ustaad AI — Corrugated Production-Prep Agent
+# Prep Agent
 
-This repository contains the JavaScript/Hono local application and the
-blueprint-aligned Zod contracts for the Ustaad AI prototype. It is **not** a
-completed cloud-connected agent: Gemini, BigQuery/BigQuery ML, Cloud Storage,
-Translation, Pub/Sub, Dataflow, Cloud Run, and the operator production workflow
-are not configured as live application services.
+Corrugated production preparation service.
 
-## Run locally
-
-Requirements: Node.js 20 or newer and npm.
+Requires Node.js 20.10 or newer.
 
 ```sh
-cd prepagent
 npm install
 npm start
 ```
 
-Open <http://localhost:8080>. Set `PORT` to use another port:
-
-```sh
-PORT=8081 npm start
-```
-
-The local UI and `/api/status` identify the development mode. JSON agent
-endpoints validate caller-provided data; requests that require cloud-backed
-results return `503 SERVICE_UNAVAILABLE` rather than fabricated production
-predictions.
-
-See [docs/LOCAL_DEVELOPMENT.md](./docs/LOCAL_DEVELOPMENT.md) for the local
-routes and test instructions, and
-[docs/CLOUD_INTEGRATION_TODO.md](./docs/CLOUD_INTEGRATION_TODO.md) for the
-verified Part 2 gaps and external dependencies.
-
-## Tests
-
-```sh
-npm test
-```
-
-Tests run locally and do not require Google Cloud credentials.
+Run the automated test suite with `npm test`.

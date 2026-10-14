@@ -13,7 +13,7 @@ const fixtureNames = [
 
 test("only the exact owner-approved synthetic PO fixtures are allowlisted", async () => {
   for (const name of fixtureNames) {
-    const bytes = new Uint8Array(await readFile(new URL(`../docs/synthetic_POs/${name}`, import.meta.url)));
+    const bytes = new Uint8Array(await readFile(new URL(`./fixtures/synthetic_POs/${name}`, import.meta.url)));
     assert.equal(isApprovedSyntheticPurchaseOrder(bytes), true, name);
     assert.equal(isApprovedSyntheticPurchaseOrder(new Uint8Array([...bytes, 0])), false, `${name} modified`);
   }

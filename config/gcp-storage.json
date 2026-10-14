@@ -1,15 +1,6 @@
 {
   "projectId": "prepagent-hack",
   "bucket": {
-    "name": "prepagent-hack-data",
-    "location": "asia-south1",
-    "uniformBucketLevelAccess": true
-  },
-  "billingEnabled": true,
-  "provisioningStatus": "verified",
-  "purpose": "Ustaad AI corrugated production-prep agent data and assets",
-  "notes": [
-    "Read-only metadata verification on 2026-10-11 confirmed the bucket exists in ASIA-SOUTH1 with uniform bucket-level access enabled.",
-    "No object upload, prefix creation, or application access test was performed; billing does not authorize additional paid usage."
-  ]
+    "name": "prepagent-hack-data"
+  }
 }

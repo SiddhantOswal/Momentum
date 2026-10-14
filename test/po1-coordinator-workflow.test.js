@@ -15,12 +15,12 @@ import { jobSheetFixture } from "./fixtures/job-sheet.js";
 import { createTraceRegistry } from "../src/trace-registry.js";
 
 const expectedOrders = JSON.parse(readFileSync(
-  new URL("../../docs/synthetic_POs/expected_results.json", import.meta.url),
+  new URL("./fixtures/synthetic_POs/expected_results.json", import.meta.url),
   "utf8",
 ));
 const po1Expected = expectedOrders.find((order) => order.file === "PO1_ClientA_single_B1047.pdf");
 const pdf = new Uint8Array(readFileSync(
-  new URL("../../docs/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url),
+  new URL("./fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url),
 ));
 const po1Order = {
   ...jobSheetFixture.order,
