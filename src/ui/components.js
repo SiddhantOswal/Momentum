@@ -189,8 +189,11 @@ export function renderImpactCharts(payload) {
   byId("impact-chart-status").textContent = monthly.length ? "A single counterfactual point is shown only for the held-out month. Exact values follow below." : "No monthly history returned. No chart values were substituted.";
 }
 export function initDefectCheck() {
+  const tabs = [byId("di-tab-history"), byId("di-tab-photo")];
+  const activate = (tab) => { for (const item of tabs) { const active = item === tab; item.setAttribute("aria-selected", String(active)); item.tabIndex = active ? 0 : -1; byId(item.getAttribute("aria-controls")).hidden = !active; } };
+  tabs.forEach((tab, index) => { tab.addEventListener("click", () => activate(tab)); tab.addEventListener("keydown", (event) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - index; activate(tabs[next]); tabs[next].focus(); }); });
   const form = byId("seen-before-form"); const gate = createRequestGate();
-  const clear = () => { gate.invalidate(); byId("seen-before-content").replaceChildren(); byId("seen-before-content").hidden = true; };
+  const clear = () => { gate.invalidate(); byId("seen-before-content").replaceChildren(); byId("seen-before-content").hidden = true; byId("di-query-context").textContent = "Inputs changed · search again"; };
   form.addEventListener("input", () => { clear(); byId("seen-before-result").textContent = "Inputs changed. Search again for these conditions."; });
   form.addEventListener("submit", async (event) => {
     event.preventDefault(); if (!form.reportValidity()) return;
@@ -207,16 +210,37 @@ export function initDefectCheck() {
       byId("seen-before-result-diagnostic").textContent = JSON.stringify(payload, null, 2);
       if (!response.ok) throw new Error(payload?.error?.message || "Historical evidence is unavailable. Try again.");
       if (!isSeenBefore(payload) || payload.defect !== defect) throw new Error("The evidence response was incomplete. No cases were displayed.");
-      const stat = node("div", number(payload.caseCount, 0), "evidence-stat"); stat.append(node("small", "historical cases returned for " + DEFECT_NAMES[defect] + " at comparable humidity")); target.append(stat);
-      const facts = node("p", "Average defect rate when primary: " + number(payload.avgRateWhenMain) + "%. Historical scrap cost: " + money(payload.costWhenMain, "INR") + " (base INR).", "muted small"); target.append(facts);
+      const kpis = node("div", undefined, "di-kpis");
+      for (const [key, title, value, context] of [
+        ["cases", "Matching historical cases", number(payload.caseCount, 0), "Selected defect was primary · humidity window ±10 pp"],
+        ["rate", "Historical average defect rate", number(payload.avgRateWhenMain) + "%", "Mean selected-defect rate in those primary-defect cases"],
+        ["cost", "Historical scrap cost", money(payload.costWhenMain, "INR"), "Total scrap cost of those lots · base INR, not savings"],
+      ]) { const card = node("section", undefined, "di-kpi"); card.append(node("h3", title)); const valueNode = node("strong", value); valueNode.dataset.evidenceKpi = key; card.append(valueNode, node("p", context)); kpis.append(card); }
+      target.append(kpis);
+      const scope = node("p", "Different cohorts: matching cases require the selected primary defect. Good/bad groups include all lots in the humidity window, ranked by the selected defect’s rate; counts are not portions of the matching-case total.", "di-scope-note"); scope.id = "evidence-scope-note"; target.append(scope);
+      byId("di-query-context").textContent = DEFECT_NAMES[defect] + " · requested RH " + number(ambientRhPct) + "% · BigQuery history";
+      const groups = [["good", "Good runs", payload.goodRuns], ["bad", "Bad runs", payload.badRuns]];
+      const plots = node("div", undefined, "di-chart-grid");
+      const rates = node("section", undefined, "di-chart-card"); rates.append(node("p", "DEFECT-RATE COMPARISON", "eyebrow"), node("h3", "Defect rates across historical run groups"), node("p", "Average defect rate (%) · zero-based scale", "muted small"));
+      const ceiling = Math.max(1, ...groups.map(([, , g]) => g?.avgRatePct ?? 0));
+      for (const [key, label, group] of groups) { const row = node("div", undefined, "di-rate-row di-" + key); const labelRow = node("div", undefined, "di-value-label"); const value = node("strong", group ? number(group.avgRatePct) + "%" : "Unavailable"); if (group) value.dataset.rateValue = String(group.avgRatePct); labelRow.append(node("span", label), value); const track = node("div", undefined, "di-bar-track"); track.setAttribute("aria-hidden", "true"); if (group) {const bar = node("span", undefined, "di-bar"); bar.style.width = (group.avgRatePct / ceiling * 100) + "%"; track.append(bar);} row.append(labelRow,track,node("small", group ? number(group.lots,0) + " lot observations" : "No group returned")); rates.append(row); }
+      rates.append(node("p", "0% to " + number(ceiling) + "% · same scale for both groups", "di-scale"), node("p", "Good: lower approximate quartile. Bad: upper approximate quartile. Threshold ties can change group sizes; these are historical associations, not predictions.", "muted small")); plots.append(rates);
+      const conditions = node("section", undefined, "di-chart-card"); conditions.append(node("p", "OPERATING-CONDITION COMPARISON", "eyebrow"),node("h3", "How the historical groups differ"),node("p", "Good runs / Bad runs · each measure has its own zero-based scale", "muted small"));
+      for (const [key,label,unit] of [["sfSpeedMpm","Single facer speed","m/min"],["rollTempC","Roll temperature","°C"],["gumViscositySec","Gum viscosity","s"],["dryingHours","Drying time","h"],["printSpeedSpm","Print speed","sheets/min"]]) {
+        const row = node("div", undefined, "di-condition-row"); const values = groups.map(([, ,g])=>g?.[key]); const max = Math.max(1,...values.filter(Number.isFinite)); const heading = node("div", undefined, "di-value-label"); heading.append(node("span",label),node("small","0–"+number(max)+" "+unit)); row.append(heading);
+        for (const [index,[groupKey,groupLabel]] of groups.entries()) { const pair = node("div",undefined,"di-pair di-"+groupKey); const v = values[index]; pair.append(node("span",groupLabel),node("strong",Number.isFinite(v)?number(v)+" "+unit:"Unavailable")); const track=node("div",undefined,"di-mini-track");track.setAttribute("aria-hidden","true");if(Number.isFinite(v)){const marker=node("span");marker.style.width=(v/max*100)+"%";track.append(marker);}pair.append(track);row.append(pair); }conditions.append(row);
+      }
+      const categories=node("div",undefined,"di-categories");for(const [key,label] of [["gumApplication","Gum application"],["pastingPressure","Pasting pressure"]]){const row=node("div",undefined,"di-category-row");row.append(node("span",label));for(const [,groupLabel,g] of groups)row.append(node("span",groupLabel+": "+(g?.[key]??"Unavailable"),"di-chip"));categories.append(row);}conditions.append(categories);plots.append(conditions);target.append(plots);
+      if(payload.goodRuns&&payload.badRuns){const insight=node("section",undefined,"di-insights");insight.append(node("h3","What previous runs show"),node("p","The lower-rate and upper-rate groups average "+number(payload.goodRuns.avgRatePct)+"% and "+number(payload.badRuns.avgRatePct)+"% for "+DEFECT_NAMES[defect]+". These groups are selected by their defect rates; the difference is descriptive, not a treatment effect."),node("p","Drying time averages "+number(payload.goodRuns.dryingHours)+" h / "+number(payload.badRuns.dryingHours)+" h; gum application is "+payload.goodRuns.gumApplication+" / "+payload.badRuns.gumApplication+" (Good / Bad). "+(payload.goodRuns.pastingPressure===payload.badRuns.pastingPressure?"Both groups report the same most frequent pasting-pressure category. ":"")+"No causal adjustment or recommended setting is inferred."));target.append(insight);}
       if (payload.goodRuns || payload.badRuns) {
+        const details = node("details", undefined, "di-detail"); details.id = "detailed-evidence"; details.append(node("summary", "Detailed evidence · all original values"));
         const scroll = node("div", undefined, "table-scroll"); scroll.tabIndex = 0;
         const table = node("table"); const caption = node("caption", "Historical group averages · association, not a recommended setup");
         const head = node("thead"); const hr = node("tr"); ["Measure", "Good runs", "Bad runs"].forEach((text) => { const cell = node("th", text); cell.scope = "col"; hr.append(cell); }); head.append(hr); const body = node("tbody");
         for (const [key, title] of [["lots", "Lot count"], ["avgRatePct", "Average defect rate (%)"], ...LEVER_FIELDS.map(([key, title]) => [key, title])]) { const row = node("tr"); row.append(node("td", title), node("td", valueFor(key, payload.goodRuns?.[key])), node("td", valueFor(key, payload.badRuns?.[key]))); body.append(row); }
-        table.append(caption, head, body); scroll.append(table); target.append(scroll);
+        table.append(caption, head, body); scroll.append(table); details.append(scroll); target.append(details);
       }
-      if (payload.notes.length) { target.append(node("h3", "Operator notes")); const list = node("ul", undefined, "change-reasons"); payload.notes.forEach((note) => list.append(node("li", note))); target.append(list); }
+      const notes=node("section",undefined,"di-notes");notes.append(node("h3","Operator observations"),node("p","Up to three distinct notes for the selected primary defect across the recorded history. Notes are not filtered by this humidity window and are not verified scientific conclusions.","muted small"));if(payload.notes.length){const list=node("ul",undefined,"change-reasons");payload.notes.forEach(note=>list.append(node("li",note)));notes.append(list);}else notes.append(node("p","No operator notes returned.","muted"));target.append(notes);
       target.hidden = false; result.textContent = payload.caseCount ? "Historical evidence returned by BigQuery. This is not photo classification." : "No matching cases were found. Missing historical groups remain unavailable."; result.dataset.state = "success";
     } catch (error) { if (active.current()) { result.textContent = error.message; result.dataset.state = "error"; } }
     finally { button.disabled = button.dataset.available !== "true"; button.removeAttribute("aria-busy"); }

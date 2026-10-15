@@ -220,6 +220,7 @@ test('Defect Check uses only supported evidence requests and safely renders note
   await page.route('**/evidence/seen-before',async route=>{expect(route.request().postDataJSON()).toEqual({defect:'DELAM',ambientRhPct:86});await fulfill(route,{ok:true,source:'bigquery',defect:'DELAM',caseCount:3,avgRateWhenMain:2.3,costWhenMain:5000,goodRuns:{lots:2,avgRatePct:1,...levers},badRuns:{lots:1,avgRatePct:4,...levers},notes:['<img src=x onerror=alert(1)>']});});
   await page.locator('#evidence-defect').selectOption('DELAM');await page.locator('#evidence-humidity').fill('86');await page.locator('#find-seen-before').click();
   await expect(page.locator('#seen-before-content')).toContainText('3');await expect(page.locator('#seen-before-content')).toContainText('<img src=x');await expect(page.locator('#seen-before-content img')).toHaveCount(0);
+  await expect(page.locator('[data-evidence-kpi="cases"]')).toHaveText('3');await expect(page.locator('[data-rate-value]')).toHaveCount(2);await page.locator('#detailed-evidence > summary').focus();await page.keyboard.press('Enter');await expect(page.locator('#detailed-evidence tbody tr')).toHaveCount(9);await expect(page.locator('#evidence-scope-note')).toContainText('Different cohorts');
   await page.evaluate(()=>{const p=document.createElement('p');p.textContent='OFFLINE BROWSER TEST · injected service fixtures';p.style.cssText='padding:12px;color:#e0c08c';document.body.prepend(p);});
   await page.screenshot({path:'docs/evidence/frontend/defect-fixture-1440.png',fullPage:true});
   await page.locator('#evidence-humidity').fill('60');await expect(page.locator('#seen-before-content')).toBeHidden();
@@ -379,7 +380,7 @@ test('approved-photo controls enforce the ten-image contract and safe label rend
   await boot(page,true,true);
   await page.route('**/api/status',async route=>{const response=await route.fetch();const status=await response.json();status.authorizationMode='HACKATHON_DEMO';status.integrations.getApprovedPhotos=true;status.integrations.classifyApprovedPhoto=true;await fulfill(route,status);});
   await page.locator('#open-status').click();await page.locator('[data-json-get="/api/status"]').click();await page.locator('#status-dialog [data-close-dialog]').click();
-  await page.getByRole('link',{name:'Defect Check',exact:true}).click();await page.locator('.capability-note > summary').click();
+  await page.getByRole('link',{name:'Defect Check',exact:true}).click();await page.getByRole('tab',{name:'Photo Diagnosis',exact:true}).click();
   const photos=Array.from({length:10},(_,i)=>({id:'photo-'+String(i+1).padStart(2,'0'),label:'Approved photo '+(i+1)}));
   await page.route('**/evidence/approved-photos',route=>fulfill(route,{ok:true,photos}));
   await page.locator('#load-approved-photos').click();await expect(page.locator('#approved-photo-id option')).toHaveCount(11);
