@@ -1,3 +1,4 @@
+import { isApprovedSyntheticPurchaseOrder } from "../synthetic-po-allowlist.js";
 import {
   OrderExtractionInputSchema,
   OrderOperatorFieldsSchema,
@@ -8,7 +9,8 @@ import {
 import { BigQueryReadError } from "./bigquery-read-client.js";
 import { CloudStorageError } from "./storage-client.js";
 import { VertexGeminiError } from "./vertex-gemini-client.js";
-import { identifyPurchaseOrderMimeType } from "../purchase-order-file.js";
+import { identifyPurchaseOrderMimeType, MAX_PURCHASE_ORDER_BYTES } from "../purchase-order-file.js";
+import { geminiUsageFailure } from "../daily-gemini-call-cap.js";
 
 const orderResponseSchema = Object.freeze({
   type: "OBJECT",
@@ -31,7 +33,6 @@ const orderResponseSchema = Object.freeze({
 });
 
 const EXTRACTION_PROMPT = `Read this corrugated packaging purchase order as one document. Extract document-level purchase-order number (poNumber), buyer name (buyer), and delivery date as printed (deliveryDate). Extract every line item, in source order, into lines; each line may contain only itemCode, quantity, and sourcePage. sourcePage is the 1-based page number on which the line appears. Return exactly one JSON object with these keys. Do not split one PO into separate documents. Quantity must be an integer, sourcePage must be a positive integer, and deliveryDate must use DD-MM-YYYY. Do not extract or infer item specifications, loaded paper details, shift, or machine settings. Do not guess; omit any absent, ambiguous, or unlocatable value on its line. Preserve a line with an omitted itemCode, quantity, or sourcePage so it can be held for clarification.`;
-const MAX_ORDER_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const DOCUMENT_FIELDS = ["poNumber", "buyer", "deliveryDate"];
 
 function normalizeExtraction(value) {
@@ -122,7 +123,7 @@ function safeValidationIssues(error) {
   }));
 }
 
-export function createPdfOrderExtractionService({ storage, gemini, itemCatalog } = {}) {
+export function createPdfOrderExtractionService({ storage, gemini, itemCatalog, allowTestOrderNamespace = false } = {}) {
   if (!storage || typeof storage.upload !== "function" || typeof storage.delete !== "function" ||
       typeof storage.createObjectName !== "function" ||
       !gemini || typeof gemini.generateJson !== "function" ||
@@ -139,7 +140,7 @@ export function createPdfOrderExtractionService({ storage, gemini, itemCatalog }
     signal,
   } = {}) => {
     if (!file || typeof file.arrayBuffer !== "function" ||
-        !Number.isSafeInteger(file.size) || file.size < 1 || file.size > MAX_ORDER_DOCUMENT_BYTES) {
+        !Number.isSafeInteger(file.size) || file.size < 1 || file.size > MAX_PURCHASE_ORDER_BYTES) {
       return {
         ok: false,
         error: { code: "VALIDATION_ERROR", message: "A PDF or JPEG purchase order between 1 byte and 10 MiB is required." },
@@ -216,7 +217,9 @@ export function createPdfOrderExtractionService({ storage, gemini, itemCatalog }
           : unavailable("Gemini result validation", "EXTRACTION_CONTRACT_MISMATCH");
       }
       if (normalized.poNumber && parsedOperatorFields.data.orderId &&
-          normalized.poNumber !== parsedOperatorFields.data.orderId) {
+          normalized.poNumber !== parsedOperatorFields.data.orderId &&
+          !(allowTestOrderNamespace === true && isApprovedSyntheticPurchaseOrder(bytes) &&
+            parsedOperatorFields.data.orderId === `TEST-${normalized.poNumber}`)) {
         const validationFailure = {
           ok: false,
           error: {
@@ -392,7 +395,7 @@ export function createPdfOrderExtractionService({ storage, gemini, itemCatalog }
       }));
       return cleanupFailure
         ? unavailable("temporary document cleanup", cleanupFailure)
-        : unavailable(stage, safeReasonCode(error));
+        : geminiUsageFailure(error) ?? unavailable(stage, safeReasonCode(error));
     }
   };
 }

@@ -17,6 +17,19 @@ test("stored job lookup requires a retrieval port", () => {
   assert.throws(() => createStoredJobSheetLookup({}), { name: "TypeError" });
 });
 
+test("prototype TEST-only retrieval refuses a valid unrelated stored order without disclosing its payload", async () => {
+  for (const [orderId, allowed] of [["TEST-APPROVED-FIXTURE", true], ["CUSTOMER-LIVE-1", false], ["PO-TEST-SPOOF", false]]) {
+    const job = { ...storedJob, order: { ...storedJob.order, orderId } };
+    const lookup = createStoredJobSheetLookup({ getStoredJobSheet: async () => job, testOnly: true });
+    const result = await lookup({ jobId: job.jobId });
+    assert.equal(result.ok, allowed);
+    if (!allowed) {
+      assert.equal(result.error.code, "NOT_FOUND");
+      assert.equal(result.jobSheet, undefined);
+    }
+  }
+});
+
 test("stored job lookup returns the validated persisted JobSheet", async () => {
   const calls = [];
   const lookup = createStoredJobSheetLookup({

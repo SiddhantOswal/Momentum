@@ -1,0 +1,88 @@
+{
+  "version": "om-canonical-ten-v1",
+  "bucket": "prepagent-hack-data",
+  "consentReference": "OM_DECISIONS D7; owner canonical ten-photo decision",
+  "capturedAt": "2026-10-15T12:49:03.554414+00:00",
+  "photos": [
+    {
+      "id": "photo-01",
+      "name": "photos/photos/crack/crack_001.jpg",
+      "generation": "1791744684807261",
+      "size": 173233,
+      "sha256": "b80957d3885fcc7c29d002fb6bb44a9e6df2f16a683d9f9d11e784f0c85e8b4a",
+      "expectedLabel": "CRACK"
+    },
+    {
+      "id": "photo-02",
+      "name": "photos/photos/crack/crack_002.jpg",
+      "generation": "1791744685435907",
+      "size": 189953,
+      "sha256": "ed112e30b0d4ae281187a62930bd5dc3199b935486ee389a1e0506879c751419",
+      "expectedLabel": "CRACK"
+    },
+    {
+      "id": "photo-03",
+      "name": "photos/photos/crushed/crushed_001.jpg",
+      "generation": "1791744687004708",
+      "size": 174401,
+      "sha256": "d18c002a40048451a297e7ead816237bc85b046021493d944e9aa57538964e27",
+      "expectedLabel": "STRENGTH"
+    },
+    {
+      "id": "photo-04",
+      "name": "photos/photos/delam/delam_001.jpg",
+      "generation": "1791744687014750",
+      "size": 187854,
+      "sha256": "36f5b5f2fdbf1dc51ec0f047dc17a7c249e3e73e13c19465e143b82340755ad5",
+      "expectedLabel": "DELAM"
+    },
+    {
+      "id": "photo-05",
+      "name": "photos/photos/delam/delam_002.jpg",
+      "generation": "1791744686037144",
+      "size": 124954,
+      "sha256": "bb35ce7b9f1b25e21ea87a93ca3d10f19aa106de15c16f6577cb8359f3db5630",
+      "expectedLabel": "DELAM"
+    },
+    {
+      "id": "photo-06",
+      "name": "photos/photos/delam/delam_003.jpg",
+      "generation": "1791744686565140",
+      "size": 123706,
+      "sha256": "adc7a43df51786421ae9d5ad62a120563a83dbeab47474f8a8162374e15ece0c",
+      "expectedLabel": "DELAM"
+    },
+    {
+      "id": "photo-07",
+      "name": "photos/photos/good/good_001.jpg",
+      "generation": "1791744686050118",
+      "size": 184804,
+      "sha256": "170d9ade9eca01544c82e61bed5f974e1fb534563b18e70c19854fc30e629847",
+      "expectedLabel": "NONE"
+    },
+    {
+      "id": "photo-08",
+      "name": "photos/photos/print/print_001.jpg",
+      "generation": "1791744685484936",
+      "size": 124358,
+      "sha256": "9c8e7f15c2210c650efbe2f0ed114770df17f05a0d4fc30fa6d946a9d15de5a8",
+      "expectedLabel": "PRINT"
+    },
+    {
+      "id": "photo-09",
+      "name": "photos/photos/print/print_002.jpg",
+      "generation": "1791744685512472",
+      "size": 180984,
+      "sha256": "b48514c97dd4c4d6aecc96786378651a98324bdbee6026c9ac4a66870bb56d24",
+      "expectedLabel": "PRINT"
+    },
+    {
+      "id": "photo-10",
+      "name": "photos/photos/warp/warp_001.jpg",
+      "generation": "1791744686108625",
+      "size": 226854,
+      "sha256": "ef320070abc8039394db2ae653280ddaadba91c094a12511b74f8331283fb9c2",
+      "expectedLabel": "WARP"
+    }
+  ]
+}

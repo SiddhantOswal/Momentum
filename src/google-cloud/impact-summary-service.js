@@ -8,7 +8,7 @@ const KPI_COLUMNS = Object.freeze([
 const MONTHLY_COLUMNS = Object.freeze(["month", "lots", "scrap_cost", "scrap_kg", "avg_scrap_pct"]);
 const SEASONAL_COLUMNS = Object.freeze(["season", "warp", "delam", "strength", "print", "crack"]);
 const TOP_ITEM_COLUMNS = Object.freeze([
-  "item_code", "description", "lots", "avg_scrap_pct", "scrap_cost_12m", "main_defect",
+  "item_code", "lots", "avg_scrap_pct", "scrap_cost_12m", "main_defect",
 ]);
 const SEASONS = new Set(["Summer", "Monsoon", "Post-monsoon", "Winter"]);
 
@@ -96,15 +96,13 @@ function mapSeasonal(row) {
   };
 }
 
-function mapTopItem(row) {
+function mapTopItem(row, index) {
   if (typeof row.item_code !== "string" || !row.item_code ||
-      typeof row.description !== "string" || !row.description ||
       typeof row.main_defect !== "string" || !/^(WARP|DELAM|STRENGTH|PRINT|CRACK)$/.test(row.main_defect)) {
     throw new BigQueryReadError("IMPACT_ROW_INVALID", "Impact top-item query returned an invalid item.");
   }
   return {
-    itemCode: row.item_code,
-    description: row.description,
+    label: `Item ${index + 1}`,
     lots: count(row.lots, "top-item lots"),
     avgScrapPct: number(row.avg_scrap_pct, "top-item avg_scrap_pct"),
     scrapCost12m: number(row.scrap_cost_12m, "top-item scrap_cost_12m"),

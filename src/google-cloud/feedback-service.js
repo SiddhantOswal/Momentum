@@ -21,7 +21,7 @@ export function createFeedbackService({ writer, now = () => new Date() } = {}) {
     throw new TypeError("A bounded BigQuery write client is required.");
   }
   return async function saveFeedback(input = {}) {
-    const { signal, ...feedbackInput } = input;
+    const { signal, testOrderId, ...feedbackInput } = input;
     if ([feedbackInput.photoUri, feedbackInput.photoDefect, feedbackInput.photoConfidence]
       .some((value) => value !== undefined)) {
       return photoFeedbackUnavailable();
@@ -32,7 +32,7 @@ export function createFeedbackService({ writer, now = () => new Date() } = {}) {
     delete retryIdentity.created_at;
     const insertId = `feedback-${createHash("sha256").update(JSON.stringify(retryIdentity)).digest("hex")}`;
     try {
-      await writer.insertRow({ table: "feedback", insertId, row, signal });
+      await writer.insertRow({ table: "feedback", insertId, row, testOrderId, signal });
       return { ok: true, agent: "saveFeedback", status: "stored", createdAt };
     } catch (error) {
       if (error?.name === "AbortError") throw error;

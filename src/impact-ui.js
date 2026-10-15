@@ -13,9 +13,9 @@ function isNonNegativeInteger(value) {
   return Number.isSafeInteger(value) && value >= 0;
 }
 
-export function isImpactSummary(value) {
+export function isImpactSummary(value, { allowLocalDemo = false } = {}) {
   if (!isRecord(value) || value.ok !== true ||
-      !["bigquery", "bigquery-cache"].includes(value.source) ||
+      !(["bigquery", "bigquery-cache"].includes(value.source) || (allowLocalDemo && value.source === "mock-demo" && value.isRealModelPrediction === false)) ||
       !isRecord(value.kpis) || !isRecord(value.counterfactual) ||
       !Array.isArray(value.monthly) || !Array.isArray(value.seasonal) ||
       !Array.isArray(value.topItems)) {
@@ -56,9 +56,11 @@ export function isImpactSummary(value) {
     return false;
   }
 
+  const publicTopItemKeys = ["label", "lots", "avgScrapPct", "scrapCost12m", "mainDefect"];
   return value.topItems.every((row) => isRecord(row) &&
-    typeof row.itemCode === "string" && row.itemCode.length > 0 &&
-    typeof row.description === "string" && row.description.length > 0 &&
+    Object.keys(row).length === publicTopItemKeys.length &&
+    publicTopItemKeys.every((key) => Object.hasOwn(row, key)) &&
+    typeof row.label === "string" && /^Item [1-9][0-9]*$/.test(row.label) &&
     isNonNegativeInteger(row.lots) &&
     hasFiniteNumbers(row, ["avgScrapPct", "scrapCost12m"]) &&
     row.avgScrapPct >= 0 && row.scrapCost12m >= 0 &&

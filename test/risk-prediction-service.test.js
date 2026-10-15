@@ -36,6 +36,7 @@ const input = {
     paperType: "RECYCLED", paperSupplier: "SUP-D", inkColors: 2, inkCoveragePct: 15, quantity: 1300,
   },
   conditions: { runDate: "2026-10-12", shift: "DAY", ambientRhPct: 86, ambientTempC: 26, paperMoisturePct: 10.8 },
+  conditionsConfirmed: true,
   levers: { sfSpeedMpm: 48, rollTempC: 162, gumApplication: "HIGH", gumViscositySec: 32, pastingPressure: "MED", dryingHours: 5, printSpeedSpm: 60 },
 };
 
@@ -90,6 +91,19 @@ test("risk prediction fails closed before querying when only historical threshol
   assert.equal(response.error.code, "SERVICE_UNAVAILABLE");
   assert.equal(response.modelAcceptance.status, "prototype-thresholds-met");
   assert.equal(response.modelAcceptance.completeAcceptanceEvidenceAvailable, false);
+  assert.equal(queryCalled, false);
+});
+
+test("direct risk prediction service rejects missing condition confirmation before querying", async () => {
+  let queryCalled = false;
+  const service = createRiskPredictionService({
+    bigquery: { query: async () => { queryCalled = true; return resultRow(); } },
+  });
+  const { conditionsConfirmed: _ignored, ...unconfirmed } = input;
+  const response = await service(unconfirmed);
+  assert.equal(response.ok, false);
+  assert.equal(response.error.code, "VALIDATION_ERROR");
+  assert.equal(response.error.issues[0].field, "conditionsConfirmed");
   assert.equal(queryCalled, false);
 });
 
@@ -275,7 +289,9 @@ test("Cloud Run deployment variables construct risk adapter with its isolated by
       VERTEX_LOCATION: "asia-south1",
       GEMINI_MODEL: "gemini-3.5-flash",
       USTAAD_ENABLE_LIVE_MODEL_CALLS: "true",
-      USTAAD_ENABLE_RISK_PREDICTION: "true",
+      GEMINI_DAILY_ATTEMPT_CAP: "10",
+      GEMINI_DAILY_ATTEMPT_TIMEZONE: "Asia/Kolkata",
+            USTAAD_ENABLE_RISK_PREDICTION: "true",
     },
     modelConfig: { modelCallsEnabled: true },
     bucketConfig: {},
@@ -355,9 +371,12 @@ test("Cloud Run deployment variables construct risk adapter with its isolated by
       VERTEX_LOCATION: "asia-south1",
       GEMINI_MODEL: "gemini-3.5-flash",
       USTAAD_ENABLE_LIVE_MODEL_CALLS: "true",
-      USTAAD_ENABLE_RISK_PREDICTION: "true",
+      GEMINI_DAILY_ATTEMPT_CAP: "10",
+      GEMINI_DAILY_ATTEMPT_TIMEZONE: "Asia/Kolkata",
+            USTAAD_ENABLE_RISK_PREDICTION: "true",
     },
     modelConfig: { modelCallsEnabled: true },
+    modelAcceptance: acceptedModelSetFixture,
     bucketConfig: {},
     tokenProvider: async () => "unused-test-token",
     fetchImpl: async (_url, init) => {

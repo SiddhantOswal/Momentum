@@ -379,6 +379,7 @@ export function createRiskOptimizationService({
     const parsedInput = RiskOptimizationRequestSchema.safeParse({
       order: input.order,
       conditions: input.conditions,
+      conditionsConfirmed: input.conditionsConfirmed,
       levers: { ...PLANT_STANDARD_LEVERS, ...suppliedLevers },
     });
     if (!parsedInput.success) {
@@ -393,6 +394,21 @@ export function createRiskOptimizationService({
             code: issue.code,
             message: issue.message,
           })),
+        },
+      };
+    }
+    if (input.conditionsConfirmed !== true) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Plant-condition confirmation is required before optimization.",
+          issues: [{
+            field: "conditionsConfirmed",
+            path: ["conditionsConfirmed"],
+            code: "confirmation_required",
+            message: "Confirm or edit the displayed plant conditions before requesting optimization.",
+          }],
         },
       };
     }

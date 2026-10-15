@@ -35,3 +35,17 @@ export const REQUEST_FIELDS = {
 };
 export const LEVER_UNITS = { sfSpeedMpm: "m/min", rollTempC: "°C", gumViscositySec: "s", dryingHours: "h", printSpeedSpm: "sheets/min" };
 export const DEFECT_NAMES = { WARP: "Bending · warp", DELAM: "Delamination", STRENGTH: "Box strength", PRINT: "Print", CRACK: "Crease cracking" };
+
+// Presentation order matches the canonical manufacturing sequence in the PDF.
+// A missing stage setting is unavailable; it is never a plant-standard default.
+export const MANUFACTURING_STAGES = [
+  ["Printing (flexo, top liner)", ["printSpeedSpm"]],
+  ["Single facer", ["sfSpeedMpm", "rollTempC", "gumApplication", "gumViscositySec"]],
+  ["Sheet cutting", []],
+  ["Pasting", ["gumApplication", "pastingPressure"]],
+  ["Drying / conditioning", ["dryingHours"]],
+  ["Cutting and creasing", []],
+  ["Slotting", []],
+  ["Stitching / gluing", []],
+  ["QC and bundling", []],
+];

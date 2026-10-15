@@ -23,3 +23,5 @@ config
 !config/gcp-vertex-ai.json
 !config/model-acceptance.json
 *.log
+
+!config/approved-photos.json

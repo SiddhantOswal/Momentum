@@ -80,6 +80,6 @@ export function createLinkedFeedbackService({ getStoredJobSheet, getLotOrder, sa
       }
     }
 
-    return saveFeedback(input);
+    return saveFeedback({ ...input, testOrderId: parsed.data.order.orderId });
   };
 }

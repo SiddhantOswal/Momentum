@@ -225,7 +225,8 @@ export function createIdempotentJobService({
     if (!ready) return unavailable();
     if (!identity || !/^[a-f0-9]{64}$/.test(identity.keyHash ?? "") ||
         !/^[a-f0-9]{64}$/.test(identity.fingerprint ?? "") ||
-        identity.jobId !== `JOB-${identity.keyHash.slice(0, 40)}`) {
+        (identity.jobNamespace !== undefined && !/^HACK-[a-f0-9]{32}$/.test(identity.jobNamespace) ||
+          identity.jobId !== `JOB-${identity.jobNamespace ? `${identity.jobNamespace}-` : ""}${identity.keyHash.slice(0, 40)}`)) {
       return validationError("identity", "A valid request identity is required.");
     }
 

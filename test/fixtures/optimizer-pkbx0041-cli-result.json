@@ -1,0 +1,61 @@
+{
+  "sourceJobId": "ustad_pkbx0041_acceptance_100m_20261015",
+  "sqlSha256": "9b6c048fe5d4185da707e09618165dae92a2312f0c4529edd0f9853d95b0b17b",
+  "provenance": "Actual saved approved synthetic optimizer CLI response; unit fixture, never runtime model acceptance",
+  "response": [
+    "Assertion successful",
+    "Assertion successful",
+    [
+      {
+        "currency": "INR",
+        "drying_hours": "5.0",
+        "gum_application": "MED",
+        "gum_viscosity_sec": "35.0",
+        "kind": "BEST",
+        "n_changes": "3",
+        "pasting_pressure": "MED",
+        "penalty": "0.0",
+        "primary_defect": "WARP",
+        "print_speed_spm": "60.0",
+        "rate_crack_pct": "0.657",
+        "rate_delam_pct": "2.376",
+        "rate_print_pct": "1.721",
+        "rate_strength_pct": "1.245",
+        "rate_warp_pct": "2.419",
+        "roll_temp_c": "170.0",
+        "savings_cost": "925.0",
+        "savings_kg": "17.4",
+        "scrap_cost": "4426.0",
+        "scrap_kg": "83.0",
+        "sf_speed_mpm": "48.0",
+        "total_cost": "4426.0",
+        "total_scrap_pct": "8.42"
+      },
+      {
+        "currency": "INR",
+        "drying_hours": "5.0",
+        "gum_application": "HIGH",
+        "gum_viscosity_sec": "32.0",
+        "kind": "BASELINE",
+        "n_changes": "0",
+        "pasting_pressure": "MED",
+        "penalty": "0.0",
+        "primary_defect": "WARP",
+        "print_speed_spm": "60.0",
+        "rate_crack_pct": "0.778",
+        "rate_delam_pct": "2.98",
+        "rate_print_pct": "1.828",
+        "rate_strength_pct": "1.167",
+        "rate_warp_pct": "3.423",
+        "roll_temp_c": "162.0",
+        "savings_cost": "0.0",
+        "savings_kg": "0.0",
+        "scrap_cost": "5351.0",
+        "scrap_kg": "100.4",
+        "sf_speed_mpm": "48.0",
+        "total_cost": "5351.0",
+        "total_scrap_pct": "10.18"
+      }
+    ]
+  ]
+}

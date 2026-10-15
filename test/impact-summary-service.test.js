@@ -24,7 +24,7 @@ const columns = {
   kpis: ["lots_scored", "lots_changed", "net_saving_month", "kg_saved_month", "scrap_pct_before", "scrap_pct_after", "scrap_cost_before", "scrap_cost_after", "currency"],
   monthly: ["month", "lots", "scrap_cost", "scrap_kg", "avg_scrap_pct"],
   seasonal: ["season", "warp", "delam", "strength", "print", "crack"],
-  topItems: ["item_code", "description", "lots", "avg_scrap_pct", "scrap_cost_12m", "main_defect"],
+  topItems: ["item_code", "lots", "avg_scrap_pct", "scrap_cost_12m", "main_defect"],
 };
 
 function response(name, row) {
@@ -76,6 +76,29 @@ test("Impact summary runs the supplied queries and labels September's counterfac
   });
   assert.equal(result.counterfactual.scrapCost, 71454);
   assert.match(result.counterfactual.label, /counterfactual, not observed production/);
+  assert.deepEqual(result.topItems, [{
+    label: "Item 1", lots: 42, avgScrapPct: 7.1, scrapCost12m: 15000, mainDefect: "WARP",
+  }]);
+  assert.doesNotMatch(JSON.stringify(result), /PKBX0041|B1047/);
+});
+
+test("Impact summary anonymizes hostile item identifiers and never returns item descriptions", async () => {
+  const hostile = {
+    ...fixture.topItems,
+    item_code: "<img src=x onerror=alert(1)>",
+    description: "Acme Customer Secret Carton",
+  };
+  const service = createImpactSummaryService({
+    bigquery: { query: async ({ sql: queryText }) =>
+      queryText.includes("dash_kpis.sql") ? response("kpis", fixture.kpis)
+        : queryText.includes("dash_monthly.sql") ? response("monthly", fixture.monthly)
+          : queryText.includes("dash_seasonal.sql") ? response("seasonal", fixture.seasonal)
+            : response("topItems", hostile) },
+  });
+  const result = await service();
+  assert.equal(result.ok, true);
+  assert.doesNotMatch(JSON.stringify(result), /<img|onerror|Acme Customer Secret|PKBX0041|B1047/);
+  assert.match(JSON.stringify(result.topItems), /Item 1/);
 });
 
 test("Impact summary caches successful live data for one hour", async () => {
@@ -139,4 +162,5 @@ test("the Impact adapter loads all four supplied SQL assets from the app SQL dir
   for (const name of ["dash_kpis.sql", "dash_monthly.sql", "dash_seasonal.sql", "dash_top_items.sql"]) {
     assert.match(sql(name), new RegExp(`^-- ${name.replace(".", "\\.")}`, "m"));
   }
+  assert.doesNotMatch(sql("dash_top_items.sql"), /description|JOIN\s+prepagent\.items/i);
 });

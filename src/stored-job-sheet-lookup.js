@@ -28,7 +28,7 @@ function validationFailure(issues) {
  * Read a persisted JobSheet through the existing repository port. Missing or
  * mismatched rows stay explicit; this lookup never invents a draft.
  */
-export function createStoredJobSheetLookup({ getStoredJobSheet } = {}) {
+export function createStoredJobSheetLookup({ getStoredJobSheet, testOnly = false } = {}) {
   if (typeof getStoredJobSheet !== "function") {
     throw new TypeError("A stored job-sheet retrieval port is required.");
   }
@@ -65,6 +65,10 @@ export function createStoredJobSheetLookup({ getStoredJobSheet } = {}) {
         ok: false,
         error: { code: "NOT_FOUND", message: "The stored job was not found." },
       };
+    }
+
+    if (testOnly && !parsed.data.order.orderId.startsWith("TEST-")) {
+      return { ok: false, error: { code: "NOT_FOUND", message: "The stored TEST job was not found." } };
     }
 
     return { ok: true, jobSheet: parsed.data };

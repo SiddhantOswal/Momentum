@@ -19,10 +19,12 @@ test("BigQuery write client restricts inserted tables and uses create-only bound
     client.insertRow({ table: "plants", insertId: "p1", row: {} }),
     (error) => error instanceof BigQueryWriteError && error.code === "TABLE_NOT_ALLOWED",
   );
-  const result = await client.insertRow({ table: "job_sheets", insertId: "job-1", row: { job_id: "job-1" } });
+  await assert.rejects(client.insertRow({ table: "job_sheets", insertId: "job-1", row: { job_id: "job-1" } }), { code: "TABLE_NOT_ALLOWED" });
+  await assert.rejects(client.insertRow({ table: "feedback", insertId: "job-1", row: { job_id: "job-1" } }), { code: "TEST_RECORD_REQUIRED" });
+  const result = await client.insertRow({ table: "feedback", insertId: "job-1", row: { job_id: "job-1" }, testOrderId: "TEST-ORDER-1" });
   assert.deepEqual(result, { inserted: true, insertId: "job-1" });
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /datasets\/prepagent\/tables\/job_sheets\/insertAll$/);
+  assert.match(calls[0].url, /datasets\/prepagent\/tables\/feedback\/insertAll$/);
   assert.equal(calls[0].options.method, "POST");
   assert.deepEqual(JSON.parse(calls[0].options.body), {
     skipInvalidRows: false,
@@ -43,7 +45,7 @@ test("job-sheet writes use a bounded parameterized MERGE with native JSON parsin
   });
   const row = {
     job_id: "job-1", created_at: "2026-10-12T10:00:00.000Z", plant_id: "PLANT-01", status: "DRAFT",
-    order_json: { itemCode: "item" }, conditions_json: {}, baseline_json: {}, recommended_json: {},
+    order_json: { itemCode: "item", orderId: "TEST-WRITER-1" }, conditions_json: {}, baseline_json: {}, recommended_json: {},
     changes_json: [], evidence_json: [], explanation_en: "grounded", savings_kg: 1, savings_cost: 2, currency: "INR",
   };
   assert.deepEqual(await client.insertJobSheet({ row }), { inserted: true });
@@ -84,7 +86,7 @@ test("BigQuery write client fails closed on rejected inserts and unfinished DML"
     tokenProvider: async () => "token",
     fetchImpl: async () => Response.json({ insertErrors: [{ index: 0 }] }),
   });
-  await assert.rejects(client.insertRow({ table: "feedback", insertId: "f1", row: { job_id: "x" } }),
+  await assert.rejects(client.insertRow({ table: "feedback", insertId: "f1", row: { job_id: "x" }, testOrderId: "TEST-ORDER-1" }),
     (error) => error.code === "BIGQUERY_ROW_REJECTED");
   await assert.rejects(client.approveDraft({
     jobId: "job-1", approvedAt: "2026-10-12T10:00:00.000Z", cardUri: "gs://bucket/card.pdf",

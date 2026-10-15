@@ -11,6 +11,7 @@ import {
   SimilarRunSchema,
 } from "../schemas.js";
 import { BigQueryReadError } from "./bigquery-read-client.js";
+import { geminiUsageFailure } from "../daily-gemini-call-cap.js";
 
 const SIMILAR_COLUMNS = Object.freeze([
   "lot_id", "order_id", "run_date", "item_code", "description", "shift",
@@ -440,7 +441,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
       };
     } catch (error) {
       if (error?.name === "AbortError") throw error;
-      return unavailable("The evidence-grounded risk explanation is temporarily unavailable.");
+      return geminiUsageFailure(error) ?? unavailable("The evidence-grounded risk explanation is temporarily unavailable.");
     }
   };
 }

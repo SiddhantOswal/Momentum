@@ -3,6 +3,9 @@ import { Buffer } from "node:buffer";
 import { StoredJobSheetSchema, JobSheetSchema } from "../schemas.js";
 import { BigQueryWriteError } from "./bigquery-write-client.js";
 import { CloudStorageError } from "./storage-client.js";
+import { validStoredApprovalAudit } from "./job-sheet-repository.js";
+import { canAccessApprovalJob } from "../approval-authorization.js";
+import { isDemoPrincipal } from "../hackathon-demo-auth.js";
 
 function unavailable(message = "Job-card storage is temporarily unavailable.") {
   return { ok: false, error: { code: "SERVICE_UNAVAILABLE", message } };
@@ -42,18 +45,18 @@ async function cleanUploadedObject(storage, uploaded, signal) {
   }
 }
 
-function approvedJobSheet(value, jobId, cardUri) {
+function approvedJobSheet(value, jobId, cardUri, requireApprovalAudit) {
   const parsed = StoredJobSheetSchema.safeParse(value);
   return parsed.success &&
     parsed.data.jobId === jobId &&
     parsed.data.status === "APPROVED" &&
     parsed.data.approvedAt !== null &&
-    parsed.data.cardUri === cardUri
+    parsed.data.cardUri === cardUri && (!requireApprovalAudit || validStoredApprovalAudit(parsed.data))
     ? parsed.data
     : undefined;
 }
 
-async function reconcileApproval({ repository, storage, uploaded, jobId, approval, signal }) {
+async function reconcileApproval({ repository, storage, uploaded, jobId, approval, signal, requireApprovalAudit }) {
   let stored;
   try {
     stored = await repository.get(jobId, { signal });
@@ -66,7 +69,8 @@ async function reconcileApproval({ repository, storage, uploaded, jobId, approva
     ? undefined
     : StoredJobSheetSchema.safeParse(stored);
   if (stored !== null && stored !== undefined &&
-      (!parsed?.success || parsed.data.jobId !== jobId)) {
+      (!parsed?.success || parsed.data.jobId !== jobId ||
+        (requireApprovalAudit && parsed.data.status === "APPROVED" && !validStoredApprovalAudit(parsed.data)))) {
     return unavailable("The stored approval state is invalid; the uploaded card was retained for recovery.");
   }
   if (parsed?.success && parsed.data.status === "APPROVED" &&
@@ -91,7 +95,7 @@ async function reconcileApproval({ repository, storage, uploaded, jobId, approva
   );
 }
 
-export function createJobCardService({ repository, storage, renderPdf, bucket } = {}) {
+export function createJobCardService({ repository, storage, renderPdf, bucket, requireApprovalAudit = false } = {}) {
   if (!repository || typeof repository.get !== "function" || typeof repository.approve !== "function" ||
       !storage || typeof storage.upload !== "function" || typeof storage.download !== "function" ||
       typeof storage.delete !== "function" || typeof renderPdf !== "function" ||
@@ -100,7 +104,11 @@ export function createJobCardService({ repository, storage, renderPdf, bucket } 
   }
 
   return Object.freeze({
-    async approveJob({ jobId, lang = "en", currency = "INR", signal } = {}) {
+    async approveJob({ jobId, lang = "en", currency = "INR", signal, supervisorPrincipal, correlationId = randomUUID() } = {}) {
+      if (isDemoPrincipal(supervisorPrincipal) && !requireApprovalAudit) return unavailable("Demo approval requires durable actor auditing.");
+      if (requireApprovalAudit && !canAccessApprovalJob(supervisorPrincipal, jobId)) {
+        return { ok: false, error: { code: "SUPERVISOR_AUTHORIZATION_REQUIRED", message: "An authenticated, approved supervisor is required." } };
+      }
       if (lang !== "en" || currency !== "INR") {
         return unavailable("Translated or converted stored job cards are not configured.");
       }
@@ -111,6 +119,7 @@ export function createJobCardService({ repository, storage, renderPdf, bucket } 
         const existing = await repository.get(jobId, { signal });
         if (!existing) return { ok: false, error: { code: "NOT_FOUND", message: "The job sheet was not found." } };
         const stored = StoredJobSheetSchema.parse(existing);
+        if (stored.jobId !== jobId) return unavailable("The stored job identity does not match the requested job.");
         if (!stored.order.orderId.startsWith("TEST-")) {
           return {
             ok: false,
@@ -118,6 +127,7 @@ export function createJobCardService({ repository, storage, renderPdf, bucket } 
           };
         }
         if (stored.status === "APPROVED" && stored.cardUri) {
+          if (requireApprovalAudit && !validStoredApprovalAudit(stored)) return unavailable("The stored approval actor audit is incomplete.");
           return { ok: true, agent: "approveJob", jobSheet: stored, cardUri: stored.cardUri };
         }
         if (stored.status !== "DRAFT") {
@@ -147,19 +157,20 @@ export function createJobCardService({ repository, storage, renderPdf, bucket } 
           return unavailable("Storage returned an invalid uploaded-card reference.");
         }
         approvalAttempted = true;
-        const approval = await repository.approve({ jobId: stored.jobId, cardUri: uploaded.gcsUri, signal });
+        const approval = await repository.approve({ jobId: stored.jobId, cardUri: uploaded.gcsUri, signal,
+          ...(requireApprovalAudit ? { supervisorPrincipal, correlationId } : {}) });
         const approved = approval?.ok === true
-          ? approvedJobSheet(approval.data, stored.jobId, uploaded.gcsUri)
+          ? approvedJobSheet(approval.data, stored.jobId, uploaded.gcsUri, requireApprovalAudit)
           : undefined;
         if (!approved) {
-          return reconcileApproval({ repository, storage, uploaded, jobId: stored.jobId, approval, signal });
+          return reconcileApproval({ repository, storage, uploaded, jobId: stored.jobId, approval, signal, requireApprovalAudit });
         }
         return { ok: true, agent: "approveJob", jobSheet: approved, cardUri: approved.cardUri };
       } catch (error) {
         if (error?.name === "AbortError") throw error;
         if (uploaded?.name && uploaded?.generation) {
           if (approvalAttempted) {
-            return reconcileApproval({ repository, storage, uploaded, jobId, signal });
+            return reconcileApproval({ repository, storage, uploaded, jobId, signal, requireApprovalAudit });
           }
           if (!await cleanUploadedObject(storage, uploaded, signal)) {
             return unavailable("Job-card generation failed and uploaded-card cleanup could not be confirmed.");
@@ -170,7 +181,11 @@ export function createJobCardService({ repository, storage, renderPdf, bucket } 
       }
     },
 
-    async getJobCard({ jobId, lang = "en", currency = "INR", signal } = {}) {
+    async getJobCard({ jobId, lang = "en", currency = "INR", signal, supervisorPrincipal } = {}) {
+      if (isDemoPrincipal(supervisorPrincipal) && !requireApprovalAudit) return unavailable("Demo approval requires durable actor auditing.");
+      if (requireApprovalAudit && !canAccessApprovalJob(supervisorPrincipal, jobId)) {
+        return { ok: false, error: { code: "SUPERVISOR_AUTHORIZATION_REQUIRED", message: "An authenticated, approved supervisor is required." } };
+      }
       if (lang !== "en" || currency !== "INR") {
         return unavailable("Translated or converted stored job cards are not configured.");
       }
@@ -178,6 +193,8 @@ export function createJobCardService({ repository, storage, renderPdf, bucket } 
         const stored = await repository.get(jobId, { signal });
         if (!stored) return { ok: false, error: { code: "NOT_FOUND", message: "The job sheet was not found." } };
         const parsed = StoredJobSheetSchema.parse(stored);
+        if (parsed.jobId !== jobId || !parsed.order.orderId.startsWith("TEST-")) return unavailable("The stored TEST job identity could not be verified.");
+        if (requireApprovalAudit && !validStoredApprovalAudit(parsed)) return unavailable("The stored approval actor audit is incomplete.");
         if (parsed.status !== "APPROVED" || !parsed.approvedAt || !parsed.cardUri) {
           return { ok: false, error: { code: "CONFLICT", message: "The job card is not available until approval." } };
         }

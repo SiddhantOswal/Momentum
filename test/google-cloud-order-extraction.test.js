@@ -350,20 +350,16 @@ test("synthetic PO fixtures preserve one document and classify every line agains
         },
       },
     });
+    const fixtureBytes = expected.file.endsWith(".jpg")
+      ? new Uint8Array(readFileSync(new URL(`./fixtures/synthetic_POs/${expected.file}`, import.meta.url)))
+      : new Uint8Array([37, 80, 68, 70, 45]);
     const result = await service({
-      file: expected.file.endsWith(".jpg")
-        ? {
-          size: 3,
-          name: expected.file,
-          type: "image/jpeg",
-          arrayBuffer: async () => new Uint8Array([0xff, 0xd8, 0xff]).buffer,
-        }
-        : {
-          size: 5,
-          name: expected.file,
-          type: "application/pdf",
-          arrayBuffer: async () => new Uint8Array([37, 80, 68, 70, 45]).buffer,
-        },
+      file: {
+        size: fixtureBytes.byteLength,
+        name: expected.file,
+        type: expected.file.endsWith(".jpg") ? "image/jpeg" : "application/pdf",
+        arrayBuffer: async () => fixtureBytes.buffer,
+      },
     });
 
     assert.equal(result.ok, true, expected.file);
@@ -913,7 +909,9 @@ test("enabled model configuration reaches the Vertex adapter through offline ext
       VERTEX_LOCATION: "asia-south1",
       GEMINI_MODEL: "gemini-3.5-flash",
       USTAAD_ENABLE_LIVE_MODEL_CALLS: "true",
-    },
+      GEMINI_DAILY_ATTEMPT_CAP: "10",
+      GEMINI_DAILY_ATTEMPT_TIMEZONE: "Asia/Kolkata",
+          },
     modelConfig: {
       projectId: "prepagent-hack",
       location: "asia-south1",
@@ -951,6 +949,37 @@ test("enabled model configuration reaches the Vertex adapter through offline ext
   assert.ok(calls.some(({ url }) => url.includes("storage.googleapis.com")));
 });
 
+test("live Gemini adapters stay unavailable in Cloud Run without a shared daily cap", async () => {
+  const calls = [];
+  const ports = createConfiguredServicePorts({
+    env: {
+      PROJECT_ID: "prepagent-hack",
+      K_SERVICE: "prepagent",
+      REGION: "asia-south1",
+      BUCKET: "prepagent-hack-data",
+      VERTEX_LOCATION: "asia-south1",
+      GEMINI_MODEL: "gemini-3.5-flash",
+      USTAAD_ENABLE_LIVE_MODEL_CALLS: "true",
+    },
+    modelConfig: {
+      projectId: "prepagent-hack",
+      location: "asia-south1",
+      testModel: "gemini-3.5-flash",
+      modelCallsEnabled: true,
+    },
+    bucketConfig: { bucket: { name: "prepagent-hack-data" } },
+    tokenProvider: async () => "offline-test-token",
+    fetchImpl: async (url) => { calls.push(String(url)); return jsonResponse({}); },
+  });
+
+  assert.equal(ports.availability.extractOrder, false);
+  assert.equal(ports.availability.explainRisk, false);
+  assert.equal(calls.some((url) => url.includes("aiplatform.googleapis.com")), false);
+  const result = await ports.extractOrder({});
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+});
+
 test("similar-run SQL is available under its read gate without enabling Gemini", () => {
   const ports = createConfiguredServicePorts({
     env: {
@@ -974,4 +1003,24 @@ test("similar-run SQL is available under its read gate without enabling Gemini",
   assert.equal(ports.availability.findSeenBefore, true);
   assert.equal(ports.availability.explainRisk, false);
   assert.equal(ports.availability.extractOrder, false);
+});
+
+test("hackathon TEST record namespace preserves source PO and requires both approved bytes and explicit policy", async () => {
+  const approved = new Uint8Array(readFileSync(new URL('./fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf', import.meta.url)));
+  const poNumber = 'CLA/PO/2026/1047';
+  const make = allowTestOrderNamespace => createPdfOrderExtractionService({
+    allowTestOrderNamespace,
+    storage: {createObjectName:()=> 'orders/test-namespace.pdf',upload:async()=>({gcsUri:'gs://prepagent-hack-data/orders/test-namespace.pdf'}),delete:async()=>{}},
+    gemini: {generateJson:async()=>({poNumber,buyer:'Approved synthetic buyer',deliveryDate:'20-10-2026',lines:[{itemCode:'PKBX0041',quantity:1300}]})},
+    itemCatalog: {getOrderProfile:async()=>({...jobSheetFixture.order,itemCode:'PKBX0041',quantity:1300})},
+  });
+  const invoke = (service, bytes, orderId) => service({file:{size:bytes.length,name:'PO1.pdf',type:'application/pdf',arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)},operatorFields:{orderId,paperType:'RECYCLED',paperSupplier:'SUP-D'}});
+  const result = await invoke(make(true), approved, 'TEST-'+poNumber);
+  assert.equal(result.ok,true);
+  assert.equal(result.purchaseOrderDocument.poNumber,poNumber);
+  assert.equal(result.orderProfile.orderId,'TEST-'+poNumber);
+  assert.equal((await invoke(make(false),approved,'TEST-'+poNumber)).error.issues[0].code,'purchase_order_mismatch');
+  assert.equal((await invoke(make(true),approved,'TEST-ARBITRARY')).error.issues[0].code,'purchase_order_mismatch');
+  const altered = new Uint8Array([...approved,32]);
+  assert.equal((await invoke(make(true),altered,'TEST-'+poNumber)).error.issues[0].code,'purchase_order_mismatch');
 });

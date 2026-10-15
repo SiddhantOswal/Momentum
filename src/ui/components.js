@@ -1,6 +1,6 @@
 import { isRiskDisplay, isOptimizationDisplay, isSeenBefore } from "./contracts.js";
 import { markMoney, refreshMoney } from "./currency-display.js";
-import { DEFECT_NAMES, LEVER_FIELDS, LEVER_UNITS } from "./fields.js";
+import { DEFECT_NAMES, LEVER_FIELDS, LEVER_UNITS, MANUFACTURING_STAGES } from "./fields.js";
 import { request, createRequestGate } from "./api.js";
 
 const byId = (id) => document.getElementById(id);
@@ -101,8 +101,12 @@ export function renderComparison(payload) {
   head.append(headings); const body = node("tbody");
   for (const [key, title] of LEVER_FIELDS) {
     const row = node("tr");
-    if (payload.baseline.levers[key] !== payload.best.levers[key]) row.className = "changed";
-    row.append(node("td", title), node("td", valueFor(key, payload.baseline.levers[key])), node("td", valueFor(key, payload.best.levers[key])));
+    const label = node("td", title);
+    if (payload.baseline.levers[key] !== payload.best.levers[key]) {
+      row.className = "changed";
+      label.append(node("span", "Changed", "setting-change-note"));
+    }
+    row.append(label, node("td", valueFor(key, payload.baseline.levers[key])), node("td", valueFor(key, payload.best.levers[key])));
     body.append(row);
   }
   table.append(caption, head, body); wrap.append(table); target.append(wrap);
@@ -149,6 +153,22 @@ export function renderStoredSheet(sheet) {
     }
     section.append(list); target.append(section);
   }
+  const sequence = node("details", undefined, "document-preview__section");
+  sequence.append(node("summary", "Manufacturing sequence and settings"));
+  const scroll = node("div", undefined, "table-scroll");
+  scroll.tabIndex = 0; scroll.setAttribute("role", "region"); scroll.setAttribute("aria-label", "Stored manufacturing sequence");
+  const table = node("table", undefined, "manufacturing-sequence");
+  table.append(node("caption", sheet.status === "APPROVED" ? "Stored approved job settings" : "Stored proposed settings · review and approval required"));
+  const head = node("thead"); const heading = node("tr");
+  for (const title of ["Step", "Manufacturing stage", "Stored settings"]) { const th = node("th", title); th.scope = "col"; heading.append(th); }
+  head.append(heading); const body = node("tbody");
+  MANUFACTURING_STAGES.forEach(([title, keys], index) => {
+    const row = node("tr"); const settings = node("td");
+    if (!keys.length) settings.textContent = "No adjustable setting in this job card";
+    for (const key of keys) settings.append(node("span", labelFor(key) + ": " + valueFor(key, sheet.recommended?.levers?.[key]), "manufacturing-settings"));
+    row.append(node("td", index + 1), node("td", title), settings); body.append(row);
+  });
+  table.append(head, body); scroll.append(table); sequence.append(scroll); target.append(sequence);
   target.append(node("p", sheet.explanation, "explanation")); target.hidden = false; refreshMoney();
 }
 const charts = new Map();

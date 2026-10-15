@@ -45,7 +45,12 @@ function assertReadOnlySql(sql) {
     throw new BigQueryReadError("READ_ONLY_QUERY_REQUIRED", "Only SELECT queries are allowed.");
   }
 
-  const executableSql = scrubSql(sql).trim();
+  // Om's canonical optimizer is a read-only script: two exact existence
+  // assertions followed by one SELECT. Support only this known guard prefix;
+  // arbitrary ASSERTs, extra statements and all mutations stay rejected.
+  const withoutComments = sql.replace(/--[^\n\r]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ").trim();
+  const optimizerGuards = /^ASSERT\s+EXISTS\(SELECT\s+1\s+FROM\s+prepagent\.items\s+WHERE\s+item_code\s*=\s*@item_code\)\s+AS\s+'Item not found in item master'\s*;\s*ASSERT\s+EXISTS\(SELECT\s+1\s+FROM\s+prepagent\.plants\s+WHERE\s+plant_id\s*=\s*'PLANT-01'\)\s+AS\s+'Plant settings missing'\s*;/i;
+  const executableSql = scrubSql(withoutComments.replace(optimizerGuards, "")).trim();
   if (!/^(SELECT|WITH)\b/i.test(executableSql)) {
     throw new BigQueryReadError("READ_ONLY_QUERY_REQUIRED", "Only SELECT queries are allowed.");
   }

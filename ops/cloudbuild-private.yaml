@@ -1,0 +1,22 @@
+# Authorized private candidate only. Source is an explicit immutable snapshot.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '--pull', '--label', 'org.opencontainers.image.revision=${_HEAD}', '--label', 'io.ustaad.source-sha256=${_SOURCE_SHA}', '-t', '${_IMAGE}', '.']
+  - name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        docker run --name ustaad-smoke -d '${_IMAGE}'
+        trap 'docker rm -f ustaad-smoke >/dev/null' EXIT
+        for n in {1..20}; do
+          if docker exec ustaad-smoke node -e 'fetch("http://127.0.0.1:8080/health").then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))'; then break; fi
+          sleep 1
+        done
+        docker exec ustaad-smoke node -e 'Promise.all(["/health","/","/ui/workflow.js","/ui/api.js","/supervisor-auth-client.js","/api/auth/config"].map(async p=>{const r=await fetch("http://127.0.0.1:8080"+p);if(!r.ok)throw Error(p+":"+r.status)})).catch(e=>{console.error(e.message);process.exit(1)})'
+        docker exec ustaad-smoke node --check index.mjs
+        docker exec ustaad-smoke npm audit --omit=dev
+images: ['${_IMAGE}']
+timeout: 900s
+options:
+  logging: CLOUD_LOGGING_ONLY

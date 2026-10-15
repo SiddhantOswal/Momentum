@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-// Exact SHA-256 hashes of the five owner-approved synthetic PO fixtures.
+// Exact SHA-256 hashes of the five owner-approved purchase-order documents.
 // Changes to any fixture require an explicit review and a corresponding test.
 const APPROVED_FIXTURE_SHA256 = new Set([
   "d789722039e0d9f29d2106655416aae0447159d23df56c7dc215ee875c8fb44a",

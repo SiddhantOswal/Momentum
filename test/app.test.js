@@ -7,6 +7,14 @@ import { jobSheetFixture } from "./fixtures/job-sheet.js";
 
 const PORT = 4100;
 
+async function stopServer(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = once(child, "exit");
+  child.kill("SIGTERM");
+  await exited;
+}
+
+
 async function startServer(extraEnv = {}) {
   const child = spawn(process.execPath, ["index.mjs"], {
     cwd: new URL("..", import.meta.url).pathname,
@@ -32,7 +40,7 @@ test("health endpoint returns ok", async () => {
     assert.equal(payload.executionMode, "offline");
     assert.match(startupMessage, /http:\/\/localhost:/i);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -50,7 +58,7 @@ test("unknown routes identify the local runtime without exposing diagnostics", a
       message: "The requested endpoint was not found.",
     });
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -68,7 +76,7 @@ test("Impact summary reports unavailable live data without substituting preview 
       },
     });
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -83,7 +91,7 @@ test("Impact dashboard is served from the application origin and fails without s
     assert.match(html, /No sample values are shown/);
     assert.doesNotMatch(html, /Showing the verified BigQuery results/);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -106,7 +114,7 @@ test("seen-before endpoint validates defect evidence before calling the disabled
     });
     assert.equal(unavailable.status, 503);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -160,9 +168,9 @@ test("similar-run and explanation routes validate contracts before reporting dis
       }),
     });
     assert.equal(explanationUnavailable.status, 503);
-    assert.match((await explanationUnavailable.json()).error.message, /explainRisk is not configured/);
+    assert.match((await explanationUnavailable.json()).error.message, /complete version-linked acceptance evidence/);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -182,7 +190,7 @@ test("health remains available while operational requests are rate limited", asy
     assert.equal(health.status, 200);
     assert.equal((await health.json()).ok, true);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -193,12 +201,12 @@ test("root serves the rebuilt operator UI and its complete same-origin workflow 
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     const html = await response.text();
-    for (const text of ["Ustaad AI", "Production workspace", "Local development", "New Lot", "Agent Run", "Defect Check", "Impact", "English interface.", "No production impact data loaded.", "predicted", "supervisor approval"]) assert.ok(html.includes(text), text);
+    for (const text of ["Ustaad AI", "Production workspace", "Local development", "New Lot", "Production analysis", "Defect Check", "Impact", "English interface.", "No production impact data loaded.", "predicted", "supervisor approval"]) assert.ok(html.includes(text), text);
     assert.doesNotMatch(html, /synthetic|simulated|id="sample-order"/i);
     const ids = [...html.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
     assert.equal(new Set(ids).size, ids.length, "IDs must be unique");
     const screens = [...html.matchAll(/<section id="([^"]+)" class="screen" data-screen-panel/g)].map((m) => m[1]);
-    assert.deepEqual(screens, ["screen-order-input", "screen-production-analysis", "screen-defect-check", "screen-impact"]);
+    assert.deepEqual(screens, ["screen-order-input", "screen-production-analysis", "dashboard-job-review", "screen-defect-check", "screen-impact"]);
     for (const id of ["purchase-order-review", "purchase-order-lines", "confirm-order-line", "extraction-order-id", "extraction-paper-type", "extraction-paper-supplier", "condition-request-fields", "lever-request-fields", "conditions-supervisor-confirmed", "machine-settings-confirmed", "trace-form", "what-if-controls", "approval-form", "approval-dialog", "shared-job-id", "load-stored-job-form", "stored-card-form", "feedback-form", "job-sheet-form", "local-job-sheet-preview", "status-dialog", "seen-before-form", "impact-monthly-chart"]) assert.ok(ids.includes(id), id);
     assert.match(html, /accept="application\/pdf,\.pdf,image\/jpeg,\.jpg,\.jpeg"/);
     assert.match(html, /id="prepare-job" disabled/);
@@ -208,7 +216,9 @@ test("root serves the rebuilt operator UI and its complete same-origin workflow 
     assert.match(html, /aria-live="polite"/);
     assert.match(html, /<dialog id="approval-dialog" aria-labelledby=/);
     assert.match(html, /No settings are sent to machine controls/);
-    assert.match(html, /no photo upload or classification endpoint/);
+    assert.match(html, /Arbitrary image uploads are disabled/);
+    assert.match(html, /id="load-approved-photos" class="button-secondary" disabled/);
+    assert.match(html, /id="classify-approved-photo" class="button-secondary" disabled/);
     assert.doesNotMatch(html, /Screen [1-4] —|sidebar__link|PO-2048|CUST-418|value="1200"/);
     for (const currency of ["INR", "JPY", "KRW", "CNY", "IDR", "SGD", "AUD", "THB", "PHP", "MYR", "USD"]) assert.ok(html.includes(`<option value="${currency}">${currency}</option>`));
     assert.doesNotMatch(html, /<option value="(hi|mr|ja|ko|zh-CN|id)">/);
@@ -279,7 +289,7 @@ test("JobSheet PDF route validates input and renders locally without cloud persi
     assert.equal(unicodePdf.subarray(0, 8).toString("ascii"), "%PDF-1.3");
     assert.equal(unicodePdf.subarray(0, 8).toString("ascii"), "%PDF-1.3");
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -299,13 +309,30 @@ test("status endpoint separates backend reachability from configured local integ
     });
     assert.equal(payload.modelAcceptance.status, "prototype-thresholds-met");
     assert.equal(payload.modelAcceptance.completeAcceptanceEvidenceAvailable, false);
-    assert.equal(payload.modelAcceptance.linkedToCurrentResourceVersions, false);
+    assert.equal(payload.modelAcceptance.linkedToCurrentResourceVersions, true);
     assert.equal(payload.modelAcceptance.models.length, 5);
     assert.deepEqual(payload.runtimeAvailability, {
       productionAdaptersConfigured: false,
       liveModelCallsEnabled: false,
+      dailyGeminiCallCap: {
+        configured: true,
+        enforced: false,
+        scope: "single-process",
+        globalScopeEnforced: false,
+        limit: 100,
+        timeZone: "Asia/Kolkata",
+        countingPolicy: "attempts",
+        reset: "midnight-in-configured-time-zone",
+      },
+      supervisorAuthentication: {
+        provider: "firebase-google",
+        enabled: false,
+        verifierConfigured: false,
+        userVerified: false,
+      },
       currentConditions: { adapterConfigured: false, dataChecked: false },
       integrationsVerified: false,
+      supervisorAuthorizationAvailable: false,
       jobSheetPersistenceAvailable: false,
       durableIdempotencyConfigured: false,
       idempotencyScope: "unavailable",
@@ -318,7 +345,7 @@ test("status endpoint separates backend reachability from configured local integ
     assert.equal(payload.unconfiguredIntegrations.includes("lever optimization"), true);
     assert.match(payload.notes[0], /local process uses only explicitly configured adapters/);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -329,6 +356,8 @@ test("status reports enabled gates separately from untested sensor data and pers
     BUCKET: "prepagent-hack-data",
     USTAAD_PLANT_ID: "PLANT-01",
     USTAAD_ENABLE_LIVE_MODEL_CALLS: "true",
+    GEMINI_DAILY_ATTEMPT_CAP: "10",
+    GEMINI_DAILY_ATTEMPT_TIMEZONE: "Asia/Kolkata",
     USTAAD_ENABLE_RISK_PREDICTION: "true",
   });
   try {
@@ -337,6 +366,16 @@ test("status reports enabled gates separately from untested sensor data and pers
     assert.equal(response.status, 200);
     assert.equal(payload.runtimeAvailability.productionAdaptersConfigured, true);
     assert.equal(payload.runtimeAvailability.liveModelCallsEnabled, true);
+    assert.deepEqual(payload.runtimeAvailability.dailyGeminiCallCap, {
+      configured: true,
+      enforced: true,
+      scope: "single-process",
+      globalScopeEnforced: false,
+      limit: 10,
+      timeZone: "Asia/Kolkata",
+      countingPolicy: "attempts",
+      reset: "midnight-in-configured-time-zone",
+    });
     assert.deepEqual(payload.runtimeAvailability.currentConditions, {
       adapterConfigured: true,
       dataChecked: false,
@@ -347,7 +386,7 @@ test("status reports enabled gates separately from untested sensor data and pers
     assert.equal(payload.integrations.createDraftJobSheet, false);
     assert.equal(payload.integrations.getStoredJobSheet, false);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -372,6 +411,9 @@ test("Cloud Run status advertises only configured cloud ports without making cal
     const payload = await response.json();
     assert.equal(payload.mode, "cloud-run");
     assert.equal(payload.executionMode, "live-service");
+    assert.equal(payload.syntheticOnlyModeRequired, true);
+    assert.equal(payload.syntheticOnlyModeEnabled, false);
+    assert.equal(payload.approvedPoFixtureAllowlistEnforced, true);
     assert.equal(payload.runtimeAvailability.integrationsVerified, false);
     assert.equal(payload.runtimeAvailability.supervisorAuthorizationAvailable, false);
     assert.equal(payload.integrations.supervisorAuthorizationAvailable, false);
@@ -402,12 +444,49 @@ test("Cloud Run status advertises only configured cloud ports without making cal
     assert.equal(demoPrediction.status, 503);
     assert.equal((await demoPrediction.json()).error.code, "SERVICE_UNAVAILABLE");
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
-test("legacy mock-agent endpoints are unavailable in Cloud Run mode", async () => {
-  const { child } = await startServer({ K_SERVICE: "prepagent" });
+test("live decision routes reject missing or forged supervisor identity before validation or service calls", async () => {
+  const { child } = await startServer({
+    K_SERVICE: "prepagent",
+    USTAAD_ENABLE_DEMO_MODE: "true",
+    PROJECT_ID: "prepagent-hack",
+    USTAAD_ENABLE_BIGQUERY_WRITES: "true",
+    USTAAD_ENABLE_JOB_STORAGE: "true",
+  });
+  try {
+    const routes = [
+      ["/conditions/current?shift=DAY", "GET"],
+      ["/risk/predict", "POST"],
+      ["/risk/optimize", "POST"],
+      ["/jobs", "POST"],
+      ["/jobs/TEST-1/approve", "POST"],
+      ["/jobs/TEST-1/card.pdf", "GET"],
+      ["/jobs/TEST-1/feedback", "POST"],
+    ];
+    for (const [path, method] of routes) {
+      const response = await fetch(`http://127.0.0.1:${PORT}${path}`, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "x-supervisor-id": "forged-supervisor",
+          "x-supervisor-role": "supervisor",
+          "x-authenticated-user": "owner@example.com",
+        },
+        ...(method === "POST" ? { body: JSON.stringify({ role: "supervisor", approvedBy: "forged-supervisor" }) } : {}),
+      });
+      assert.equal(response.status, 503, path);
+      assert.equal((await response.json()).error.code, "AUTHENTICATION_NOT_CONFIGURED", path);
+    }
+  } finally {
+    await stopServer(child);
+  }
+});
+
+test("legacy mock-agent endpoints are unavailable in live-service even when demo is requested", async () => {
+  const { child } = await startServer({ K_SERVICE: "prepagent", USTAAD_ENABLE_DEMO_MODE: "true" });
   const paths = [
     "/api/agents/getConditions",
     "/api/agents/predictRisk",
@@ -420,22 +499,46 @@ test("legacy mock-agent endpoints are unavailable in Cloud Run mode", async () =
     for (const path of paths) {
       const response = await fetch(`http://127.0.0.1:${PORT}${path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-supervisor-id": "admin",
+          "x-supervisor-role": "supervisor",
+          authorization: "Bearer unverified-test-token",
+        },
         body: JSON.stringify({}),
       });
-      assert.equal(response.status, 503, path);
       const payload = await response.json();
+      assert.equal(response.status, 503, path);
       assert.equal(payload.ok, false, path);
       assert.equal(payload.error.code, "SERVICE_UNAVAILABLE", path);
       assert.match(payload.error.message, /explicitly enabled local demo mode/, path);
+      assert.doesNotMatch(JSON.stringify(payload), /mock-demo|riskRates|recommended/i, path);
     }
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
+  }
+});
+
+test("legacy mock-agent endpoints are unavailable in offline mode", async () => {
+  const { child } = await startServer();
+  try {
+    const response = await fetch(`http://127.0.0.1:${PORT}/api/agents/predictRisk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    assert.equal(response.status, 503);
+    const payload = await response.json();
+    assert.equal(payload.error.code, "SERVICE_UNAVAILABLE");
+    assert.match(payload.error.message, /explicitly enabled local demo mode/);
+    assert.equal(payload.ratesPct, undefined);
+  } finally {
+    await stopServer(child);
   }
 });
 
 test("Cloud Run job lifecycle routes fail closed without supervisor authorization", async () => {
-  const { child } = await startServer({ K_SERVICE: "prepagent" });
+  const { child } = await startServer({ K_SERVICE: "prepagent", USTAAD_ENABLE_DEMO_MODE: "true" });
   const paths = [
     ["POST", "/jobs"],
     ["GET", "/jobs/TEST-JOB-1"],
@@ -448,17 +551,134 @@ test("Cloud Run job lifecycle routes fail closed without supervisor authorizatio
       const response = await fetch(`http://127.0.0.1:${PORT}${path}`, {
         method,
         ...(method === "POST" ? {
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-supervisor-id": "admin",
+            "x-supervisor-role": "supervisor",
+            authorization: "Bearer unverified-test-token",
+          },
           body: JSON.stringify({}),
         } : {}),
       });
       assert.equal(response.status, 503, `${method} ${path}`);
       const payload = await response.json();
-      assert.equal(payload.error.code, "SERVICE_UNAVAILABLE", `${method} ${path}`);
-      assert.match(payload.error.message, /authenticated supervisor identity/, `${method} ${path}`);
+      assert.equal(payload.error.code, "AUTHENTICATION_NOT_CONFIGURED", `${method} ${path}`);
+      assert.match(payload.error.message, /Firebase Authentication is configured/, `${method} ${path}`);
     }
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
+  }
+});
+
+test("Cloud Run prediction and optimization require an authenticated supervisor", async () => {
+  const { child } = await startServer({ K_SERVICE: "prepagent", USTAAD_ENABLE_DEMO_MODE: "true" });
+  const conditions = {
+    runDate: "2026-10-15", shift: "DAY", ambientRhPct: 64,
+    ambientTempC: 26, paperMoisturePct: 8.5,
+  };
+  const levers = {
+    sfSpeedMpm: 42, rollTempC: 168, gumApplication: "MED", gumViscositySec: 40,
+    pastingPressure: "MED", dryingHours: 6, printSpeedSpm: 55,
+  };
+  const requests = [
+    ["/risk/predict", {
+      order: { itemCode: "PKBX0041", quantity: 1300, paperType: "RECYCLED", paperSupplier: "SUP-D" },
+      conditions: { shift: "DAY", ambientRhPct: 64, ambientTempC: 26, paperMoisturePct: 8.5 },
+      conditionsConfirmed: true,
+      levers,
+    }],
+    ["/risk/optimize", { order: jobSheetFixture.order, conditions, conditionsConfirmed: true, levers }],
+    ["/risk/optimize", { order: jobSheetFixture.order, conditions, levers }],
+    ["/risk/explanation", {
+      order: jobSheetFixture.order,
+      conditions: jobSheetFixture.conditions,
+      prediction: jobSheetFixture.baseline.risk,
+      optimization: {
+        baseline: jobSheetFixture.baseline,
+        best: jobSheetFixture.recommended,
+        changes: jobSheetFixture.changes,
+        savings: jobSheetFixture.savings,
+      },
+      evidence: [],
+    }],
+  ];
+  try {
+    for (const [path, body] of requests) {
+      const response = await fetch(`http://127.0.0.1:${PORT}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-supervisor-id": "admin",
+          "x-supervisor-role": "supervisor",
+          authorization: "Bearer unverified-test-token",
+        },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 503, path);
+      assert.equal(payload.error.code, "AUTHENTICATION_NOT_CONFIGURED", path);
+    }
+  } finally {
+    await stopServer(child);
+  }
+});
+
+test("direct HTTP prediction and optimization routes remain blocked until Firebase supervisor verification is configured", async () => {
+  const { child } = await startServer({
+    PROJECT_ID: "prepagent-hack",
+    REGION: "asia-south1",
+    USTAAD_ENABLE_RISK_PREDICTION: "true",
+    USTAAD_OPTIMIZER_CONTRACT_STATUS: "approved",
+    USTAAD_OPTIMIZER_CONTRACT_VERSION: "om-d2-d3-v1",
+  });
+  const body = {
+    order: {
+      orderId: "TEST-HTTP-ACCEPTANCE", itemCode: "PKBX0041", customerId: "SYNTHETIC",
+      boxStyle: "RSC", lengthMm: 400, widthMm: 300, heightMm: 250, ply: 5,
+      fluteProfile: "BC", topLinerGsm: 180, fluteGsm: 150, innerLinerGsm: 180,
+      linerBf: 24, paperType: "RECYCLED", paperSupplier: "SUP-D", inkColors: 2,
+      inkCoveragePct: 15, quantity: 1300,
+    },
+    conditions: { shift: "DAY", ambientRhPct: 86, ambientTempC: 26, paperMoisturePct: 10.8 },
+    conditionsConfirmed: true,
+    levers: {
+      sfSpeedMpm: 48, rollTempC: 162, gumApplication: "HIGH", gumViscositySec: 32,
+      pastingPressure: "MED", dryingHours: 5, printSpeedSpm: 60,
+    },
+  };
+  try {
+    for (const path of ["/risk/predict", "/risk/optimize"]) {
+      const requestBody = path === "/risk/optimize"
+        ? { ...body, conditions: { ...body.conditions, runDate: "2026-10-15" } }
+        : body;
+      const response = await fetch(`http://127.0.0.1:${PORT}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      assert.equal(response.status, 503, path);
+      const result = await response.json();
+      assert.equal(result.error.code, "AUTHENTICATION_NOT_CONFIGURED", path);
+    }
+  } finally {
+    await stopServer(child);
+  }
+});
+
+test("demo PO extraction rejects unapproved bytes even when the caller asserts synthetic provenance", async () => {
+  const { child } = await startServer({ USTAAD_ENABLE_DEMO_MODE: "true" });
+  try {
+    const upload = new FormData();
+    upload.append("file", new Blob(["%PDF-1.4 spoofed"], { type: "application/pdf" }), "synthetic.pdf");
+    const response = await fetch(`http://127.0.0.1:${PORT}/orders/extract`, {
+      method: "POST",
+      headers: { "x-synthetic": "true", "x-provenance": "approved-fixture" },
+      body: upload,
+    });
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error.code, "VALIDATION_ERROR");
+  } finally {
+    await stopServer(child);
   }
 });
 
@@ -470,9 +690,9 @@ test("Cloud Run PO extraction requires an explicit synthetic-only gate", async (
     form.append("file", new Blob([fixture], { type: "application/pdf" }), "approved-po.pdf");
     const response = await fetch(`http://127.0.0.1:${PORT}/orders/extract`, { method: "POST", body: form });
     assert.equal(response.status, 503);
-    assert.match((await response.json()).error.message, /Synthetic-only mode must be explicitly enabled/);
+    assert.equal((await response.json()).error.code, "AUTHENTICATION_NOT_CONFIGURED");
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -483,17 +703,39 @@ test("Cloud Run PO extraction rejects modified documents in synthetic-only mode"
     fixture[fixture.length - 1] ^= 1;
     const form = new FormData();
     form.append("file", new Blob([fixture], { type: "application/pdf" }), "modified-po.pdf");
-    const response = await fetch(`http://127.0.0.1:${PORT}/orders/extract`, { method: "POST", body: form });
-    assert.equal(response.status, 400);
-    assert.match((await response.json()).error.message, /Only the owner-approved synthetic purchase-order fixtures/);
+    const response = await fetch(`http://127.0.0.1:${PORT}/orders/extract`, {
+      method: "POST",
+      headers: { "x-synthetic": "true", "x-provenance": "approved-fixture" },
+      body: form,
+    });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error.code, "AUTHENTICATION_NOT_CONFIGURED");
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
-test("Cloud Run reports local idempotency separately from unavailable JobSheet persistence", async () => {
+test("Cloud Run PO extraction rejects oversized decoded JPEGs before storage or model adapters", async () => {
+  const { child } = await startServer({ K_SERVICE: "prepagent", USTAAD_SYNTHETIC_ONLY: "true" });
+  const jpegHeader = Uint8Array.from([
+    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08,
+    0xff, 0xff, 0xff, 0xff, 0x01, 0x01, 0x11, 0x00, 0xff, 0xd9,
+  ]);
+  try {
+    const form = new FormData();
+    form.append("file", new Blob([jpegHeader], { type: "image/jpeg" }), "huge-scan.jpg");
+    const response = await fetch(`http://127.0.0.1:${PORT}/orders/extract`, { method: "POST", body: form });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error.code, "AUTHENTICATION_NOT_CONFIGURED");
+  } finally {
+    await stopServer(child);
+  }
+});
+
+test("Cloud Run does not accept JobSheet drafts before supervisor authorization exists", async () => {
   const { child } = await startServer({
     K_SERVICE: "prepagent",
+    USTAAD_ENABLE_DEMO_MODE: "true",
     PROJECT_ID: "prepagent-hack",
     REGION: "asia-south1",
     BUCKET: "prepagent-hack-data",
@@ -525,20 +767,29 @@ test("Cloud Run reports local idempotency separately from unavailable JobSheet p
       printSpeedSpm: 50,
     })) form.append(field, String(value));
 
-    const response = await fetch(`http://127.0.0.1:${PORT}/jobs`, { method: "POST", body: form });
-    assert.ok(response.status >= 400);
+    const response = await fetch(`http://127.0.0.1:${PORT}/jobs`, {
+      method: "POST",
+      headers: {
+        "x-supervisor-id": "admin",
+        "x-supervisor-role": "supervisor",
+        authorization: "Bearer unverified-test-token",
+      },
+      body: form,
+    });
+    assert.equal(response.status, 503);
     const payload = await response.json();
-    assert.notEqual(payload.ok, true);
-    assert.ok(["SERVICE_UNAVAILABLE", "VALIDATION_ERROR"].includes(payload.error?.code));
-    assert.equal(typeof payload.runId, "string");
+    assert.equal(payload.ok, false);
+    assert.equal(payload.error?.code, "AUTHENTICATION_NOT_CONFIGURED");
+    assert.match(payload.error?.message, /Firebase Authentication is configured/);
+    assert.equal(payload.runId, undefined);
     assert.equal(payload.jobSheet, undefined);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
 test("malformed and non-object JSON return structured validation errors", async () => {
-  const { child } = await startServer();
+  const { child } = await startServer({ USTAAD_ENABLE_DEMO_MODE: "true" });
 
   try {
     const malformed = await fetch(`http://127.0.0.1:${PORT}/api/agents/getConditions`, {
@@ -561,7 +812,7 @@ test("malformed and non-object JSON return structured validation errors", async 
       assert.match(payload.error.issues[0].message, /JSON object/);
     }
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -583,7 +834,7 @@ test("oversized request bodies are rejected with a JSON 413 response", async () 
       },
     });
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -624,11 +875,11 @@ test("legacy JSON extraction endpoint does not return a mock result", async () =
     assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
     assert.match(result.error.message, /legacy JSON extraction endpoint is disabled/);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
-test("multipart purchase-order upload accepts signed PDF or JPEG and never claims extraction", async () => {
+test("multipart purchase-order upload accepts signed PDF, rejects malformed JPEG and never claims extraction", async () => {
   const { child } = await startServer({ USTAAD_ENABLE_LIVE_MODEL_CALLS: "false" });
 
   try {
@@ -684,10 +935,10 @@ test("multipart purchase-order upload accepts signed PDF or JPEG and never claim
       method: "POST",
       body: validJpeg,
     });
-    assert.equal(jpegUnavailable.status, 503);
-    assert.equal((await jpegUnavailable.json()).error.code, "SERVICE_UNAVAILABLE");
+    assert.equal(jpegUnavailable.status, 400);
+    assert.equal((await jpegUnavailable.json()).error.code, "VALIDATION_ERROR");
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -726,7 +977,7 @@ test("job API requires an explicit confirmation for a PO-review selection", asyn
     assert.equal(payload.error.issues[0].code, "confirmation_required");
     assert.equal(payload.runId, undefined);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -739,7 +990,7 @@ test("unknown routes return JSON 404 responses", async () => {
     assert.match(response.headers.get("content-type"), /application\/json/);
     assert.equal((await response.json()).ok, false);
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -795,7 +1046,7 @@ test("risk endpoint does not present local heuristics as a production prediction
     assert.equal(payload.ok, false);
     assert.equal(payload.error.code, "SERVICE_UNAVAILABLE");
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -832,8 +1083,9 @@ test("demo-mode smoke test covers extraction, validation, risk outputs, approval
   };
 
   try {
+    const demoPoFixture = await readFile(new URL("./fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url));
     const upload = new FormData();
-    upload.append("file", new Blob(["%PDF-1.4 demo fixture"], { type: "application/pdf" }), "demo-order.pdf");
+    upload.append("file", new Blob([demoPoFixture], { type: "application/pdf" }), "demo-order.pdf");
     upload.append("orderId", order.orderId);
     upload.append("paperType", order.paperType);
     upload.append("paperSupplier", order.paperSupplier);
@@ -850,7 +1102,8 @@ test("demo-mode smoke test covers extraction, validation, risk outputs, approval
     assert.equal(conditionsPayload.ok, true);
     assert.equal(conditionsPayload.data.shift, "DAY");
     assert.equal(conditionsPayload.provenance.source, "simulated");
-    assert.equal(conditionsPayload.provenance.freshness, "unassessed");
+    assert.equal(conditionsPayload.provenance.freshness, "stale");
+    assert.ok(conditionsPayload.provenance.ageSeconds > 86400);
 
     const riskResponse = await fetch(`http://127.0.0.1:${PORT}/api/agents/predictRisk`, {
       method: "POST",
@@ -894,10 +1147,10 @@ test("demo-mode smoke test covers extraction, validation, risk outputs, approval
     assert.equal(explanationResponse.status, 200);
     const explanationPayload = await explanationResponse.json();
     assert.equal(explanationPayload.ok, true);
-    assert.match(explanationPayload.explanation, /Synthetic demo mode/i);
+    assert.match(explanationPayload.explanation, /Local mock demo mode/i);
 
     const jobForm = new FormData();
-    jobForm.append("file", new Blob(["%PDF-1.4 demo fixture"], { type: "application/pdf" }), "demo-order.pdf");
+    jobForm.append("file", new Blob([demoPoFixture], { type: "application/pdf" }), "demo-order.pdf");
     jobForm.append("orderId", order.orderId);
     jobForm.append("paperType", order.paperType);
     jobForm.append("paperSupplier", order.paperSupplier);
@@ -940,11 +1193,11 @@ test("demo-mode smoke test covers extraction, validation, risk outputs, approval
     assert.equal(readBackPayload.jobSheet?.jobId ?? readBackPayload.jobId, jobId);
     assert.equal(readBackPayload.jobSheet?.status ?? readBackPayload.status, "APPROVED");
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
-test("Day 2 analysis routes validate inputs and never fabricate unavailable results", async () => {
+test("Day 2 mock analysis routes remain unavailable outside explicit demo mode", async () => {
   const { child } = await startServer();
   const order = {
     orderId: "PO-TEST-DAY2",
@@ -998,14 +1251,13 @@ test("Day 2 analysis routes validate inputs and never fabricate unavailable resu
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ order: { ...order, quantity: 0 }, conditions }),
       });
-      assert.equal(invalid.status, 400, endpoint);
+      assert.equal(invalid.status, 503, endpoint);
       const failure = await invalid.json();
       assert.equal(failure.ok, false, endpoint);
-      assert.equal(failure.error.code, "VALIDATION_ERROR", endpoint);
-      assert.ok(failure.error.issues.length > 0, endpoint);
+      assert.equal(failure.error.code, "SERVICE_UNAVAILABLE", endpoint);
     }
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -1019,12 +1271,26 @@ test("documented Part 2 routes validate requests and expose unconfigured integra
       body: JSON.stringify({
         order: { itemCode: "PKBX0041", quantity: 1300, paperType: "RECYCLED", paperSupplier: "SUP-D" },
         conditions: { shift: "DAY", ambientRhPct: 86, ambientTempC: 26, paperMoisturePct: 10.8 },
+        conditionsConfirmed: true,
         levers: { sfSpeedMpm: 48, rollTempC: 162, gumApplication: "HIGH", gumViscositySec: 32,
           pastingPressure: "MED", dryingHours: 5, printSpeedSpm: 60 },
       }),
     });
     assert.equal(validRisk.status, 503, "valid contract should reach the configured-service boundary");
     assert.equal((await validRisk.json()).error.code, "SERVICE_UNAVAILABLE");
+
+    const unconfirmedRisk = await fetch(`http://127.0.0.1:${PORT}/risk/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order: { itemCode: "PKBX0041", quantity: 1300, paperType: "RECYCLED", paperSupplier: "SUP-D" },
+        conditions: { shift: "DAY", ambientRhPct: 86, ambientTempC: 26, paperMoisturePct: 10.8 },
+        levers: { sfSpeedMpm: 48, rollTempC: 162, gumApplication: "HIGH", gumViscositySec: 32,
+          pastingPressure: "MED", dryingHours: 5, printSpeedSpm: 60 },
+      }),
+    });
+    assert.equal(unconfirmedRisk.status, 400);
+    assert.equal((await unconfirmedRisk.json()).error.code, "VALIDATION_ERROR");
 
     const invalidRisk = await fetch(`http://127.0.0.1:${PORT}/risk/predict`, {
       method: "POST",
@@ -1079,7 +1345,7 @@ test("documented Part 2 routes validate requests and expose unconfigured integra
     assert.equal(invalidInsightsRange.status, 400);
     assert.equal((await invalidInsightsRange.json()).error.code, "VALIDATION_ERROR");
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });
 
@@ -1179,7 +1445,7 @@ test("job lifecycle routes do not imply persistence or approval while cloud serv
       method: "POST",
     });
     assert.equal(approved.status, 503);
-    assert.equal((await approved.json()).error.code, "SERVICE_UNAVAILABLE");
+    assert.equal((await approved.json()).error.code, "MODEL_ACCEPTANCE_REQUIRED");
 
     const invalidFeedbackPayloads = [
       { jobId: "JC-TEST" },
@@ -1235,6 +1501,6 @@ test("job lifecycle routes do not imply persistence or approval while cloud serv
       assert.equal(response.status, 404, `${path} is not part of the current API`);
     }
   } finally {
-    child.kill("SIGTERM");
+    await stopServer(child);
   }
 });

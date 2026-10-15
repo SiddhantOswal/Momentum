@@ -22,8 +22,8 @@ const input = {
   },
 };
 
-test("risk UI projects actual order and conditions onto the strict live prediction contract", () => {
-  const payload = toRiskPredictionPayload(input);
+test("risk UI projects actual order and confirmed conditions onto the strict live prediction contract", () => {
+  const payload = toRiskPredictionPayload({ ...input, conditionsConfirmed: true });
   assert.deepEqual(payload, {
     order: {
       itemCode: "PKBX0041", quantity: 1300,
@@ -33,6 +33,7 @@ test("risk UI projects actual order and conditions onto the strict live predicti
       shift: "DAY", ambientRhPct: 86, ambientTempC: 26,
       paperMoisturePct: 10.8,
     },
+    conditionsConfirmed: true,
     levers: input.levers,
   });
   assert.equal(RiskPredictionRequestSchema.safeParse(payload).success, true);
@@ -40,4 +41,5 @@ test("risk UI projects actual order and conditions onto the strict live predicti
 
 test("risk UI rejects missing workflow groups rather than creating a partial prediction", () => {
   assert.throws(() => toRiskPredictionPayload({ order: input.order }), /Order, conditions, and machine settings/);
+  assert.throws(() => toRiskPredictionPayload(input), /Condition confirmation is required/);
 });

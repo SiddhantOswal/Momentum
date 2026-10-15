@@ -60,3 +60,12 @@ test('production UI preserves genuine BigQuery, Gemini and observed records with
 test('backend data-policy errors remain unavailable without exposing sample messaging', () => {
   assert.throws(()=>assertProductionResponse({ok:false,error:{code:'VALIDATION_ERROR',message:'Only approved synthetic fixtures are accepted.'}}), error=> /backend data policy/.test(error.message) && !/synthetic|simulated|fixture/i.test(error.message));
 });
+
+test('explicit hackathon display policy permits labeled synthetic inputs but still rejects mock provider results', () => {
+  const payloads = [{ok:true,source:'bigquery',sensorSource:'simulated'}, {ok:true,monthly:[{series:'simulated'}]}, {ok:true,jobSheet:{isSynthetic:true}}];
+  for (const payload of payloads) {
+    assert.doesNotThrow(()=>assertProductionResponse(payload, 'HACKATHON_DEMO'));
+    assert.throws(()=>assertProductionResponse(payload));
+  }
+  for (const source of ['mock-demo','offline-test-adapter','preview']) assert.throws(()=>assertProductionResponse({ok:true,source}, 'HACKATHON_DEMO'));
+});

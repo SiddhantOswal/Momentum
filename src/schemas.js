@@ -59,6 +59,7 @@ const orderProfileShape = {
 export const OrderProfileSchema = z.object(orderProfileShape).strict();
 export const JobSheetOrderSchema = z.object({
   ...orderProfileShape,
+  sourcePoNumber: nonEmptyString.optional(),
   purchaseOrderLineIndex: z.number().int().nonnegative().optional(),
   purchaseOrderSourcePage: z.number().int().positive().optional(),
 }).strict();
@@ -270,12 +271,14 @@ export const RiskPredictionRequestSchema = z.object({
     ambientTempC: finiteNumber,
     paperMoisturePct: finiteNumber.min(0).max(20),
   }),
+  conditionsConfirmed: z.literal(true).optional(),
   levers: LeversSchema,
 }).strict();
 
 export const RiskOptimizationRequestSchema = z.object({
   order: OrderProfileSchema,
   conditions: RunConditionsSchema,
+  conditionsConfirmed: z.literal(true).optional(),
   levers: LeversSchema,
 }).strict();
 
@@ -567,6 +570,31 @@ export const LotRowSchema = z.object({
   primary_defect: DefectSchema,
 }).strict();
 
+export const ApprovalAuditSchema = z.object({
+  jobId: nonEmptyString,
+  actorUid: z.string().regex(/^[A-Za-z0-9:_-]{1,128}$/),
+  actorType: z.literal("HACKATHON_DEMO_PARTICIPANT").optional(),
+  authorizationMode: z.literal("HACKATHON_DEMO").optional(),
+  identityProvider: z.literal("server-signed-demo-session").optional(),
+  authenticatedHuman: z.literal(false).optional(),
+  action: z.literal("APPROVE"),
+  previousStatus: z.literal("DRAFT"),
+  newStatus: z.literal("APPROVED"),
+  decidedAt: TimestampSchema,
+  correlationId: z.string().uuid(),
+  decisionId: z.string().uuid(),
+  cardUri: z.string().regex(/^gs:\/\/prepagent-hack-data\/jobcards\/[A-Za-z0-9._%/-]+\.pdf$/),
+}).strict().superRefine((audit, ctx) => {
+  const demo = audit.actorUid.startsWith("demo:") || audit.jobId.startsWith("JOB-HACK-") ||
+    [audit.actorType, audit.authorizationMode, audit.identityProvider, audit.authenticatedHuman].some(value => value !== undefined);
+  if (demo && (audit.actorType !== "HACKATHON_DEMO_PARTICIPANT" || audit.authorizationMode !== "HACKATHON_DEMO" ||
+      audit.identityProvider !== "server-signed-demo-session" || audit.authenticatedHuman !== false ||
+      !/^demo:[a-f0-9]{32}$/.test(audit.actorUid) ||
+      !new RegExp(`^JOB-HACK-${audit.actorUid.slice(5)}-[a-f0-9]{40}$`).test(audit.jobId))) {
+    ctx.addIssue({ code: "custom", message: "Demo approval requires complete matching session provenance." });
+  }
+});
+
 export const JobSheetRowSchema = z.object({
   job_id: nonEmptyString,
   created_at: TimestampSchema,
@@ -584,6 +612,7 @@ export const JobSheetRowSchema = z.object({
   currency: CurrencySchema,
   approved_at: TimestampSchema.nullable(),
   card_uri: nonEmptyString.nullable(),
+  approval_audit_json: ApprovalAuditSchema.nullable().optional(),
 }).strict();
 
 export const StoredJobSheetSchema = z.object({
@@ -605,6 +634,7 @@ export const StoredJobSheetSchema = z.object({
   }).strict(),
   approvedAt: TimestampSchema.nullable(),
   cardUri: nonEmptyString.nullable(),
+  approvalAudit: ApprovalAuditSchema.nullable().optional(),
 }).strict();
 
 export const JobSheetWriteMetadataSchema = z.object({

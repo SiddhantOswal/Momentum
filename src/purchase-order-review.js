@@ -109,7 +109,7 @@ export function createPurchaseOrderReviewService({
   } = {}) {
     pruneExpired();
     const review = reviews.get(reviewId);
-    const demoMode = process.env.USTAAD_ENABLE_DEMO_MODE === "true";
+    const demoMode = !process.env.K_SERVICE && process.env.USTAAD_AUTHORIZATION_MODE !== "HACKATHON_DEMO" && process.env.USTAAD_ENABLE_DEMO_MODE === "true";
     if (!review || review.reviewFingerprint !== reviewFingerprint ||
         !(fileBytes instanceof Uint8Array) ||
         (!demoMode && digest(fileBytes) !== review.fileDigest)) {

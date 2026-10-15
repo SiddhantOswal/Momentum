@@ -1833,6 +1833,10 @@ output {
   min-width:0;
 }
 
+.chart-frame canvas {
+  max-width:100%;
+}
+
 .chart-frame--short {
   height:260px;
 }
@@ -1915,6 +1919,10 @@ th:not(:first-child),td:not(:first-child) {
   grid-template-columns:1fr 1fr;
   gap:32px;
   padding-top:32px;
+}
+
+.impact-pair > section {
+  min-width:0;
 }
 
 .impact-pair h2 {
@@ -2939,3 +2947,10 @@ th,td { padding:11px 13px; }
   .job-workspace { padding:20px; }
   .chart-frame { height:240px; }
 }
+
+/* Shared comparison and stage views adopted from the supplied guided dashboard. */
+.setting-change-note { display:inline-block; padding-left:8px; font-size:10px; font-weight:500; color:var(--color-accent); }
+.manufacturing-sequence td:first-child { width:44px; font-variant-numeric:tabular-nums; color:var(--muted); }
+.manufacturing-sequence td { vertical-align:top; }
+.manufacturing-settings { display:block; }
+.manufacturing-settings + .manufacturing-settings { margin-top:4px; }

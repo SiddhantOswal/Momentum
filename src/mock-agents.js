@@ -59,7 +59,7 @@ const DEMO_RISK = {
   primaryDefect: "WARP",
 };
 
-const DEMO_EXPLANATION = "Synthetic demo mode: this is a deterministic local workflow result for presentation and validation only. It does not represent a live model inference, plant telemetry, or verified savings outcome.";
+const DEMO_EXPLANATION = "Local mock demo mode: this is a deterministic local workflow result for presentation and validation only. It does not represent a live model inference, plant telemetry, or verified savings outcome.";
 
 function demoModeEnabled() {
   return !process.env.K_SERVICE && process.env.USTAAD_ENABLE_DEMO_MODE === "true";
@@ -134,13 +134,13 @@ function demoOptimizationFor(order = DEMO_ORDER, conditions = DEMO_CONDITIONS, l
       lever: "rollTempC",
       from: baselineLevers.rollTempC,
       to: bestLevers.rollTempC,
-      reason: "Synthetic demo: reduce roll temperature to lower WARP risk.",
+      reason: "Local mock demo: reduce roll temperature to lower WARP risk.",
     },
     {
       lever: "dryingHours",
       from: baselineLevers.dryingHours,
       to: bestLevers.dryingHours,
-      reason: "Synthetic demo: shorten drying to improve crack stability.",
+      reason: "Local mock demo: shorten drying to improve crack stability.",
     },
   ].filter((change) => change.from !== change.to);
   return {
@@ -148,7 +148,7 @@ function demoOptimizationFor(order = DEMO_ORDER, conditions = DEMO_CONDITIONS, l
     best: { levers: bestLevers, risk: best },
     changes,
     savings: { kg: Math.max(0, baseline.totalScrapKg - best.totalScrapKg), inr: Math.max(0, baseline.scrapCost - best.scrapCost) },
-    note: "Synthetic demo mode: optimization values are illustrative and not a live plant recommendation.",
+    note: "Local mock demo mode: optimization values are illustrative and not a live plant recommendation.",
   };
 }
 
@@ -162,7 +162,7 @@ function demoEvidenceFor(order = DEMO_ORDER, conditions = DEMO_CONDITIONS, lever
     levers: { ...DEMO_BASE_LEVERS, ...levers },
     ratesPct: risk.ratesPct,
     itemCode: order.itemCode ?? DEMO_ORDER.itemCode,
-    description: "Synthetic demo lot used to validate the UI flow without live production data.",
+    description: "Local mock demo lot used to illustrate the UI flow; not a production record.",
     shift: conditions.shift ?? DEMO_CONDITIONS.shift,
     ambientRhPct: conditions.ambientRhPct ?? DEMO_CONDITIONS.ambientRhPct,
     paperType: order.paperType ?? DEMO_ORDER.paperType,
@@ -172,7 +172,7 @@ function demoEvidenceFor(order = DEMO_ORDER, conditions = DEMO_CONDITIONS, lever
     scrapCost: risk.scrapCost,
     currency: risk.currency,
     distance: 0.8,
-    operatorNote: "Synthetic evidence only.",
+    operatorNote: "Local mock evidence only.",
   }];
 }
 
@@ -219,10 +219,10 @@ export function getConditions(input) {
       timestamp: "2026-10-11T12:00:00.000Z",
       plantId: "PLANT-DEMO-01",
       source: "simulated",
-      recordedSource: "synthetic demo",
-      retrievedAt: "2026-10-11T12:00:00.000Z",
-      ageSeconds: 60,
-      freshness: "unassessed",
+      recordedSource: "local mock demo",
+      retrievedAt: new Date().toISOString(),
+      ageSeconds: Math.max(0, Math.floor((Date.now() - Date.parse("2026-10-11T12:00:00Z")) / 1000)),
+      freshness: "stale",
     },
     data: {
       ...DEMO_CONDITIONS,
@@ -384,11 +384,11 @@ export function generateJobSheet(order, conditions, analysis) {
       readingId: "READ-DEMO-001",
       timestamp: "2026-10-11T12:00:00.000Z",
       plantId: "PLANT-DEMO-01",
-      source: "live",
-      recordedSource: "synthetic demo",
-      retrievedAt: "2026-10-11T12:00:00.000Z",
-      ageSeconds: 60,
-      freshness: "fresh",
+      source: "simulated",
+      recordedSource: "local mock demo",
+      retrievedAt: new Date().toISOString(),
+      ageSeconds: Math.max(0, Math.floor((Date.now() - Date.parse("2026-10-11T12:00:00Z")) / 1000)),
+      freshness: "stale",
     },
     optimization: analysis.optimization ?? demoOptimizationFor(order, conditions),
     evidence: analysis.evidence ?? demoEvidenceFor(order, conditions),

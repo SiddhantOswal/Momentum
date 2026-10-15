@@ -1,0 +1,13 @@
+// Proposed STAGE B rules; do not deploy without approval and a fresh rules diff.
+// Existing release was NOT_FOUND at inspection. If a release now exists,
+// preserve and reconcile it instead of replacing it with this file.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /gemini_daily_usage/{dayKey} {
+      allow read, write: if false;
+    }
+    // Everything else remains denied by default. Server ADC uses IAM,
+    // independently of these browser/mobile client rules.
+  }
+}

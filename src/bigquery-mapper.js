@@ -272,5 +272,6 @@ export function mapJobSheetFromBigQuery(input) {
     },
     approvedAt: row.approved_at,
     cardUri: row.card_uri,
+    ...(row.approval_audit_json === undefined ? {} : { approvalAudit: row.approval_audit_json }),
   });
 }

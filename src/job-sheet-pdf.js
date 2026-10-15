@@ -1,3 +1,4 @@
+import { HACKATHON_APPROVAL_NOTE } from "./hackathon-demo-auth.js";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -110,6 +111,7 @@ function collectText(jobSheet) {
   lines.push(
     ["heading", "Order"],
     ["line", `Order ID: ${jobSheet.order.orderId}`],
+    ...(jobSheet.order.sourcePoNumber ? [["line", `Original PO number: ${jobSheet.order.sourcePoNumber}`]] : []),
     ...(jobSheet.order.purchaseOrderLineIndex === undefined
       ? []
       : [["line", `Source PO line (1-based): ${jobSheet.order.purchaseOrderLineIndex + 1}`]]),
@@ -242,6 +244,7 @@ function textRuns(text, locale, configuredFonts) {
 export async function renderJobSheetPdf(input, {
   locale = "en",
   fontPaths = {},
+  localSyntheticDemo = false,
 } = {}) {
   const jobSheet = JobSheetSchema.parse(input);
   const configuredFonts = {
@@ -253,6 +256,8 @@ export async function renderJobSheetPdf(input, {
     unicode: fontPaths.unicode ?? process.env[scriptFontEnvironment.unicode],
   };
   const lines = collectText(jobSheet);
+  if (localSyntheticDemo) lines.splice(1, 0, ["line", "LOCAL MOCK BACKUP - mock outputs and simulated approval; not cloud persisted."]);
+  if (/^JOB-HACK-[a-f0-9]{32}-[a-f0-9]{40}$/.test(jobSheet.jobId)) lines.splice(3, 0, ["line", HACKATHON_APPROVAL_NOTE]);
   const resolvedTextRuns = lines.map(([kind, text]) => ({
     kind,
     text,

@@ -56,6 +56,7 @@ export function createVertexGeminiClient({
   return Object.freeze({
     async generateContent({ contents, tools, signal, onUsage } = {}) {
       if (!Array.isArray(contents) || contents.length === 0 ||
+          Buffer.byteLength(JSON.stringify({ contents, tools }), "utf8") > 65536 ||
           (tools !== undefined && (!Array.isArray(tools) || tools.length === 0)) ||
           (onUsage !== undefined && typeof onUsage !== "function")) {
         throw new VertexGeminiError("INVALID_GENERATION_REQUEST", "Generation contents or function-calling tools are invalid.");
@@ -108,8 +109,9 @@ export function createVertexGeminiClient({
         throw new VertexGeminiError("INVALID_FILE_URI", "Vertex AI file URI is invalid.");
       }
       if (typeof mimeType !== "string" || !/^[\w.+-]+\/[\w.+-]+$/.test(mimeType) ||
-          typeof prompt !== "string" || prompt.length === 0 ||
+          typeof prompt !== "string" || prompt.length === 0 || prompt.length > 12000 ||
           responseSchema === null || typeof responseSchema !== "object" ||
+          Buffer.byteLength(JSON.stringify(responseSchema), "utf8") > 16384 ||
           (onUsage !== undefined && typeof onUsage !== "function")) {
         throw new VertexGeminiError("INVALID_GENERATION_REQUEST", "Vertex AI generation request is invalid.");
       }
@@ -137,6 +139,7 @@ export function createVertexGeminiClient({
             }],
             generationConfig: {
               temperature: 0,
+              maxOutputTokens: 2048,
               responseMimeType: "application/json",
               responseSchema,
             },

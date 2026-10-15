@@ -83,6 +83,7 @@ const input = {
     ambientTempC: 26,
     paperMoisturePct: 10.8,
   },
+  conditionsConfirmed: true,
   levers: {
     sfSpeedMpm: 48,
     rollTempC: 162,

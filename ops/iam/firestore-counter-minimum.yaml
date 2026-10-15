@@ -1,0 +1,11 @@
+# Optional later tightening only. Existing roles/datastore.user already grants
+# these permissions. Do not remove that role while old revisions may use
+# Firestore job idempotency and require delete permissions.
+title: Ustaad Gemini counter transactions
+description: Transaction begin/rollback and individual counter document read/create/update. No list or delete.
+stage: GA
+includedPermissions:
+  - datastore.databases.get
+  - datastore.entities.get
+  - datastore.entities.create
+  - datastore.entities.update

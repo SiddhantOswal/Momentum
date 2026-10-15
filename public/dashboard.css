@@ -1,0 +1,41 @@
+/* Guided layout adapted from Om's supplied public/styles.css. Shared product
+   tokens, components and backend workflows remain authoritative. */
+.guided-dashboard #main-content { width:100%; max-width:1360px; margin-inline:auto; padding:24px clamp(22px,3.4vw,48px) 0; }
+.guided-dashboard .app-header { max-width:1360px; margin-inline:auto; }
+.guided-dashboard .context-bar { gap:14px; }
+.guided-dashboard .context-bar>span:nth-of-type(2) { margin-left:auto; }
+.dashboard-stages { display:flex; flex-wrap:wrap; gap:12px; padding:0 0 24px; margin-bottom:4px; }
+.dashboard-stages[hidden] { display:none; }
+.dashboard-stages a { display:flex; align-items:center; gap:10px; min-height:48px; padding:8px 18px 8px 8px; border:1px solid var(--line); border-radius:8px; text-decoration:none; color:var(--muted); transition:background-color 180ms,border-color 180ms; }
+.dashboard-stages a:hover { background:var(--surface); border-color:var(--color-accent); }
+.dashboard-stages a[aria-current="step"] { color:var(--text); background:var(--surface); border-color:var(--kraft); }
+.dashboard-stage-number { width:30px; height:30px; display:grid; place-items:center; border-radius:50%; background:var(--surface); font-size:13px; font-variant-numeric:tabular-nums; }
+.dashboard-stages [aria-current="step"] .dashboard-stage-number { background:#c8a57c; color:#101719; }
+.dashboard-stages strong { display:block; font-size:14px; font-weight:500; }
+.dashboard-stages small { display:block; color:var(--muted); font-size:11px; }
+.guided-dashboard .page-heading { padding:6px 0 18px; margin-bottom:18px; }
+.guided-dashboard .intake-layout { grid-template-columns:minmax(0,1.2fr) minmax(280px,1fr); }
+.guided-dashboard .order-source { padding:24px; }
+.guided-dashboard .lot-context { padding:24px; }
+.guided-dashboard .agent-workspace { grid-template-columns:240px minmax(0,1fr); }
+.guided-dashboard .job-workspace { margin-top:0; padding:26px; }
+.guided-dashboard .job-workspace h1 { font-size:30px; line-height:1.2; margin:0; }
+.guided-dashboard .job-layout { grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr); }
+.guided-dashboard .job-workspace .approval-area { padding-left:24px; }
+@media (max-width:1024px) {
+  .guided-dashboard .agent-workspace { grid-template-columns:210px minmax(0,1fr); }
+}
+@media (max-width:900px) {
+  .guided-dashboard .intake-layout,.guided-dashboard .agent-workspace,.guided-dashboard .job-layout { grid-template-columns:1fr; }
+  .guided-dashboard .job-workspace .approval-area { padding-left:0; }
+}
+@media (max-width:600px) {
+  .dashboard-stages { gap:7px; padding-bottom:18px; }
+  .dashboard-stages a { flex:1; justify-content:center; gap:6px; padding:8px 6px; min-width:0; }
+  .dashboard-stages strong { font-size:11px; }
+  .dashboard-stages small { display:none; }
+  .dashboard-stage-number { width:24px; height:24px; flex-shrink:0; }
+  .guided-dashboard .order-source,.guided-dashboard .lot-context,.guided-dashboard .job-workspace { padding:18px; }
+}
+@media (prefers-reduced-motion:reduce) { .dashboard-stages a { transition:none; } }
+@media print { .dashboard-stages { display:none; } }

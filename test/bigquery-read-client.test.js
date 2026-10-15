@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   BigQueryReadError,
   createBigQueryReadClient,
@@ -60,6 +61,25 @@ test("BigQuery read client sends named parameters and a bounded standard SQL que
   assert.equal(result.totalRows, 1);
   assert.equal(result.totalBytesProcessed, 1024);
   assert.equal(result.jobReference.jobId, "test-job");
+});
+
+test("BigQuery read client accepts the exact canonical optimizer guards but refuses added scripting or writes", async () => {
+  let requests = 0;
+  const client = createBigQueryReadClient({
+    projectId: "prepagent-hack", tokenProvider: async () => "test-token",
+    fetchImpl: async (_url, options) => {
+      requests += 1;
+      assert.match(JSON.parse(options.body).query, /ASSERT EXISTS/);
+      return jsonResponse({ jobComplete: true, schema: { fields: [] }, rows: [], totalRows: "0" });
+    },
+  });
+  const canonical = readFileSync(new URL("../sql/optimize.sql", import.meta.url), "utf8");
+  await client.query({ sql: canonical, parameters: { item_code: "PKBX0041" } });
+  assert.equal(requests, 1);
+  for (const sql of [canonical + "\nDELETE FROM prepagent.lots WHERE TRUE;", canonical.replace("WITH spec AS", "ASSERT TRUE; WITH spec AS"), "ASSERT TRUE; SELECT 1"]) {
+    await assert.rejects(client.query({ sql }), { code: "READ_ONLY_QUERY_REQUIRED" });
+  }
+  assert.equal(requests, 1);
 });
 
 test("BigQuery read client refuses writes and multi-statement SQL before requesting credentials", async () => {

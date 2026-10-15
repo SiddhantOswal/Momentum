@@ -33,5 +33,5 @@ export function isJobDisplay(value) {
   return !!(value && typeof value.jobId === 'string' && value.jobId.trim() && ['DRAFT','APPROVED','RUN','CLOSED'].includes(value.status)
     && validFields(value.order, ORDER_FIELDS) && Number.isSafeInteger(value.order.quantity) && value.order.quantity > 0
     && isConditionsDisplay(value.conditions) && typeof value.explanation === 'string' && value.explanation.trim()
-    && isOptimizationDisplay({baseline:value.baseline,best:value.recommended,changes:value.changes,savings:value.savings}));
+    && isOptimizationDisplay({baseline:value.baseline,best:value.recommended,changes:value.changes,savings: value.savings?.inr !== undefined ? value.savings : { ...value.savings, inr: value.savings?.currency === "INR" ? value.savings.amount : undefined }}));
 }

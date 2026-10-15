@@ -97,6 +97,21 @@ export function createRiskPredictionService({
 
   return async function predictRisk(input = {}) {
     try {
+      if (input.conditionsConfirmed !== true) {
+        return {
+          ok: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Plant-condition confirmation is required before prediction.",
+            issues: [{
+              field: "conditionsConfirmed",
+              path: ["conditionsConfirmed"],
+              code: "confirmation_required",
+              message: "Confirm or edit the displayed plant conditions before requesting prediction.",
+            }],
+          },
+        };
+      }
       const rawParameters = mapRiskPredictionParameters(input);
       const parameters = {
         item_code: rawParameters.item_code,

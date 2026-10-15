@@ -147,3 +147,20 @@ test("JobSheet renderer reports approval only when the supplied status says APPR
 
   assert.match(renderedText, /Status: APPROVED/);
 });
+
+test("session-scoped hackathon cards carry the exact demonstration approval disclaimer", async () => {
+  const { HACKATHON_APPROVAL_NOTE } = await import("../src/hackathon-demo-auth.js");
+  const jobId = `JOB-HACK-${"a".repeat(32)}-${"b".repeat(40)}`;
+  const pdf = await renderJobSheetPdf({ ...jobSheetFixture, jobId, status: "APPROVED" });
+  const text = extractBuiltInFontText(pdf);
+  assert.ok(text.includes(HACKATHON_APPROVAL_NOTE));
+  assert.match(text, /Status: APPROVED/);
+});
+
+test("local synthetic cards disclose mock approval before the job identity; default cloud rendering does not opt in", async () => {
+ const text=extractBuiltInFontText(await renderJobSheetPdf(jobSheetFixture,{localSyntheticDemo:true}));
+ assert.ok(text.includes("LOCAL MOCK BACKUP"));
+ assert.ok(text.indexOf("LOCAL MOCK BACKUP")<text.indexOf("Job ID:"));
+ const normal=extractBuiltInFontText(await renderJobSheetPdf(jobSheetFixture));
+ assert.doesNotMatch(normal,/LOCAL MOCK BACKUP/);
+});

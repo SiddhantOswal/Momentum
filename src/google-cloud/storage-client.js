@@ -99,7 +99,19 @@ export function createCloudStorageClient({
         gcsUri: `gs://${bucket}/${name}`,
       });
     },
-    async download({ name, signal } = {}) {
+    async getMetadata({ name, signal } = {}) {
+      validateObjectName(name);
+      const accessToken = await provideToken({ signal });
+      if (typeof accessToken !== "string" || !accessToken) throw new CloudStorageError("CLOUD_IDENTITY_UNAVAILABLE", "No cloud access token was provided.");
+      const url = new URL(`${STORAGE_API}/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(name)}`);
+      url.searchParams.set("fields", "name,generation,size,contentType");
+      const response = await fetchImpl(url, { headers: { Authorization: `Bearer ${accessToken}` }, signal });
+      if (!response.ok) throw new CloudStorageError("CLOUD_STORAGE_METADATA_FAILED", "The approved object metadata could not be read.");
+      const data = await response.json();
+      if (data?.name !== name || !/^[0-9]+$/.test(data.generation ?? "") || !/^[0-9]+$/.test(data.size ?? "") || !Number.isSafeInteger(Number(data.size))) throw new CloudStorageError("CLOUD_STORAGE_OBJECT_INVALID", "The stored object metadata is invalid.");
+      return Object.freeze({ name, generation: data.generation, size: Number(data.size), contentType: data.contentType });
+    },
+    async download({ name, signal, generation } = {}) {
       validateObjectName(name);
       const accessToken = await provideToken({ signal });
       if (typeof accessToken !== "string" || accessToken.length === 0) {
@@ -109,6 +121,10 @@ export function createCloudStorageClient({
       try {
         const url = new URL(`${STORAGE_API}/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(name)}`);
         url.searchParams.set("alt", "media");
+        if (generation !== undefined) {
+          if (typeof generation !== "string" || !/^[0-9]+$/.test(generation)) throw new CloudStorageError("INVALID_OBJECT_GENERATION", "A valid object generation is required.");
+          url.searchParams.set("generation", generation);
+        }
         response = await fetchImpl(url, {
           headers: { Authorization: `Bearer ${accessToken}` },
           signal,

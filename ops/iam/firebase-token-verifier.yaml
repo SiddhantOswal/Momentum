@@ -1,0 +1,5 @@
+title: Ustaad supervisor token verifier
+description: Read Firebase user state solely for server ID-token revocation verification; cannot create users or assign claims.
+stage: GA
+includedPermissions:
+  - firebaseauth.users.get

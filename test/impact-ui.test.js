@@ -34,8 +34,7 @@ const summary = {
     crack: 0.4,
   }],
   topItems: [{
-    itemCode: "PKBX0041",
-    description: "B1047",
+    label: "Item 1",
     lots: 42,
     avgScrapPct: 7.1,
     scrapCost12m: 15000,
@@ -72,6 +71,14 @@ test("Impact UI rejects unavailable, malformed, inconsistent and unsafe display 
   assert.equal(isImpactSummary({
     ...summary,
     counterfactual: { ...summary.counterfactual, label: "measured production savings" },
+  }), false);
+  assert.equal(isImpactSummary({
+    ...summary,
+    topItems: [{ ...summary.topItems[0], itemCode: "CUSTOMER-IDENTIFIER" }],
+  }), false);
+  assert.equal(isImpactSummary({
+    ...summary,
+    topItems: [{ ...summary.topItems[0], description: "<img src=x onerror=alert(1)>" }],
   }), false);
 });
 

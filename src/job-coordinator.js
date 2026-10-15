@@ -438,6 +438,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         ambientTempC: conditions.ambientTempC,
         paperMoisturePct: conditions.paperMoisturePct,
       },
+      conditionsConfirmed,
       levers: context.levers,
       signal,
     }));
@@ -498,6 +499,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
     const optimization = await execute("optimizeLevers", () => services.optimizeRisk({
       order,
       conditions,
+      conditionsConfirmed,
       levers: context.levers,
       signal,
     }));
@@ -656,6 +658,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
           ? order
           : {
             ...order,
+            ...(extracted.result.purchaseOrderDocument?.poNumber ? { sourcePoNumber: extracted.result.purchaseOrderDocument.poNumber } : {}),
             purchaseOrderLineIndex: selectedLineIndex,
             purchaseOrderSourcePage,
           },

@@ -1,6 +1,6 @@
 import { isConditionsDisplay, isJobDisplay } from "./contracts.js";
 import { markMoney, refreshMoney } from "./currency-display.js";
-import { apiUrl, request, createRequestGate } from "./api.js";
+import { apiUrl, request, createRequestGate, setResponseAuthorizationMode, isLocalSyntheticRuntime } from "./api.js";
 import { REQUEST_FIELDS, LEVER_DEFINITIONS } from "./fields.js";
 import { initShell, toast, renderRisk, renderComparison, renderStoredSheet, renderImpactCharts, clearCharts, initDefectCheck } from "./components.js";
 
@@ -58,7 +58,7 @@ function showBackendUnavailable() {
 function updateConditionsAvailability(response, payload) {
   const target = document.getElementById("current-conditions-availability");
   if (response.ok) {
-    target.textContent = "Sensor reading returned by backend";
+    target.textContent = payload.sensorSource === "simulated" ? "Simulated reading · confirmation required" : "Reading returned by backend · verify provenance";
   } else if (payload?.error?.code === "SERVICE_UNAVAILABLE") {
     target.textContent = "Unavailable: backend has no usable sensor reading";
   } else {
@@ -66,8 +66,23 @@ function updateConditionsAvailability(response, payload) {
   }
 }
 
+let hackathonUI = false;
+let localSyntheticUI = false;
 let supervisorSessionModule;
 async function configureSupervisorSession(status) {
+  localSyntheticUI = isLocalSyntheticRuntime(status, location.hostname);
+  hackathonUI = localSyntheticUI || status.authorizationMode === "HACKATHON_DEMO";
+  setResponseAuthorizationMode(status.authorizationMode, status);
+  if (localSyntheticUI) {
+    if (!document.getElementById("local-synthetic-demo-note")) {
+      const note = document.createElement("p"); note.id = "local-synthetic-demo-note"; note.className = "method-note"; note.setAttribute("role", "note");
+      note.textContent = "LOCAL MOCK BACKUP — deterministic mock outputs, not live Gemini or accepted models. Records and feedback exist only in this process memory; restarting resets them. PDFs are generated locally, not stored in Cloud Storage.";
+      document.getElementById("main-content").prepend(note);
+    }
+    document.getElementById("supervisor-auth-status").textContent = "Local simulated approval only — no authenticated human or cloud persistence.";
+    for (const id of ["supervisor-sign-in", "supervisor-sign-out", "supervisor-refresh-session"]) { const control = document.getElementById(id); if (control) control.hidden = true; }
+    return;
+  }
   // The authentication adapter belongs to the backend integration. Load it only
   // when that server advertises the capability; older/local servers still boot.
   if (!status.runtimeAvailability?.supervisorAuthentication) {
@@ -180,6 +195,7 @@ function renderJobSheetPreview(sheet) {
 }
 
 function operatorDiagnostic(value) {
+  if (hackathonUI || value?.authorizationMode === "HACKATHON_DEMO") return value;
   if (typeof value === "string" && /synthetic|simulated/i.test(value)) {
     return "Production provenance remains unverified. Consult backend acceptance records before operational use.";
   }
@@ -276,20 +292,20 @@ function renderImpactTable(bodyId, rows, columns) {
 }
 
 function renderImpactSummary(payload) {
-  if (!isImpactSummary(payload)) {
+  if (!(localSyntheticUI ? isImpactSummary(payload, { allowLocalDemo: true }) : isImpactSummary(payload))) {
     throw new Error("The Impact endpoint returned malformed data; no results were displayed.");
   }
   const { kpis, counterfactual } = payload;
   const lastMonth = payload.monthly.reduce(
     (latest, row) => row.month > latest ? row.month : latest, "");
-  const queryStatus = payload.source === "bigquery-cache"
+  const queryStatus = localSyntheticUI ? "LOCAL MOCK BACKUP — illustrative fixed values, no BigQuery query." : payload.source === "bigquery-cache"
     ? "Cached successful BigQuery response (cache lifetime: at most one hour)."
     : "Queried from BigQuery for this request.";
   const latestMonth = lastMonth
     ? " Latest returned monthly row: " + lastMonth + "."
     : " The monthly query returned no rows.";
   document.getElementById("impact-coverage").textContent =
-    queryStatus + " SQL coverage: records before 1 October 2026." + latestMonth;
+    (hackathonUI ? "Held-out/simulated estimates, not measured factory outcomes. No annualization. " : "") + queryStatus + " SQL coverage: records before 1 October 2026." + latestMonth;
   appendImpactMetric("Estimated net savings · after slower-production allowance", impactMoney(kpis.netSavingMonth, kpis.currency));
   appendImpactMetric("Estimated scrap reduction", kpis.kgSavedMonth.toLocaleString("en-IN") + " kg");
   appendImpactMetric("Held-out lots scored / settings changed", kpis.lotsScored + " / " + kpis.lotsChanged);
@@ -314,8 +330,8 @@ function renderImpactSummary(payload) {
 }
 
 function renderStructuredResponse(outputId, payload) {
-  if (!payload || payload.source === "mock-demo") throw new Error("Production data is unavailable for this action.");
-  if (["risk-result", "what-if-result", "optimization-result"].includes(outputId) &&
+  if (!payload || (!localSyntheticUI && payload.source === "mock-demo")) throw new Error("Production data is unavailable for this action.");
+  if (!localSyntheticUI && ["risk-result", "what-if-result", "optimization-result"].includes(outputId) &&
       (payload.source !== "bigquery-ml" || payload.isRealModelPrediction !== true)) throw new Error("The production analysis response has an unverified source.");
   if (outputId === "upload-result" && payload.orderProfile &&
       typeof payload.orderProfile === "object") {
@@ -328,9 +344,11 @@ function renderStructuredResponse(outputId, payload) {
     if (isConditionsDisplay(data)) {
       for (const field of requestFieldNames.conditions) { const input = document.getElementById("analysis-" + field); if (input && data[field] !== undefined) input.value = String(data[field]); }
       document.getElementById("conditions-supervisor-confirmed").checked = false;
-      document.getElementById("condition-source-label").textContent = "Stored reading · review required";
+      document.getElementById("condition-source-label").textContent = payload.sensorSource === "simulated" ? "Simulated reading · review required" : "Stored reading · review required";
       invalidateAnalysisResults();
       const sensorSource = {
+        simulated: "Simulated — not physical factory telemetry",
+        manual: "Manually entered",
         live: "Unverified source",
         unverified: "Source unverified",
       }[payload.sensorSource] ?? "Source not supplied";
@@ -474,7 +492,7 @@ async function runJsonRequest({ url, options = {}, outputId, button, idleText, o
 let currentStoredJob = null;
 let latestIntegrations = {};
 function applyIntegrationAvailability(integrations = latestIntegrations) {
-  latestIntegrations = integrations ?? {};
+  latestIntegrations = localSyntheticUI ? { ...(integrations ?? {}), predictRisk: false, optimizeRisk: false, findSimilarRuns: false, explainRisk: false, findSeenBefore: false } : integrations ?? {};
   const controls = [
     ["jobCreationAvailable", document.getElementById("prepare-job"), "prepareJobSheet"],
     ["currentConditions", document.querySelector("button[data-json-get='/conditions/current']"), "loadConditions"],
@@ -487,6 +505,7 @@ function applyIntegrationAvailability(integrations = latestIntegrations) {
     ["saveFeedback", document.querySelector("#feedback-form button[type=submit]"), "submitFeedback"],
     ["getStoredJobSheet", document.querySelector("#load-stored-job-form button[type=submit]"), "loadStoredJob"],
     ["getImpactSummary", document.getElementById("load-impact"), "loadImpact"],
+    ["getApprovedPhotos", document.getElementById("load-approved-photos"), null],
   ];
   for (const [key, button, availableKey] of controls) {
     if (!button) continue;
@@ -509,7 +528,7 @@ function applyIntegrationAvailability(integrations = latestIntegrations) {
   const extractionConfigured = latestIntegrations.extractOrder === true;
   setWorkflowBadge("extraction-workflow-badge", extractionConfigured,
     "Extraction adapter configured", "Extraction unavailable");
-  const analysisConfigured = [
+  const analysisConfigured = localSyntheticUI || [
     "currentConditions", "predictRisk", "optimizeRisk", "findSimilarRuns", "explainRisk",
   ].every((key) => latestIntegrations[key] === true);
   setWorkflowBadge("analysis-workflow-badge", analysisConfigured,
@@ -768,7 +787,7 @@ document.getElementById("review-order").addEventListener("click", async (event) 
     outputId: "upload-result",
     button,
     onSuccess: (payload) => {
-      if (payload?.source !== "vertex-gemini") throw new Error("The extraction response has an unverified source. No order was accepted.");
+      if (payload?.source !== "vertex-gemini" && !(localSyntheticUI && payload?.source === "mock-demo")) throw new Error("The extraction response has an unverified source. No order was accepted.");
       if (payload?.reviewId && payload?.reviewFingerprint && Array.isArray(payload.lines)) {
         renderPurchaseOrderReview(payload);
       }
@@ -1035,7 +1054,7 @@ function invalidateAnalysisResults(markStale = true) {
 function renderSimilarRuns(payload) {
   const evidence = payload?.evidence;
   if (!Array.isArray(evidence) || evidence.length > 5 ||
-      !["bigquery", "offline-test-adapter"].includes(payload.source) ||
+      !(["bigquery", "offline-test-adapter"].includes(payload.source) || localSyntheticUI && payload.source === "mock-demo") ||
       evidence.some((run) => !run || typeof run.lotId !== "string" ||
         !run.lotId || typeof run.orderId !== "string" || !run.orderId ||
         typeof run.runDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(run.runDate) ||
@@ -1074,7 +1093,7 @@ function renderSimilarRuns(payload) {
     list.append(item);
   }
   list.hidden = evidence.length === 0;
-  document.getElementById("similar-runs-availability").textContent = payload.source === "offline-test-adapter"
+  document.getElementById("similar-runs-availability").textContent = localSyntheticUI ? "Local mock examples, not queried production history." : payload.source === "offline-test-adapter"
     ? "OFFLINE TEST ADAPTER — these test observations are not production history."
     : evidence.length === 0
       ? "No matching historical lots were returned by the configured query."
@@ -1266,8 +1285,11 @@ function applyStoredJobContext(jobSheet) {
   if (!isJobDisplay(jobSheet)) {
     throw new Error("The stored job response was incomplete. Approval remains blocked.");
   }
-  currentStoredJob = jobSheet;
-  renderStoredSheet(jobSheet);
+  const displaySheet = jobSheet.savings?.inr === undefined
+    ? { ...jobSheet, savings: { kg: jobSheet.savings.kg, inr: jobSheet.savings.amount } }
+    : jobSheet;
+  currentStoredJob = displaySheet;
+  renderStoredSheet(displaySheet);
   syncJobControls();
   document.getElementById("shared-job-id").value = jobSheet.jobId;
   const steps = document.querySelectorAll(".lifecycle__steps li");
@@ -1368,17 +1390,17 @@ document.getElementById("prepare-job").addEventListener("click", async (event) =
     outputId: "prepare-job-result",
     button,
     onSuccess: (payload) => {
-      if (payload?.durable === true) {
+      if (payload?.durable === true || (localSyntheticUI && payload?.storageScope === "process-memory")) {
         applyStoredJobContext(payload.jobSheet);
         renderRisk(payload.jobSheet.baseline.risk);
         setResult("risk-result", "Prediction from the persisted draft’s planned settings.", "success");
         setResult("optimization-result", "Recommendation from the persisted draft. Review before approval.", "success");
-        setResult("stored-job-result", "Persisted draft returned and loaded for review.", "success");
+        setResult("stored-job-result", localSyntheticUI ? "Local in-memory draft loaded; not cloud persisted." : "Persisted draft returned and loaded for review.", "success");
         renderComparison({ baseline: payload.jobSheet.baseline, best: payload.jobSheet.recommended, changes: payload.jobSheet.changes, savings: payload.jobSheet.savings });
         if (payload.jobSheet.explanation) {
           const text = document.getElementById("risk-explanation-content"); text.textContent = payload.jobSheet.explanation; text.hidden = false;
         }
-        if (payload.jobSheet.evidence) renderSimilarRuns({ source: "bigquery", evidence: payload.jobSheet.evidence });
+        if (payload.jobSheet.evidence) renderSimilarRuns({ source: localSyntheticUI ? "mock-demo" : "bigquery", evidence: payload.jobSheet.evidence });
         toast("Draft saved. Review the recommendation before approval.");
       }
     },
@@ -1464,7 +1486,7 @@ document.getElementById("stored-card-form").addEventListener("submit", async (ev
       storedCardObjectUrl = URL.createObjectURL(pdf);
       link.href = storedCardObjectUrl;
       link.hidden = false;
-      setResult("stored-card-result", "Stored job card received. Open it to print.", "success");
+      setResult("stored-card-result", localSyntheticUI ? "Local mock PDF generated; not a Cloud Storage object." : "Stored job card received. Open it to print.", "success");
     } else {
       const unavailable = payload?.error?.code === "SERVICE_UNAVAILABLE";
       setResult("stored-card-result", describeResponse(response, payload),
@@ -1827,3 +1849,36 @@ document.getElementById("confirm-order-line").addEventListener("change", syncSel
 for (const id of ["conditions-supervisor-confirmed", "machine-settings-confirmed"]) document.getElementById(id).addEventListener("change", (event) => { if (!event.currentTarget.checked) invalidateAnalysisResults(); syncPlanReadiness(); });
 document.getElementById("purchase-order-lines").addEventListener("input", syncPlanReadiness);
 document.getElementById("purchase-order-lines").addEventListener("change", syncPlanReadiness);
+
+
+const approvedPhotoSelect = document.getElementById("approved-photo-id");
+const classifyPhotoButton = document.getElementById("classify-approved-photo");
+const photoRequestGate = createRequestGate();
+approvedPhotoSelect.addEventListener("change", () => {
+  photoRequestGate.invalidate();
+  classifyPhotoButton.disabled = !approvedPhotoSelect.value || latestIntegrations.classifyApprovedPhoto !== true;
+  document.getElementById("approved-photo-result").textContent = "Selection changed. No classification requested.";
+});
+document.getElementById("load-approved-photos").addEventListener("click", async (event) => {
+  const button = event.currentTarget; button.disabled = true;
+  try {
+    const {response,payload} = await sendRequest("/evidence/approved-photos");
+    if (!response.ok || payload?.ok !== true || !Array.isArray(payload.photos) || payload.photos.length !== 10 || payload.photos.some(photo=>!/^photo-\d{2}$/.test(photo.id) || typeof photo.label !== "string")) throw new Error("The approved photo set is unavailable.");
+    approvedPhotoSelect.replaceChildren(new Option("Select an approved photo", ""));
+    for (const photo of payload.photos) approvedPhotoSelect.append(new Option(photo.label, photo.id));
+    document.getElementById("approved-photo-result").textContent = "Ten approved photos loaded. No model call was made.";
+  } catch(error) {document.getElementById("approved-photo-result").textContent=error.message;}
+  finally {button.disabled = latestIntegrations.getApprovedPhotos !== true;}
+});
+classifyPhotoButton.addEventListener("click", async () => {
+  const photoId=approvedPhotoSelect.value;if(!photoId)return;
+  const gate=photoRequestGate.begin();classifyPhotoButton.disabled=true;
+  document.getElementById("approved-photo-result").textContent="Classifying the approved image…";
+  try {
+    const {response,payload}=await sendRequest("/evidence/classify-photo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({photoId}),signal:gate.signal});
+    if(!gate.current())return;
+    if(!response.ok || payload?.ok!==true || payload.source!=="vertex-gemini" || payload.photoId!==photoId || !["WARP","DELAM","STRENGTH","PRINT","CRACK","NONE"].includes(payload.label)) throw new Error(payload?.error?.message ?? "The photo classification was invalid.");
+    document.getElementById("approved-photo-result").textContent=`${photoId}: ${payload.label}. Real Gemini classification at ${payload.classifiedAt}. Owner-approved demo photo; not a calibrated factory quality assessment.`;
+  } catch(error) {if(gate.current())document.getElementById("approved-photo-result").textContent=error.message;}
+  finally {if(gate.current())classifyPhotoButton.disabled=latestIntegrations.classifyApprovedPhoto!==true;}
+});

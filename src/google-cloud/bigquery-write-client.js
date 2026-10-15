@@ -1,7 +1,8 @@
 import { createCloudRunAccessTokenProvider } from "./bigquery-read-client.js";
+import { ApprovalAuditSchema } from "../schemas.js";
 
 const BIGQUERY_API = "https://bigquery.googleapis.com/bigquery/v2";
-const ALLOWED_TABLES = new Set(["job_sheets", "feedback"]);
+const ALLOWED_TABLES = new Set(["feedback"]);
 
 export class BigQueryWriteError extends Error {
   constructor(code, message) {
@@ -11,7 +12,7 @@ export class BigQueryWriteError extends Error {
   }
 }
 
-export function createBigQueryWriteClient({ projectId, datasetId = "prepagent", location = "asia-south1", fetchImpl = fetch, tokenProvider } = {}) {
+export function createBigQueryWriteClient({ projectId, datasetId = "prepagent", location = "asia-south1", fetchImpl = fetch, tokenProvider, requireApprovalAudit = false } = {}) {
   if (typeof projectId !== "string" || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId)) {
     throw new TypeError("A valid Google Cloud project ID is required.");
   }
@@ -49,6 +50,9 @@ export function createBigQueryWriteClient({ projectId, datasetId = "prepagent", 
 
   return Object.freeze({
     async insertJobSheet({ row, signal } = {}) {
+      if (typeof row?.order_json?.orderId !== "string" || !row.order_json.orderId.startsWith("TEST-")) {
+        throw new BigQueryWriteError("TEST_RECORD_REQUIRED", "JobSheet writes require a validated TEST- order.");
+      }
       if (!row || typeof row !== "object" || row.status !== "DRAFT" ||
           typeof row.job_id !== "string" || row.job_id.length < 1 || row.job_id.length > 128) {
         throw new BigQueryWriteError("INVALID_JOB_SHEET", "A valid DRAFT job-sheet row is required.");
@@ -110,8 +114,11 @@ WHEN NOT MATCHED THEN INSERT (
       return Object.freeze({ inserted: Number(payload.numDmlAffectedRows ?? 0) === 1 });
     },
 
-    async insertRow({ table, insertId, row, signal } = {}) {
+    async insertRow({ table, insertId, row, testOrderId, signal } = {}) {
       if (!ALLOWED_TABLES.has(table)) throw new BigQueryWriteError("TABLE_NOT_ALLOWED", "This BigQuery table is not enabled for writes.");
+      if (typeof testOrderId !== "string" || !testOrderId.startsWith("TEST-")) {
+        throw new BigQueryWriteError("TEST_RECORD_REQUIRED", "Feedback writes require the validated stored TEST- order identity.");
+      }
       if (typeof insertId !== "string" || insertId.length < 1 || insertId.length > 128 || !row || typeof row !== "object" || Array.isArray(row)) {
         throw new BigQueryWriteError("INVALID_INSERT", "A bounded insert ID and row object are required.");
       }
@@ -130,14 +137,20 @@ WHEN NOT MATCHED THEN INSERT (
       return Object.freeze({ inserted: true, insertId });
     },
 
-    async approveDraft({ jobId, approvedAt, cardUri, signal } = {}) {
+    async approveDraft({ jobId, approvedAt, cardUri, approvalAudit, signal } = {}) {
       if (typeof jobId !== "string" || jobId.length < 1 || jobId.length > 128 ||
           typeof approvedAt !== "string" || typeof cardUri !== "string" || !cardUri.startsWith("gs://")) {
         throw new BigQueryWriteError("INVALID_APPROVAL", "A job ID, approval timestamp, and Cloud Storage URI are required.");
       }
+      const audit = approvalAudit === undefined ? undefined : ApprovalAuditSchema.parse(approvalAudit);
+      if (requireApprovalAudit && !audit) throw new BigQueryWriteError("INVALID_APPROVAL_AUDIT", "A complete verified actor audit is required.");
+      if (audit && (audit.jobId !== jobId || audit.cardUri !== cardUri || audit.decidedAt !== approvedAt)) {
+        throw new BigQueryWriteError("INVALID_APPROVAL_AUDIT", "The approval actor audit does not match the decision.");
+      }
       const sql = `UPDATE \`${projectId}.${datasetId}.job_sheets\`
-SET status = 'APPROVED', approved_at = @approvedAt, card_uri = @cardUri
-WHERE job_id = @jobId AND status = 'DRAFT'`;
+SET status = 'APPROVED', approved_at = @approvedAt, card_uri = @cardUri${audit ? ", approval_audit_json = PARSE_JSON(@approvalAudit)" : ""}
+WHERE job_id = @jobId AND status = 'DRAFT'
+  AND STARTS_WITH(JSON_VALUE(order_json, '$.orderId'), 'TEST-')`;
       const payload = await request(`${BIGQUERY_API}/projects/${encodeURIComponent(projectId)}/queries`, {
         method: "POST",
         body: JSON.stringify({
@@ -150,6 +163,7 @@ WHERE job_id = @jobId AND status = 'DRAFT'`;
             { name: "approvedAt", parameterType: { type: "TIMESTAMP" }, parameterValue: { value: approvedAt } },
             { name: "cardUri", parameterType: { type: "STRING" }, parameterValue: { value: cardUri } },
             { name: "jobId", parameterType: { type: "STRING" }, parameterValue: { value: jobId } },
+            ...(audit ? [{ name: "approvalAudit", parameterType: { type: "STRING" }, parameterValue: { value: JSON.stringify(audit) } }] : []),
           ],
         }),
       }, signal);

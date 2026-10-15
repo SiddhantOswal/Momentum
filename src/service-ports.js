@@ -1,3 +1,5 @@
+import approvedPhotos from "../config/approved-photos.json" with { type: "json" };
+import { createApprovedPhotoService } from "./google-cloud/approved-photo-service.js";
 import vertexConfig from "../config/gcp-vertex-ai.json" with { type: "json" };
 import storageConfig from "../config/gcp-storage.json" with { type: "json" };
 import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
@@ -21,6 +23,8 @@ import {
   createSimilarRunsService,
 } from "./google-cloud/risk-evidence-service.js";
 import { createImpactSummaryService } from "./google-cloud/impact-summary-service.js";
+import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "./daily-gemini-call-cap.js";
+import { createFirestoreGeminiAttemptStore } from "./google-cloud/firestore-gemini-attempt-store.js";
 import { mergeDraftWriteArgs } from "./job-draft-persistence.js";
 import { renderJobSheetPdf } from "./job-sheet-pdf.js";
 import {
@@ -34,6 +38,8 @@ import {
 } from "./mock-agents.js";
 
 const requirements = {
+  getApprovedPhotos: "The approved photo classification service is not enabled.",
+  classifyApprovedPhoto: "Approved-photo storage and shared-metered Gemini are not enabled.",
   extractOrder: "Cloud Storage and Gemini on Vertex AI are not configured.",
   extractOrderForReview: "Cloud Storage, Gemini and the item catalog are not configured.",
   confirmPurchaseOrderReview: "The current PO review and catalog item are not available.",
@@ -56,6 +62,27 @@ const requirements = {
 // Keep its 80 MiB ceiling isolated from the general read client's 50 MiB cap.
 const RISK_PREDICTION_MAX_BYTES_BILLED = 80 * 1024 * 1024;
 
+// The canonical optimizer's two ASSERT jobs and SELECT are billed separately.
+// Keep the historical ceiling until the owner approves the proposed 100 MiB
+// retry. An invalid/unreviewed value disables only the optimizer adapter.
+export function readOptimizerQueryBudget(env = process.env) {
+  const raw = env.USTAAD_OPTIMIZER_MAX_BYTES_BILLED ?? String(RISK_PREDICTION_MAX_BYTES_BILLED);
+  return [String(80 * 1024 * 1024), String(100 * 1024 * 1024)].includes(raw)
+    ? Number(raw) : undefined;
+}
+
+// Configuration availability only, never proof of a verified user or cloud I/O.
+export function getJobLifecycleAvailability({ availability, executionMode, supervisorConfigured, modelsAccepted, jobCreationAvailable }) {
+  const authorized = executionMode === "demo" || supervisorConfigured === true;
+  return {
+    approveJob: Boolean(availability.approveJob && authorized && (executionMode === "demo" || modelsAccepted === true)),
+    getJobCard: Boolean(availability.getJobCard && authorized),
+    getStoredJobSheet: Boolean(availability.getStoredJobSheet && authorized),
+    createDraftJobSheet: Boolean(availability.createDraftJobSheet && jobCreationAvailable),
+    saveFeedback: Boolean(availability.saveFeedback && authorized),
+  };
+}
+
 function unavailable(operation) {
   return async () => ({
     ok: false,
@@ -68,6 +95,8 @@ function unavailable(operation) {
 
 export function createServicePorts(adapters = {}) {
   const availability = Object.freeze({
+    getApprovedPhotos: typeof adapters.getApprovedPhotos === "function",
+    classifyApprovedPhoto: typeof adapters.classifyApprovedPhoto === "function",
     extractOrder: typeof adapters.extractOrder === "function",
     currentConditions: typeof adapters.currentConditions === "function",
     predictRisk: typeof adapters.predictRisk === "function",
@@ -87,6 +116,9 @@ export function createServicePorts(adapters = {}) {
   });
   return Object.freeze({
     availability,
+    getApprovedPhotos: adapters.getApprovedPhotos ?? unavailable("getApprovedPhotos"),
+    classifyApprovedPhoto: adapters.classifyApprovedPhoto ?? unavailable("classifyApprovedPhoto"),
+    geminiUsage: adapters.geminiUsage ?? Object.freeze({ sharedCounterConfigured: false, liveConnectivityVerified: false }),
     extractOrder: adapters.extractOrder ?? unavailable("extractOrder"),
     extractOrderForReview: adapters.extractOrderForReview ?? unavailable("extractOrderForReview"),
     confirmPurchaseOrderReview: adapters.confirmPurchaseOrderReview ?? unavailable("confirmPurchaseOrderReview"),
@@ -155,6 +187,7 @@ function printableJobSheetForPdf(stored) {
 
 function createSyntheticDemoServicePorts() {
   const storage = new Map();
+  const feedbackRecords = [];
   const review = createPurchaseOrderReviewService({
     extractOrder: async ({ operatorFields, selectedLineIndex, signal } = {}) => {
       const demo = extractOrder({
@@ -276,7 +309,7 @@ function createSyntheticDemoServicePorts() {
         timestamp: "2026-10-11T12:00:00.000Z",
         plantId: "PLANT-DEMO-01",
         source: "simulated",
-        recordedSource: "synthetic demo",
+        recordedSource: "local mock demo",
         retrievedAt: "2026-10-11T12:00:00.000Z",
         ageSeconds: 60,
         freshness: "unassessed",
@@ -311,7 +344,7 @@ function createSyntheticDemoServicePorts() {
         levers: { ...{ sfSpeedMpm: 40, rollTempC: 165, gumApplication: "MED", gumViscositySec: 40, pastingPressure: "MED", dryingHours: 6, printSpeedSpm: 50 } },
         ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, PRINT: 1, CRACK: 0 },
         itemCode: "SKU-TEST-42",
-        description: "Synthetic demo evidence only.",
+        description: "Local mock demo evidence only.",
       }],
     }),
     createDraftJobSheet: async ({ jobSheet, jobId, plantId, signal } = {}) => {
@@ -332,10 +365,11 @@ function createSyntheticDemoServicePorts() {
       if (!sheet) {
         return { ok: false, error: { code: "NOT_FOUND", message: "The stored job sheet was not found." } };
       }
+      if (sheet.status === "APPROVED") return { ok: true, jobId, jobSheet: sheet, approvedAt: sheet.approvedAt };
       const normalized = normalizeStoredJobSheet(sheet, {
         status: "APPROVED",
         approvedAt: new Date().toISOString(),
-        cardUri: `gs://demo/jobcards/${jobId}.pdf`,
+        cardUri: `local-demo://jobcards/${jobId}.pdf`,
       });
       storage.set(jobId, normalized);
       return { ok: true, jobId, jobSheet: normalized, approvedAt: normalized.approvedAt };
@@ -349,10 +383,10 @@ function createSyntheticDemoServicePorts() {
       if (normalized.status !== "APPROVED" || !normalized.approvedAt) {
         return { ok: false, error: { code: "CONFLICT", message: "The job card is not available until approval." } };
       }
-      const pdf = await renderJobSheetPdf(printableJobSheetForPdf(normalized), { locale: lang ?? "en" });
+      const pdf = await renderJobSheetPdf(printableJobSheetForPdf({ ...normalized, explanation: "LOCAL MOCK BACKUP — mock recommendations and simulated approval; in-memory only, no live models or Cloud Storage. " + normalized.explanation }), { locale: lang ?? "en", localSyntheticDemo: true });
       return { ok: true, bytes: pdf, contentType: "application/pdf", filename: `job-card-${jobId}.pdf` };
     },
-    saveFeedback: async (input = {}) => ({ ok: true, ...input, savedAt: "2026-10-11T12:00:00.000Z" }),
+    saveFeedback: async (input = {}) => { const record = { ...input, savedAt: new Date().toISOString() }; feedbackRecords.push(record); return { ok: true, ...record, source: "mock-demo", storageScope: "process-memory", isRealModelPrediction: false }; },
     getLotOrder: async ({ lotId, signal } = {}) => ({ ok: true, orderId: "PO-TEST-42" }),
     getInsights: async ({ signal } = {}) => ({
       ok: true,
@@ -362,13 +396,14 @@ function createSyntheticDemoServicePorts() {
     }),
     getImpactSummary: async ({ signal } = {}) => ({
       ok: true,
-      totalSavingsInr: 120,
-      averageScrapPct: 5,
-      windowMonths: 12,
-      topItems: [{ itemCode: "SKU-TEST-42", description: "Synthetic demo item", lots: 2, averageScrapPct: 5, scrapCost: 120, mainDefect: "WARP" }],
+      kpis: { lotsScored: 2, lotsChanged: 1, netSavingMonth: 120, kgSavedMonth: 3, scrapPctBefore: 5, scrapPctAfter: 4, scrapCostBefore: 240, scrapCostAfter: 120, currency: "INR" },
+      monthly: [{ month: "2026-09", lots: 2, scrapCost: 240, scrapKg: 6, avgScrapPct: 5, series: "simulated" }],
+      seasonal: [],
+      topItems: [{ label: "Item 1", lots: 2, avgScrapPct: 5, scrapCost12m: 240, mainDefect: "WARP" }],
+      counterfactual: { month: "2026-09", scrapCost: 120, currency: "INR", label: "Local mock counterfactual, not observed production" },
       source: "mock-demo",
       isRealModelPrediction: false,
-      note: "Synthetic demo values are illustrative only.",
+      note: "Local mock demo values are illustrative only.",
     }),
   });
 }
@@ -381,12 +416,21 @@ export function createConfiguredServicePorts({
   fetchImpl = fetch,
   tokenProvider,
 } = {}) {
-  if (env.USTAAD_ENABLE_DEMO_MODE === "true" && !env.K_SERVICE) {
+  if (env.USTAAD_ENABLE_DEMO_MODE === "true" && !env.K_SERVICE && env.USTAAD_AUTHORIZATION_MODE !== "HACKATHON_DEMO") {
     return createSyntheticDemoServicePorts();
   }
-  const allowed = modelConfig.modelCallsEnabled === true &&
+  const liveModelCallsOptedIn = modelConfig.modelCallsEnabled === true &&
     env.USTAAD_ENABLE_LIVE_MODEL_CALLS === "true";
+  const geminiDailyCap = readDailyGeminiCallCapConfig(env);
   const projectId = env.PROJECT_ID ?? env.GOOGLE_CLOUD_PROJECT ?? modelConfig.projectId;
+  const sharedCounterRequested = env.USTAAD_ENABLE_FIRESTORE_GEMINI_CAP === "true";
+  const sharedCounterConfigured = sharedCounterRequested && Boolean(projectId) &&
+    env.USTAAD_GEMINI_COUNTER_DATABASE === "(default)" && geminiDailyCap.configured &&
+    geminiDailyCap.timeZone === "Asia/Kolkata";
+  // Source support is not cloud approval. This flag stays absent/false until
+  // the owner approves the existing database and its IAM/cost scope.
+  const allowed = liveModelCallsOptedIn && geminiDailyCap.configured &&
+    ((env.K_SERVICE || env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO") ? sharedCounterConfigured : (!sharedCounterRequested || sharedCounterConfigured));
   const region = env.REGION ?? env.VERTEX_LOCATION ?? modelConfig.location;
   const vertexLocation = env.VERTEX_LOCATION ?? region;
   const bucket = env.BUCKET ?? env.USTAAD_GCS_BUCKET ?? bucketConfig.bucket?.name;
@@ -397,7 +441,7 @@ export function createConfiguredServicePorts({
     fetchImpl,
     tokenProvider,
   });
-  const adapters = {};
+  const adapters = { geminiUsage: Object.freeze({ sharedCounterConfigured, liveConnectivityVerified: false }) };
   if (projectId) {
     adapters.getLotOrder = createLotAssociationService({ bigquery, projectId });
     if (env.USTAAD_ENABLE_IMPACT_SUMMARY === "true") {
@@ -424,8 +468,11 @@ export function createConfiguredServicePorts({
     const optimizerContractApproved = env.USTAAD_OPTIMIZER_CONTRACT_STATUS === "approved" &&
       typeof env.USTAAD_OPTIMIZER_CONTRACT_VERSION === "string" &&
       /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(env.USTAAD_OPTIMIZER_CONTRACT_VERSION);
-    if (optimizerContractApproved) {
-      adapters.optimizeRisk = createRiskOptimizationService({ bigquery: riskBigquery, projectId, modelAcceptance });
+    const optimizerMaximumBytesBilled = readOptimizerQueryBudget(env);
+    if (optimizerContractApproved && optimizerMaximumBytesBilled) {
+      const optimizerBigquery = createBigQueryReadClient({ projectId, location: region,
+        maximumBytesBilled: optimizerMaximumBytesBilled, fetchImpl, tokenProvider });
+      adapters.optimizeRisk = createRiskOptimizationService({ bigquery: optimizerBigquery, projectId, modelAcceptance });
     }
     if (env.USTAAD_ENABLE_HISTORICAL_EVIDENCE === "true") {
       adapters.findSeenBefore = createSeenBeforeService({ bigquery });
@@ -435,15 +482,16 @@ export function createConfiguredServicePorts({
 
   if (projectId && bucket && env.USTAAD_ENABLE_JOB_STORAGE === "true" &&
       env.USTAAD_ENABLE_BIGQUERY_WRITES === "true") {
-    const writer = createBigQueryWriteClient({ projectId, location: region, fetchImpl, tokenProvider });
-    const repository = createJobSheetRepository({ bigquery, writer, projectId });
+    const writer = createBigQueryWriteClient({ projectId, location: region, fetchImpl, tokenProvider, requireApprovalAudit: true });
+    const approvalAuditEnabled = env.USTAAD_ENABLE_APPROVAL_AUDIT === "true";
+    const repository = createJobSheetRepository({ bigquery, writer, projectId, approvalAuditEnabled });
     const storage = createCloudStorageClient({ bucket, fetchImpl, tokenProvider });
-    const cards = createJobCardService({ repository, storage, renderPdf: renderJobSheetPdf, bucket });
+    const cards = createJobCardService({ repository, storage, renderPdf: renderJobSheetPdf, bucket, requireApprovalAudit: true });
     adapters.createDraftJobSheet = (input) => repository.createDraft(
       mergeDraftWriteArgs(input, env.USTAAD_PLANT_ID)
     );
     adapters.getStoredJobSheet = (input) => repository.get(input.jobId, input);
-    adapters.approveJob = cards.approveJob;
+    if (approvalAuditEnabled) adapters.approveJob = cards.approveJob;
     adapters.getJobCard = cards.getJobCard;
   }
 
@@ -459,13 +507,17 @@ export function createConfiguredServicePorts({
 
   const storage = createCloudStorageClient({ bucket, fetchImpl, tokenProvider });
   const itemCatalog = createItemCatalogService({ bigquery, projectId });
-  const gemini = createVertexGeminiClient({
+  const vertexGemini = createVertexGeminiClient({
     projectId,
     location: vertexLocation,
     model,
     fetchImpl,
     tokenProvider,
   });
+  const attemptStore = sharedCounterConfigured ? createFirestoreGeminiAttemptStore({
+    projectId, database: env.USTAAD_GEMINI_COUNTER_DATABASE, fetchImpl, tokenProvider,
+  }) : undefined;
+  const gemini = withDailyGeminiCallCap(vertexGemini, geminiDailyCap, { store: attemptStore });
   if (env.USTAAD_ENABLE_RISK_PREDICTION === "true") {
     const riskBigquery = createBigQueryReadClient({
       projectId,
@@ -476,7 +528,13 @@ export function createConfiguredServicePorts({
     });
     adapters.explainRisk = createRiskExplanationService({ bigquery: riskBigquery, gemini });
   }
-  const extractOrder = createPdfOrderExtractionService({ storage, gemini, itemCatalog });
+  if (env.USTAAD_ENABLE_APPROVED_PHOTO_CLASSIFICATION === "true" && env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO" && env.USTAAD_SYNTHETIC_ONLY === "true") {
+    const photos = createApprovedPhotoService({ storage, gemini, inventory: approvedPhotos, model });
+    adapters.getApprovedPhotos = photos.list;
+    adapters.classifyApprovedPhoto = photos.classify;
+  }
+  const extractOrder = createPdfOrderExtractionService({ storage, gemini, itemCatalog,
+    allowTestOrderNamespace: env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO" && env.USTAAD_SYNTHETIC_ONLY === "true" });
   const review = createPurchaseOrderReviewService({
     extractOrder,
     resolveOrderLine: itemCatalog.resolveOrderLine,

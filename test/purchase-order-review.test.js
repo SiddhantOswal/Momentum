@@ -394,3 +394,19 @@ test("the coordinator receives only the backend-confirmed reviewed line without 
   assert.equal(calls[0].confirmedSourceLine, true);
   assert.equal(harness.extractionCalls, 1);
 });
+
+test("Cloud Run and hackathon mode never allow demo flag to bypass PO byte binding", async () => {
+  const saved = {demo:process.env.USTAAD_ENABLE_DEMO_MODE,cloud:process.env.K_SERVICE,mode:process.env.USTAAD_AUTHORIZATION_MODE};
+  try {
+    process.env.USTAAD_ENABLE_DEMO_MODE='true';process.env.K_SERVICE='prepagent';process.env.USTAAD_AUTHORIZATION_MODE='HACKATHON_DEMO';
+    const service = createPurchaseOrderReviewService({extractOrder:async()=>resultFor(multilineOrder),resolveOrderLine:async()=>assert.fail('No lookup on altered bytes')});
+    const review = await service.extractForReview({file:{arrayBuffer:async()=>bytes.buffer},operatorFields});
+    assert.equal(review.ok,true);
+    const result = await service.confirmReview({reviewId:review.reviewId,reviewFingerprint:review.reviewFingerprint,fileBytes:new Uint8Array([...bytes,32]),operatorFields,lineIndex:0,itemCode:multilineOrder.lines[0].resolvedItemCode,quantity:6000,confirmedSourceLine:true});
+    assert.equal(result.ok,false);assert.equal(result.error.issues[0].code,'stale_review');
+  } finally {
+    for (const [key,value] of [['USTAAD_ENABLE_DEMO_MODE',saved.demo],['K_SERVICE',saved.cloud],['USTAAD_AUTHORIZATION_MODE',saved.mode]]) {
+      if (value === undefined) delete process.env[key]; else process.env[key]=value;
+    }
+  }
+});

@@ -36,7 +36,7 @@ test("linked feedback reads and validates the referenced job before saving", asy
   assert.deepEqual(calls.map(([name]) => name), ["get", "lot", "save"]);
   assert.equal(calls[0][1].jobId, input.jobId);
   assert.deepEqual(calls[1][1], { lotId: input.lotId });
-  assert.deepEqual(calls[2][1], input);
+  assert.deepEqual(calls[2][1], { ...input, testOrderId: storedJob.order.orderId });
 });
 
 test("linked feedback rejects an unknown job without calling the writer", async () => {

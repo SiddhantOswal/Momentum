@@ -1,0 +1,9 @@
+{
+  "name": "billingAccounts/014B62-B6BC57-970DC2/budgets/13af65ec-769e-4f30-b11f-a6b0f3bceba6",
+  "etag": "1791729068205103",
+  "thresholdRules": [
+    { "thresholdPercent": 0.5, "spendBasis": "CURRENT_SPEND" },
+    { "thresholdPercent": 0.9, "spendBasis": "CURRENT_SPEND" },
+    { "thresholdPercent": 1.0, "spendBasis": "CURRENT_SPEND" }
+  ]
+}

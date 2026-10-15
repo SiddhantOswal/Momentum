@@ -404,6 +404,7 @@ test("risk request maps the exact 15 named parameters supplied by Om", () => {
       ambientTempC: 26,
       paperMoisturePct: 10.8,
     },
+    conditionsConfirmed: true,
     levers,
   });
   assert.deepEqual(Object.keys(mapRiskPredictionParameters(minimalSqlInput)), Object.keys(mapRiskPredictionParameters({ order, conditions, levers })));

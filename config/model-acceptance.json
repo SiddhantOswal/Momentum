@@ -10,20 +10,35 @@
   "recordedEvaluation": {
     "asOf": "2026-10-14",
     "split": "random-20-percent-row-split",
-    "linkedToCurrentResourceVersions": false,
+    "declaredDataWindow": {
+      "modelingRowsFrom": "2024-10-01",
+      "modelingRowsThrough": "2026-08-31",
+      "heldOutMonthFrom": "2026-09-01",
+      "heldOutMonthThrough": "2026-09-30"
+    },
+    "linkedToCurrentResourceVersions": true,
+    "currentModelVersions": {
+      "WARP": "1",
+      "DELAM": "1",
+      "STRENGTH": "1",
+      "PRINT": "1",
+      "CRACK": "1"
+    },
     "models": [
-      { "defect": "WARP", "resource": "prepagent.m_warp", "r2": 0.6051769, "modelVersion": null, "sampleCount": null },
-      { "defect": "DELAM", "resource": "prepagent.m_delam", "r2": 0.6664104, "modelVersion": null, "sampleCount": null },
-      { "defect": "STRENGTH", "resource": "prepagent.m_strength", "r2": 0.4672613, "modelVersion": null, "sampleCount": null },
-      { "defect": "PRINT", "resource": "prepagent.m_print", "r2": 0.7511529, "modelVersion": null, "sampleCount": null },
-      { "defect": "CRACK", "resource": "prepagent.m_crack", "r2": 0.3010716, "modelVersion": null, "sampleCount": null }
+      { "defect": "WARP", "resource": "prepagent.m_warp", "r2": 0.6051769, "modelVersion": "1", "sampleCount": null },
+      { "defect": "DELAM", "resource": "prepagent.m_delam", "r2": 0.6664104, "modelVersion": "1", "sampleCount": null },
+      { "defect": "STRENGTH", "resource": "prepagent.m_strength", "r2": 0.4672613, "modelVersion": "1", "sampleCount": null },
+      { "defect": "PRINT", "resource": "prepagent.m_print", "r2": 0.7511529, "modelVersion": "1", "sampleCount": null },
+      { "defect": "CRACK", "resource": "prepagent.m_crack", "r2": 0.3010716, "modelVersion": "1", "sampleCount": null }
     ]
   },
   "acceptanceEvidence": null,
   "notes": [
-    "These are historical recorded evaluations and are not linked to the currently queried BigQuery model versions.",
+    "Read-only BigQuery model metadata inspected on 2026-10-14 UTC confirms that the current prepagent.m_* model training runs reference Vertex model version 1 and their saved R2 metrics match these recorded metrics.",
+    "Model metadata exposes anonymous evaluation-split table references, but bounded COUNT(*) inspection was denied; sample counts remain unavailable and acceptance stays blocked.",
+    "The approved playbook documents model training rows from October 2024 through August 2026 and September 2026 held out; the 20-percent evaluation split is random within the modeling rows. This is the declared project window, not a verified min/max date scan of the exact evaluation rows.",
     "The historical aggregate results meet Om's prototype thresholds, including Strength 0.4672613 >= 0.45 and Crack 0.3010716 >= 0.30.",
-    "Prototype threshold met does not establish complete acceptance evidence: model versions, sample counts, version linkage, and evidence provenance remain unavailable.",
-    "Feature importance is stated as reviewed by Om for the prototype, but the supporting version-linked artifact is not present in this repository."
+    "Prototype threshold met does not establish complete acceptance evidence: sample counts and full evaluation dataset provenance remain unavailable.",
+    "Historical Om D4 feature-review statements are preserved in the decision records. The current owner data-provenance correction must be reconciled with exact model/source evidence. The separately recorded version-1 feature observation does not complete evaluation evidence."
   ]
 }

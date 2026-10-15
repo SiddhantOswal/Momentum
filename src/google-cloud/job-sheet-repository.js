@@ -1,6 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
+import { randomUUID } from "node:crypto";
 import { mapJobSheetFromBigQuery, mapJobSheetToBigQuery } from "../bigquery-mapper.js";
-import { StoredJobSheetSchema } from "../schemas.js";
+import { ApprovalAuditSchema, StoredJobSheetSchema } from "../schemas.js";
+import { canAccessApprovalJob, approvalActorProvenance } from "../approval-authorization.js";
+import { isDemoPrincipal } from "../hackathon-demo-auth.js";
 import { BigQueryReadError } from "./bigquery-read-client.js";
 
 const JOB_SHEET_COLUMNS = Object.freeze([
@@ -41,12 +44,12 @@ function approvedReadBack(stored, jobId, cardUri) {
     parsed.data.cardUri === cardUri;
 }
 
-function decodeRow(result) {
+function decodeRow(result, columns = JOB_SHEET_COLUMNS) {
   const row = result?.rows?.[0];
   if (!row) return undefined;
   const fields = result?.schema?.fields;
-  if (!Array.isArray(fields) || fields.length !== JOB_SHEET_COLUMNS.length ||
-      fields.some((field, index) => field.name !== JOB_SHEET_COLUMNS[index])) {
+  if (!Array.isArray(fields) || fields.length !== columns.length ||
+      fields.some((field, index) => field.name !== columns[index])) {
     throw new BigQueryReadError("JOB_SHEET_SCHEMA_MISMATCH", "The stored job sheet has an unexpected schema.");
   }
   if (!Array.isArray(row.f) || row.f.length !== fields.length) {
@@ -83,7 +86,7 @@ function decodeRow(result) {
   return mapJobSheetFromBigQuery(values);
 }
 
-export function createJobSheetRepository({ bigquery, writer, projectId = "prepagent-hack", now = () => new Date() } = {}) {
+export function createJobSheetRepository({ bigquery, writer, projectId = "prepagent-hack", now = () => new Date(), approvalAuditEnabled = false } = {}) {
   if (!bigquery || typeof bigquery.query !== "function" ||
       !writer || typeof writer.insertJobSheet !== "function" || typeof writer.approveDraft !== "function") {
     throw new TypeError("Bounded BigQuery read and write clients are required.");
@@ -93,7 +96,8 @@ export function createJobSheetRepository({ bigquery, writer, projectId = "prepag
   }
 
   const table = `\`${projectId}.prepagent.job_sheets\``;
-  const columnList = JOB_SHEET_COLUMNS.join(", ");
+  const columns = approvalAuditEnabled ? [...JOB_SHEET_COLUMNS, "approval_audit_json"] : JOB_SHEET_COLUMNS;
+  const columnList = columns.join(", ");
   return Object.freeze({
     async createDraft({ jobSheet, plantId, savingsCost, currency = "INR", signal } = {}) {
       if (typeof jobSheet?.order?.orderId !== "string" || !jobSheet.order.orderId.startsWith("TEST-")) {
@@ -132,10 +136,17 @@ export function createJobSheetRepository({ bigquery, writer, projectId = "prepag
       if ((result.rows ?? []).length > 1) {
         throw new BigQueryReadError("JOB_SHEET_NOT_UNIQUE", "More than one job sheet has this job ID.");
       }
-      return decodeRow(result);
+      const stored = decodeRow(result, columns);
+      if (stored && stored.jobId !== jobId) throw new BigQueryReadError("JOB_SHEET_ID_MISMATCH", "The stored job identity does not match the requested job.");
+      return stored;
     },
 
-    async approve({ jobId, cardUri, signal } = {}) {
+    async approve({ jobId, cardUri, signal, supervisorPrincipal, correlationId } = {}) {
+      if (isDemoPrincipal(supervisorPrincipal) && !approvalAuditEnabled) return { ok: false, error: { code: "APPROVAL_AUDIT_REQUIRED", message: "Demo approval requires durable actor auditing." } };
+      if (approvalAuditEnabled && (!canAccessApprovalJob(supervisorPrincipal, jobId) ||
+          !/^[0-9a-f-]{36}$/i.test(correlationId ?? ""))) {
+        return { ok: false, error: { code: "SUPERVISOR_AUTHORIZATION_REQUIRED", message: "Verified supervisor identity and a server correlation ID are required." } };
+      }
       const current = await this.get(jobId, { signal });
       if (!current) return { ok: false, error: { code: "NOT_FOUND", message: "The job sheet was not found." } };
       if (!current.order.orderId.startsWith("TEST-")) {
@@ -144,14 +155,24 @@ export function createJobSheetRepository({ bigquery, writer, projectId = "prepag
           error: { code: "TEST_RECORD_REQUIRED", message: "JobSheet approval writes are restricted to TEST- orders." },
         };
       }
-      if (current.status === "APPROVED" && current.cardUri) return { ok: true, data: current };
+      if (current.status === "APPROVED" && current.cardUri) {
+        if (approvalAuditEnabled && !validStoredApprovalAudit(current)) {
+          throw new BigQueryReadError("APPROVAL_AUDIT_UNCONFIRMED", "The stored approval has no complete matching actor audit.");
+        }
+        return { ok: true, data: current };
+      }
       if (current.status !== "DRAFT") {
         return { ok: false, error: { code: "CONFLICT", message: "Only a DRAFT job can be approved." } };
       }
       const approvedAt = now().toISOString();
-      const update = await writer.approveDraft({ jobId, approvedAt, cardUri, signal });
+      const audit = approvalAuditEnabled ? ApprovalAuditSchema.parse({
+        jobId, actorUid: supervisorPrincipal.uid, ...approvalActorProvenance(supervisorPrincipal), action: "APPROVE", previousStatus: "DRAFT", newStatus: "APPROVED",
+        decidedAt: approvedAt, correlationId, decisionId: randomUUID(), cardUri,
+      }) : undefined;
+      const update = await writer.approveDraft({ jobId, approvedAt, cardUri, signal, ...(audit ? { approvalAudit: audit } : {}) });
       const saved = await this.get(jobId, { signal });
-      if (approvedReadBack(saved, jobId, cardUri)) {
+      if (approvedReadBack(saved, jobId, cardUri) && (!audit ||
+          (validStoredApprovalAudit(saved) && isDeepStrictEqual(saved.approvalAudit, audit)))) {
         return { ok: true, data: saved };
       }
       if (update.affectedRows !== 1) {
@@ -163,6 +184,12 @@ export function createJobSheetRepository({ bigquery, writer, projectId = "prepag
       );
     },
   });
+}
+
+export function validStoredApprovalAudit(stored) {
+  const parsed = ApprovalAuditSchema.safeParse(stored?.approvalAudit);
+  return parsed.success && stored.status === "APPROVED" && parsed.data.jobId === stored.jobId &&
+    parsed.data.cardUri === stored.cardUri && parsed.data.decidedAt === stored.approvedAt;
 }
 
 export { decodeRow as decodeStoredJobSheetRow, JOB_SHEET_COLUMNS };
