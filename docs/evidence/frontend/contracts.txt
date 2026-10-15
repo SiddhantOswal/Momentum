@@ -1,0 +1,46 @@
+TAP version 13
+# Subtest: all order, condition and lever controls exactly preserve the current schema fields
+ok 1 - all order, condition and lever controls exactly preserve the current schema fields
+  ---
+  duration_ms: 1.048167
+  type: 'test'
+  ...
+# Subtest: latest-request gate aborts old work and ignores an adapter that resolves after invalidation
+ok 2 - latest-request gate aborts old work and ignores an adapter that resolves after invalidation
+  ---
+  duration_ms: 0.187375
+  type: 'test'
+  ...
+# Subtest: risk and optimization display contracts fail closed on malformed results; missing optional percentages are not zero
+ok 3 - risk and optimization display contracts fail closed on malformed results; missing optional percentages are not zero
+  ---
+  duration_ms: 0.489167
+  type: 'test'
+  ...
+# Subtest: defect evidence preserves absent groups and zero cases without creating fallback settings
+ok 4 - defect evidence preserves absent groups and zero cases without creating fallback settings
+  ---
+  duration_ms: 0.150625
+  type: 'test'
+  ...
+# Subtest: every shipped synthetic sample exactly matches the existing backend-approved byte allowlist
+ok 5 - every shipped synthetic sample exactly matches the existing backend-approved byte allowlist
+  ---
+  duration_ms: 4.361
+  type: 'test'
+  ...
+# Subtest: malformed conditions and stored sheets cannot enable review or approval
+ok 6 - malformed conditions and stored sheets cannot enable review or approval
+  ---
+  duration_ms: 0.344333
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 115.651667

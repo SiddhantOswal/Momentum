@@ -1,0 +1,15 @@
+{
+  "files": 55,
+  "indexChanges": "static allowlisted UI module, font, chart and document delivery only",
+  "backendBusinessFilesIncluded": false,
+  "dependencyChanges": "Playwright development dependency only",
+  "baselineBackendFailures": [
+    "similar-run and explanation routes validate contracts before reporting disabled adapters",
+    "status endpoint separates backend reachability from configured local integrations",
+    "Cloud Run reports local idempotency separately from unavailable JobSheet persistence",
+    "malformed and non-object JSON return structured validation errors",
+    "Day 2 analysis routes validate inputs and never fabricate unavailable results",
+    "Cloud Run deployment variables construct risk adapter with its isolated byte ceiling"
+  ],
+  "newRegressionFailures": []
+}

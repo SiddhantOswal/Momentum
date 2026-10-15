@@ -1,0 +1,26 @@
+
+> prepagent@1.0.0 test:ui
+> playwright test
+
+[WebServer] (node:93217) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 11 tests using 1 worker
+
+(node:93226) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:93226) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 test/browser/frontend.spec.js:56:1 › real offline startup, all navigation, dialogs, keyboard, files and unavailable states (4.5s)
+  ✓   2 test/browser/frontend.spec.js:87:1 › responsive real offline screens have no page overflow at every requested width (14.1s)
+  ✓   3 test/browser/frontend.spec.js:101:1 › review source, block unknown and ambiguous codes, require quantity and confirmations (3.8s)
+  ✓   4 test/browser/frontend.spec.js:129:1 › contract-correct planning, actual trace events, stored review, approval and PDF (10.3s)
+  ✓   5 test/browser/frontend.spec.js:168:1 › real request shapes for direct risk and what-if; inputs invalidate a slow scenario (3.2s)
+  ✓   6 test/browser/frontend.spec.js:183:1 › Impact renders real contract fixtures, chart instances, FX dates and malformed recovery (1.1s)
+  ✓   7 test/browser/frontend.spec.js:197:1 › Defect Check uses only supported evidence requests and safely renders notes (967ms)
+  ✓   8 test/browser/frontend.spec.js:207:1 › reduced motion, labelled controls, focus and form contrast (418ms)
+  ✓   9 test/browser/frontend.spec.js:222:1 › conditions provenance and stale extraction preserve user input without inventing readings (2.2s)
+  ✓  10 test/browser/frontend.spec.js:237:1 › optimization, historical evidence and explanation retain strict request schemas and attribution (3.4s)
+  ✓  11 test/browser/frontend.spec.js:251:1 › local PDF utility remains separate from persisted approval and handles invalid JSON (1.1s)
+
+  11 passed (47.7s)

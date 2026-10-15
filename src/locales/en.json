@@ -1,7 +1,7 @@
 {
   "tagline": "Corrugated production preparation. This interface reports only actual local/API responses.",
   "local": "Local development",
-  "integrationNotice": "Cloud-backed extraction, conditions, predictions, optimization, evidence, job persistence, translation and photo classification are unavailable until their real integrations are configured. Agent traces, job creation, approval, stored job cards and feedback are also unavailable. No production values or sample orders are prefilled.",
+  "integrationNotice": "Cloud-backed extraction, conditions, predictions, optimization, evidence, job persistence, translation and photo classification are unavailable until their real integrations are configured. Agent traces, job creation, approval, stored job cards and feedback are also unavailable. Production values must come from verified records or operator measurements.",
   "workflow": "Production preparation workflow",
   "currentStage": "Current stage: purchase-order input required. No order has been accepted, and no downstream stage can proceed.",
   "orderStage": "1. Purchase-order input",
@@ -68,7 +68,7 @@
   "traceCompleted": "Run completed.",
   "traceFailed": "Run failed.",
   "traceCancelled": "Run cancelled before completion.",
-  "traceDisconnected": "Trace connection was interrupted. The browser may reconnect automatically.",
+  "traceDisconnected": "Trace connection was interrupted. Reconnect using the returned run ID.",
   "invalidRunId": "Enter a valid run ID.",
   "selectPdf": "Select a PDF file before submitting.",
   "invalidJson": "Enter a valid JSON object, then retry.",

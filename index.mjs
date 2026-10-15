@@ -319,6 +319,36 @@ app.get("/operator-ui.css", async (c) => {
   });
 });
 
+const sampleDocuments = new Set([
+  "PO1_ClientA_single_B1047.pdf", "PO2_ClientA_multiline.pdf", "PO3_ClientP_electronics_with_fitment.pdf", "PO4_ClientQ_ambiguous_set.pdf", "PO5_ClientB_scanned.jpg",
+]);
+app.get("/samples/:filename", async (c) => {
+  const name = c.req.param("filename");
+  if (!sampleDocuments.has(name)) return c.notFound();
+  const source = await readFile(new URL("./public/samples/" + name, import.meta.url));
+  return c.body(source, 200, { "Content-Type": name.endsWith(".pdf") ? "application/pdf" : "image/jpeg", "Cache-Control": "public, max-age=86400" });
+});
+
+// Explicit static allowlists: presentation modules and locally bundled assets only.
+const presentationModules = new Set(["workflow.js", "fields.js", "api.js", "components.js", "currency-display.js", "contracts.js"]);
+app.get("/ui/:filename", async (c) => {
+  const name = c.req.param("filename");
+  if (!presentationModules.has(name)) return c.notFound();
+  const source = await readFile(new URL("./src/ui/" + name, import.meta.url));
+  return c.body(source, 200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" });
+});
+const presentationAssets = {
+  "/vendor/chart.umd.js": ["./public/vendor/chart.umd.js", "text/javascript; charset=utf-8"],
+  "/fonts/plex-regular.woff2": ["./public/fonts/plex-regular.woff2", "font/woff2"],
+  "/fonts/plex-medium.woff2": ["./public/fonts/plex-medium.woff2", "font/woff2"],
+  "/fonts/plex-semibold.woff2": ["./public/fonts/plex-semibold.woff2", "font/woff2"],
+};
+for (const [path, [file, contentType]] of Object.entries(presentationAssets)) {
+  app.get(path, async (c) => c.body(await readFile(new URL(file, import.meta.url)), 200, {
+    "Content-Type": contentType, "Cache-Control": "public, max-age=86400",
+  }));
+}
+
 app.get("/impact", async (c) => {
   const source = await readFile(new URL("./public/impact.html", import.meta.url));
   return c.body(source, 200, {

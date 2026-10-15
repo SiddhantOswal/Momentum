@@ -79,8 +79,8 @@ test("Impact dashboard is served from the application origin and fails without s
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     const html = await response.text();
-    assert.match(html, /fetch\("\/impact\/summary"/);
-    assert.match(html, /no sample values are shown/);
+    assert.match(html, /url=\/#screen-impact/);
+    assert.match(html, /No sample values are shown/);
     assert.doesNotMatch(html, /Showing the verified BigQuery results/);
   } finally {
     child.kill("SIGTERM");
@@ -186,249 +186,57 @@ test("health remains available while operational requests are rate limited", asy
   }
 });
 
-test("root URL serves the local operator UI", async () => {
+test("root serves the rebuilt operator UI and its complete same-origin workflow modules", async () => {
   const { child } = await startServer();
-
   try {
     const response = await fetch(`http://127.0.0.1:${PORT}/`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     const html = await response.text();
-    assert.match(html, /Ustaad AI/);
-    assert.match(html, /Prototype with synthetic data/);
-    assert.match(html, /Local development/);
-    assert.match(html, /const API_BASE_URL = window\.location\.origin;/);
-    assert.match(html, /fetch\(apiUrl\(url\), options\)/);
-    assert.match(html, /new EventSource\(apiUrl\(/);
-    assert.match(html, /id="backend-availability"/);
-    assert.match(html, /id="production-adapters-availability"/);
-    assert.match(html, /id="model-calls-availability"/);
-    assert.match(html, /Model output is not accepted against the required R² threshold and current model versions/);
-    assert.match(html, /id="current-conditions-availability"/);
-    assert.match(html, /id="job-persistence-availability"/);
-    assert.match(html, /id="runtime-mode-sidebar"/);
-    assert.match(html, /id="runtime-mode-header"/);
-    assert.match(html, /status\.mode === "cloud-run" \? "Cloud Run" : "Local development"/);
-    assert.doesNotMatch(html, /https:\/\/prepagent-26mwt2n7ba-el\.a\.run\.app/);
-    assert.match(html, /Language preference/);
-    assert.match(html, /English-only prototype\. No glossary dependency is required/);
-    assert.match(html, /<option value="en">/);
-    assert.doesNotMatch(html, /<option value="(hi|mr|ja|ko|zh-CN|id)">/);
-    for (const currency of ["INR", "JPY", "KRW", "CNY", "IDR", "SGD", "AUD", "THB", "PHP", "MYR", "USD"]) {
-      assert.match(html, new RegExp(`<option value="${currency}">${currency}</option>`));
-    }
-    assert.match(html, /Display-only currency conversion/);
-    assert.match(html, /t\("rateDateLabel"\)/);
-    assert.match(html, /does not update application data/);
-    assert.match(html, /import \{ formatDisplayCurrency \} from "\/display-currency\.js"/);
-    assert.match(html, /Purchase-order document/);
-    assert.match(html, /data-i18n="itemCodeField">Item code/);
-    assert.match(html, /id="analysis-lengthMm" name="lengthMm" type="number" min="20" max="1500"/);
-    assert.match(html, /id="analysis-widthMm" name="widthMm" type="number" min="20" max="1500"/);
-    assert.match(html, /id="analysis-heightMm" name="heightMm" type="number" min="0" max="1500"/);
-    assert.match(html, /Current conditions/);
-    assert.match(html, /analysis-shift/);
-    assert.match(html, /if \(url === "\/conditions\/current"\)[\s\S]*?url \+= "\?shift="/);
-    assert.match(html, /selectShift/);
-    assert.match(html, /Risk prediction/);
-    assert.match(html, /Optimization and evidence/);
-    assert.match(html, /Render a supplied JobSheet PDF/);
-    assert.match(html, /same-origin backend validates the file, but no extraction adapter is configured/);
-    assert.match(html, /t\("requestFailed"\)/);
-    assert.match(html, /aria-busy/);
-    assert.match(html, /<link rel="stylesheet" href="\/operator-ui\.css"/);
-    assert.match(html, /class="app-shell" data-sidebar-collapsed="false"/);
-    assert.match(html, /id="sidebar-toggle"[\s\S]*?aria-expanded="true"/);
-    assert.match(html, /aria-label="Primary navigation"/);
-    assert.match(html, /data-sidebar-link data-screen-link data-tooltip="Screen 1 — Order input" aria-label="Screen 1 — Order input"/);
-    const sidebarLinks = [...html.matchAll(/<a class="sidebar__link"[\s\S]*?<\/a>/g)];
-    assert.equal(sidebarLinks.length, 4);
-    assert.deepEqual(
-      sidebarLinks.map(([link]) => link.match(/href="#([^"]+)"/)?.[1]),
-      ["screen-order-input", "screen-production-analysis", "screen-job-card-approval", "screen-impact"]
-    );
-    for (const [link] of sidebarLinks) {
-      assert.match(link, /<svg class="icon" viewBox="0 0 24 24"/);
-      assert.match(link, /<span class="sidebar__label">Screen [1234] — /);
-    }
-    assert.match(html, /appShell\.dataset\.sidebarCollapsed = String\(collapsed\)/);
-    assert.match(html, /candidate\.classList\.toggle\("is-active", candidate === panel\)/);
-    assert.equal((html.match(/<section class="screen"[^>]*data-screen-panel/g) || []).length, 4);
-    assert.match(html, /id="screen-order-input"[\s\S]*?Screen 1 — Order input/);
-    assert.match(html, /id="screen-production-analysis"[\s\S]*?Screen 2 — Production analysis/);
-    assert.match(html, /id="screen-job-card-approval"[\s\S]*?Screen 3 — Job card and approval/);
-    assert.match(html, /id="screen-impact"[\s\S]*?Screen 4 — Impact evidence/);
-    assert.match(html, /id="load-impact"[^>]*disabled/);
-    assert.match(html, /\/impact\/summary/);
-    assert.match(html, /not measured production outcomes, factory savings, or evidence of causation/);
-    assert.match(html, /not verified real-world factory outcomes/);
-    assert.match(html, /No preview or sample values are displayed/);
-    assert.match(html, /Cached successful BigQuery response \(cache lifetime: at most one hour\)/);
-    assert.match(html, /Production preparation workflow/);
-    assert.match(html, /Current stage: purchase-order input required/);
-    assert.equal((html.match(/data-workflow-stage=/g) || []).length, 5);
-    assert.match(html, /Agent execution trace/);
-    assert.match(html, /Workflow printing unavailable/);
-    assert.match(html, /href="#order-pdf" data-i18n="goToPdf"/);
-    assert.match(html, /Enter the confirmed order context and choose its source document before extraction/);
-    assert.match(html, /id="purchase-order-review"/);
-    assert.match(html, /id="purchase-order-lines"/);
-    assert.doesNotMatch(html, /data-json-post="\/orders\/extract"/);
-    assert.match(html, /id="trace-form"/);
-    assert.match(html, /Similar historical runs/);
-    assert.match(html, /Model-grounded explanations/);
-    assert.match(html, /id="load-similar-runs"/);
-    assert.match(html, /id="request-risk-explanation"/);
-    assert.match(html, /\/risk\/similar-runs/);
-    assert.match(html, /\/risk\/explanation/);
-    assert.match(html, /url: "\/risk\/similar-runs"[\s\S]*?method: "POST"/);
-    assert.match(html, /url: "\/risk\/explanation"[\s\S]*?method: "POST"/);
-    assert.match(html, /OFFLINE TEST ADAPTER — these test observations are not production history/);
-    assert.match(html, /latestSimilarRunsSource === "bigquery"/);
-    assert.match(html, /What-if re-scoring/);
-    assert.match(html, /id="approval-form"/);
-    assert.match(html, /Reject unavailable/);
-    assert.match(html, /WARP, DELAM, STRENGTH, PRINT and CRACK/);
-    assert.match(html, /id="feedback-form"/);
-    assert.match(
-      html,
-      /<form id="feedback-form"[\s\S]*?<button type="submit" disabled data-i18n="submitFeedback" aria-describedby="feedback-result">Feedback unavailable<\/button>/
-    );
+    for (const text of ["Ustaad AI", "Production workspace", "Local development", "New Lot", "Agent Run", "Defect Check", "Impact", "English interface.", "No production impact data loaded.", "predicted", "supervisor approval"]) assert.ok(html.includes(text), text);
+    assert.doesNotMatch(html, /synthetic|simulated|id="sample-order"/i);
+    const ids = [...html.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
+    assert.equal(new Set(ids).size, ids.length, "IDs must be unique");
+    const screens = [...html.matchAll(/<section id="([^"]+)" class="screen" data-screen-panel/g)].map((m) => m[1]);
+    assert.deepEqual(screens, ["screen-order-input", "screen-production-analysis", "screen-defect-check", "screen-impact"]);
+    for (const id of ["purchase-order-review", "purchase-order-lines", "confirm-order-line", "extraction-order-id", "extraction-paper-type", "extraction-paper-supplier", "condition-request-fields", "lever-request-fields", "conditions-supervisor-confirmed", "machine-settings-confirmed", "trace-form", "what-if-controls", "approval-form", "approval-dialog", "shared-job-id", "load-stored-job-form", "stored-card-form", "feedback-form", "job-sheet-form", "local-job-sheet-preview", "status-dialog", "seen-before-form", "impact-monthly-chart"]) assert.ok(ids.includes(id), id);
+    assert.match(html, /accept="application\/pdf,\.pdf,image\/jpeg,\.jpg,\.jpeg"/);
+    assert.match(html, /id="prepare-job" disabled/);
     assert.match(html, /id="what-if-controls" disabled hidden/);
     assert.match(html, /id="what-if-value" type="range"/);
-    assert.match(html, /The model re-scores once when you release the slider/);
-    assert.match(html, /document\.querySelectorAll\("\[data-json-get\]"\)\.forEach\([\s\S]*?\n      \}\);\s+document\.getElementById\("load-impact"\)\.addEventListener/);
-    assert.match(html, /url: "\/impact\/summary"[\s\S]*?onSuccess: renderImpactSummary/);
-    assert.match(html, /import \{ toRiskPredictionPayload \} from "\/risk-ui\.js"/);
-    assert.match(html, /scenario\.levers\[document\.getElementById\("what-if-lever"\)\.value\] = Number/);
-    const riskUiModule = await fetch(`http://127.0.0.1:${PORT}/risk-ui.js`);
-    assert.equal(riskUiModule.status, 200);
-    assert.match(riskUiModule.headers.get("content-type"), /text\/javascript/);
-    assert.match(await riskUiModule.text(), /export function toRiskPredictionPayload/);
-    assert.doesNotMatch(html, /\/api\/agents\/findSimilarRuns|\/api\/agents\/explainRisk|\/api\/agents\/generateJobSheet/);
-    assert.match(html, /url: "\/jobs"/);
-    assert.match(html, /\/jobs\/" \+ encodeURIComponent\(jobId\) \+ "\/approve\?lang=/);
-    assert.match(html, /\/card\.pdf\?lang=/);
-    assert.match(html, /\/feedback/);
-    assert.match(html, /data-i18n="localRenderer">Open local renderer \(not workflow printing\)/);
-    assert.match(html, /id="trace-run-id"/);
-    assert.match(html, /new EventSource\(apiUrl\("\/api\/runs\/"/);
-    assert.match(html, /"run\.completed": \{ message: "traceCompleted", state: "success" \}/);
-    assert.match(html, /"run\.failed": \{ message: "traceFailed", state: "error" \}/);
-    assert.match(html, /"run\.cancelled": \{ message: "traceCancelled", state: "incomplete" \}/);
-    assert.match(html, /data-i18n="workflow"/);
-    assert.match(html, /class="dropzone dropzone--compact" id="order-dropzone"/);
-    assert.match(html, /id="order-pdf" class="dropzone__input"[^>]*accept="application\/pdf,\.pdf,image\/jpeg,\.jpg,\.jpeg"/);
-    assert.match(html, /name="orderId" type="text" required/);
-    assert.match(html, /name="paperType" required/);
-    assert.match(html, /name="paperSupplier" type="text" required/);
-    assert.match(html, /body\.append\(field, form\.elements\[field\]\.value\)/);
-    assert.match(html, /body\.append\("shift", shift\)/);
-    assert.match(html, /body\.append\(name, String\(value\)\)/);
-    assert.match(html, /if \(result\?\.runId\) connectTrace\(result\.runId\)/);
-    assert.match(html, /id="selected-file-name"/);
-    assert.match(html, /new DataTransfer\(\)/);
-    assert.match(html, /id="request-risk"/);
-    assert.match(html, /id="request-optimization"/);
-    assert.match(html, /name="orderId"/);
-    assert.match(html, /name="ambientRhPct"/);
-    assert.match(html, /name="sfSpeedMpm"/);
-    assert.match(html, /body: JSON\.stringify\(payload\)/);
-    assert.match(html, /id="risk-metrics"/);
-    assert.match(html, /id="optimization-changes"/);
-    assert.match(html, /Simulated sensor/);
-    assert.match(html, /Unverified source/);
-    assert.match(html, /ambientTempC: String\(data\.ambientTempC\) \+ " °C"/);
-    assert.match(html, /readingTimestamp: provenance\.timestamp/);
-    assert.match(html, /Raw status response/);
-    assert.match(html, /class="timeline"/);
-    assert.match(html, /Approval unavailable/);
-    assert.match(html, /Stored card unavailable/);
-    assert.match(html, /id="shared-job-id"/);
-    assert.match(html, /id="load-stored-job-form"/);
-    assert.match(html, /id="prepare-job"/);
-    assert.match(html, /id="confirm-order-line"/);
-    assert.match(html, /id="purchase-order-document-fields"/);
-    assert.match(html, /id="purchase-order-lines"/);
-    assert.match(html, /candidates\.dataset\.role = "catalog-candidates"/);
-    assert.match(html, /id="review-order" type="button" data-i18n="submitPdf"/);
-    assert.ok(html.indexOf('id="review-order"') < html.indexOf('id="service-availability-summary"'));
-    assert.ok(html.indexOf('id="extraction-paper-supplier"') < html.indexOf('id="review-order"'));
-    assert.ok(html.indexOf('id="extraction-paper-supplier"') < html.indexOf('id="order-pdf"'));
-    assert.ok(html.indexOf('id="review-order"') < html.indexOf('id="upload-result"'));
-    assert.match(html, /data-json-get="\/api\/status" data-output="status-result"/);
-    assert.match(html, /No submission yet\. Select a purchase-order document and enter its operator-confirmed context, then submit for extraction and line review\./);
-    assert.match(html, /Select a PDF or JPEG scan before submitting it for extraction and PO-line review\./);
-    assert.match(html, /Enter the operator-confirmed " \+ fieldLabels\[name\] \+ " before extraction\./);
-    assert.doesNotMatch(html, /selected purchase-order document is sent once when you prepare a job sheet on Screen 2/);
-    assert.match(html, /url: "\/orders\/extract"/);
-    assert.match(html, /body\.append\("confirmedItemCode", itemCode\)/);
-    assert.match(html, /body\.append\("confirmedQuantity", String\(quantity\)\)/);
-    assert.match(html, /body\.append\("confirmedLineIndex", String\(selectedReviewLineIndex \+ 1\)\)/);
-    assert.match(html, /body\.append\("reviewId", activePurchaseOrderReview\.reviewId\)/);
-    assert.match(html, /body\.append\("reviewFingerprint", activePurchaseOrderReview\.reviewFingerprint\)/);
-    assert.doesNotMatch(html, /id="confirmed-line-index"/);
-    assert.doesNotMatch(html, /id="confirmed-item-code"/);
-    assert.doesNotMatch(html, /id="confirmed-quantity"/);
-    assert.match(html, /url: "\/jobs"/);
-    assert.match(html, /data-i18n="prepareJobSheet"/);
-    assert.match(html, /Idempotency-Key/);
-    assert.match(html, /payload\?\.durable === true/);
-    assert.match(html, /blockedAtExtractOrder/);
-    assert.match(html, /url: "\/jobs\/" \+ encodeURIComponent\(jobId\)/);
-    assert.match(html, /id="local-job-sheet-preview"/);
-    assert.doesNotMatch(html, /data-json-post="\/api\/agents\/extractOrder"/);
-    assert.doesNotMatch(html, /id="order-json"/);
-    assert.doesNotMatch(html, /PO-2048|CUST-418|value="1200"/);
+    assert.match(html, /aria-label="Primary navigation"/);
     assert.match(html, /aria-live="polite"/);
-
-    const stylesheet = await fetch(`http://127.0.0.1:${PORT}/operator-ui.css`);
-    assert.equal(stylesheet.status, 200);
-    assert.match(stylesheet.headers.get("content-type"), /text\/css/);
-    const css = await stylesheet.text();
-    assert.match(css, /--color-accent:/);
-    assert.match(css, /\.dropzone--compact\s*\{\s*display:\s*flex;\s*min-height:\s*3\.5rem;/);
-    assert.match(css, /\.link-button\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
-    assert.match(css, /\.app-shell\[data-sidebar-collapsed="true"\]/);
-    assert.match(css, /prefers-reduced-motion/);
-
+    assert.match(html, /<dialog id="approval-dialog" aria-labelledby=/);
+    assert.match(html, /No settings are sent to machine controls/);
+    assert.match(html, /no photo upload or classification endpoint/);
+    assert.doesNotMatch(html, /Screen [1-4] —|sidebar__link|PO-2048|CUST-418|value="1200"/);
+    for (const currency of ["INR", "JPY", "KRW", "CNY", "IDR", "SGD", "AUD", "THB", "PHP", "MYR", "USD"]) assert.ok(html.includes(`<option value="${currency}">${currency}</option>`));
+    assert.doesNotMatch(html, /<option value="(hi|mr|ja|ko|zh-CN|id)">/);
+    let code = "";
+    for (const file of ["workflow.js", "components.js", "fields.js", "api.js", "currency-display.js"]) {
+      const r = await fetch(`http://127.0.0.1:${PORT}/ui/${file}`);
+      assert.equal(r.status, 200, file); assert.match(r.headers.get("content-type"), /text\/javascript/);
+      code += await r.text();
+    }
+    for (const endpoint of ["/orders/extract", "/jobs", "/risk/predict", "/risk/optimize", "/risk/similar-runs", "/risk/explanation", "/evidence/seen-before", "/impact/summary", "/fx?base=", "/api/runs/", "/job-sheets/render.pdf"]) assert.ok(code.includes(endpoint), endpoint);
+    for (const guard of ["Idempotency-Key", "reviewFingerprint", "reviewId", "confirmedSourceLine", "conditionsConfirmed", "latestSimilarRunsSource === \"bigquery\"", "createRequestGate", "isCurrent", "durable === true"]) assert.ok(code.includes(guard), guard);
+    assert.match(code, /resolved\.origin !== window\.location\.origin/);
+    assert.match(code, /currentStoredJob\.status !== "DRAFT"/);
+    assert.match(code, /scenario\.levers\[document\.getElementById\("what-if-lever"\)\.value\] = Number/);
+    assert.match(code, /"run\.completed": \{ message: "traceCompleted", state: "success" \}/);
+    assert.match(code, /"run\.failed": \{ message: "traceFailed", state: "error" \}/);
+    assert.match(code, /"run\.cancelled": \{ message: "traceCancelled", state: "incomplete" \}/);
+    assert.doesNotMatch(code, /\.innerHTML\s*=|insertAdjacentHTML/);
+    assert.doesNotMatch(code, /\/api\/agents\//);
+    const cssResponse = await fetch(`http://127.0.0.1:${PORT}/operator-ui.css`);
+    assert.equal(cssResponse.status, 200); const css = await cssResponse.text();
+    assert.match(css, /--color-accent:/); assert.match(css, /prefers-reduced-motion/); assert.match(css, /focus-visible/);
+    assert.match(css, /max-width:768px/); assert.match(css, /max-width:1024px/); assert.match(css, /@font-face/);
+    for (const asset of ["/fonts/plex-regular.woff2", "/fonts/plex-medium.woff2", "/fonts/plex-semibold.woff2", "/vendor/chart.umd.js"]) assert.equal((await fetch(`http://127.0.0.1:${PORT}${asset}`)).status, 200);
+    assert.equal((await fetch(`http://127.0.0.1:${PORT}/ui/schemas.js`)).status, 404);
     const clientModule = await fetch(`http://127.0.0.1:${PORT}/display-currency.js`);
-    assert.equal(clientModule.status, 200);
-    assert.match(clientModule.headers.get("content-type"), /text\/javascript/);
-    assert.match(await clientModule.text(), /export function formatDisplayCurrency/);
-
-    const localization = await fetch(`http://127.0.0.1:${PORT}/localization.js`);
-    assert.equal(localization.status, 200);
-    assert.match(localization.headers.get("content-type"), /text\/javascript/);
-    assert.match(await localization.text(), /export function translate/);
-    for (const language of ["en"]) {
-      const localeResponse = await fetch(`http://127.0.0.1:${PORT}/locales/${language}.json`);
-      assert.equal(localeResponse.status, 200);
-      assert.match(localeResponse.headers.get("content-type"), /application\/json/);
-      const locale = await localeResponse.json();
-      assert.equal(typeof locale.workflow, "string");
-      for (const key of ["operatorOrderContext", "operatorOrderContextHelp", "orderIdField", "paperTypeField", "paperSupplierField", "selectPaperType"]) {
-        assert.equal(typeof locale[key], "string", `${language} locale includes ${key}`);
-      }
-    }
-    for (const language of ["hi", "mr", "ja", "ko", "zh-CN", "id"]) {
-      assert.equal((await fetch(`http://127.0.0.1:${PORT}/locales/${language}.json`)).status, 404);
-    }
-    const unsupportedLocale = await fetch(`http://127.0.0.1:${PORT}/locales/fr.json`);
-    assert.equal(unsupportedLocale.status, 404);
-
-    const moneyContracts = await fetch(`http://127.0.0.1:${PORT}/money-contracts.js`);
-    assert.equal(moneyContracts.status, 200);
-    assert.match(moneyContracts.headers.get("content-type"), /text\/javascript/);
-    assert.match(await moneyContracts.text(), /getDisplayableProductionAmounts/);
-
-    const impactUi = await fetch(`http://127.0.0.1:${PORT}/impact-ui.js`);
-    assert.equal(impactUi.status, 200);
-    assert.match(impactUi.headers.get("content-type"), /text\/javascript/);
-    assert.match(await impactUi.text(), /export function isImpactSummary/);
-  } finally {
-    child.kill("SIGTERM");
-  }
+    assert.equal(clientModule.status, 200); assert.match(await clientModule.text(), /export function formatDisplayCurrency/);
+  } finally { child.kill("SIGTERM"); }
 });
 
 test("JobSheet PDF route validates input and renders locally without cloud persistence", async () => {

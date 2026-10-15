@@ -1,0 +1,1506 @@
+
+> prepagent@1.0.0 test:acceptance
+> node --test test/app.test.js test/po1-coordinator-workflow.test.js test/job-coordinator.test.js test/job-draft-persistence.test.js test/job-lifecycle-recovery.test.js test/job-idempotency.test.js test/purchase-order-review.test.js test/job-card-service.test.js test/job-sheet-pdf.test.js test/google-cloud-current-conditions.test.js test/feedback-service.test.js test/linked-feedback-service.test.js test/risk-prediction-service.test.js test/risk-optimization-service.test.js test/risk-evidence-service.test.js test/impact-summary-service.test.js test/fx-rates.test.js test/container-build-context.test.js test/runtime-config.test.js test/model-acceptance.test.js test/sensor-ingestion-sql.test.js
+
+TAP version 13
+# Subtest: health endpoint returns ok
+ok 1 - health endpoint returns ok
+  ---
+  duration_ms: 404.5445
+  type: 'test'
+  ...
+# Subtest: unknown routes identify the local runtime without exposing diagnostics
+ok 2 - unknown routes identify the local runtime without exposing diagnostics
+  ---
+  duration_ms: 249.713459
+  type: 'test'
+  ...
+# Subtest: Impact summary reports unavailable live data without substituting preview values
+ok 3 - Impact summary reports unavailable live data without substituting preview values
+  ---
+  duration_ms: 234.951
+  type: 'test'
+  ...
+# Subtest: Impact dashboard is served from the application origin and fails without showing preview estimates
+ok 4 - Impact dashboard is served from the application origin and fails without showing preview estimates
+  ---
+  duration_ms: 227.918958
+  type: 'test'
+  ...
+# Subtest: seen-before endpoint validates defect evidence before calling the disabled adapter
+ok 5 - seen-before endpoint validates defect evidence before calling the disabled adapter
+  ---
+  duration_ms: 235.957209
+  type: 'test'
+  ...
+# Subtest: similar-run and explanation routes validate contracts before reporting disabled adapters
+ok 6 - similar-run and explanation routes validate contracts before reporting disabled adapters
+  ---
+  duration_ms: 246.163917
+  type: 'test'
+  ...
+# Subtest: health remains available while operational requests are rate limited
+ok 7 - health remains available while operational requests are rate limited
+  ---
+  duration_ms: 282.722
+  type: 'test'
+  ...
+# Subtest: root serves the rebuilt operator UI and its complete same-origin workflow modules
+ok 8 - root serves the rebuilt operator UI and its complete same-origin workflow modules
+  ---
+  duration_ms: 243.955333
+  type: 'test'
+  ...
+# Subtest: JobSheet PDF route validates input and renders locally without cloud persistence
+ok 9 - JobSheet PDF route validates input and renders locally without cloud persistence
+  ---
+  duration_ms: 266.590708
+  type: 'test'
+  ...
+# Subtest: status endpoint separates backend reachability from configured local integrations
+ok 10 - status endpoint separates backend reachability from configured local integrations
+  ---
+  duration_ms: 223.256333
+  type: 'test'
+  ...
+# Subtest: status reports enabled gates separately from untested sensor data and persistence
+ok 11 - status reports enabled gates separately from untested sensor data and persistence
+  ---
+  duration_ms: 233.654792
+  type: 'test'
+  ...
+# Subtest: Cloud Run status advertises only configured cloud ports without making calls
+ok 12 - Cloud Run status advertises only configured cloud ports without making calls
+  ---
+  duration_ms: 255.431375
+  type: 'test'
+  ...
+# Subtest: live decision routes reject missing or forged supervisor identity before validation or service calls
+ok 13 - live decision routes reject missing or forged supervisor identity before validation or service calls
+  ---
+  duration_ms: 248.337458
+  type: 'test'
+  ...
+# Subtest: legacy mock-agent endpoints are unavailable in live-service even when demo is requested
+ok 14 - legacy mock-agent endpoints are unavailable in live-service even when demo is requested
+  ---
+  duration_ms: 245.972583
+  type: 'test'
+  ...
+# Subtest: legacy mock-agent endpoints are unavailable in offline mode
+ok 15 - legacy mock-agent endpoints are unavailable in offline mode
+  ---
+  duration_ms: 230.062958
+  type: 'test'
+  ...
+# Subtest: Cloud Run job lifecycle routes fail closed without supervisor authorization
+ok 16 - Cloud Run job lifecycle routes fail closed without supervisor authorization
+  ---
+  duration_ms: 244.408083
+  type: 'test'
+  ...
+# Subtest: Cloud Run prediction and optimization require an authenticated supervisor
+ok 17 - Cloud Run prediction and optimization require an authenticated supervisor
+  ---
+  duration_ms: 254.901958
+  type: 'test'
+  ...
+# Subtest: direct HTTP prediction and optimization routes remain blocked until Firebase supervisor verification is configured
+ok 18 - direct HTTP prediction and optimization routes remain blocked until Firebase supervisor verification is configured
+  ---
+  duration_ms: 233.632958
+  type: 'test'
+  ...
+# Subtest: demo PO extraction rejects unapproved bytes even when the caller asserts synthetic provenance
+ok 19 - demo PO extraction rejects unapproved bytes even when the caller asserts synthetic provenance
+  ---
+  duration_ms: 228.817708
+  type: 'test'
+  ...
+# Subtest: Cloud Run PO extraction requires an explicit synthetic-only gate
+ok 20 - Cloud Run PO extraction requires an explicit synthetic-only gate
+  ---
+  duration_ms: 252.134542
+  type: 'test'
+  ...
+# Subtest: Cloud Run PO extraction rejects modified documents in synthetic-only mode
+ok 21 - Cloud Run PO extraction rejects modified documents in synthetic-only mode
+  ---
+  duration_ms: 239.029584
+  type: 'test'
+  ...
+# Subtest: Cloud Run PO extraction rejects oversized decoded JPEGs before storage or model adapters
+ok 22 - Cloud Run PO extraction rejects oversized decoded JPEGs before storage or model adapters
+  ---
+  duration_ms: 235.343083
+  type: 'test'
+  ...
+# Subtest: Cloud Run does not accept JobSheet drafts before supervisor authorization exists
+ok 23 - Cloud Run does not accept JobSheet drafts before supervisor authorization exists
+  ---
+  duration_ms: 231.707167
+  type: 'test'
+  ...
+# Subtest: malformed and non-object JSON return structured validation errors
+ok 24 - malformed and non-object JSON return structured validation errors
+  ---
+  duration_ms: 228.599
+  type: 'test'
+  ...
+# Subtest: oversized request bodies are rejected with a JSON 413 response
+ok 25 - oversized request bodies are rejected with a JSON 413 response
+  ---
+  duration_ms: 279.278042
+  type: 'test'
+  ...
+# Subtest: legacy JSON extraction endpoint does not return a mock result
+ok 26 - legacy JSON extraction endpoint does not return a mock result
+  ---
+  duration_ms: 230.944959
+  type: 'test'
+  ...
+# Subtest: multipart purchase-order upload accepts signed PDF, rejects malformed JPEG and never claims extraction
+ok 27 - multipart purchase-order upload accepts signed PDF, rejects malformed JPEG and never claims extraction
+  ---
+  duration_ms: 258.063292
+  type: 'test'
+  ...
+# Subtest: job API requires an explicit confirmation for a PO-review selection
+ok 28 - job API requires an explicit confirmation for a PO-review selection
+  ---
+  duration_ms: 246.005958
+  type: 'test'
+  ...
+# Subtest: unknown routes return JSON 404 responses
+ok 29 - unknown routes return JSON 404 responses
+  ---
+  duration_ms: 231.044667
+  type: 'test'
+  ...
+# Subtest: risk endpoint does not present local heuristics as a production prediction
+ok 30 - risk endpoint does not present local heuristics as a production prediction
+  ---
+  duration_ms: 250.945083
+  type: 'test'
+  ...
+# Subtest: demo-mode smoke test covers extraction, validation, risk outputs, approval, and job-card retrieval
+ok 31 - demo-mode smoke test covers extraction, validation, risk outputs, approval, and job-card retrieval
+  ---
+  duration_ms: 315.890709
+  type: 'test'
+  ...
+# Subtest: Day 2 mock analysis routes remain unavailable outside explicit demo mode
+ok 32 - Day 2 mock analysis routes remain unavailable outside explicit demo mode
+  ---
+  duration_ms: 272.693459
+  type: 'test'
+  ...
+# Subtest: documented Part 2 routes validate requests and expose unconfigured integrations
+ok 33 - documented Part 2 routes validate requests and expose unconfigured integrations
+  ---
+  duration_ms: 276.916042
+  type: 'test'
+  ...
+# Subtest: job lifecycle routes do not imply persistence or approval while cloud services are absent
+ok 34 - job lifecycle routes do not imply persistence or approval while cloud services are absent
+  ---
+  duration_ms: 288.190375
+  type: 'test'
+  ...
+# Subtest: container build excludes local credentials and uses an explicit source allowlist
+ok 35 - container build excludes local credentials and uses an explicit source allowlist
+  ---
+  duration_ms: 1.646917
+  type: 'test'
+  ...
+# Subtest: feedback adapter maps and persists observed feedback without rewriting the operator note
+ok 36 - feedback adapter maps and persists observed feedback without rewriting the operator note
+  ---
+  duration_ms: 9.829917
+  type: 'test'
+  ...
+# Subtest: feedback adapter returns a bounded unavailable response for write failures
+ok 37 - feedback adapter returns a bounded unavailable response for write failures
+  ---
+  duration_ms: 0.728083
+  type: 'test'
+  ...
+# Subtest: feedback adapter refuses photo data until consent and provenance-safe storage are configured
+ok 38 - feedback adapter refuses photo data until consent and provenance-safe storage are configured
+  ---
+  duration_ms: 0.266875
+  type: 'test'
+  ...
+# Subtest: feedback retries reuse a payload-derived insert ID despite a new timestamp
+ok 39 - feedback retries reuse a payload-derived insert ID despite a new timestamp
+  ---
+  duration_ms: 0.635167
+  type: 'test'
+  ...
+# Subtest: FX rates cache the provider snapshot for 24 hours and derive the requested base
+ok 40 - FX rates cache the provider snapshot for 24 hours and derive the requested base
+  ---
+  duration_ms: 27.317875
+  type: 'test'
+  ...
+# Subtest: FX rates use the dated static snapshot if the provider is unavailable
+ok 41 - FX rates use the dated static snapshot if the provider is unavailable
+  ---
+  duration_ms: 0.349584
+  type: 'test'
+  ...
+# Subtest: FX refreshes coalesce concurrent requests into one provider fetch
+ok 42 - FX refreshes coalesce concurrent requests into one provider fetch
+  ---
+  duration_ms: 4.371917
+  type: 'test'
+  ...
+# Subtest: FX falls back when the provider responds with a structurally invalid snapshot
+ok 43 - FX falls back when the provider responds with a structurally invalid snapshot
+  ---
+  duration_ms: 1.83225
+  type: 'test'
+  ...
+# Subtest: money formatting follows the requested locale and supported currency
+ok 44 - money formatting follows the requested locale and supported currency
+  ---
+  duration_ms: 15.634375
+  type: 'test'
+  ...
+# {"event":"current_conditions_unavailable","code":"SENSOR_ROW_INVALID","errorType":"BigQueryReadError"}
+# {"event":"current_conditions_unavailable","code":"SENSOR_PLANT_MISMATCH","errorType":"BigQueryReadError"}
+# {"event":"current_conditions_unavailable","code":"SENSOR_ROW_INVALID","errorType":"BigQueryReadError"}
+# {"event":"current_conditions_unavailable","code":"SENSOR_TIMESTAMP_INVALID","errorType":"BigQueryReadError"}
+# {"event":"current_conditions_unavailable","code":"SENSOR_SCHEMA_MISMATCH","errorType":"BigQueryReadError"}
+# Subtest: current conditions: 7-col result with pubsub-bq-subscription source is labelled simulated
+ok 45 - current conditions: 7-col result with pubsub-bq-subscription source is labelled simulated
+  ---
+  duration_ms: 11.209833
+  type: 'test'
+  ...
+# Subtest: current conditions refuses to label an asserted live marker as genuine sensor evidence
+ok 46 - current conditions refuses to label an asserted live marker as genuine sensor evidence
+  ---
+  duration_ms: 0.819458
+  type: 'test'
+  ...
+# Subtest: current conditions normalizes BigQuery REST timestamp seconds
+ok 47 - current conditions normalizes BigQuery REST timestamp seconds
+  ---
+  duration_ms: 0.400333
+  type: 'test'
+  ...
+# Subtest: readings older than 24 hours are marked stale and a live marker is not treated as real sensor evidence
+ok 48 - readings older than 24 hours are marked stale and a live marker is not treated as real sensor evidence
+  ---
+  duration_ms: 0.3965
+  type: 'test'
+  ...
+# Subtest: current conditions preserves sensor identity and marks an absent feed source unverified
+ok 49 - current conditions preserves sensor identity and marks an absent feed source unverified
+  ---
+  duration_ms: 1.317375
+  type: 'test'
+  ...
+# Subtest: current conditions does not mistake a null source column for simulated data
+ok 50 - current conditions does not mistake a null source column for simulated data
+  ---
+  duration_ms: 0.289334
+  type: 'test'
+  ...
+# Subtest: current conditions reports unavailable when no stored reading exists and rejects missing shift before querying
+ok 51 - current conditions reports unavailable when no stored reading exists and rejects missing shift before querying
+  ---
+  duration_ms: 0.331375
+  type: 'test'
+  ...
+# Subtest: current conditions: malformed reading with non-finite value returns SERVICE_UNAVAILABLE
+ok 52 - current conditions: malformed reading with non-finite value returns SERVICE_UNAVAILABLE
+  ---
+  duration_ms: 1.000583
+  type: 'test'
+  ...
+# Subtest: current conditions rejects a mismatched-plant result instead of trusting the query filter
+ok 53 - current conditions rejects a mismatched-plant result instead of trusting the query filter
+  ---
+  duration_ms: 0.834083
+  type: 'test'
+  ...
+# Subtest: current conditions rejects duplicate latest rows and future timestamps
+    # Subtest: multiple rows
+    ok 1 - multiple rows
+      ---
+      duration_ms: 2.124959
+      type: 'test'
+      ...
+    # Subtest: future timestamp
+    ok 2 - future timestamp
+      ---
+      duration_ms: 0.8435
+      type: 'test'
+      ...
+    1..2
+ok 54 - current conditions rejects duplicate latest rows and future timestamps
+  ---
+  duration_ms: 3.389666
+  type: 'test'
+  ...
+# Subtest: current conditions: schema mismatch returns SERVICE_UNAVAILABLE
+ok 55 - current conditions: schema mismatch returns SERVICE_UNAVAILABLE
+  ---
+  duration_ms: 0.231834
+  type: 'test'
+  ...
+# Subtest: current conditions logs only schema paths and codes for invalid sensor rows
+ok 56 - current conditions logs only schema paths and codes for invalid sensor rows
+  ---
+  duration_ms: 1.142167
+  type: 'test'
+  ...
+# Subtest: current conditions: BigQuery unavailable returns SERVICE_UNAVAILABLE
+ok 57 - current conditions: BigQuery unavailable returns SERVICE_UNAVAILABLE
+  ---
+  duration_ms: 0.233709
+  type: 'test'
+  ...
+# Subtest: current conditions: AbortError is rethrown
+ok 58 - current conditions: AbortError is rethrown
+  ---
+  duration_ms: 0.496292
+  type: 'test'
+  ...
+# Subtest: Impact summary runs the supplied queries and labels September's counterfactual
+ok 59 - Impact summary runs the supplied queries and labels September's counterfactual
+  ---
+  duration_ms: 3.600333
+  type: 'test'
+  ...
+# Subtest: Impact summary anonymizes hostile item identifiers and never returns item descriptions
+ok 60 - Impact summary anonymizes hostile item identifiers and never returns item descriptions
+  ---
+  duration_ms: 0.691958
+  type: 'test'
+  ...
+# Subtest: Impact summary caches successful live data for one hour
+ok 61 - Impact summary caches successful live data for one hour
+  ---
+  duration_ms: 0.595042
+  type: 'test'
+  ...
+# Subtest: expired Impact cache is not served as stale data when refresh fails
+ok 62 - expired Impact cache is not served as stale data when refresh fails
+  ---
+  duration_ms: 0.555208
+  type: 'test'
+  ...
+# Subtest: Impact summary fails explicitly and never returns preview data after query failure
+ok 63 - Impact summary fails explicitly and never returns preview data after query failure
+  ---
+  duration_ms: 0.348166
+  type: 'test'
+  ...
+# Subtest: Cloud runtime requires explicit opt-in for the Impact queries
+ok 64 - Cloud runtime requires explicit opt-in for the Impact queries
+  ---
+  duration_ms: 0.579125
+  type: 'test'
+  ...
+# Subtest: the Impact adapter loads all four supplied SQL assets from the app SQL directory
+ok 65 - the Impact adapter loads all four supplied SQL assets from the app SQL directory
+  ---
+  duration_ms: 0.571958
+  type: 'test'
+  ...
+# Subtest: job-card service refuses non-TEST approval before rendering or upload
+ok 66 - job-card service refuses non-TEST approval before rendering or upload
+  ---
+  duration_ms: 17.838875
+  type: 'test'
+  ...
+# Subtest: approval renders and stores an approved PDF before recording conditional approval
+ok 67 - approval renders and stores an approved PDF before recording conditional approval
+  ---
+  duration_ms: 4.306542
+  type: 'test'
+  ...
+# Subtest: failed approval persistence cleans only the uploaded object generation
+ok 68 - failed approval persistence cleans only the uploaded object generation
+  ---
+  duration_ms: 3.281375
+  type: 'test'
+  ...
+# Subtest: approval reconciles an ambiguous write from stored state and retains the referenced card
+ok 69 - approval reconciles an ambiguous write from stored state and retains the referenced card
+  ---
+  duration_ms: 3.193416
+  type: 'test'
+  ...
+# Subtest: approval retains an uploaded card when the write outcome cannot be read back
+ok 70 - approval retains an uploaded card when the write outcome cannot be read back
+  ---
+  duration_ms: 1.757041
+  type: 'test'
+  ...
+# Subtest: an unapproved advanced state cannot generate a job card
+ok 71 - an unapproved advanced state cannot generate a job card
+  ---
+  duration_ms: 0.724083
+  type: 'test'
+  ...
+# Subtest: stored card download is private, validates bucket URI and requires approval
+ok 72 - stored card download is private, validates bucket URI and requires approval
+  ---
+  duration_ms: 1.198125
+  type: 'test'
+  ...
+# Subtest: stored card rejects language or currency it cannot render
+ok 73 - stored card rejects language or currency it cannot render
+  ---
+  duration_ms: 0.2635
+  type: 'test'
+  ...
+# Subtest: approval rejects unsupported card preferences before reading or writing a job
+ok 74 - approval rejects unsupported card preferences before reading or writing a job
+  ---
+  duration_ms: 0.534583
+  type: 'test'
+  ...
+# Subtest: job coordinator executes verified stages in order and traces the first unavailable Om tool
+ok 75 - job coordinator executes verified stages in order and traces the first unavailable Om tool
+  ---
+  duration_ms: 18.587875
+  type: 'test'
+  ...
+# Subtest: job coordinator uses supervisor-confirmed manual conditions without querying a sensor adapter
+ok 76 - job coordinator uses supervisor-confirmed manual conditions without querying a sensor adapter
+  ---
+  duration_ms: 1.157292
+  type: 'test'
+  ...
+# Subtest: job coordinator blocks real model results without accepted version-linked evidence
+ok 77 - job coordinator blocks real model results without accepted version-linked evidence
+  ---
+  duration_ms: 0.760542
+  type: 'test'
+  ...
+# Subtest: job coordinator assembles a validated draft and closes the trace after all supplied services succeed
+ok 78 - job coordinator assembles a validated draft and closes the trace after all supplied services succeed
+  ---
+  duration_ms: 7.324959
+  type: 'test'
+  ...
+# Subtest: job coordinator blocks an optimizer baseline that disagrees with the prediction
+ok 79 - job coordinator blocks an optimizer baseline that disagrees with the prediction
+  ---
+  duration_ms: 0.613709
+  type: 'test'
+  ...
+# Subtest: job coordinator blocks optimizer settings and change lists that disagree with the validated plan
+    # Subtest: planned baseline mismatch
+    ok 1 - planned baseline mismatch
+      ---
+      duration_ms: 1.147834
+      type: 'test'
+      ...
+    # Subtest: unsubstantiated change entry
+    ok 2 - unsubstantiated change entry
+      ---
+      duration_ms: 1.368542
+      type: 'test'
+      ...
+    1..2
+ok 80 - job coordinator blocks optimizer settings and change lists that disagree with the validated plan
+  ---
+  duration_ms: 3.00475
+  type: 'test'
+  ...
+# Subtest: job coordinator blocks internally inconsistent predicted rates before optimization
+ok 81 - job coordinator blocks internally inconsistent predicted rates before optimization
+  ---
+  duration_ms: 1.334708
+  type: 'test'
+  ...
+# Subtest: job coordinator blocks malformed historical evidence before explanation
+ok 82 - job coordinator blocks malformed historical evidence before explanation
+  ---
+  duration_ms: 2.930667
+  type: 'test'
+  ...
+# Subtest: job coordinator propagates stored conditions and provenance without changing values
+ok 83 - job coordinator propagates stored conditions and provenance without changing values
+  ---
+  duration_ms: 2.413041
+  type: 'test'
+  ...
+# Subtest: job coordinator blocks unverified sensor sources but not stale simulated readings
+    # Subtest: unverified
+    ok 1 - unverified
+      ---
+      duration_ms: 0.595541
+      type: 'test'
+      ...
+    # Subtest: live marker
+    ok 2 - live marker
+      ---
+      duration_ms: 0.287083
+      type: 'test'
+      ...
+    # Subtest: missing
+    ok 3 - missing
+      ---
+      duration_ms: 0.231875
+      type: 'test'
+      ...
+    1..3
+ok 84 - job coordinator blocks unverified sensor sources but not stale simulated readings
+  ---
+  duration_ms: 2.755625
+  type: 'test'
+  ...
+# Subtest: job coordinator rejects empty explanation output before JobSheet generation
+ok 85 - job coordinator rejects empty explanation output before JobSheet generation
+  ---
+  duration_ms: 1.0525
+  type: 'test'
+  ...
+# Subtest: job coordinator stops after extraction when the authoritative item profile needs clarification
+ok 86 - job coordinator stops after extraction when the authoritative item profile needs clarification
+  ---
+  duration_ms: 0.267958
+  type: 'test'
+  ...
+# Subtest: job coordinator stops when operator confirmation differs from extracted item and quantity
+ok 87 - job coordinator stops when operator confirmation differs from extracted item and quantity
+  ---
+  duration_ms: 0.19875
+  type: 'test'
+  ...
+# Subtest: job coordinator blocks a matched PO line with no source-page provenance
+ok 88 - job coordinator blocks a matched PO line with no source-page provenance
+  ---
+  duration_ms: 0.279625
+  type: 'test'
+  ...
+# Subtest: job coordinator validates the selected line while retaining unresolved sibling lines
+ok 89 - job coordinator validates the selected line while retaining unresolved sibling lines
+  ---
+  duration_ms: 0.485375
+  type: 'test'
+  ...
+# Subtest: job coordinator blocks unresolved selected PO lines without starting conditions or prediction
+ok 90 - job coordinator blocks unresolved selected PO lines without starting conditions or prediction
+  ---
+  duration_ms: 0.457708
+  type: 'test'
+  ...
+# Subtest: job coordinator requires a line selection for a multi-line purchase order
+ok 91 - job coordinator requires a line selection for a multi-line purchase order
+  ---
+  duration_ms: 0.238375
+  type: 'test'
+  ...
+# Subtest: job coordinator rejects stale confirmation for a different selected line
+ok 92 - job coordinator rejects stale confirmation for a different selected line
+  ---
+  duration_ms: 0.250625
+  type: 'test'
+  ...
+# Subtest: job coordinator permits only an explicitly selected catalog candidate for an ambiguous line
+ok 93 - job coordinator permits only an explicitly selected catalog candidate for an ambiguous line
+  ---
+  duration_ms: 0.597833
+  type: 'test'
+  ...
+# Subtest: job coordinator rejects missing operator and process inputs before starting a traced run
+ok 94 - job coordinator rejects missing operator and process inputs before starting a traced run
+  ---
+  duration_ms: 2.846167
+  type: 'test'
+  ...
+# Subtest: job coordinator stops downstream stages when stored conditions are unavailable
+ok 95 - job coordinator stops downstream stages when stored conditions are unavailable
+  ---
+  duration_ms: 0.563209
+  type: 'test'
+  ...
+# Subtest: job coordinator stops before optimization when prediction output is malformed
+ok 96 - job coordinator stops before optimization when prediction output is malformed
+  ---
+  duration_ms: 0.512333
+  type: 'test'
+  ...
+# Subtest: job coordinator sanitizes unexpected service exceptions and closes the run
+ok 97 - job coordinator sanitizes unexpected service exceptions and closes the run
+  ---
+  duration_ms: 0.566125
+  type: 'test'
+  ...
+# Subtest: job coordinator records cancellation without leaving an active tool or run
+ok 98 - job coordinator records cancellation without leaving an active tool or run
+  ---
+  duration_ms: 0.860958
+  type: 'test'
+  ...
+# Subtest: mergeDraftWriteArgs copies plant, savings, and currency from the JobSheet when omitted
+ok 99 - mergeDraftWriteArgs copies plant, savings, and currency from the JobSheet when omitted
+  ---
+  duration_ms: 0.992916
+  type: 'test'
+  ...
+# Subtest: readPersistedDraft accepts a repository createDraft document without an ok envelope
+ok 100 - readPersistedDraft accepts a repository createDraft document without an ok envelope
+  ---
+  duration_ms: 0.158208
+  type: 'test'
+  ...
+# Subtest: draft persistence is not called when an earlier workflow stage is unavailable
+ok 101 - draft persistence is not called when an earlier workflow stage is unavailable
+  ---
+  duration_ms: 9.947875
+  type: 'test'
+  ...
+# Subtest: a completed workflow persists the validated JobSheet under the request identity
+ok 102 - a completed workflow persists the validated JobSheet under the request identity
+  ---
+  duration_ms: 16.723375
+  type: 'test'
+  ...
+# Subtest: a repository-shaped createDraft success is treated as durable, not as adapter failure
+ok 103 - a repository-shaped createDraft success is treated as durable, not as adapter failure
+  ---
+  duration_ms: 1.579125
+  type: 'test'
+  ...
+# Subtest: persistence failure does not report success and releases the idempotency claim
+ok 104 - persistence failure does not report success and releases the idempotency claim
+  ---
+  duration_ms: 6.925291
+  type: 'test'
+  ...
+# Subtest: duplicate submissions reuse the idempotency contract and do not create a second draft
+ok 105 - duplicate submissions reuse the idempotency contract and do not create a second draft
+  ---
+  duration_ms: 2.938125
+  type: 'test'
+  ...
+# Subtest: malformed persistence results are not treated as durable drafts
+ok 106 - malformed persistence results are not treated as durable drafts
+  ---
+  duration_ms: 2.010958
+  type: 'test'
+  ...
+# Subtest: an unconfigured persistence adapter never claims that a durable draft was created
+ok 107 - an unconfigured persistence adapter never claims that a durable draft was created
+  ---
+  duration_ms: 0.742417
+  type: 'test'
+  ...
+# Subtest: persistence is not attempted when a later workflow stage is unavailable
+ok 108 - persistence is not attempted when a later workflow stage is unavailable
+  ---
+  duration_ms: 2.218459
+  type: 'test'
+  ...
+# Subtest: a missing plant ID does not call the adapter or claim a durable draft
+ok 109 - a missing plant ID does not call the adapter or claim a durable draft
+  ---
+  duration_ms: 5.400125
+  type: 'test'
+  ...
+# Subtest: a thrown persistence error does not report success and releases the claim for retry
+ok 110 - a thrown persistence error does not report success and releases the claim for retry
+  ---
+  duration_ms: 3.715708
+  type: 'test'
+  ...
+# Subtest: enabled persistence without a shared store does not return a non-durable success
+ok 111 - enabled persistence without a shared store does not return a non-durable success
+  ---
+  duration_ms: 0.4365
+  type: 'test'
+  ...
+# Subtest: persistence AbortError is propagated and releases the idempotency claim
+ok 112 - persistence AbortError is propagated and releases the idempotency claim
+  ---
+  duration_ms: 2.518125
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: returns deterministic keyHash and fingerprint for same inputs
+ok 113 - createJobRequestIdentity: returns deterministic keyHash and fingerprint for same inputs
+  ---
+  duration_ms: 3.845167
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: client key produces different keyHash than fingerprint-derived key
+ok 114 - createJobRequestIdentity: client key produces different keyHash than fingerprint-derived key
+  ---
+  duration_ms: 0.404
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: different PO content produces different fingerprint
+ok 115 - createJobRequestIdentity: different PO content produces different fingerprint
+  ---
+  duration_ms: 0.22
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: item confirmation is part of the request fingerprint
+ok 116 - createJobRequestIdentity: item confirmation is part of the request fingerprint
+  ---
+  duration_ms: 0.117708
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: selected PO line is part of the request fingerprint
+ok 117 - createJobRequestIdentity: selected PO line is part of the request fingerprint
+  ---
+  duration_ms: 0.267042
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: reviewed extraction content is part of the request fingerprint
+ok 118 - createJobRequestIdentity: reviewed extraction content is part of the request fingerprint
+  ---
+  duration_ms: 0.166958
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: rejects invalid idempotency key (space in key)
+ok 119 - createJobRequestIdentity: rejects invalid idempotency key (space in key)
+  ---
+  duration_ms: 0.204584
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: rejects idempotency key longer than 128 chars
+ok 120 - createJobRequestIdentity: rejects idempotency key longer than 128 chars
+  ---
+  duration_ms: 0.074084
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: rejects missing fileBytes
+ok 121 - createJobRequestIdentity: rejects missing fileBytes
+  ---
+  duration_ms: 0.406917
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: rejects invalid shift
+ok 122 - createJobRequestIdentity: rejects invalid shift
+  ---
+  duration_ms: 0.45375
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: jobId is JOB- prefix followed by 40 hex chars from keyHash
+ok 123 - createJobRequestIdentity: jobId is JOB- prefix followed by 40 hex chars from keyHash
+  ---
+  duration_ms: 0.233292
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: does not expose raw file bytes in output
+ok 124 - createJobRequestIdentity: does not expose raw file bytes in output
+  ---
+  duration_ms: 0.113334
+  type: 'test'
+  ...
+# Subtest: InMemoryIdempotencyStore: claim returns claimed with correct ownerToken
+ok 125 - InMemoryIdempotencyStore: claim returns claimed with correct ownerToken
+  ---
+  duration_ms: 0.17375
+  type: 'test'
+  ...
+# Subtest: InMemoryIdempotencyStore: second claim returns in_progress while lease is active
+ok 126 - InMemoryIdempotencyStore: second claim returns in_progress while lease is active
+  ---
+  duration_ms: 0.087875
+  type: 'test'
+  ...
+# Subtest: InMemoryIdempotencyStore: returns conflict for same key with different fingerprint
+ok 127 - InMemoryIdempotencyStore: returns conflict for same key with different fingerprint
+  ---
+  duration_ms: 0.091958
+  type: 'test'
+  ...
+# Subtest: InMemoryIdempotencyStore: complete then re-claim returns complete status
+ok 128 - InMemoryIdempotencyStore: complete then re-claim returns complete status
+  ---
+  duration_ms: 0.12425
+  type: 'test'
+  ...
+# Subtest: InMemoryIdempotencyStore: release allows re-claim by another caller
+ok 129 - InMemoryIdempotencyStore: release allows re-claim by another caller
+  ---
+  duration_ms: 0.100542
+  type: 'test'
+  ...
+# Subtest: InMemoryIdempotencyStore: release by non-owner is a no-op (owner can still complete)
+ok 130 - InMemoryIdempotencyStore: release by non-owner is a no-op (owner can still complete)
+  ---
+  duration_ms: 0.079209
+  type: 'test'
+  ...
+# Subtest: InMemoryIdempotencyStore: expired lease allows re-claim
+ok 131 - InMemoryIdempotencyStore: expired lease allows re-claim
+  ---
+  duration_ms: 0.089875
+  type: 'test'
+  ...
+# Subtest: InMemoryIdempotencyStore: clear removes all records
+ok 132 - InMemoryIdempotencyStore: clear removes all records
+  ---
+  duration_ms: 0.209625
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: same key and same request returns same job on retry
+ok 133 - createIdempotentJobService: same key and same request returns same job on retry
+  ---
+  duration_ms: 0.647166
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: same client key with different request returns CONFLICT
+ok 134 - createIdempotentJobService: same client key with different request returns CONFLICT
+  ---
+  duration_ms: 0.220708
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: concurrent requests with same key only create one job
+ok 135 - createIdempotentJobService: concurrent requests with same key only create one job
+  ---
+  duration_ms: 0.190459
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: failed job creation releases the claim so it can be retried
+ok 136 - createIdempotentJobService: failed job creation releases the claim so it can be retried
+  ---
+  duration_ms: 0.840083
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: in-progress (not-durable) result releases claim for retry
+ok 137 - createIdempotentJobService: in-progress (not-durable) result releases claim for retry
+  ---
+  duration_ms: 0.210167
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: two service instances sharing a store behave idempotently
+ok 138 - createIdempotentJobService: two service instances sharing a store behave idempotently
+  ---
+  duration_ms: 0.174292
+  type: 'test'
+  ...
+# Subtest: createJobRequestIdentity: request without client key uses fingerprint-derived key
+ok 139 - createJobRequestIdentity: request without client key uses fingerprint-derived key
+  ---
+  duration_ms: 0.072416
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: missing client key falls back to fingerprint-based idempotency
+ok 140 - createIdempotentJobService: missing client key falls back to fingerprint-based idempotency
+  ---
+  duration_ms: 0.279292
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: returns SERVICE_UNAVAILABLE when store is missing
+ok 141 - createIdempotentJobService: returns SERVICE_UNAVAILABLE when store is missing
+  ---
+  duration_ms: 0.076125
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: invalid identity returns VALIDATION_ERROR not an exception
+ok 142 - createIdempotentJobService: invalid identity returns VALIDATION_ERROR not an exception
+  ---
+  duration_ms: 0.127417
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: AbortError propagates rather than being swallowed
+ok 143 - createIdempotentJobService: AbortError propagates rather than being swallowed
+  ---
+  duration_ms: 0.589916
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: loadJob failure returns SERVICE_UNAVAILABLE on replay
+ok 144 - createIdempotentJobService: loadJob failure returns SERVICE_UNAVAILABLE on replay
+  ---
+  duration_ms: 0.150209
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: an unconfirmed durable completion is not reported as success
+ok 145 - createIdempotentJobService: an unconfirmed durable completion is not reported as success
+  ---
+  duration_ms: 0.404584
+  type: 'test'
+  ...
+# Subtest: createIdempotentJobService: different client keys create independent slots
+ok 146 - createIdempotentJobService: different client keys create independent slots
+  ---
+  duration_ms: 0.13025
+  type: 'test'
+  ...
+# Subtest: persisted DRAFT retries, recovers ambiguous approval, and retrieves its approved card
+ok 147 - persisted DRAFT retries, recovers ambiguous approval, and retrieves its approved card
+  ---
+  duration_ms: 32.715167
+  type: 'test'
+  ...
+# Subtest: a failed read-back leaves a persisted DRAFT recoverable by an idempotent retry
+ok 148 - a failed read-back leaves a persisted DRAFT recoverable by an idempotent retry
+  ---
+  duration_ms: 1.625417
+  type: 'test'
+  ...
+# Subtest: JobSheet renderer creates a valid PDF containing supplied order and production data
+ok 149 - JobSheet renderer creates a valid PDF containing supplied order and production data
+  ---
+  duration_ms: 39.785292
+  type: 'test'
+  ...
+# Subtest: JobSheet renderer prints the selected PO source line using the operator-facing one-based number
+ok 150 - JobSheet renderer prints the selected PO source line using the operator-facing one-based number
+  ---
+  duration_ms: 7.567667
+  type: 'test'
+  ...
+# Subtest: JobSheet renderer omits absent optional plant and evidence without inventing values
+ok 151 - JobSheet renderer omits absent optional plant and evidence without inventing values
+  ---
+  duration_ms: 4.90275
+  type: 'test'
+  ...
+# Subtest: JobSheet renderer uses bundled Noto fonts for required scripts
+    # Subtest: Devanagari
+    ok 1 - Devanagari
+      ---
+      duration_ms: 56.676083
+      type: 'test'
+      ...
+    # Subtest: Japanese
+    ok 2 - Japanese
+      ---
+      duration_ms: 18.471417
+      type: 'test'
+      ...
+    # Subtest: Korean
+    ok 3 - Korean
+      ---
+      duration_ms: 21.184417
+      type: 'test'
+      ...
+    # Subtest: Simplified Chinese
+    ok 4 - Simplified Chinese
+      ---
+      duration_ms: 20.169625
+      type: 'test'
+      ...
+    1..4
+ok 152 - JobSheet renderer uses bundled Noto fonts for required scripts
+  ---
+  duration_ms: 117.116959
+  type: 'test'
+  ...
+# Subtest: JobSheet renderer fails explicitly when a requested font override is unavailable
+ok 153 - JobSheet renderer fails explicitly when a requested font override is unavailable
+  ---
+  duration_ms: 2.924833
+  type: 'test'
+  ...
+# Subtest: JobSheet renderer paginates long explanation text without dropping its ending
+ok 154 - JobSheet renderer paginates long explanation text without dropping its ending
+  ---
+  duration_ms: 28.048875
+  type: 'test'
+  ...
+# Subtest: JobSheet renderer rejects invalid input instead of producing a success-shaped document
+ok 155 - JobSheet renderer rejects invalid input instead of producing a success-shaped document
+  ---
+  duration_ms: 0.978333
+  type: 'test'
+  ...
+# Subtest: JobSheet renderer reports approval only when the supplied status says APPROVED
+ok 156 - JobSheet renderer reports approval only when the supplied status says APPROVED
+  ---
+  duration_ms: 3.885709
+  type: 'test'
+  ...
+# Subtest: linked feedback reads and validates the referenced job before saving
+ok 157 - linked feedback reads and validates the referenced job before saving
+  ---
+  duration_ms: 12.693917
+  type: 'test'
+  ...
+# Subtest: linked feedback rejects an unknown job without calling the writer
+ok 158 - linked feedback rejects an unknown job without calling the writer
+  ---
+  duration_ms: 0.30925
+  type: 'test'
+  ...
+# Subtest: linked feedback refuses writes for non-TEST orders
+ok 159 - linked feedback refuses writes for non-TEST orders
+  ---
+  duration_ms: 6.297917
+  type: 'test'
+  ...
+# Subtest: linked feedback rejects malformed or mismatched stored jobs without writing
+ok 160 - linked feedback rejects malformed or mismatched stored jobs without writing
+  ---
+  duration_ms: 2.118666
+  type: 'test'
+  ...
+# Subtest: linked feedback preserves unavailable reads and propagates cancellation
+ok 161 - linked feedback preserves unavailable reads and propagates cancellation
+  ---
+  duration_ms: 0.562417
+  type: 'test'
+  ...
+# Subtest: linked feedback rejects lots that are missing or belong to a different order
+ok 162 - linked feedback rejects lots that are missing or belong to a different order
+  ---
+  duration_ms: 1.1685
+  type: 'test'
+  ...
+# Subtest: feedback without an optional lot ID does not request a lot lookup
+ok 163 - feedback without an optional lot ID does not request a lot lookup
+  ---
+  duration_ms: 0.361042
+  type: 'test'
+  ...
+# Subtest: recorded model evaluation remains blocked despite current-version linkage and declared evaluation window
+ok 164 - recorded model evaluation remains blocked despite current-version linkage and declared evaluation window
+  ---
+  duration_ms: 1.103
+  type: 'test'
+  ...
+# Subtest: read-only feature-importance observation covers the active five model versions but does not imply acceptance
+ok 165 - read-only feature-importance observation covers the active five model versions but does not imply acceptance
+  ---
+  duration_ms: 0.183958
+  type: 'test'
+  ...
+# Subtest: model set acceptance requires five version-linked results at each prototype threshold and reviewed feature importance
+ok 166 - model set acceptance requires five version-linked results at each prototype threshold and reviewed feature importance
+  ---
+  duration_ms: 0.574792
+  type: 'test'
+  ...
+# Subtest: fixture-backed PO1 review flows through draft persistence, approval, and job-card retrieval
+ok 167 - fixture-backed PO1 review flows through draft persistence, approval, and job-card retrieval
+  ---
+  duration_ms: 59.993458
+  type: 'test'
+  ...
+# Subtest: approved fixture PO1_ClientA_single_B1047.pdf extracts and reviews each expected line once
+ok 168 - approved fixture PO1_ClientA_single_B1047.pdf extracts and reviews each expected line once
+  ---
+  duration_ms: 7.294916
+  type: 'test'
+  ...
+# Subtest: approved fixture PO2_ClientA_multiline.pdf extracts and reviews each expected line once
+ok 169 - approved fixture PO2_ClientA_multiline.pdf extracts and reviews each expected line once
+  ---
+  duration_ms: 1.261667
+  type: 'test'
+  ...
+# Subtest: approved fixture PO3_ClientP_electronics_with_fitment.pdf extracts and reviews each expected line once
+ok 170 - approved fixture PO3_ClientP_electronics_with_fitment.pdf extracts and reviews each expected line once
+  ---
+  duration_ms: 0.749125
+  type: 'test'
+  ...
+# Subtest: approved fixture PO4_ClientQ_ambiguous_set.pdf extracts and reviews each expected line once
+ok 171 - approved fixture PO4_ClientQ_ambiguous_set.pdf extracts and reviews each expected line once
+  ---
+  duration_ms: 2.050291
+  type: 'test'
+  ...
+# Subtest: approved fixture PO5_ClientB_scanned.jpg extracts and reviews each expected line once
+ok 172 - approved fixture PO5_ClientB_scanned.jpg extracts and reviews each expected line once
+  ---
+  duration_ms: 1.448792
+  type: 'test'
+  ...
+# Subtest: review extraction returns all fixture-backed lines and document metadata after one extraction
+ok 173 - review extraction returns all fixture-backed lines and document metadata after one extraction
+  ---
+  duration_ms: 0.592416
+  type: 'test'
+  ...
+# Subtest: review confirmation reuses extraction, binds the exact source line and catalog profile
+ok 174 - review confirmation reuses extraction, binds the exact source line and catalog profile
+  ---
+  duration_ms: 0.740209
+  type: 'test'
+  ...
+# Subtest: ambiguous fixture requires a returned candidate and resolves only the chosen candidate
+ok 175 - ambiguous fixture requires a returned candidate and resolves only the chosen candidate
+  ---
+  duration_ms: 0.474167
+  type: 'test'
+  ...
+# Subtest: unknown or unresolved catalog codes cannot be confirmed, while an explicit source correction is revalidated
+ok 176 - unknown or unresolved catalog codes cannot be confirmed, while an explicit source correction is revalidated
+  ---
+  duration_ms: 1.343709
+  type: 'test'
+  ...
+# Subtest: missing quantity can be explicitly corrected and a missing confirmation is rejected
+ok 177 - missing quantity can be explicitly corrected and a missing confirmation is rejected
+  ---
+  duration_ms: 0.810167
+  type: 'test'
+  ...
+# Subtest: changed file, stale extraction fingerprint, changed operator context and invalid line indices are rejected
+    # Subtest: changed file
+    ok 1 - changed file
+      ---
+      duration_ms: 0.095167
+      type: 'test'
+      ...
+    # Subtest: changed extraction fingerprint
+    ok 2 - changed extraction fingerprint
+      ---
+      duration_ms: 0.0715
+      type: 'test'
+      ...
+    # Subtest: changed operator context
+    ok 3 - changed operator context
+      ---
+      duration_ms: 0.074792
+      type: 'test'
+      ...
+    # Subtest: invalid line index
+    ok 4 - invalid line index
+      ---
+      duration_ms: 0.078291
+      type: 'test'
+      ...
+    1..4
+ok 178 - changed file, stale extraction fingerprint, changed operator context and invalid line indices are rejected
+  ---
+  duration_ms: 0.855667
+  type: 'test'
+  ...
+# Subtest: missing document fields remain explicit in the review response
+ok 179 - missing document fields remain explicit in the review response
+  ---
+  duration_ms: 0.238792
+  type: 'test'
+  ...
+# Subtest: the coordinator receives only the backend-confirmed reviewed line without repeating extraction
+ok 180 - the coordinator receives only the backend-confirmed reviewed line without repeating extraction
+  ---
+  duration_ms: 14.696958
+  type: 'test'
+  ...
+# Subtest: similar-runs query binds only its two named inputs and preserves SQL evidence
+ok 181 - similar-runs query binds only its two named inputs and preserves SQL evidence
+  ---
+  duration_ms: 9.268792
+  type: 'test'
+  ...
+# Subtest: similar-runs query fails closed on a result schema mismatch
+ok 182 - similar-runs query fails closed on a result schema mismatch
+  ---
+  duration_ms: 0.241916
+  type: 'test'
+  ...
+# Subtest: similar-runs preserves an empty result and rejects malformed historical rows
+ok 183 - similar-runs preserves an empty result and rejects malformed historical rows
+  ---
+  duration_ms: 0.330459
+  type: 'test'
+  ...
+# Subtest: explanation links attribution to the prediction, optimizer best settings and historical evidence
+ok 184 - explanation links attribution to the prediction, optimizer best settings and historical evidence
+  ---
+  duration_ms: 7.281667
+  type: 'test'
+  ...
+# Subtest: explanation fails closed when evidence or prediction linkage is invalid
+ok 185 - explanation fails closed when evidence or prediction linkage is invalid
+  ---
+  duration_ms: 1.166584
+  type: 'test'
+  ...
+# Subtest: explanation rejects malformed attribution and a prediction for another best result
+ok 186 - explanation rejects malformed attribution and a prediction for another best result
+  ---
+  duration_ms: 1.60375
+  type: 'test'
+  ...
+# Subtest: explanation rejects generated causal claims about attribution
+ok 187 - explanation rejects generated causal claims about attribution
+  ---
+  duration_ms: 2.9405
+  type: 'test'
+  ...
+# Subtest: seen-before validates the recognized defect and maps historical aggregates
+ok 188 - seen-before validates the recognized defect and maps historical aggregates
+  ---
+  duration_ms: 1.442542
+  type: 'test'
+  ...
+# Subtest: optimization service requires a bigquery client
+ok 189 - optimization service requires a bigquery client
+  ---
+  duration_ms: 1.999792
+  type: 'test'
+  ...
+# Subtest: optimization service requires a valid project ID
+ok 190 - optimization service requires a valid project ID
+  ---
+  duration_ms: 0.300208
+  type: 'test'
+  ...
+# Subtest: optimization service requires verified optimizer SQL containing ML.PREDICT
+ok 191 - optimization service requires verified optimizer SQL containing ML.PREDICT
+  ---
+  duration_ms: 0.384333
+  type: 'test'
+  ...
+# Subtest: optimization fails closed before BigQuery when model acceptance evidence is absent
+ok 192 - optimization fails closed before BigQuery when model acceptance evidence is absent
+  ---
+  duration_ms: 7.185792
+  type: 'test'
+  ...
+# Subtest: optimization service sends all 15 named parameters in correct order
+ok 193 - optimization service sends all 15 named parameters in correct order
+  ---
+  duration_ms: 2.593458
+  type: 'test'
+  ...
+# Subtest: blank planned levers use and label Om's approved plant-standard values
+ok 194 - blank planned levers use and label Om's approved plant-standard values
+  ---
+  duration_ms: 0.849458
+  type: 'test'
+  ...
+# Subtest: optimization service returns BASELINE and BEST with changes list
+ok 195 - optimization service returns BASELINE and BEST with changes list
+  ---
+  duration_ms: 0.991666
+  type: 'test'
+  ...
+# Subtest: optimization requires the baseline to preserve planned settings and BEST to use the documented grid
+ok 196 - optimization requires the baseline to preserve planned settings and BEST to use the documented grid
+  ---
+  duration_ms: 1.009708
+  type: 'test'
+  ...
+# Subtest: optimization rejects a penalty that does not match the documented slowing-down formula
+ok 197 - optimization rejects a penalty that does not match the documented slowing-down formula
+  ---
+  duration_ms: 0.472125
+  type: 'test'
+  ...
+# Subtest: optimization validates complete production inputs before querying
+ok 198 - optimization validates complete production inputs before querying
+  ---
+  duration_ms: 1.044458
+  type: 'test'
+  ...
+# Subtest: optimization identifies BASELINE and BEST by kind, not unspecified row order
+ok 199 - optimization identifies BASELINE and BEST by kind, not unspecified row order
+  ---
+  duration_ms: 0.2115
+  type: 'test'
+  ...
+# Subtest: optimization accepts a valid BEST result with zero changes
+ok 200 - optimization accepts a valid BEST result with zero changes
+  ---
+  duration_ms: 0.133375
+  type: 'test'
+  ...
+# Subtest: PKBX0041 baseline matches supplied SQL prediction and the optimizer's baseline
+ok 201 - PKBX0041 baseline matches supplied SQL prediction and the optimizer's baseline
+  ---
+  duration_ms: 0.45475
+  type: 'test'
+  ...
+# Subtest: optimization rejects output with an incorrect BigQuery type
+ok 202 - optimization rejects output with an incorrect BigQuery type
+  ---
+  duration_ms: 0.983042
+  type: 'test'
+  ...
+# Subtest: optimization service rejects query returning wrong row count
+ok 203 - optimization service rejects query returning wrong row count
+  ---
+  duration_ms: 0.272416
+  type: 'test'
+  ...
+# Subtest: optimization service rejects duplicate BASELINE rows
+ok 204 - optimization service rejects duplicate BASELINE rows
+  ---
+  duration_ms: 0.672291
+  type: 'test'
+  ...
+# Subtest: optimization service rejects BEST with n_changes > 3
+ok 205 - optimization service rejects BEST with n_changes > 3
+  ---
+  duration_ms: 0.72975
+  type: 'test'
+  ...
+# Subtest: optimization service rejects savings that do not reconcile with optimizer row deltas
+ok 206 - optimization service rejects savings that do not reconcile with optimizer row deltas
+  ---
+  duration_ms: 0.805416
+  type: 'test'
+  ...
+# Subtest: optimization service rejects currencies that its INR savings contract cannot represent
+ok 207 - optimization service rejects currencies that its INR savings contract cannot represent
+  ---
+  duration_ms: 0.461375
+  type: 'test'
+  ...
+# Subtest: optimization service returns SERVICE_UNAVAILABLE on query failure
+ok 208 - optimization service returns SERVICE_UNAVAILABLE on query failure
+  ---
+  duration_ms: 0.298459
+  type: 'test'
+  ...
+# Subtest: optimization service returns VALIDATION_ERROR when inputs are missing
+ok 209 - optimization service returns VALIDATION_ERROR when inputs are missing
+  ---
+  duration_ms: 0.33425
+  type: 'test'
+  ...
+# Subtest: optimization service rethrows AbortError
+ok 210 - optimization service rethrows AbortError
+  ---
+  duration_ms: 0.383333
+  type: 'test'
+  ...
+# Subtest: optimize.sql file exists and references ML.PREDICT and optimize.sql header
+ok 211 - optimize.sql file exists and references ML.PREDICT and optimize.sql header
+  ---
+  duration_ms: 2.992458
+  type: 'test'
+  ...
+# Subtest: risk prediction runs the supplied model SQL with exact named parameters and maps its row
+ok 212 - risk prediction runs the supplied model SQL with exact named parameters and maps its row
+  ---
+  duration_ms: 10.497667
+  type: 'test'
+  ...
+# Subtest: risk prediction fails closed before querying when only historical thresholds are met
+ok 213 - risk prediction fails closed before querying when only historical thresholds are met
+  ---
+  duration_ms: 0.411625
+  type: 'test'
+  ...
+# Subtest: direct risk prediction service rejects missing condition confirmation before querying
+ok 214 - direct risk prediction service rejects missing condition confirmation before querying
+  ---
+  duration_ms: 0.161042
+  type: 'test'
+  ...
+# Subtest: PKBX0041 fixture matches the supplied SQL's live prediction result
+ok 215 - PKBX0041 fixture matches the supplied SQL's live prediction result
+  ---
+  duration_ms: 0.701208
+  type: 'test'
+  ...
+# Subtest: PKBX0041 acceptance: all 15 parameters bound with correct names and types
+ok 216 - PKBX0041 acceptance: all 15 parameters bound with correct names and types
+  ---
+  duration_ms: 0.4855
+  type: 'test'
+  ...
+# Subtest: risk prediction reports missing plant/model output without inventing a result
+ok 217 - risk prediction reports missing plant/model output without inventing a result
+  ---
+  duration_ms: 0.219
+  type: 'test'
+  ...
+# Subtest: risk prediction returns SERVICE_UNAVAILABLE on query failure
+ok 218 - risk prediction returns SERVICE_UNAVAILABLE on query failure
+  ---
+  duration_ms: 0.22575
+  type: 'test'
+  ...
+# Subtest: risk prediction rethrows AbortError
+ok 219 - risk prediction rethrows AbortError
+  ---
+  duration_ms: 0.509958
+  type: 'test'
+  ...
+# Subtest: risk prediction rejects schema mismatch in query result
+ok 220 - risk prediction rejects schema mismatch in query result
+  ---
+  duration_ms: 0.550708
+  type: 'test'
+  ...
+# Subtest: risk prediction rejects incompatible output types, duplicate rows, and another item code
+ok 221 - risk prediction rejects incompatible output types, duplicate rows, and another item code
+  ---
+  duration_ms: 1.457208
+  type: 'test'
+  ...
+# Subtest: risk prediction rejects inconsistent totals and invalid defect probabilities
+ok 222 - risk prediction rejects inconsistent totals and invalid defect probabilities
+  ---
+  duration_ms: 1.109334
+  type: 'test'
+  ...
+# Subtest: risk prediction stays disabled unless explicitly enabled at runtime
+ok 223 - risk prediction stays disabled unless explicitly enabled at runtime
+  ---
+  duration_ms: 0.470375
+  type: 'test'
+  ...
+# Subtest: live optimizer stays unconfigured until an owner-approved contract ID and version are explicit
+ok 224 - live optimizer stays unconfigured until an owner-approved contract ID and version are explicit
+  ---
+  duration_ms: 0.914542
+  type: 'test'
+  ...
+# Subtest: Cloud Run deployment variables construct risk adapter with its isolated byte ceiling
+ok 225 - Cloud Run deployment variables construct risk adapter with its isolated byte ceiling
+  ---
+  duration_ms: 15.771
+  type: 'test'
+  ...
+# Subtest: risk prediction runs the supplied model SQL with exact named parameters and maps its row
+ok 226 - risk prediction runs the supplied model SQL with exact named parameters and maps its row
+  ---
+  duration_ms: 0.780291
+  type: 'test'
+  ...
+# Subtest: risk prediction reports missing plant/model output without inventing a result
+ok 227 - risk prediction reports missing plant/model output without inventing a result
+  ---
+  duration_ms: 0.17575
+  type: 'test'
+  ...
+# Subtest: risk prediction stays disabled unless explicitly enabled at runtime
+ok 228 - risk prediction stays disabled unless explicitly enabled at runtime
+  ---
+  duration_ms: 0.268
+  type: 'test'
+  ...
+# Subtest: Cloud Run deployment variables construct risk adapter with its isolated byte ceiling
+ok 229 - Cloud Run deployment variables construct risk adapter with its isolated byte ceiling
+  ---
+  duration_ms: 1.073291
+  type: 'test'
+  ...
+# Subtest: server port defaults to 8080 and accepts valid TCP ports
+ok 230 - server port defaults to 8080 and accepts valid TCP ports
+  ---
+  duration_ms: 0.887959
+  type: 'test'
+  ...
+# Subtest: server port rejects malformed and out-of-range values
+ok 231 - server port rejects malformed and out-of-range values
+  ---
+  duration_ms: 0.948667
+  type: 'test'
+  ...
+# Subtest: sensor ingestion acceptance query is bounded, parameterized, and read-only
+ok 232 - sensor ingestion acceptance query is bounded, parameterized, and read-only
+  ---
+  duration_ms: 0.774125
+  type: 'test'
+  ...
+1..232
+# tests 247
+# suites 0
+# pass 247
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8714.639167

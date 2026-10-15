@@ -1,0 +1,27 @@
+
+> prepagent@1.0.0 test:ui
+> playwright test
+
+[WebServer] (node:94850) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 12 tests using 1 worker
+
+(node:94852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:94852) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 test/browser/frontend.spec.js:57:1 › real offline startup, all navigation, dialogs, keyboard, files and unavailable states (3.9s)
+  ✓   2 test/browser/frontend.spec.js:88:1 › responsive real offline screens have no page overflow at every requested width (10.5s)
+  ✓   3 test/browser/frontend.spec.js:102:1 › review source, block unknown and ambiguous codes, require quantity and confirmations (3.6s)
+  ✓   4 test/browser/frontend.spec.js:131:1 › contract-correct planning, actual trace events, stored review, approval and PDF (8.6s)
+  ✓   5 test/browser/frontend.spec.js:170:1 › real request shapes for direct risk and what-if; inputs invalidate a slow scenario (6.5s)
+  ✓   6 test/browser/frontend.spec.js:185:1 › Impact renders real contract fixtures, chart instances, FX dates and malformed recovery (1.2s)
+  ✓   7 test/browser/frontend.spec.js:203:1 › Defect Check uses only supported evidence requests and safely renders notes (846ms)
+  ✓   8 test/browser/frontend.spec.js:213:1 › reduced motion, labelled controls, focus and form contrast (415ms)
+  ✓   9 test/browser/frontend.spec.js:228:1 › conditions provenance and stale extraction preserve user input without inventing readings (1.2s)
+  ✓  10 test/browser/frontend.spec.js:244:1 › optimization, historical evidence and explanation retain strict request schemas and attribution (5.4s)
+  ✓  11 test/browser/frontend.spec.js:258:1 › local PDF utility remains separate from persisted approval and handles invalid JSON (2.1s)
+  ✓  12 test/browser/frontend.spec.js:267:1 › progressive sections preserve keyboard access and entered values across navigation (920ms)
+
+  12 passed (47.5s)
