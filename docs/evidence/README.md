@@ -1,13 +1,16 @@
-# Curated engineering evidence
+# Product screenshots and verification summary
 
-This directory intentionally versions only:
+Only six useful product views are retained, rather than internal design iterations or before/after comparison galleries:
 
-- The before/after screenshots directly linked by the premium analytics report (desktop, tablet, phone, and explicitly labeled recorded-result presentation).
-- The current local empty-Impact workspace screenshots, without fabricated KPI values.
-- `REVIEWED_RELEASE_SUMMARY.json`: a safe summary of source/build/revision identities, bounded checks, usage and limitations.
+| View | Screenshot | Scope |
+|---|---|---|
+| Historical evidence | [Desktop](premium-analytics-20261016/after-history-1440.png) | Verified private Cloud Run response |
+| Historical evidence | [Phone](premium-analytics-20261016/after-history-mobile-default-390.png) | Verified private Cloud Run response |
+| Production Impact | [Desktop](premium-analytics-20261016/after-impact-1440.png) | BigQuery-backed held-out estimates, not measured factory savings |
+| Photo Diagnosis | [Workspace](premium-analytics-20261016/after-photo-initial-1440.png) | Approved selection controls; no image preview or invented confidence |
+| Empty Impact workspace | [Desktop](impact-empty-state-20261016/empty-impact-1440.png) | Newer local source, no dummy numbers |
+| Empty Impact workspace | [Phone](impact-empty-state-20261016/empty-impact-390.png) | Newer local source, no dummy numbers |
 
-These are product-review artifacts, not application data sources. Raw provider/API payloads, IAM/billing dumps, account/session journals, harnesses containing developer-specific paths, third-party design-reference images, intermediate captures and repeated test logs are excluded by explicit ignore rules. Historical `frontend` artifacts were removed from the Git index, not deleted from the owner's local disk. Earlier commits still preserve the original history.
+[Reviewed release summary](REVIEWED_RELEASE_SUMMARY.json) records the bounded historical verification scope and immutable deployment identity. It does not claim the newest local source has been deployed or that D4 passed.
 
-The complete pre-cleanup worktree and Git history were also backed up outside the repository. Existing reports retain their original raw-evidence identifiers; those references do not imply that every private journal is distributed with a clone. No tokens, credentials or raw manufacturing tables are needed to start the application.
-
-Screenshot interpretation matters: local backup images are not live-cloud proof; the recorded photo-result image is explicitly a presentation replay, not a new provider call; held-out Impact estimates are not measured factory savings. The current empty-state adjustment is newer than the previously deployed premium image.
+Raw provider/API/IAM/billing journals, internal build notes, reference images, redundant captures and temporary logs are not distributed. No WhatsApp image is required or included. The approved PO inputs remain under `public/samples/`; regression fixtures remain under `test/fixtures/`.

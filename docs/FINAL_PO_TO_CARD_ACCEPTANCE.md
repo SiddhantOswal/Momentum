@@ -1,10 +1,3 @@
-
-## Superseding live GCP checkpoint —16October2026
-
-Private candidate `prepagent-v1f-9edd78db` is now deployed at https://v1f-9edd78db---prepagent-26mwt2n7ba-el.a.run.app; image `asia-south1-docker.pkg.dev/prepagent-hack/prepagent/prepagent@sha256:13aea5e51ab935273925111e1cbfc5d996bbc2dbc71c90cf5796883ebe4d6f59`, Cloud Build `7b5a323f-73a0-4be0-9bd4-ab47a23f784d`. Default100%prepagent-00005-s5x and private IAM unchanged; max2. Actual remote browser verified extraction/catalog/conditions/history/photo/Impact and bounded security checks. Two Gemini attempts; counter2/100. D4 remains blocked; no model-enabled draft/approval/PDF flow or public release is claimed. No local suites, commit or push in this assignment. See GCP_END_TO_END_ACCEPTANCE_REPORT.md and docs/evidence/live-gcp-20261016/ for exact scope, retained failed assertions/follow-up results, cost and submission dependencies. Historical statements below saying no build/deploy are superseded only for this new candidate.
-
-> **Final V1 freeze update:** select the actual accepted D4 source/image from `V1_CODE_FREEZE.md` and the current release package; the latest prepared blocked-model archive is `dd0ac91ddfec18aa2cd7bb464fce9c7f4d2fae7abce31ee9bf959e1fcdbd0082`. No model-enabled run has been executed. For the separately labelled actual local backup and recording/recovery script see `DEMO_READINESS.md`; its values/PDF never qualify as this cloud acceptance.
-
 # Final private PO-to-approved-card acceptance
 
 **Not executed. D4 is currently BLOCKED.** This is the single model-enabled acceptance procedure after genuine evidence passes. Earlier isolated transport acceptance is not a substitute. Use the existing application and APIs, Approach B, no Firebase requirement.

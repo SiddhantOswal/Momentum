@@ -2,7 +2,7 @@
 
 The runtime remains BLOCKED. This procedure never retrains or evaluates a model. Approach B governs application participants; Om's model review is a separate project decision, not a visitor-granted privilege.
 
-## Exact request for Om
+## Required reviewed model evidence
 
 For **each version1** resource below, supply the genuinely evaluated feature/label rows or immutable membership archive, actual sample count, original source identity/snapshot or reproducible source query/window, evaluation/training job and SQL, actual metric artifact, and review of that version's feature evidence:
 
@@ -14,7 +14,7 @@ For **each version1** resource below, supply the genuinely evaluated feature/lab
 |`prepagent-hack.prepagent.m_print`|`projects/514663464609/locations/asia-south1/models/prepagent_print`,1|0.60|
 |`prepagent-hack.prepagent.m_crack`|`projects/514663464609/locations/asia-south1/models/prepagent_crack`,1|0.30|
 
-Refresh these identities/etags before installation; do not assume version1 forever. Existing recovered training IDs, saved SQL, metrics, split-table references and explanations are in `docs/evidence/MODEL_VERSION_EVIDENCE.json`. Do not ask Om to recreate information already recovered. The missing part is actual membership/count/provenance and the precise feature-review binding, not numerical threshold approval.
+Refresh these identities/etags before installation; do not assume version1 forever. Keep recovered training IDs, saved SQL, metrics, split-table references and explanations in the private evidence archive; raw evaluation records are not distributed in this product repository. The missing part is actual membership/count/provenance and the precise feature-review binding, not numerical threshold approval.
 
 Anonymous training splits may omit lot IDs and dates. Genuine frozen feature-row membership is supported; do not manufacture discarded identifiers or row dates. The source snapshot/query provenance and evaluation date remain mandatory. Historical evidence cannot be replaced with a newly computed metric under the historical label.
 
@@ -64,4 +64,4 @@ The output path must not exist. The tool never modifies configuration or calls c
 7. Generate a **new** source snapshot, build/deploy only with release authorization, then verify the actual private candidate status and fresh model metadata. Editing a local file does not update Cloud Run.
 8. Execute [FINAL_PO_TO_CARD_ACCEPTANCE.md](FINAL_PO_TO_CARD_ACCEPTANCE.md) with fresh bounded call authorization and genuine participant confirmations.
 
-If original evidence is unrecoverable, the six prepared SQL files and [new-evaluation proposal](MODEL_EVALUATION_APPROVAL_PROPOSAL.md) remain the alternative. They have not been executed or approved by this consolidation pass. Newly generated results must be labeled `NEW_EVALUATION`; lower metrics remain failures.
+The six files in `ops/evaluation-proposed/` are retained because the offline validator loads them to verify the exact SQL contract for `NEW_EVALUATION` bundles. Their presence does not authorize execution. A fresh evaluation requires a separately reviewed population, byte/cost caps, immutable source archive and owner approval; historical data must never be fabricated from a new run. Newly generated results must be labeled `NEW_EVALUATION`; lower metrics remain failures.

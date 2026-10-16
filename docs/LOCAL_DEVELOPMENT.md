@@ -48,4 +48,4 @@ The Dockerfile pins a Node 22 base image and installs the exact production lockf
 
 Run optional maintainers' tests as listed in the root README. Playwright uses its installed Chromium by default; `PLAYWRIGHT_CHANNEL=chrome` selects local Chrome. Results are ignored. Administrative utilities resolve `gcloud` from PATH or `GCLOUD_BIN`, not another developer's home directory.
 
-Raw operational evidence stays outside the tracked source. `docs/evidence/README.md` describes the curated subset. Existing reports retain historical evidence identifiers; a missing private raw journal in a fresh clone is not a missing application dependency.
+Raw operational evidence stays outside the tracked source. `docs/evidence/README.md` describes the curated subset. Internal construction notes and raw journals are not shipped with the product repository. Their absence from a fresh clone is not a missing application dependency.

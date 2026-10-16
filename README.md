@@ -2,7 +2,7 @@
 
 Ustaad turns an approved purchase order into a reviewed production setup: Gemini extraction, catalog validation, confirmed conditions, five defect-risk models, constrained optimization, explanations, a JobSheet, operator approval and a stored PDF card. Historical evidence, photo diagnosis and Production Impact support the preparation workflow.
 
-**Current limitation:** model acceptance is blocked pending Om's D4 evaluation evidence. The full live model-enabled workflow must not be presented as accepted. The newest local source also contains an honest empty Impact dashboard; it is newer than the deployed premium candidate. See [release provenance](docs/RELEASE_PROVENANCE.md).
+**Current limitation:** model acceptance is blocked pending version-linked model evaluation evidence (D4). The full live model-enabled workflow must not be presented as accepted. The newest local source also contains an honest empty Impact dashboard; it is newer than the deployed premium candidate. See [release provenance](docs/RELEASE_PROVENANCE.md).
 
 ## Run locally — no credentials or dummy metrics
 
@@ -52,9 +52,9 @@ See [local development and private-cloud access](docs/LOCAL_DEVELOPMENT.md), [Ap
 - `test/`: unit, contract and browser regression coverage; not shipped in the image.
 - `tools/`: opt-in development, validation and bounded administrative utilities.
 - `ops/`: reviewed configuration and **proposals**, not permission to apply them.
-- `docs/`: decisions, runbooks, historical reports and curated evidence. Start at the [documentation index](docs/README.md).
+- `docs/`: product usage, security/model runbooks and a small reviewed screenshot set. Start at the [judging/testing guide](docs/JUDGING_GUIDE.md) or [documentation index](docs/README.md).
 
-The copies of approved purchase-order fixtures under `test/fixtures/` and `public/samples/` are intentional: tests and the served download/allowlist contract use their respective paths. `tables.sql` is historical bootstrap reference, **not a complete current cloud provisioning script**.
+The copies of approved purchase-order fixtures under `test/fixtures/` and `public/samples/` are intentional: tests and the served download/allowlist contract use their respective paths.
 
 ## Optional verification
 
