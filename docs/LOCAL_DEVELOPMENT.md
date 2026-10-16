@@ -1,4 +1,4 @@
-# Local development and existing private-cloud access
+# Local development and cloud access
 
 ## Prerequisites
 
@@ -25,26 +25,19 @@ Keep `.env` local. The checked-in example contains only disabled flags and a por
 
 The runtime adapters use the Cloud Run metadata token service. A laptop ADC login is not a substitute for that service. Existing project resources do not grant access to a new collaborator, and source code does not contain production credentials.
 
-Current known private candidate:
+Current public application:
 
-`https://premium-analytics-v1---prepagent-26mwt2n7ba-el.a.run.app`
+https://prepagent-26mwt2n7ba-el.a.run.app
 
-It is revision `prepagent-premium-analytics-v2`, built before the latest local empty-state change. Bare browser navigation without an authorized Cloud Run invocation credential may return 403. That is expected for a private service.
+Revision `prepagent-momentum-v1` is publicly invokable. Open this URL directly; no Google infrastructure login or local proxy is needed. Approach B issues a temporary signed demo session at the deployed origin; ownership, TEST-only and same-origin checks remain enforced. This does not establish a verified human identity. Historical tagged URLs are retired.
 
-The official authenticated proxy can expose private **read-only pages** locally for an already approved invoker:
-
-```sh
-gcloud auth login
-gcloud run services proxy prepagent --project=prepagent-hack --region=asia-south1 --tag=premium-analytics-v1 --port=4174
-```
-
-Open http://127.0.0.1:4174. This is the deployed Cloud Run application through a proxy, not a local application using fake cloud services. The proxy was checked for HTML access. **It is not a complete operator-login workaround**: the existing same-origin protection rejects localhost-origin session/mutation requests (observed 403 `ORIGIN_REQUIRED`). Do not disable that protection or rewrite the application security policy. Full privileged browser operations require the approved deployed-origin authorization/access mechanism; release access remains controlled separately.
+Public application access does not grant GCP administration, direct database/storage access or repository access. Cloud resource administration still requires separately authorized Google credentials. Do not disable Origin/session protections to make a localhost proxy behave like the deployed application.
 
 No collaborator should receive new IAM automatically. Use the approved runtime account, shared 100-attempt IST Gemini counter and existing TEST/fixture restrictions. Model-dependent operations run only on a revision whose config records accepted D4 (the source now records owner decision D4-2026-10-16-OM). See `FINAL_PO_TO_CARD_ACCEPTANCE.md` and `D4_EVIDENCE_INGESTION.md`.
 
 ## Build and maintenance
 
-The Dockerfile pins a Node 22 base image and installs the exact production lockfile. For an optional local image build, `docker build -t ustaad:local .` uses the existing Docker context; this document does not claim a new image was built. `ops/cloudbuild-private.yaml` and `tools/prepare-release-snapshot.py` prepare controlled builds, not automatic cloud deployment.
+The Dockerfile pins a Node 22 base image and installs the exact production lockfile. For an optional local image build, `docker build -t momentum:local .` uses the existing Docker context; this document does not claim a new image was built. `ops/cloudbuild-private.yaml` and `tools/prepare-release-snapshot.py` prepare controlled builds, not automatic cloud deployment.
 
 Run optional maintainers' tests as listed in the root README. Playwright uses its installed Chromium by default; `PLAYWRIGHT_CHANNEL=chrome` selects local Chrome. Results are ignored. Administrative utilities resolve `gcloud` from PATH or `GCLOUD_BIN`, not another developer's home directory.
 

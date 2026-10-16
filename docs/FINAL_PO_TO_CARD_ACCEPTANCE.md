@@ -1,5 +1,7 @@
 # Final private PO-to-approved-card acceptance
 
+> Release update — 16 October 2026: Momentum is public at https://prepagent-26mwt2n7ba-el.a.run.app on `prepagent-momentum-v1`. The earlier private full reference run remains the paid workflow evidence. Public branding/security checks did not repeat it. The supervised-prototype evidence exception remains explicit; a fresh full workflow must stay within separately approved provider/query limits. Historical private-candidate instructions below describe that run’s original context.
+
 **Executed 16 October 2026 under the explicitly approved supervised-prototype evidence exception.** The real private reference workflow reached independently persisted approval and matching GCS PDF retrieval; see [exact evidence and remaining coordination limitation](RELEASE_PROVENANCE.md). This runbook remains the procedure for future runs; its preconditions are not new authorization. Complete strict internal-evaluation evidence is still unavailable.
 
 ## 1. Preconditions and authority — stop unless all pass

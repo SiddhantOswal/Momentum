@@ -1,11 +1,11 @@
 # Product documentation
 
-Start with the root [README](../README.md) to install and run Ustaad.
+Start with the root [README](../README.md) to install and run Momentum.
 
 | Document | Purpose |
 |---|---|
 | [Judging and testing guide](JUDGING_GUIDE.md) | Product walkthrough, approved PO files, expected behavior and current limits |
-| [Local development](LOCAL_DEVELOPMENT.md) | No-mock preview, explicit offline backup and private-cloud access requirements |
+| [Local development](LOCAL_DEVELOPMENT.md) | No-mock preview, explicit offline backup and public application access and cloud administration boundaries |
 | [Authorization](HACKATHON_DEMO_AUTHORIZATION.md) | Session capabilities, record ownership and approval limits |
 | [D4 model acceptance](d4/D4_MODEL_ACCEPTANCE_REPORT.md) | Om's owner decision, evidence, feature review and read-only reproducibility queries |
 | [Model evidence validation](D4_EVIDENCE_INGESTION.md) | Required evidence contract and safe activation of accepted models |

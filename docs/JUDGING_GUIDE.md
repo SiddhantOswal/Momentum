@@ -1,17 +1,17 @@
-# Ustaad AI — product and testing guide
+# Momentum — product and testing guide
 
 ## What the product does
 
-Ustaad supports corrugated-production preparation: read a purchase order with Gemini, validate the item against the catalog, confirm production conditions, estimate five defect risks, search constrained machine settings, explain the result, and create an operator-approved PDF JobSheet. Historical evidence, approved-photo diagnosis and Impact provide supporting context.
+Momentum supports corrugated-production preparation: read a purchase order with Gemini, validate the item against the catalog, confirm production conditions, estimate five defect risks, search constrained machine settings, explain the result, and create an operator-approved PDF JobSheet. Historical evidence, approved-photo diagnosis and Impact provide supporting context.
 
 The system combines Gemini extraction/explanation with deterministic validation, BigQuery ML prediction, constrained SQL optimization and human confirmation. It is a tool-orchestrated decision-support workflow, not an autonomous machine controller.
 
 ## Current availability
 
 - The latest source includes the premium analytics UI and an honest empty Impact layout. No sample KPI values appear in the ordinary local preview.
-- The last verified private Cloud Run candidate is documented in [release provenance](RELEASE_PROVENANCE.md). The live PO1 reference workflow passed on v7; v8 has only two presentation corrections and verified durable retrieval. Source/image identities and limitations are recorded separately.
+- Open the [public Momentum application](https://prepagent-26mwt2n7ba-el.a.run.app). Revision `prepagent-momentum-v1` passed 27/27 public browser checks, including genuine history and Impact. The complete paid PO1 workflow was verified earlier privately, not repeated for branding. See [release provenance](RELEASE_PROVENANCE.md).
 - **Model acceptance (D4).** The source is accepted for the supervised prototype by owner decision D4-2026-10-16-OM, with crack shown as low confidence in monsoon. The private candidate executed the live prediction → optimized JobSheet → approval/card journey under explicit co-owner exception; original internal counts/membership remain unavailable. Unsupported actions must refuse rather than return fixture recommendations.
-- The repository and Cloud Run service are private. Reviewers need separately authorized access; cloning does not grant GCP permissions.
+- The application is public; the GitHub repository remains private. Public app access and cloning do not grant GCP administrative permissions.
 
 The reference run used manual/simulated conditions. Om identifies the training/history as modeled from the real 117-item catalog, so model quality and savings must not be presented as measured factory outcomes. Process-local review/replay may fail after an instance change; saved approved jobs/cards remain retrievable.
 
@@ -50,7 +50,7 @@ PO1 SHA256: `d789722039e0d9f29d2106655416aae0447159d23df56c7dc215ee875c8fb44a`.
 4. **Defect Check → Historical Evidence:** in an authorized cloud environment, select WARP and RH 86 and request history. The prior verified response showed 685 primary-defect cases, while the 401/397 comparison groups used a different all-defect humidity cohort. Historical associations are not causal recommendations.
 5. **Photo Diagnosis:** load the ten approved choices; selecting an image must not call Gemini. Classification is a deliberate metered action. The API does not provide a browser image preview. Prior classification matched 7/10 expected labels; that is not calibrated factory QA accuracy.
 6. **Impact:** explicitly load the existing BigQuery analysis. Estimates are held-out simulation results, not measured factory savings or annualized ROI. View the original values and source context alongside the charts.
-7. After genuine model evidence is accepted, follow the [full cloud acceptance procedure](FINAL_PO_TO_CARD_ACCEPTANCE.md) to verify prediction, optimization, durable JobSheet/audit and independent PDF retrieval.
+7. For any separately authorized new complete acceptance run, follow the [full cloud acceptance procedure](FINAL_PO_TO_CARD_ACCEPTANCE.md) to verify prediction, optimization, durable JobSheet/audit and independent PDF retrieval.
 
 ## What not to infer
 

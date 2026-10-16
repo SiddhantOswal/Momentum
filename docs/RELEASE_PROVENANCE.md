@@ -1,6 +1,44 @@
 # Release provenance and operating safeguards
 
-## Current private candidate — 16 October 2026
+## Current public release — Momentum, 16 October 2026
+
+**Live URL:** https://prepagent-26mwt2n7ba-el.a.run.app
+
+| Release identity | Verified value |
+|---|---|
+| Runtime source commit | `cd3d82fa1d004d5bdc60fb49163824f555cc6f93` |
+| Source manifest SHA256 | `5e2a73471d05f5d5d60877089d308cfd968dedc7e653035750c9a06db524afd4` |
+| Archive SHA256 | `73a796956b25f21bec66bc321f2aa4510e4d0a6c56e7f376252fac40f27ea206` |
+| Cloud Build | `92be8bed-5312-46d6-9892-9ad82a3c376f` — SUCCESS |
+| Revision | `prepagent-momentum-v1` |
+| Image digest | `sha256:e52183d3d353a3a34ba1123776900ab1eae53e96deb9bcfb65d72e80ac4895be` |
+| Default traffic | 100% pinned to this revision |
+| Service access | `allUsers` → `roles/run.invoker`; application authorization retained |
+| Runtime identity | `prepagent-run@prepagent-hack.iam.gserviceaccount.com` |
+| Scaling | Maximum 2, minimum 0; concurrency 1 |
+
+The owner explicitly authorized public IAM and traffic. UI branding, favicon and service display name now read Momentum; internal configuration, identifiers, business rules and authorization remain compatible. README diagrams and the reference chart use the previously verified case values.
+
+**Live acceptance:** 27/27 private browser checks and 27/27 public browser checks passed. Public checks used no infrastructure identity token. Actual BigQuery history and Impact responses rendered; photo inventory, approved PO download/hash, navigation and empty states passed. Forged approval, cross-origin mutation, other-session record access and mock-route attempts were rejected. No uncaught browser errors; 390px overflow check passed. Native owner Chrome also opened the public application with the Momentum title and accessible home label. [Curated machine-readable evidence](evidence/MOMENTUM_PUBLIC_RELEASE_20261016.json).
+
+**Usage:** zero additional Gemini attempts; shared counter stayed 20/100. One successful Cloud Build ran for approximately 64 seconds. Actual incremental invoice cost is not yet known. Existing budget and provider limits remain unchanged. This branding pass did not repeat the paid PO-to-card workflow; that genuine earlier private acceptance is preserved below, including its model-evidence limitations.
+
+All 21 old tagged URLs were retired before public IAM; each returned 404 afterward. Their revisions and images remain available. Service IAM applies to tags too, so restoring old tags while public would expose older application versions.
+
+### Emergency rollback to the original private service
+
+Use an authorized project administrator. Remove public invocation **before** restoring any historical revision or tag:
+
+```sh
+gcloud run services remove-iam-policy-binding prepagent --project=prepagent-hack --region=asia-south1 --member=allUsers --role=roles/run.invoker
+gcloud run services update-traffic prepagent --project=prepagent-hack --region=asia-south1 --to-revisions=prepagent-00005-s5x=100
+gcloud run services get-iam-policy prepagent --project=prepagent-hack --region=asia-south1
+gcloud run services describe prepagent --project=prepagent-hack --region=asia-south1 --format=json
+```
+
+The exact original tag mappings, pre-release IAM/configuration and executable rollback script are retained in the private operational release evidence. No historical image/revision was deleted. The original revision is a configuration rollback target, not a claim that it contains the newest features.
+
+## Earlier private acceptance — 16 October 2026
 
 **Reference workflow verified, with explicit limitations.** Actual Chrome operated the private Cloud Run application: PO1 extraction/review, catalog match, manual condition confirmation, five-model BigQuery prediction, constrained optimization, grounded Gemini explanation, durable DRAFT, approval, independent BigQuery read-backs, PDF storage and matching independent GCS retrieval. No local/mock workflow was counted.
 
