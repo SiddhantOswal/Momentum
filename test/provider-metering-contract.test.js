@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { createConfiguredServicePorts, readOptimizerQueryBudget, getJobLifecycleAvailability } from "../src/service-ports.js";
 import { createVertexGeminiClient } from "../src/google-cloud/vertex-gemini-client.js";
 
@@ -10,7 +11,7 @@ function runtimeFiles(dir) {
 }
 
 test("runtime provider construction and REST invocation have one centrally metered entry point", () => {
-  const root = new URL("../src", import.meta.url).pathname;
+  const root = fileURLToPath(new URL("../src", import.meta.url));
   for (const file of runtimeFiles(root)) {
     const source = readFileSync(file, "utf8");
     if (file.endsWith("/service-ports.js") || file.endsWith("/vertex-gemini-client.js")) continue;

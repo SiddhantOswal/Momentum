@@ -64,10 +64,10 @@ test('guided dashboard reorganizes all screens at desktop/tablet/mobile sizes wi
   await boot(page,false);
   for(const width of [1440,1280,1024,768,390]){
     await page.setViewportSize({width,height:1000});
-    await page.getByRole('link',{name:'New Lot',exact:true}).click();
+    await page.getByLabel('Primary navigation').getByRole('link',{name:'New Lot',exact:true}).click();
     for(const n of [1,2,3]){await stage(page,n).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);}
     for(const label of ['Defect Check','Impact']){await page.getByRole('link',{name:label,exact:true}).click();expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);}
-    await page.getByRole('link',{name:'New Lot',exact:true}).click();
+    await page.getByLabel('Primary navigation').getByRole('link',{name:'New Lot',exact:true}).click();
     await expect(page.locator('#screen-order-input')).toBeVisible();
     await page.locator('#screen-order-input').evaluate(async el=>{await Promise.all(el.getAnimations().map(a=>a.finished.catch(()=>{})));});
     if([1440,768,390].includes(width))await page.screenshot({path:`docs/evidence/shared-dashboard/new-lot-${width}.png`,fullPage:true,animations:'disabled'});
@@ -121,11 +121,11 @@ test('risk, optimizer, evidence and explanation use exact contracts; what-if rem
 test('approved-photo and historical-case integrations use supported inputs without image retention or invented counts',async({page})=>{
   await boot(page);await page.getByRole('link',{name:'Defect Check',exact:true}).click();
   await page.route('**/evidence/approved-photos',route=>fulfill(route,{ok:true,photos:Array.from({length:10},(_,i)=>({id:'photo-'+String(i+1).padStart(2,'0'),label:'Approved photo '+(i+1)}))}));
-  await page.getByText('Approved photo classification',{exact:true}).click();
+  await page.locator('#di-tab-photo').click();await expect(page.getByText('Approved photo classification',{exact:true})).toBeVisible();
   await page.locator('#load-approved-photos').click();await page.locator('#approved-photo-id').selectOption('photo-01');
   await page.route('**/evidence/classify-photo',route=>{expect(route.request().postDataJSON()).toEqual({photoId:'photo-01'});return fulfill(route,{ok:true,source:'vertex-gemini',isRealModelPrediction:true,photoId:'photo-01',label:'DELAM',classifiedAt:'2026-10-15T00:00:00Z'});});
   await page.locator('#classify-approved-photo').click();await expect(page.locator('#approved-photo-result')).toContainText('DELAM');
-  await page.locator('#evidence-defect').selectOption('DELAM');await page.locator('#evidence-humidity').fill('86');
+  await page.locator('#di-tab-history').click();await page.locator('#evidence-defect').selectOption('DELAM');await page.locator('#evidence-humidity').fill('86');
   await page.route('**/evidence/seen-before',route=>{expect(route.request().postDataJSON()).toEqual({defect:'DELAM',ambientRhPct:86});return fulfill(route,{ok:true,source:'bigquery',defect:'DELAM',caseCount:3,avgRateWhenMain:2,costWhenMain:500,goodRuns:null,badRuns:null,notes:['<img src=x onerror=alert(1)>']});});
   await page.locator('#find-seen-before').click();await expect(page.locator('#seen-before-content')).toContainText('3');await expect(page.locator('#seen-before-content img')).toHaveCount(0);await expect(page.locator('#seen-before-content')).toContainText('<img src=x');
 });

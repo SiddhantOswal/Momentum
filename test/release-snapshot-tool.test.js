@@ -4,7 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-const moduleFile=new URL('../tools/prepare-release-snapshot.py',import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+const moduleFile=fileURLToPath(new URL('../tools/prepare-release-snapshot.py',import.meta.url));
 test('runtime snapshots are deterministic, include guided assets and omit unrelated credentials',()=>{
  const dir=mkdtempSync(join(tmpdir(),'ustaad-snapshot-test-'));
  try{const result=JSON.parse(execFileSync('python3',['-c',`

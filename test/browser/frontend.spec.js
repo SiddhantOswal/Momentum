@@ -42,10 +42,10 @@ async function boot(page, configured = false, hackathon = false) {
 }
 async function navigate(page,label) {
   if (label === 'Production analysis') {
-    await page.getByRole('link',{name:'New Lot',exact:true}).click();
+    await page.getByLabel('Primary navigation').getByRole('link',{name:'New Lot',exact:true}).click();
     await page.locator('[data-dashboard-stage="2"]').click();
     await expect(page.locator('#screen-analysis-heading')).toBeFocused();
-  } else await page.getByRole('link',{name:label,exact:true}).click();
+  } else await page.getByLabel('Primary navigation').getByRole('link',{name:label,exact:true}).click();
 }
 async function fillInputs(page) {
   await page.locator('#production-setup').evaluate(el => { el.open = true; });
@@ -196,7 +196,7 @@ test('real request shapes for direct risk and what-if; inputs invalidate a slow 
   await expect(page.locator('#conditions-supervisor-confirmed')).toBeChecked();
   await page.locator('#what-if-rescore').click();
   await expect.poll(()=>requests.length).toBe(2);
-  await page.getByRole('link',{name:'New Lot',exact:true}).click();await page.locator('#analysis-ambientRhPct').fill('80');release();
+  await page.getByLabel('Primary navigation').getByRole('link',{name:'New Lot',exact:true}).click();await page.locator('#analysis-ambientRhPct').fill('80');release();
   await navigate(page,'Production analysis');await expect(page.locator('#what-if-metrics')).toBeHidden();
   await expect(page.locator('#what-if-controls')).toBeHidden();
 });
@@ -294,7 +294,7 @@ test('progressive sections preserve keyboard access and entered values across na
   await page.locator('#evidence-disclosure > summary').focus();await page.keyboard.press('Enter');
   await expect(page.locator('#load-similar-runs')).toBeVisible();await expect(page.locator('#request-risk-explanation')).toBeVisible();
   await page.locator('.what-if-section > summary').focus();await page.keyboard.press('Enter');await expect(page.locator('#what-if-unavailable')).toBeVisible();
-  await page.getByRole('link',{name:'New Lot',exact:true}).click();await expect(page.locator('#analysis-ambientRhPct')).toHaveValue('73');
+  await page.getByLabel('Primary navigation').getByRole('link',{name:'New Lot',exact:true}).click();await expect(page.locator('#analysis-ambientRhPct')).toHaveValue('73');
 });
 
 test('all screens and notifications exclude sample UI and rejected generated responses',async({page})=>{
@@ -303,7 +303,7 @@ test('all screens and notifications exclude sample UI and rejected generated res
     await navigate(page,label);
     await expect(page.locator('body')).not.toContainText(/synthetic|simulated/i);
   }
-  await page.getByRole('link',{name:'New Lot',exact:true}).click();
+  await page.getByLabel('Primary navigation').getByRole('link',{name:'New Lot',exact:true}).click();
   await expect(page.locator('#sample-order')).toHaveCount(0);
   await page.locator('#open-status').click();
   await expect(page.locator('#status-dialog')).not.toContainText(/synthetic|simulated/i);

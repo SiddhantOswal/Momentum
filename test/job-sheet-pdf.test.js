@@ -29,6 +29,9 @@ test("JobSheet renderer creates a valid PDF containing supplied order and produc
   assert.match(renderedText, /rollTempC: 160 C -> 165 C/);
   assert.match(renderedText, /Primary defect: WARP/);
   assert.match(renderedText, /Ambient humidity: 50% RH; temperature: 28 C; paper moisture: 9%/);
+  // D4 acceptance condition 3: crack is flagged low confidence on both baseline and recommended rates.
+  assert.equal(renderedText.match(/CRACK [\d.]+% \(low confidence in monsoon\)/g)?.length, 2);
+  assert.doesNotMatch(renderedText, /(WARP|DELAM|STRENGTH|PRINT) [\d.]+% \(low confidence/);
   const stages = [
     "1. Printing (flexo, top liner)",
     "2. Single facer",
