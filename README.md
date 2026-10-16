@@ -1,12 +1,47 @@
-# Ustaad AI — Corrugated Production Prep
+# Momentum
 
-Ustaad turns an approved purchase order into a reviewed production setup: Gemini extraction, catalog validation, confirmed conditions, five defect-risk models, constrained optimization, explanations, a JobSheet, operator approval and a stored PDF card. Historical evidence, photo diagnosis and Production Impact support the preparation workflow.
+### Production intelligence for corrugated manufacturing
 
-**Model acceptance (D4):** accepted for the supervised prototype under Om's and the project owner's explicit exception for unrecoverable internal evaluation counts/membership. Complete strict evidence is **not** claimed; the September holdout and CRACK limitations remain disclosed. The genuine private PO1 → prediction → optimization → approved stored card workflow was exercised on 16 October. The latest presentation revision also passed durable job/PDF read-back. Cross-instance PO review/replay remains a documented process-local limitation. See [release evidence and scope](docs/RELEASE_PROVENANCE.md).
+Turn an approved purchase order into a reviewed machine setup and an operator-approved production card. Momentum combines Gemini, manufacturing history and constrained optimization in one preparation workflow.
 
-## Run locally — no credentials or dummy metrics
+[Open the application](https://prepagent-26mwt2n7ba-el.a.run.app) · [Testing guide](docs/JUDGING_GUIDE.md) · [Release evidence](docs/RELEASE_PROVENANCE.md)
 
-Install **Node.js 22** (the `.nvmrc` records the major version), npm and Git.
+## From order to production card
+
+```mermaid
+flowchart TD
+    A[Approved purchase order] --> B[Gemini extraction + catalog validation]
+    B --> C[Operator reviews order and confirms conditions]
+    C --> D[Five BigQuery ML defect-risk estimates]
+    D --> E[Constrained machine-setting optimization]
+    E --> F[Grounded Gemini explanation + source history]
+    F --> G[Draft JobSheet stored in BigQuery]
+    G --> H[Operator approval + durable audit]
+    H --> I[PDF job card stored in Cloud Storage]
+```
+
+Gemini reads and explains; validated tools and SQL perform prediction, optimization and persistence. An operator retains the approval decision. This is decision support, not autonomous machine control.
+
+## A verified reference run
+
+![Model-predicted scrap: 100.4 kg baseline versus 83.0 kg optimized; 17.4 kg and ₹925 predicted reduction.](docs/images/reference-predicted-scrap.svg)
+
+The approved **PKBX0041** reference case completed the genuine private Cloud Run PO-to-approved-card workflow on **16 October 2026**. Baseline predicted cost was **₹5,351**, versus **₹4,426** for the recommended setup. Independent BigQuery read-backs confirmed the draft and approval; the retrieved PDF matched its Cloud Storage object byte for byte. These figures are estimates for that case, not measured factory savings or a general performance guarantee. [Exact evidence and scope](docs/evidence/D4_LIVE_ACCEPTANCE_20261016.json).
+
+## Explore the workspace
+
+| Workspace | What it provides |
+|---|---|
+| **New Lot** | Approved PO intake, review, confirmed conditions, risk estimates, optimized settings, explanation, approval and stored card |
+| **Defect Intelligence** | BigQuery historical cases, comparable operating-condition groups, detailed evidence and operator notes |
+| **Photo Diagnosis** | Deliberate Gemini classification of the ten approved photos; selection itself makes no paid call |
+| **Production Impact** | Held-out simulation estimates with source context; no annualized or measured-savings claim |
+
+Use the [approved purchase orders and expected results](docs/JUDGING_GUIDE.md#approved-purchase-order-inputs) for testing. The hackathon uses temporary signed demo sessions: participants can approve their own TEST jobs, with that limitation disclosed. [Authorization policy](docs/HACKATHON_DEMO_AUTHORIZATION.md).
+
+## Run locally
+
+Requires **Node.js 22**, npm and authorized access to this repository.
 
 ```sh
 git clone https://github.com/SiddhantOswal/UstaadAI---PrepAgent.git
@@ -15,58 +50,24 @@ npm ci
 npm run preview:local
 ```
 
-Open **http://localhost:4173**. New Lot, Defect Check and Impact are available for inspection. The ordinary preview explicitly disables mocks and paid cloud adapters. Empty KPI/chart placeholders show where results belong; unavailable integrations do not produce invented numbers. Stop with Ctrl+C. For another port:
+Open **http://localhost:4173**. This ordinary preview shows the current interface and honest empty states; it does not fabricate results or invoke paid cloud services. For the separately labeled offline backup, use `npm run demo:local`. Its mock outputs and in-memory records are not live-cloud evidence.
 
-```sh
-USTAAD_LOCAL_PREVIEW_PORT=4175 npm run preview:local
-```
+Cloning does not grant cloud permissions. The deployed app uses Cloud Run workload identity; a laptop needs its own authorized setup. See [local development](docs/LOCAL_DEVELOPMENT.md) for modes, environment configuration and maintainer checks. Existing `USTAAD_*` environment names, repository URL and GCP resource identifiers remain unchanged for compatibility.
 
-The repository is private: cloning requires your own authorized GitHub account.
+## Cloud architecture and safeguards
 
-## Choose the right execution mode
+**Cloud Run** hosts the application in `asia-south1`. **Vertex AI Gemini** handles extraction, explanations and photo classification. **BigQuery / BigQuery ML** supplies catalog/history, prediction, optimization and JobSheet persistence. **Cloud Storage** holds approved inputs and cards. **Firestore** provides the shared transactional Gemini attempt counter.
 
-| Mode | Command | What it does |
-|---|---|---|
-| Ordinary local preview | `npm run preview:local` | Current interface, no fabricated results, no cloud business calls |
-| Explicit offline backup | `npm run demo:local` | Clearly labeled deterministic mock workflow, process-memory records, local PDF; **not cloud acceptance** |
-| Configured development | `npm start` | Starts on port 8080 by default; uses explicitly supplied environment settings. Does not automatically read `.env` |
-| Existing private Cloud Run | Authorized access to the deployed candidate | Genuine configured Google Cloud services, Approach B sessions and D4 gate |
+- Maximum **two Cloud Run instances** and **100 attempted Gemini calls per Asia/Kolkata day**; failed or ambiguous attempts count.
+- Approved-input allowlists, request-size validation, TEST-only writes, session ownership and same-origin mutation checks.
+- Explicit model-acceptance gate, human confirmation and durable approval auditing. Firebase remains a separate policy.
+- Existing **₹5,000 budget alert**; an alert is not a hard spending cap.
 
-For optional local environment settings, copy `.env.example` to `.env`, review it, then use `node --env-file=.env index.mjs`. Never commit credentials or a session-signing key.
+## Prototype boundaries
 
-## Cloud access is not inherited by cloning
+- The real 117-item catalog underpins **modeled training/history**; conditions are simulated or manually entered. Factory accuracy and realized savings have not been established.
+- Models are accepted under the documented supervised-prototype exception for unrecoverable original evaluation membership/counts. The supplementary September holdout is weaker; **CRACK has negative holdout R²** and is labeled low confidence in monsoon. [Model evidence](docs/d4/D4_MODEL_ACCEPTANCE_REPORT.md).
+- PO review, coordination and trace state are process-local: an instance change can require extraction again. Saved approved jobs and cards remain durable. No cross-instance exactly-once guarantee is claimed.
+- Historical photo classification matched **7 of 10** labels; this is not calibrated factory inspection accuracy. Completed-lot learning is outside the approved V1 scope.
 
-The established deployment uses project `prepagent-hack`, region `asia-south1`, service `prepagent`, BigQuery dataset `prepagent`, the approved storage bucket and the existing Firestore counter. The app obtains Google access tokens through **Cloud Run workload identity**. A laptop does not have that metadata service; `gcloud auth login` alone does not turn the local Node process into the deployed runtime account.
-
-Each collaborator needs their own authorized Google Cloud identity/access. Do not copy service-account keys, share identity tokens, bypass origin checks, enable APIs or grant IAM to make a clone appear functional. The existing deployment is private, and D4 remains fail-closed.
-
-See [local development and private-cloud access](docs/LOCAL_DEVELOPMENT.md), [Approach B authorization](docs/HACKATHON_DEMO_AUTHORIZATION.md), and the [final genuine PO-to-card acceptance runbook](docs/FINAL_PO_TO_CARD_ACCEPTANCE.md). Firebase remains a separate production policy.
-
-## Repository map
-
-- `src/`, `index.mjs`: application, UI, adapters, security and lifecycle logic.
-- `public/`: bundled frontend assets and explicitly approved input fixtures.
-- `config/`: nonsecret runtime contracts and the D4 model-acceptance record.
-- `sql/`: canonical tool/query contracts; proposed/training SQL is not run by startup.
-- `assets/fonts/`: licensed PDF fonts required by the renderer; not unused assets.
-- `test/`: unit, contract and browser regression coverage; not shipped in the image.
-- `tools/`: opt-in development, validation and bounded administrative utilities.
-- `ops/`: reviewed configuration and **proposals**, not permission to apply them.
-- `docs/`: product usage, security/model runbooks and a small reviewed screenshot set. Start at the [judging/testing guide](docs/JUDGING_GUIDE.md) or [documentation index](docs/README.md).
-
-The copies of approved purchase-order fixtures under `test/fixtures/` and `public/samples/` are intentional: tests and the served download/allowlist contract use their respective paths.
-
-## Optional verification
-
-These commands are for maintainers; installing or starting Ustaad does not invoke them automatically.
-
-```sh
-npm test
-npm run test:acceptance
-npx playwright install chromium
-npm run test:ui
-```
-
-Browser output goes to ignored `test-results/`. To use an installed Chrome instead of Playwright Chromium, set `PLAYWRIGHT_CHANNEL=chrome`. Cloud administration tools find `gcloud` on PATH, or use an explicit `GCLOUD_BIN` path. Optional standalone publisher/Gemini tooling has its own lockfile: `npm ci --prefix tools`; it is not needed for the ordinary preview. Cloud operations remain opt-in and may be billable.
-
-No README command deploys, changes IAM/traffic, runs model evaluation/training or makes the service public.
+[Documentation index](docs/README.md) · [PO-to-card acceptance procedure](docs/FINAL_PO_TO_CARD_ACCEPTANCE.md)

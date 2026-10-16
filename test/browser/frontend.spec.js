@@ -71,7 +71,7 @@ const extraction = (status = 'MATCHED') => ({ ok: true, source: 'vertex-gemini',
 
 test('real offline startup, all navigation, dialogs, keyboard, files and unavailable states', async ({ page }) => {
   const errors = await boot(page);
-  await expect(page).toHaveTitle('New lot · Ustaad AI');
+  await expect(page).toHaveTitle('New lot · Momentum');
   await expect(page.locator('#prepare-job')).toBeDisabled();
   await page.locator('#review-order').click();
   await expect(page.locator('#upload-result')).toContainText('Select a PDF or JPEG');

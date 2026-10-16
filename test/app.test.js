@@ -203,7 +203,7 @@ test("root serves the rebuilt operator UI and its complete same-origin workflow 
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     const html = await response.text();
-    for (const text of ["Ustaad AI", "Production workspace", "Local development", "New Lot", "Production analysis", "Defect Check", "Impact", "English interface.", "No production impact data loaded.", "predicted", "supervisor approval"]) assert.ok(html.includes(text), text);
+    for (const text of ["Momentum", "Production workspace", "Local development", "New Lot", "Production analysis", "Defect Check", "Impact", "English interface.", "No production impact data loaded.", "predicted", "supervisor approval"]) assert.ok(html.includes(text), text);
     assert.doesNotMatch(html, /synthetic|simulated|id="sample-order"/i);
     const ids = [...html.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
     assert.equal(new Set(ids).size, ids.length, "IDs must be unique");
@@ -302,7 +302,7 @@ test("status endpoint separates backend reachability from configured local integ
     const response = await fetch(`http://127.0.0.1:${PORT}/api/status`);
     assert.equal(response.status, 200);
     const payload = await response.json();
-    assert.equal(payload.app, "Ustaad AI");
+    assert.equal(payload.app, "Momentum");
     assert.equal(payload.mode, "local-development");
     assert.equal(payload.executionMode, "offline");
     assert.equal(payload.backendReachable, true);

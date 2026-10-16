@@ -15,7 +15,7 @@ function syncGuidedNavigation() {
   const lotTab = document.querySelector('.primary-nav a[href="#screen-order-input"]');
   if (preparingLot) lotTab.setAttribute('aria-current', 'page');
   document.title = (panel.id === 'dashboard-job-review' ? 'Job card' :
-    panel.querySelector('h1')?.textContent ?? 'Production preparation') + ' · Ustaad AI';
+    panel.querySelector('h1')?.textContent ?? 'Production preparation') + ' · Momentum';
 }
 document.addEventListener('ustaad:navigation', syncGuidedNavigation);
 syncGuidedNavigation();

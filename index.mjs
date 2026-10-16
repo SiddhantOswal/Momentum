@@ -571,7 +571,7 @@ app.get("/api/status", (c) => {
   const globalGeminiCapEnforced = liveModelCallsEnabled && servicePorts.geminiUsage.sharedCounterConfigured;
   return c.json({
     ok: true,
-    app: "Ustaad AI",
+    app: "Momentum",
     description: "Corrugated Production-Prep Agent",
     status: "running",
     mode,
@@ -1417,5 +1417,5 @@ serve({
   ...(demoMode ? { hostname: "127.0.0.1" } : {}),
   port,
 }, () => {
-  console.log(`Ustaad AI Prep Agent running at http://localhost:${port}`);
+  console.log(`Momentum production prep running at http://localhost:${port}`);
 });

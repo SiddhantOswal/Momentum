@@ -35,7 +35,7 @@ export function initShell() {
     const panel = target?.matches("[data-screen-panel]") ? target : target?.closest("[data-screen-panel]") ?? panels[0];
     panels.forEach((candidate) => { candidate.hidden = candidate !== panel; candidate.classList.toggle("is-active", candidate === panel); });
     links.forEach((link) => { if (link.hash === "#" + panel.id) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current"); });
-    document.title = (links.find((link) => link.hash === "#" + panel.id)?.textContent.trim() ?? "Production preparation") + " · Ustaad AI";
+    document.title = (links.find((link) => link.hash === "#" + panel.id)?.textContent.trim() ?? "Production preparation") + " · Momentum";
     if (!location.hash || !target) history.replaceState(null, "", "#" + panel.id);
     if (focus) {
       const heading = target && target !== panel ? target : panel.querySelector("h1");
