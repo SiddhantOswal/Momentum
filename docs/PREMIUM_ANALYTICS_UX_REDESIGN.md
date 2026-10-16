@@ -437,3 +437,11 @@ The baseline inventory contains 127 controls/links/canvases, including controls 
 | 125 | `×` | Same shell/dialog | Existing navigation/session/status/currency | PASS tested navigation/status/session/currency; remaining individual dialog actions UNVERIFIED |
 | 126 | `confirm-approval` | Same shell/dialog | Existing navigation/session/status/currency | PASS tested navigation/status/session/currency; remaining individual dialog actions UNVERIFIED |
 | 127 | `Keep as draft` | Same shell/dialog | Existing navigation/session/status/currency | PASS tested navigation/status/session/currency; remaining individual dialog actions UNVERIFIED |
+
+## Owner follow-up — honest empty Impact workspace (16 October 2026)
+
+Reason: the owner correctly observed that hiding every chart/KPI before data arrives makes the dashboard's capabilities invisible. The ordinary local preview now runs without mock adapters. Added a clearly labeled layout preview with em-dash metric values, an empty chart frame (no points/bars or fabricated data), a list of the retained historical views, and explicit not-connected/ready/loading/error messaging. A validated successful Impact response hides the placeholder and reveals the existing unchanged real-data renderer. Impact remains an independently requested historical analysis; no per-lot workflow dependency was invented.
+
+Files: `src/operator-ui.js`, `src/operator-ui.css`, `src/ui/workflow.js`. No backend, API, SQL, provider, authorization or model changes. Risk: presentation-state visibility only. Three JavaScript syntax checks and `git diff --check` passed. Narrow owner-requested local browser inspection confirmed no page errors, visible placeholders, hidden real-data panel, only em-dash values, disabled unavailable action, and no mobile page overflow. Evidence: `docs/evidence/impact-empty-state-20261016/LOCAL_PREVIEW.json` and desktop/mobile screenshots.
+
+**Release impact:** this follow-up is a local uncommitted source change, not part of image/revision `prepagent-premium-analytics-v2`. No new Cloud Build, deployment, provider call or BigQuery query was performed for it. Previous Cloud Run acceptance applies to the previously identified image, not this new empty-state change. No broad local suites were rerun.

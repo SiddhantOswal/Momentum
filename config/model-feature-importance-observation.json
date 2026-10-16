@@ -1,0 +1,64 @@
+{
+  "status": "observed-for-review",
+  "observedAtUtc": "2026-10-14T19:37:30Z",
+  "source": "sql/model_feature_importance.sql",
+  "project": "prepagent-hack",
+  "dataset": "prepagent",
+  "declaredModelingWindow": {
+    "from": "2024-10-01",
+    "through": "2026-08-31",
+    "evaluationSplit": "random 20 percent of modeling rows",
+    "heldOutImpactMonth": "2026-09"
+  },
+  "modelVersions": {
+    "m_warp": "1",
+    "m_delam": "1",
+    "m_strength": "1",
+    "m_print": "1",
+    "m_crack": "1"
+  },
+  "ownerReviewReference": "Om D4 in the authoritative decision file states that feature importance was reviewed and matched the listed manufacturing drivers; customer_id contribution is accepted as synthetic-data noise.",
+  "topFiveByGain": {
+    "m_warp": [
+      { "feature": "ambient_rh_pct", "gain": 21.599391231462693 },
+      { "feature": "gum_application", "gain": 16.594166106818182 },
+      { "feature": "top_liner_gsm", "gain": 12.482833506000002 },
+      { "feature": "drying_hours", "gain": 6.8346286017523825 },
+      { "feature": "ink_colors", "gain": 3.5743240999999997 }
+    ],
+    "m_delam": [
+      { "feature": "ambient_rh_pct", "gain": 60.461063448380976 },
+      { "feature": "gum_application", "gain": 40.93748174227274 },
+      { "feature": "paper_moisture_pct", "gain": 18.366538810551724 },
+      { "feature": "gum_viscosity_sec", "gain": 9.842962526183676 },
+      { "feature": "sf_speed_mpm", "gain": 9.829569050389829 }
+    ],
+    "m_strength": [
+      { "feature": "ambient_rh_pct", "gain": 6.811456004383871 },
+      { "feature": "paper_type", "gain": 5.311017542619631 },
+      { "feature": "pasting_pressure", "gain": 1.9757980208787878 },
+      { "feature": "liner_bf", "gain": 0.8466296356666666 },
+      { "feature": "ambient_temp_c", "gain": 0.5514155295500001 }
+    ],
+    "m_print": [
+      { "feature": "ink_colors", "gain": 260.76676943918756 },
+      { "feature": "ink_coverage_pct", "gain": 64.13820543666667 },
+      { "feature": "flute_profile", "gain": 44.4899794 },
+      { "feature": "ply", "gain": 11.220276476666667 },
+      { "feature": "width_mm", "gain": 11.183573327749999 }
+    ],
+    "m_crack": [
+      { "feature": "ambient_rh_pct", "gain": 13.998071611070829 },
+      { "feature": "ink_coverage_pct", "gain": 2.2085423531428576 },
+      { "feature": "roll_temp_c", "gain": 1.981461300721 },
+      { "feature": "paper_type", "gain": 1.64607 },
+      { "feature": "paper_supplier", "gain": 1.6422716601818181 }
+    ]
+  },
+  "completeAcceptance": false,
+  "blockers": [
+    "Evaluation sample counts could not be read from the anonymous BigQuery split tables.",
+    "The project documents the intended data window, but exact min/max dates for the rows in the anonymous evaluation split and an immutable evaluation run identifier remain unavailable.",
+    "Om's D4 document records the feature-importance review; this observation adds version-1 output values but does not complete model acceptance."
+  ]
+}

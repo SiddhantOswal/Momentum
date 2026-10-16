@@ -8,3 +8,61 @@ coverage/
 *.log
 # Local GCP configuration
 env.sh
+
+# Developer tooling and generated output
+playwright-report/
+test-results/
+blob-report/
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+application_default_credentials.json
+*service-account*.json
+*service_account*.json
+SOURCE_MANIFEST.json
+release-artifacts/
+
+# Raw cloud payloads, operational journals, third-party reference images and
+# repeated/intermediate captures stay local. Only the reviewed evidence below
+# is versioned; see docs/evidence/README.md.
+docs/evidence/*
+!docs/evidence/README.md
+!docs/evidence/REVIEWED_RELEASE_SUMMARY.json
+!docs/evidence/impact-empty-state-20261016/
+docs/evidence/impact-empty-state-20261016/*
+!docs/evidence/impact-empty-state-20261016/empty-impact-1440.png
+!docs/evidence/impact-empty-state-20261016/empty-impact-390.png
+!docs/evidence/premium-analytics-20261016/
+docs/evidence/premium-analytics-20261016/*
+!docs/evidence/premium-analytics-20261016/after-history-1440.png
+!docs/evidence/premium-analytics-20261016/after-history-1920.png
+!docs/evidence/premium-analytics-20261016/after-history-768.png
+!docs/evidence/premium-analytics-20261016/after-history-mobile-default-390.png
+!docs/evidence/premium-analytics-20261016/after-impact-1440.png
+!docs/evidence/premium-analytics-20261016/after-impact-1920.png
+!docs/evidence/premium-analytics-20261016/after-impact-768.png
+!docs/evidence/premium-analytics-20261016/after-impact-charts-1440.png
+!docs/evidence/premium-analytics-20261016/after-impact-full-390.png
+!docs/evidence/premium-analytics-20261016/after-photo-initial-1440.png
+!docs/evidence/premium-analytics-20261016/after-photo-initial-1920.png
+!docs/evidence/premium-analytics-20261016/after-photo-initial-768.png
+!docs/evidence/premium-analytics-20261016/after-photo-initial-full-390.png
+!docs/evidence/premium-analytics-20261016/after-photo-recorded-result-1440.png
+!docs/evidence/premium-analytics-20261016/after-photo-recorded-result-1920.png
+!docs/evidence/premium-analytics-20261016/after-photo-recorded-result-390.png
+!docs/evidence/premium-analytics-20261016/after-photo-recorded-result-768.png
+!docs/evidence/premium-analytics-20261016/before-history-1440.png
+!docs/evidence/premium-analytics-20261016/before-history-1920.png
+!docs/evidence/premium-analytics-20261016/before-history-768.png
+!docs/evidence/premium-analytics-20261016/before-history-full-390.png
+!docs/evidence/premium-analytics-20261016/before-impact-1440.png
+!docs/evidence/premium-analytics-20261016/before-impact-1920.png
+!docs/evidence/premium-analytics-20261016/before-impact-768.png
+!docs/evidence/premium-analytics-20261016/before-impact-charts-1440.png
+!docs/evidence/premium-analytics-20261016/before-impact-full-390.png
+!docs/evidence/premium-analytics-20261016/before-photo-initial-1440.png
+!docs/evidence/premium-analytics-20261016/before-photo-initial-1920.png
+!docs/evidence/premium-analytics-20261016/before-photo-initial-768.png
+!docs/evidence/premium-analytics-20261016/before-photo-initial-full-390.png

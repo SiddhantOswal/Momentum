@@ -40,6 +40,7 @@ const setResult = (id, message, state = "idle") => {
   output.dataset.updated = "true";
   output.setAttribute("aria-busy", String(state === "loading"));
   output.textContent = message;
+  if (id === "impact-result" && state !== "success") setImpactEmptyState(state);
   if (state === "error" || (state === "incomplete" && id === "conditions-result")) {
     let disclosure = output.closest("details");
     while (disclosure) { disclosure.open = true; disclosure = disclosure.parentElement?.closest("details"); }
@@ -240,7 +241,26 @@ function clearStructuredResponse(outputId) {
   }
 }
 
+function setImpactEmptyState(state = "idle") {
+  const panel = document.getElementById("impact-empty");
+  if (!panel) return;
+  panel.hidden = false;
+  panel.dataset.state = state;
+  panel.setAttribute("aria-busy", String(state === "loading"));
+  document.getElementById("impact-content").hidden = true;
+  const configured = latestIntegrations.getImpactSummary === true;
+  const loading = state === "loading";
+  const failed = ["error", "unavailable"].includes(state);
+  document.getElementById("impact-empty-badge").textContent = loading ? "Loading evidence" : failed ? "No results available" : configured ? "Ready to load" : "Not connected";
+  document.getElementById("impact-empty-message").textContent = loading
+    ? "Retrieving impact evidence. Verified values will replace these placeholders when the request succeeds."
+    : failed ? "Evidence could not be loaded. No results are shown. Review the message above and retry when the service is available."
+    : configured ? "Choose Load impact evidence to retrieve the existing BigQuery analysis. No results have been loaded."
+    : "The read-only data integration is not connected in this environment. Once connected, use Load impact evidence to populate this dashboard.";
+}
+
 function clearImpactSummary() {
+  setImpactEmptyState();
   clearCharts();
   document.getElementById("impact-content").hidden = true;
   document.getElementById("impact-kpis").replaceChildren();
@@ -325,6 +345,7 @@ function renderImpactSummary(payload) {
     row.label, row.lots, row.avgScrapPct + "%",
     impactMoney(row.scrapCost12m, kpis.currency), row.mainDefect,
   ]), ["item group", "lots", "average scrap", "scrap cost", "main defect"]);
+  document.getElementById("impact-empty").hidden = true;
   document.getElementById("impact-content").hidden = false;
   renderImpactCharts(payload);
   renderPremiumImpact(payload);
@@ -549,6 +570,7 @@ function applyIntegrationAvailability(integrations = latestIntegrations) {
       ? "Impact adapter is configured; load the summary to check data availability."
       : "Impact data is unavailable because its read-only integration is not configured.";
   }
+  if (document.getElementById("impact-content").hidden && document.getElementById("impact-empty").dataset.state === "idle") setImpactEmptyState();
   const extractionDescription = document.getElementById("extraction-workflow-description");
   if (extractionDescription) {
     extractionDescription.textContent = extractionConfigured

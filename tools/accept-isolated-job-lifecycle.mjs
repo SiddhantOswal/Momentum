@@ -35,7 +35,7 @@ async function execute(evidenceFile) {
   writeFileSync(evidenceFile,JSON.stringify(evidence,null,2)+'\n',{flag:'wx',mode:0o600});
   const save=()=>writeFileSync(evidenceFile,JSON.stringify(evidence,null,2)+'\n',{mode:0o600});
   const check=(name,pass)=>{evidence.checks.push({name,pass,at:new Date().toISOString()});save();if(!pass)throw Error(name);};
-  const sdk='/Users/siddhant/prepagent-work/google-cloud-sdk/bin/gcloud';
+  const sdk=(process.env.GCLOUD_BIN || 'gcloud');
   const project=JSON.parse(execFileSync(sdk,['projects','describe',PROJECT,'--format=json(projectId,projectNumber)'],{encoding:'utf8'}));
   check('exact authorized project',project.projectId===PROJECT&&project.projectNumber==='514663464609');
   const configBytes=readFileSync(new URL('../config/model-acceptance.json',import.meta.url));

@@ -82,7 +82,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (ledger.projectId !== PROJECT || ledger.scopes?.B?.approved !== true) throw new Error("Scope B approval is missing.");
   // Create-only journal prevents accidentally rerunning the three reservations.
   const journal = await open(args["--evidence"], "wx", 0o600);
-  const token = execFileSync("/Users/siddhant/prepagent-work/google-cloud-sdk/bin/gcloud", ["auth", "print-access-token"], { encoding: "utf8", timeout: 20000 }).trim();
+  const token = execFileSync((process.env.GCLOUD_BIN || "gcloud"), ["auth", "print-access-token"], { encoding: "utf8", timeout: 20000 }).trim();
   const tokenProvider = async () => token;
   let writes = Promise.resolve();
   const record = evidence => {

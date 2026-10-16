@@ -8,7 +8,8 @@
     "test": "node --test test/*.test.js",
     "test:acceptance": "node --test test/app.test.js test/po1-coordinator-workflow.test.js test/job-coordinator.test.js test/job-draft-persistence.test.js test/job-lifecycle-recovery.test.js test/job-idempotency.test.js test/purchase-order-review.test.js test/job-card-service.test.js test/job-sheet-pdf.test.js test/google-cloud-current-conditions.test.js test/feedback-service.test.js test/linked-feedback-service.test.js test/risk-prediction-service.test.js test/risk-optimization-service.test.js test/risk-evidence-service.test.js test/impact-summary-service.test.js test/fx-rates.test.js test/container-build-context.test.js test/runtime-config.test.js test/model-acceptance.test.js test/sensor-ingestion-sql.test.js test/model-evidence-bundle.test.js test/isolated-job-lifecycle-tool.test.js test/release-snapshot-tool.test.js test/hackathon-demo-http.test.js test/hackathon-demo-auth.test.js test/approval-audit.test.js test/daily-gemini-call-cap.test.js test/firestore-gemini-attempt-store.test.js test/provider-metering-contract.test.js test/approved-photo-service.test.js test/local-backup.test.js",
     "test:ui": "playwright test",
-    "demo:local": "node tools/run-local-backup.mjs"
+    "demo:local": "node tools/run-local-backup.mjs",
+    "preview:local": "node tools/run-local-preview.mjs"
   },
   "keywords": [
     "corrugated",

@@ -1,7 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
-import {writeFile} from 'node:fs/promises';
 let server;
 let base;
 test.beforeAll(async()=>{
@@ -28,7 +27,7 @@ test('real local backup UI uses its actual local adapters through draft, approva
  const first=await(await request.post(base+'/jobs/'+jobId+'/approve')).json();const second=await(await request.post(base+'/jobs/'+jobId+'/approve')).json();expect(second.approvedAt).toBe(first.approvedAt);expect(second.jobSheet.cardUri).toMatch(/^local-demo:/);
  await page.locator('#stored-card-form button[type=submit]').click();await expect(page.locator('#stored-card-link')).toBeVisible();
  const pdf=await request.get(base+'/jobs/'+jobId+'/card.pdf');expect(pdf.status()).toBe(200);expect((await pdf.body()).subarray(0,5).toString()).toBe('%PDF-');
- await testInfo.attach('local-synthetic-card',{body:await pdf.body(),contentType:'application/pdf'});await writeFile('/private/tmp/ustaad-final-local-backup-card-20261016.pdf',await pdf.body());
+ await testInfo.attach('local-synthetic-card',{body:await pdf.body(),contentType:'application/pdf'});
  await page.getByRole('link',{name:'Defect Check',exact:true}).click();await page.locator('#production-feedback > summary').click();
  await page.locator('#feedback-warp').fill('2');await page.locator('#feedback-note').fill('LOCAL MOCK BACKUP feedback, not factory outcomes');
  const feedback=page.waitForResponse(r=>r.url().endsWith('/feedback')&&r.request().method()==='POST');await page.locator('#feedback-form button[type=submit]').click();const saved=await(await feedback).json();expect(saved.ok).toBe(true);

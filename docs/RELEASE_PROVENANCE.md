@@ -132,3 +132,11 @@ gcloud run services update-traffic prepagent --project=prepagent-hack --region=a
 ```
 
 Re-read IAM/traffic and smoke-test safe access after every action; do not replace whole IAM policy if another editor changed it. Post-judging privatization removes only the release's public binding and verifies anonymous403, retaining evidence/data unless cleanup is separately approved. No public release was performed in this pass.
+
+## 16 October 2026 — repository publication and local-state reconciliation
+
+Owner explicitly authorized reviewing/committing the newest local product source and publishing it to the existing private GitHub repository's `main` branch. See `REPOSITORY_HYGIENE_REVIEW.md` for the publication record and clone verification. This supersedes earlier no-push instructions **for this repository synchronization only**, not for Cloud Run public access or traffic.
+
+The committed source includes the premium presentation commit `a689c99b43c59804548befc7a93f484f23cefc14` plus the later honest empty Impact workspace and portable local setup. The recorded deployed revision remains `prepagent-premium-analytics-v2`, digest `sha256:e1103dec7a9271c475d9e2d03c891da2f3a0d66480a134b3ccee54a29dc478ae`; it does not contain those later local adjustments. No new container build/deployment, IAM/budget change, traffic shift or model acceptance occurs merely by publishing source to GitHub.
+
+The safe local default is `npm run preview:local`: no mock business figures, empty labeled KPI/chart structure and unavailable cloud controls. `npm run demo:local` remains an explicit, honestly labeled offline backup. Neither local mode proves accepted cloud model execution. D4 remains blocked.

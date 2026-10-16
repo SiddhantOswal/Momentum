@@ -1,3 +1,8 @@
+-- Historical bootstrap schema, retained for provenance and contract reference.
+-- Not a complete current-project provisioning script: review live schema and
+-- approved migrations (including approval_audit) before any DDL. Do not apply
+-- this file automatically when cloning or starting the application.
+
 CREATE TABLE IF NOT EXISTS `prepagent-hack.prepagent.lots` (
   lot_id STRING,
   order_id STRING,
