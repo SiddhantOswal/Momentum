@@ -4,7 +4,7 @@
 
 Turn an approved purchase order into a reviewed machine setup and an operator-approved production card. Momentum combines Gemini, manufacturing history and constrained optimization in one preparation workflow.
 
-[Open the application](https://prepagent-26mwt2n7ba-el.a.run.app) · [Testing guide](docs/JUDGING_GUIDE.md) · [Release evidence](docs/RELEASE_PROVENANCE.md)
+[Open the application](https://prepagent-26mwt2n7ba-el.a.run.app) · [Testing guide](docs/JUDGING_GUIDE.md) · [Manual judge walkthrough](docs/MANUAL_JUDGE_WALKTHROUGH.md) · [Release evidence](docs/RELEASE_PROVENANCE.md)
 
 ## From order to production card
 
