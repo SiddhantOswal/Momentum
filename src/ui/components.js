@@ -98,7 +98,7 @@ export function renderComparison(payload) {
   const wrap = node("div", undefined, "table-scroll");
   wrap.tabIndex = 0; wrap.setAttribute("role", "region"); wrap.setAttribute("aria-label", "Planned and recommended settings");
   const table = node("table", undefined, "comparison-table");
-  const caption = node("caption", "Planned vs recommended · recommendations are not approved");
+  const caption = node("caption", "Planned vs recommended · model estimates; see Job card for approval status");
   const head = node("thead"); const headings = node("tr");
   for (const title of ["Machine setting", "Your plan", "Recommended"]) { const cell = node("th", title); cell.scope = "col"; headings.append(cell); }
   head.append(headings); const body = node("tbody");

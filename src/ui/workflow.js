@@ -1425,7 +1425,7 @@ document.getElementById("prepare-job").addEventListener("click", async (event) =
           const text = document.getElementById("risk-explanation-content"); text.textContent = payload.jobSheet.explanation; text.hidden = false;
         }
         if (payload.jobSheet.evidence) renderSimilarRuns({ source: localSyntheticUI ? "mock-demo" : "bigquery", evidence: payload.jobSheet.evidence });
-        toast("Draft saved. Review the recommendation before approval.");
+        toast(payload.jobSheet.status === "APPROVED" ? "Approved JobSheet retrieved." : "Draft saved. Review the recommendation before approval.");
       }
     },
   });
