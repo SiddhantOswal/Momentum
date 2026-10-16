@@ -395,6 +395,8 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
             text: `Write 3 to 5 concise plain-language sentences explaining the validated model attribution and, when relevant, the supplied historical observations. Distinguish predictions and attribution from observed historical outcomes. Describe attribution only as a model contribution or association, not as proof of cause and effect. Use only the provided drivers, percentages, attribution points, inputs, settings, and historical metrics. Do not mention lot or order identifiers, add unsupported facts, claim causality or guarantees, or use numeric values not present in the JSON. A positive attribution contributes upward to the model prediction and a negative attribution contributes downward; neither establishes a real-world causal effect. Return only the explanation.\\n${JSON.stringify(promptData)}`,
           }],
         }],
+        // Measured live: this prompt used 1,964 thinking tokens, exhausting the 2,048 default.
+        maxOutputTokens: 8192,
         signal,
       });
       const explanation = response.parts.map((part) => part.text)

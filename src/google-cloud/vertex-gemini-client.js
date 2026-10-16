@@ -18,6 +18,17 @@ function reportUsage(onUsage, payload) {
   if (Object.keys(usage).length > 0) onUsage(Object.freeze(usage));
 }
 
+// Gemini 3.x counts thinking tokens against maxOutputTokens, so a long reasoning
+// pass can exhaust the budget and return a cut-off fragment as the answer.
+const DEFAULT_MAX_OUTPUT_TOKENS = 2048;
+const MAX_OUTPUT_TOKENS_LIMIT = 8192;
+
+function assertComplete(payload) {
+  if (payload?.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+    throw new VertexGeminiError("VERTEX_OUTPUT_TRUNCATED", "Vertex AI stopped at the output token limit before completing its answer.");
+  }
+}
+
 export class VertexGeminiError extends Error {
   constructor(code, message) {
     super(message);
@@ -54,10 +65,11 @@ export function createVertexGeminiClient({
     `/locations/${encodeURIComponent(location)}/publishers/google/models/${encodeURIComponent(model)}:generateContent`;
 
   return Object.freeze({
-    async generateContent({ contents, tools, signal, onUsage } = {}) {
+    async generateContent({ contents, tools, signal, onUsage, maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS } = {}) {
       if (!Array.isArray(contents) || contents.length === 0 ||
           Buffer.byteLength(JSON.stringify({ contents, tools }), "utf8") > 65536 ||
           (tools !== undefined && (!Array.isArray(tools) || tools.length === 0)) ||
+          !Number.isInteger(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > MAX_OUTPUT_TOKENS_LIMIT ||
           (onUsage !== undefined && typeof onUsage !== "function")) {
         throw new VertexGeminiError("INVALID_GENERATION_REQUEST", "Generation contents or function-calling tools are invalid.");
       }
@@ -76,7 +88,7 @@ export function createVertexGeminiClient({
               tools,
               toolConfig: { functionCallingConfig: { mode: "AUTO" } },
             }),
-            generationConfig: { temperature: 0, maxOutputTokens: 2048 },
+            generationConfig: { temperature: 0, maxOutputTokens },
           }),
           signal,
         });
@@ -94,6 +106,7 @@ export function createVertexGeminiClient({
         throw new VertexGeminiError("VERTEX_GENERATION_FAILED", "The Vertex AI request failed.");
       }
       reportUsage(onUsage, payload);
+      assertComplete(payload);
       if (!Array.isArray(payload?.candidates?.[0]?.content?.parts)) {
         throw new VertexGeminiError("VERTEX_EMPTY_RESPONSE", "Vertex AI returned no candidate parts.");
       }
@@ -139,7 +152,7 @@ export function createVertexGeminiClient({
             }],
             generationConfig: {
               temperature: 0,
-              maxOutputTokens: 2048,
+              maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
               responseMimeType: "application/json",
               responseSchema,
             },
@@ -161,6 +174,7 @@ export function createVertexGeminiClient({
         throw new VertexGeminiError("VERTEX_GENERATION_FAILED", "The Vertex AI request failed.");
       }
       reportUsage(onUsage, payload);
+      assertComplete(payload);
 
       const text = payload?.candidates?.[0]?.content?.parts
         ?.map((part) => part.text)

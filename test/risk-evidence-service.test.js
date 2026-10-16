@@ -7,6 +7,7 @@ import {
   createSimilarRunsService,
 } from "../src/google-cloud/risk-evidence-service.js";
 
+import { VertexGeminiError } from "../src/google-cloud/vertex-gemini-client.js";
 const query = (name) => readFileSync(new URL(`../sql/${name}`, import.meta.url), "utf8");
 const order = {
   orderId: "PO-1", itemCode: "PKBX0041", customerId: "C-1", boxStyle: "RSC",
@@ -183,6 +184,7 @@ test("explanation links attribution to the prediction, optimizer best settings a
   assert.equal(queryRequest.parameters.gum_application, "MED");
   assert.equal(queryRequest.parameters.ambient_rh_pct.type, "FLOAT64");
   assert.equal(geminiRequest.tools, undefined);
+  assert.equal(geminiRequest.maxOutputTokens, 8192);
   assert.equal(result.rows[0].driver, "ambient_rh_pct");
   assert.match(geminiRequest.contents[0].parts[0].text, /historicalEvidence/);
   assert.match(geminiRequest.contents[0].parts[0].text, /not as proof of cause and effect/);
@@ -208,6 +210,16 @@ test("explanation links attribution to the prediction, optimizer best settings a
   });
   assert.equal(rejected.ok, false);
   assert.equal(rejected.error.code, "SERVICE_UNAVAILABLE");
+
+  // A provider answer cut off at the token limit fails closed, never reaching the evidence checks.
+  const truncated = createRiskExplanationService({
+    bigquery: { query: async () => bigqueryResult(explanationColumns, explanationRows) },
+    gemini: { generateContent: async () => { throw new VertexGeminiError("VERTEX_OUTPUT_TRUNCATED", "Vertex AI stopped at the output token limit."); } },
+    sql: query("explain.sql"),
+  });
+  const cutOff = await truncated({ order, conditions, prediction, optimization, evidence: historicalEvidence });
+  assert.equal(cutOff.ok, false);
+  assert.equal(cutOff.error.code, "SERVICE_UNAVAILABLE");
 });
 
 test("explanation fails closed when evidence or prediction linkage is invalid", async () => {
