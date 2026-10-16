@@ -8,5 +8,5 @@ test('final acceptance commands parse and keep live model calls behind explicit 
  assert.ok(code.length>1000);execFileSync(process.execPath,['--input-type=module','--check'],{input:code});
  assert.ok(code.indexOf("'D4 BLOCKED: STOP; no model-dependent call'")<code.indexOf("api('/orders/extract'"));
  assert.match(code,/completedStages\.includes\('optimizeLevers'\)/);assert.match(code,/authenticatedHuman===false/);assert.match(code,/Idempotency-Key/);assert.match(code,/Cross-session access accepted/);
- assert.match(text,/Not executed\. D4 is currently BLOCKED/);assert.match(text,/No default traffic switch or public IAM is included/);assert.match(text,/No automatic retry/i);
+ assert.match(text,/Not executed\.\*\* The source config is accepted for the supervised prototype by owner decision D4-2026-10-16-OM; the deployed candidate predates it and is still blocked/);assert.match(text,/No default traffic switch or public IAM is included/);assert.match(text,/No automatic retry/i);
 });

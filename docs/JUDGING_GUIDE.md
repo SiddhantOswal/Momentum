@@ -10,7 +10,7 @@ The system combines Gemini extraction/explanation with deterministic validation,
 
 - The latest source includes the premium analytics UI and an honest empty Impact layout. No sample KPI values appear in the ordinary local preview.
 - The last verified private Cloud Run candidate is documented in [release provenance](RELEASE_PROVENANCE.md). It predates the latest local empty-state improvement; the repository and deployed image must not be conflated.
-- **Model acceptance remains blocked (D4).** The complete live prediction → optimized JobSheet → approval/card journey is not currently accepted. Unsupported actions must refuse rather than return fixture recommendations.
+- **Model acceptance (D4).** The source is accepted for the supervised prototype by owner decision D4-2026-10-16-OM, with crack shown as low confidence in monsoon. The currently deployed candidate predates this and still refuses the live prediction → optimized JobSheet → approval/card journey. Unsupported actions must refuse rather than return fixture recommendations.
 - The repository and Cloud Run service are private. Reviewers need separately authorized access; cloning does not grant GCP permissions.
 
 ## Run the interface locally
@@ -44,7 +44,7 @@ PO1 SHA256: `d789722039e0d9f29d2106655416aae0447159d23df56c7dc215ee875c8fb44a`.
 
 1. **New Lot:** inspect the supported input/review controls. Genuine extraction requires the configured cloud deployment, approved input and authorization. Review the extracted line; do not invent missing catalog fields.
 2. **Conditions:** choose the shift, review simulated/manual readings and planned settings, then confirm explicitly. These are not physical sensor telemetry.
-3. **Model gate:** while D4 is blocked, verify the clear refusal. Do not treat the offline backup as proof that the models passed acceptance.
+3. **Model gate:** on a revision without the D4 owner decision, verify the clear refusal. Do not treat the offline backup as proof that the models passed acceptance.
 4. **Defect Check → Historical Evidence:** in an authorized cloud environment, select WARP and RH 86 and request history. The prior verified response showed 685 primary-defect cases, while the 401/397 comparison groups used a different all-defect humidity cohort. Historical associations are not causal recommendations.
 5. **Photo Diagnosis:** load the ten approved choices; selecting an image must not call Gemini. Classification is a deliberate metered action. The API does not provide a browser image preview. Prior classification matched 7/10 expected labels; that is not calibrated factory QA accuracy.
 6. **Impact:** explicitly load the existing BigQuery analysis. Estimates are held-out simulation results, not measured factory savings or annualized ROI. View the original values and source context alongside the charts.

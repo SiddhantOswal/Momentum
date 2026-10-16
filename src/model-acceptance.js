@@ -7,6 +7,22 @@ export const REQUIRED_MODEL_R2 = Object.freeze({
   CRACK: 0.30,
 });
 
+// Owner D4 decision (16 Oct 2026): the internal-split sample counts were lost when
+// BigQuery deleted the temporary split tables. An explicit, complete owner decision
+// may stand in for those counts only; it never relaxes thresholds or version links.
+const OWNER_DECISION = "ACCEPT_UNRECOVERABLE_INTERNAL_SPLIT_COUNT";
+export function hasOwnerCountDecision(record) {
+  const decision = record?.ownerDecision;
+  const holdout = decision?.supplementaryEvaluation;
+  const text = (value) => typeof value === "string" && value.trim() !== "";
+  return decision?.decision === OWNER_DECISION && text(decision.owner) && text(decision.reference) &&
+    text(decision.decidedAt) && !Number.isNaN(Date.parse(decision.decidedAt)) &&
+    text(holdout?.splitId) && Number.isInteger(holdout?.sampleCount) && holdout.sampleCount > 0 &&
+    REQUIRED_DEFECTS.every((defect) => Number.isFinite(holdout?.r2?.[defect]));
+}
+const usesOwnerCountDecision = (record, model) =>
+  model?.sampleCount === null && model?.sampleCountStatus === "NOT_RECOVERABLE" && hasOwnerCountDecision(record);
+
 export function isModelSetAccepted(record) {
   if (!record || record.status !== "accepted" ||
       typeof record.evaluationId !== "string" || record.evaluationId.trim() === "" ||
@@ -28,7 +44,7 @@ export function isModelSetAccepted(record) {
       typeof model?.modelVersion === "string" && model.modelVersion.trim() !== "" &&
       record.currentModelVersions[defect] === model.modelVersion &&
       Number.isFinite(model?.r2) && model.r2 >= REQUIRED_MODEL_R2[defect] &&
-      Number.isInteger(model?.sampleCount) && model.sampleCount > 0;
+      (Number.isInteger(model?.sampleCount) && model.sampleCount > 0 || usesOwnerCountDecision(record, model));
   });
 }
 
@@ -39,13 +55,17 @@ export function getModelAcceptanceSummary(record) {
     : record?.recordedEvaluation?.models ?? record?.models;
   // A malformed evidence file must report blocked status, not crash status
   // reporting. This projection never changes the acceptance predicate above.
+  // Project to the public response fields; config-only markers stay server-side.
   const models = Array.isArray(rawModels)
     ? rawModels.filter((model) => model !== null && typeof model === "object" && !Array.isArray(model))
+      .map(({ defect, resource, r2, modelVersion, sampleCount }) => ({ defect, resource, r2, modelVersion, sampleCount }))
     : [];
   const byDefect = new Map(models.map((model) => [model?.defect, model]));
   const prototypeThresholdsMet = REQUIRED_DEFECTS.every((defect) =>
     Number.isFinite(byDefect.get(defect)?.r2) && byDefect.get(defect).r2 >= REQUIRED_MODEL_R2[defect]);
-  const completeAcceptanceEvidenceAvailable = accepted;
+  // An owner decision accepts the set; it does not make the missing counts available.
+  const completeAcceptanceEvidenceAvailable = accepted &&
+    record.models.every((model) => !usesOwnerCountDecision(record, model));
   return {
     status: accepted ? "accepted" : prototypeThresholdsMet ? "prototype-thresholds-met" : "blocked",
     requiredR2: REQUIRED_MODEL_R2,

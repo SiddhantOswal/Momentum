@@ -1,10 +1,10 @@
 # Final private PO-to-approved-card acceptance
 
-**Not executed. D4 is currently BLOCKED.** This is the single model-enabled acceptance procedure after genuine evidence passes. Earlier isolated transport acceptance is not a substitute. Use the existing application and APIs, Approach B, no Firebase requirement.
+**Not executed.** The source config is accepted for the supervised prototype by owner decision D4-2026-10-16-OM; the deployed candidate predates it and is still blocked. This is the single model-enabled acceptance procedure after genuine evidence passes. Earlier isolated transport acceptance is not a substitute. Use the existing application and APIs, Approach B, no Firebase requirement.
 
 ## 1. Preconditions and authority — stop unless all pass
 
-- Genuine owner artifacts passed [D4_EVIDENCE_INGESTION.md](D4_EVIDENCE_INGESTION.md); actual accepted config installed, tests passed, all five model etags/Vertex versions refreshed.
+- Genuine owner artifacts passed [D4_EVIDENCE_INGESTION.md](D4_EVIDENCE_INGESTION.md), or the recorded owner decision D4-2026-10-16-OM applies to the unchanged version-1 models; actual accepted config installed, tests passed, all five model etags/Vertex versions refreshed.
 - A source snapshot containing that accepted config was built and privately deployed with explicit release authorization. Record build ID, source/archive hash, image digest, revision, exact tag URL and configuration. **Today's prepared blocked snapshot is not an accepted-model image.**
 - Private Cloud Run IAM invocation is available; service max2/min0, runtime SA `prepagent-run@prepagent-hack.iam.gserviceaccount.com`; default traffic remains unchanged. Record actual independent-feature rollback target without pretending it is a proven full-workflow revision.
 - Shared Firestore100-attempt/IST policy and signing secret configured; active model/optimizer/synthetic/audit/TEST-write adapters enabled. No mock routes.
@@ -96,7 +96,7 @@ function client() {
 const api = client();
 const status = (await api('/api/status')).data;
 must(status.executionMode==='live-service' && status.authorizationMode==='HACKATHON_DEMO','Wrong execution or authorization mode');
-must(status.modelAcceptance.completeAcceptanceEvidenceAvailable===true && status.modelAcceptance.status==='accepted','D4 BLOCKED: STOP; no model-dependent call');
+must(status.modelAcceptance.status==='accepted' && (status.modelAcceptance.completeAcceptanceEvidenceAvailable===true || status.modelAcceptance.evaluationId==='D4-2026-10-16-OM'),'D4 BLOCKED: STOP; no model-dependent call');
 must(status.runtimeAvailability.jobCreationAvailable===true,'Required persistence/model adapters unavailable');
 fs.writeFileSync(directory+'/status.json',JSON.stringify(status,null,2),{mode:0o600});
 const session = await api('/api/auth/demo-session',{method:'POST'});

@@ -80,10 +80,13 @@ test("risk prediction runs the supplied model SQL with exact named parameters an
   assert.equal(response.primaryDefect, "WARP");
 });
 
+// The 14 Oct record without the owner decision: thresholds met, counts missing.
+const historicalBlockedRecord = ({ requiredR2, recordedEvaluation }) => ({ status: "blocked", requiredR2, recordedEvaluation });
+
 test("risk prediction fails closed before querying when only historical thresholds are met", async () => {
   let queryCalled = false;
   const service = createRiskPredictionServiceImpl({
-    modelAcceptance: (await import("../config/model-acceptance.json", { with: { type: "json" } })).default,
+    modelAcceptance: historicalBlockedRecord((await import("../config/model-acceptance.json", { with: { type: "json" } })).default),
     bigquery: { query: async () => { queryCalled = true; return resultRow(); } },
   });
   const response = await service(input);

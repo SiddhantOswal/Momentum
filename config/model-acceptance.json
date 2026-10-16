@@ -1,11 +1,61 @@
 {
-  "status": "blocked",
+  "status": "accepted",
   "requiredR2": {
     "WARP": 0.6,
     "DELAM": 0.6,
     "STRENGTH": 0.45,
     "PRINT": 0.6,
     "CRACK": 0.3
+  },
+  "evaluationId": "D4-2026-10-16-OM",
+  "evaluatedAt": "2026-10-11T19:35:02Z",
+  "splitId": "bqml-random-20-percent-internal-split-2026-10-11",
+  "dataset": "prepagent-hack.prepagent.lots",
+  "linkedToCurrentResourceVersions": true,
+  "currentModelVersions": {
+    "WARP": "1",
+    "DELAM": "1",
+    "STRENGTH": "1",
+    "PRINT": "1",
+    "CRACK": "1"
+  },
+  "featureImportanceReviewed": true,
+  "models": [
+    { "defect": "WARP", "resource": "prepagent.m_warp", "r2": 0.6051768595944437, "modelVersion": "1", "modelEtag": "xXegOiYEc1oyoFRXbFdKBg==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" },
+    { "defect": "DELAM", "resource": "prepagent.m_delam", "r2": 0.6664103996938104, "modelVersion": "1", "modelEtag": "cAxJP4gJvL7CwQN5Ie5i2A==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" },
+    { "defect": "STRENGTH", "resource": "prepagent.m_strength", "r2": 0.4672612713832247, "modelVersion": "1", "modelEtag": "u3Gv8hf6VCK4J7f8MHFxFQ==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" },
+    { "defect": "PRINT", "resource": "prepagent.m_print", "r2": 0.75115286156175, "modelVersion": "1", "modelEtag": "4AhmyAJe04Ne+rLdqXFwkA==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" },
+    { "defect": "CRACK", "resource": "prepagent.m_crack", "r2": 0.3010715689792366, "modelVersion": "1", "modelEtag": "aNHG4wLNggpnQryDUaGAlQ==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" }
+  ],
+  "ownerDecision": {
+    "decision": "ACCEPT_UNRECOVERABLE_INTERNAL_SPLIT_COUNT",
+    "owner": "Om (model owner)",
+    "decidedAt": "2026-10-16",
+    "reference": "D4-2026-10-16-OM; docs/d4/D4_MODEL_ACCEPTANCE_REPORT.md and D4_ACCEPTANCE_CHECKLIST.md",
+    "scope": "Supervised prototype demonstration for the AI Builder Cup 2026; every recommendation needs supervisor approval. Not certification for autonomous control.",
+    "basis": "Internal-split R2 meets every unchanged threshold. The internal-split sample counts cannot be recovered because BigQuery deleted the temporary split tables, and the models must not be retrained. The independent, exactly counted September 2026 holdout below is disclosed in their place; it is supplementary and is not the acceptance metric.",
+    "conditions": [
+      "All recommendations are approved by a supervisor.",
+      "Values are shown as predicted or estimated.",
+      "Crack is shown as low confidence in monsoon.",
+      "Models are unchanged: one training run each, Vertex version 1 and the etags recorded above."
+    ],
+    "coOwnerReview": "Pending: D4_ACCEPTANCE_CHECKLIST.md names Om and Siddhant as owners of this decision.",
+    "supplementaryEvaluation": {
+      "type": "NEW_INDEPENDENT_HOLDOUT",
+      "splitId": "holdout-2026-09: prepagent.lots run_date 2026-09-01..2026-09-30, non-TEST rows",
+      "sampleCount": 219,
+      "dataFingerprint": "4806831653848498529",
+      "evaluatedAt": "2026-10-16",
+      "r2": {
+        "WARP": 0.40205273969641164,
+        "DELAM": 0.5003448014241428,
+        "STRENGTH": 0.2970847867823321,
+        "PRINT": 0.61017838345062,
+        "CRACK": -0.013623408295655226
+      }
+    },
+    "verification": "Re-run read-only on 2026-10-16 with D4_REPRODUCIBILITY.sql queries 2-4 and bq show --model (BigQuery jobs qa_om_d4_q2_1792136607, qa_om_d4_q3_1792136610, qa_om_d4_q4b_1792136633): training SQL hashes, both data fingerprints and row counts, all ten R2 values, one training run each, Vertex version 1 and the etags above matched."
   },
   "recordedEvaluation": {
     "asOf": "2026-10-14",
@@ -32,13 +82,12 @@
       { "defect": "CRACK", "resource": "prepagent.m_crack", "r2": 0.3010716, "modelVersion": "1", "sampleCount": null }
     ]
   },
-  "acceptanceEvidence": null,
+  "acceptanceEvidence": "D4-2026-10-16-OM",
   "notes": [
-    "Read-only BigQuery model metadata inspected on 2026-10-14 UTC confirms that the current prepagent.m_* model training runs reference Vertex model version 1 and their saved R2 metrics match these recorded metrics.",
-    "Model metadata exposes anonymous evaluation-split table references, but bounded COUNT(*) inspection was denied; sample counts remain unavailable and acceptance stays blocked.",
-    "The approved playbook documents model training rows from October 2024 through August 2026 and September 2026 held out; the 20-percent evaluation split is random within the modeling rows. This is the declared project window, not a verified min/max date scan of the exact evaluation rows.",
-    "The historical aggregate results meet Om's prototype thresholds, including Strength 0.4672613 >= 0.45 and Crack 0.3010716 >= 0.30.",
-    "Prototype threshold met does not establish complete acceptance evidence: sample counts and full evaluation dataset provenance remain unavailable.",
-    "Historical Om D4 feature-review statements are preserved in the decision records. The current owner data-provenance correction must be reconciled with exact model/source evidence. The separately recorded version-1 feature observation does not complete evaluation evidence."
+    "Accepted for the supervised prototype by owner decision D4-2026-10-16-OM. Internal-split R2 meets every unchanged threshold; internal-split sample counts are not recoverable, so complete acceptance evidence is not claimed.",
+    "Supplementary September 2026 holdout (219 lots, never seen in training): R2 warp 0.40, delam 0.50, strength 0.30, print 0.61, crack -0.01. Crack has no skill within the monsoon month and is shown as low confidence in monsoon.",
+    "Training data is modelled production history (generator.ts, seed 20261010) built on the plant's real item master, not recorded plant measurements.",
+    "Historical (14 Oct 2026): read-only BigQuery model metadata confirmed that the current prepagent.m_* training runs reference Vertex model version 1 and their saved R2 metrics match the recorded metrics.",
+    "Historical (14 Oct 2026): sample counts were unavailable and acceptance stayed blocked; superseded by owner decision D4-2026-10-16-OM."
   ]
 }

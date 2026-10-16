@@ -2,7 +2,7 @@
 
 Ustaad turns an approved purchase order into a reviewed production setup: Gemini extraction, catalog validation, confirmed conditions, five defect-risk models, constrained optimization, explanations, a JobSheet, operator approval and a stored PDF card. Historical evidence, photo diagnosis and Production Impact support the preparation workflow.
 
-**Current limitation:** model acceptance is blocked pending version-linked model evaluation evidence (D4). The full live model-enabled workflow must not be presented as accepted. The newest local source also contains an honest empty Impact dashboard; it is newer than the deployed premium candidate. See [release provenance](docs/RELEASE_PROVENANCE.md).
+**Model acceptance (D4):** this source records the five models as accepted for the supervised prototype by owner decision D4-2026-10-16-OM ([D4 report](docs/d4/D4_MODEL_ACCEPTANCE_REPORT.md)). Internal-split sample counts are not recoverable, so complete acceptance evidence is not claimed; a 219-lot September 2026 holdout is disclosed instead. The deployed Cloud Run candidate predates this change and stays blocked until a new revision is deployed. The newest local source also contains an honest empty Impact dashboard; it is newer than the deployed premium candidate. See [release provenance](docs/RELEASE_PROVENANCE.md).
 
 ## Run locally — no credentials or dummy metrics
 
@@ -46,7 +46,7 @@ See [local development and private-cloud access](docs/LOCAL_DEVELOPMENT.md), [Ap
 
 - `src/`, `index.mjs`: application, UI, adapters, security and lifecycle logic.
 - `public/`: bundled frontend assets and explicitly approved input fixtures.
-- `config/`: nonsecret runtime contracts and blocked model-acceptance metadata.
+- `config/`: nonsecret runtime contracts and the D4 model-acceptance record.
 - `sql/`: canonical tool/query contracts; proposed/training SQL is not run by startup.
 - `assets/fonts/`: licensed PDF fonts required by the renderer; not unused assets.
 - `test/`: unit, contract and browser regression coverage; not shipped in the image.

@@ -26,7 +26,7 @@ test('dashboard static integration preserves APIs and enforces real signed-sessi
     const url=origin+`/jobs/${jobId}/approve`;
     assert.equal((await fetch(url,{method:'POST',headers:{Origin:origin}})).status,401);
     const gated=await fetch(url,{method:'POST',headers:{Origin:origin,Cookie:cookie.split(';')[0]}});
-    assert.equal(gated.status,503);assert.equal((await gated.json()).error.code,'MODEL_ACCEPTANCE_REQUIRED');
+    assert.equal(gated.status,503);assert.equal((await gated.json()).error.code,'SERVICE_UNAVAILABLE');
     assert.equal((await fetch(origin+'/health')).status,200);
   }finally {if(child.exitCode===null){const exited=once(child,'exit');child.kill('SIGTERM');await exited;}}
 });

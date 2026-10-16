@@ -28,4 +28,4 @@ Only ten approved opaque photo IDs can be listed/classified. Selection makes no 
 
 Cloud Run is private until a separately controlled release. The anonymized read-only Impact view is distinct from privileged mutations. Do not bypass Origin or session checks to make a localhost proxy behave like the deployed origin. Public judging access must not expose unrestricted paid execution, arbitrary records or administrative provisioning.
 
-Model acceptance remains blocked until genuine reviewed evidence passes. This policy does not create a model-acceptance bypass. See the [final acceptance runbook](FINAL_PO_TO_CARD_ACCEPTANCE.md).
+Model acceptance comes only from `config/model-acceptance.json`: the source records owner decision D4-2026-10-16-OM, and the deployed candidate stays blocked until a revision with it is deployed. This policy does not create a model-acceptance bypass. See the [final acceptance runbook](FINAL_PO_TO_CARD_ACCEPTANCE.md).

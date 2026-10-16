@@ -52,7 +52,7 @@ test("HTTP hackathon sessions enforce origin, record ownership, model acceptance
     const noOrigin = await fetch(origin + `/jobs/${owned}/approve`, { method: "POST", headers: { Cookie: cookie } });
     assert.equal(noOrigin.status, 403);
     const gated = await fetch(origin + `/jobs/${owned}/approve`, { method: "POST", headers });
-    assert.equal(gated.status, 503); assert.equal((await gated.json()).error.code, "MODEL_ACCEPTANCE_REQUIRED");
+    assert.equal(gated.status, 503); assert.equal((await gated.json()).error.code, "SERVICE_UNAVAILABLE");
     const prediction = await fetch(origin + "/risk/predict", { method: "POST", headers, body: "{}" });
     assert.notEqual(prediction.status, 200);
     for (const path of ["/evidence/approved-photos", "/evidence/classify-photo"]) {

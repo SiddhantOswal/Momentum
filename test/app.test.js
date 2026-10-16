@@ -168,7 +168,8 @@ test("similar-run and explanation routes validate contracts before reporting dis
       }),
     });
     assert.equal(explanationUnavailable.status, 503);
-    assert.match((await explanationUnavailable.json()).error.message, /complete version-linked acceptance evidence/);
+    // Owner-accepted D4 passes the model gate; the unconfigured explanation adapter still fails closed.
+    assert.match((await explanationUnavailable.json()).error.message, /explainRisk is not configured/);
   } finally {
     await stopServer(child);
   }
@@ -307,7 +308,8 @@ test("status endpoint separates backend reachability from configured local integ
     assert.deepEqual(payload.modelAcceptance.requiredR2, {
       WARP: 0.6, DELAM: 0.6, STRENGTH: 0.45, PRINT: 0.6, CRACK: 0.3,
     });
-    assert.equal(payload.modelAcceptance.status, "prototype-thresholds-met");
+    assert.equal(payload.modelAcceptance.status, "accepted");
+    assert.equal(payload.modelAcceptance.evaluationId, "D4-2026-10-16-OM");
     assert.equal(payload.modelAcceptance.completeAcceptanceEvidenceAvailable, false);
     assert.equal(payload.modelAcceptance.linkedToCurrentResourceVersions, true);
     assert.equal(payload.modelAcceptance.models.length, 5);
@@ -1445,7 +1447,7 @@ test("job lifecycle routes do not imply persistence or approval while cloud serv
       method: "POST",
     });
     assert.equal(approved.status, 503);
-    assert.equal((await approved.json()).error.code, "MODEL_ACCEPTANCE_REQUIRED");
+    assert.equal((await approved.json()).error.code, "SERVICE_UNAVAILABLE");
 
     const invalidFeedbackPayloads = [
       { jobId: "JC-TEST" },

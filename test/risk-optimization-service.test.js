@@ -124,7 +124,10 @@ test("optimization service requires verified optimizer SQL containing ML.PREDICT
 
 test("optimization fails closed before BigQuery when model acceptance evidence is absent", async () => {
   let queryCalled = false;
+  // The 14 Oct record without the owner decision: thresholds met, counts missing.
+  const { requiredR2, recordedEvaluation } = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8"));
   const service = createRiskOptimizationServiceImpl({
+    modelAcceptance: { status: "blocked", requiredR2, recordedEvaluation },
     bigquery: { query: async () => { queryCalled = true; return twoRowResult(); } },
     sql: "-- optimize.sql\nSELECT ML.PREDICT(MODEL prepagent.m_warp, (SELECT 1)) FROM prepagent.items",
   });

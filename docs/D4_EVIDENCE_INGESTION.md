@@ -1,6 +1,6 @@
 # D4 evidence ingestion — offline validation, explicit installation
 
-The runtime remains BLOCKED. This procedure never retrains or evaluates a model. Approach B governs application participants; Om's model review is a separate project decision, not a visitor-granted privilege.
+**Status (16 Oct 2026):** neither bundle kind below can be completed for the current version-1 models. HISTORICAL needs the internal-split members, which BigQuery deleted; NEW_EVALUATION is the September 2026 holdout, where warp, delam, strength and crack fall below their bars. The source config is instead accepted for the supervised prototype by owner decision D4-2026-10-16-OM (`ownerDecision` in `config/model-acceptance.json`, evidence in [docs/d4](d4/D4_MODEL_ACCEPTANCE_REPORT.md)). This procedure remains the route for any future model version. It never retrains or evaluates a model. Approach B governs application participants; Om's model review is a separate project decision, not a visitor-granted privilege.
 
 ## Required reviewed model evidence
 

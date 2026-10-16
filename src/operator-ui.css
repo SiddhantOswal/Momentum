@@ -1391,6 +1391,12 @@ details>summary:not(.diagnostics>summary):focus-visible {
   color:var(--secondary);
 }
 
+.risk-row .risk-caveat {
+  display:block;
+  font-size:10px;
+  color:var(--muted);
+}
+
 .risk-row>strong {
   text-align:right;
   font-weight:500;

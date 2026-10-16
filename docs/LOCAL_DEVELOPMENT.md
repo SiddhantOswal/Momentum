@@ -40,7 +40,7 @@ gcloud run services proxy prepagent --project=prepagent-hack --region=asia-south
 
 Open http://127.0.0.1:4174. This is the deployed Cloud Run application through a proxy, not a local application using fake cloud services. The proxy was checked for HTML access. **It is not a complete operator-login workaround**: the existing same-origin protection rejects localhost-origin session/mutation requests (observed 403 `ORIGIN_REQUIRED`). Do not disable that protection or rewrite the application security policy. Full privileged browser operations require the approved deployed-origin authorization/access mechanism; release access remains controlled separately.
 
-No collaborator should receive new IAM automatically. Use the approved runtime account, shared 100-attempt IST Gemini counter and existing TEST/fixture restrictions. D4 must be accepted legitimately before model-dependent operations can run. See `FINAL_PO_TO_CARD_ACCEPTANCE.md` and `D4_EVIDENCE_INGESTION.md`.
+No collaborator should receive new IAM automatically. Use the approved runtime account, shared 100-attempt IST Gemini counter and existing TEST/fixture restrictions. Model-dependent operations run only on a revision whose config records accepted D4 (the source now records owner decision D4-2026-10-16-OM). See `FINAL_PO_TO_CARD_ACCEPTANCE.md` and `D4_EVIDENCE_INGESTION.md`.
 
 ## Build and maintenance
 

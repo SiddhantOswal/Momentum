@@ -73,7 +73,10 @@ export function renderRisk(payload, outputId = "risk-result") {
     const fill = node("div", undefined, "bar-fill");
     fill.style.width = Math.max(0, Math.min(100, risk.ratesPct[key] / 25 * 100)) + "%";
     track.append(fill);
-    row.append(node("span", name), track, node("strong", number(risk.ratesPct[key]) + "%"));
+    const label = node("span", name);
+    // Om's caveat: the crack model has the weakest fit (D4, R² 0.30); flag it for monsoon conditions.
+    if (key === "CRACK") label.append(node("small", "low confidence in monsoon", "risk-caveat"));
+    row.append(label, track, node("strong", number(risk.ratesPct[key]) + "%"));
     target.append(row);
   }
   target.hidden = false;
