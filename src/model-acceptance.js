@@ -14,8 +14,12 @@ const OWNER_DECISION = "ACCEPT_UNRECOVERABLE_INTERNAL_SPLIT_COUNT";
 export function hasOwnerCountDecision(record) {
   const decision = record?.ownerDecision;
   const holdout = decision?.supplementaryEvaluation;
+  const coOwner = decision?.coOwnerReview;
   const text = (value) => typeof value === "string" && value.trim() !== "";
-  return decision?.decision === OWNER_DECISION && text(decision.owner) && text(decision.reference) &&
+  return decision?.decision === OWNER_DECISION &&
+    coOwner?.decision === "APPROVE_SUPERVISED_PROTOTYPE_EXCEPTION" && text(coOwner.reviewer) && text(coOwner.reference) &&
+    text(coOwner.approvedAt) && Number.isFinite(Date.parse(coOwner.approvedAt)) && Date.parse(coOwner.approvedAt) <= Date.now() &&
+    text(decision.owner) && text(decision.reference) &&
     text(decision.decidedAt) && !Number.isNaN(Date.parse(decision.decidedAt)) &&
     text(holdout?.splitId) && Number.isInteger(holdout?.sampleCount) && holdout.sampleCount > 0 &&
     REQUIRED_DEFECTS.every((defect) => Number.isFinite(holdout?.r2?.[defect]));

@@ -38,3 +38,7 @@ If the validator requires internal counts specifically, the remaining action is 
 2. Values are shown as predicted or estimated.
 3. Crack is shown as low confidence in monsoon.
 4. Models are unchanged (`trainingRuns = 1`, Vertex v1).
+
+## Explicit co-owner decision — 16 October 2026
+
+Siddhant explicitly approved the documented supervised-prototype exception after being informed that original internal evaluation counts/membership remain unrecoverable and that the 219-lot holdout clears only PRINT’s unchanged threshold (CRACK R² −0.0136). This resolves the co-owner decision only; items 5 and 6 remain PARTIAL, not newly recovered evidence. The application requires a dated, referenced explicit co-owner approval record; a missing or pending review must fail closed. Genuine deployed end-to-end acceptance is a separate verification.

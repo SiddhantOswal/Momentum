@@ -21,11 +21,51 @@
   },
   "featureImportanceReviewed": true,
   "models": [
-    { "defect": "WARP", "resource": "prepagent.m_warp", "r2": 0.6051768595944437, "modelVersion": "1", "modelEtag": "xXegOiYEc1oyoFRXbFdKBg==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" },
-    { "defect": "DELAM", "resource": "prepagent.m_delam", "r2": 0.6664103996938104, "modelVersion": "1", "modelEtag": "cAxJP4gJvL7CwQN5Ie5i2A==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" },
-    { "defect": "STRENGTH", "resource": "prepagent.m_strength", "r2": 0.4672612713832247, "modelVersion": "1", "modelEtag": "u3Gv8hf6VCK4J7f8MHFxFQ==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" },
-    { "defect": "PRINT", "resource": "prepagent.m_print", "r2": 0.75115286156175, "modelVersion": "1", "modelEtag": "4AhmyAJe04Ne+rLdqXFwkA==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" },
-    { "defect": "CRACK", "resource": "prepagent.m_crack", "r2": 0.3010715689792366, "modelVersion": "1", "modelEtag": "aNHG4wLNggpnQryDUaGAlQ==", "sampleCount": null, "sampleCountStatus": "NOT_RECOVERABLE" }
+    {
+      "defect": "WARP",
+      "resource": "prepagent.m_warp",
+      "r2": 0.6051768595944437,
+      "modelVersion": "1",
+      "modelEtag": "xXegOiYEc1oyoFRXbFdKBg==",
+      "sampleCount": null,
+      "sampleCountStatus": "NOT_RECOVERABLE"
+    },
+    {
+      "defect": "DELAM",
+      "resource": "prepagent.m_delam",
+      "r2": 0.6664103996938104,
+      "modelVersion": "1",
+      "modelEtag": "cAxJP4gJvL7CwQN5Ie5i2A==",
+      "sampleCount": null,
+      "sampleCountStatus": "NOT_RECOVERABLE"
+    },
+    {
+      "defect": "STRENGTH",
+      "resource": "prepagent.m_strength",
+      "r2": 0.4672612713832247,
+      "modelVersion": "1",
+      "modelEtag": "u3Gv8hf6VCK4J7f8MHFxFQ==",
+      "sampleCount": null,
+      "sampleCountStatus": "NOT_RECOVERABLE"
+    },
+    {
+      "defect": "PRINT",
+      "resource": "prepagent.m_print",
+      "r2": 0.75115286156175,
+      "modelVersion": "1",
+      "modelEtag": "4AhmyAJe04Ne+rLdqXFwkA==",
+      "sampleCount": null,
+      "sampleCountStatus": "NOT_RECOVERABLE"
+    },
+    {
+      "defect": "CRACK",
+      "resource": "prepagent.m_crack",
+      "r2": 0.3010715689792366,
+      "modelVersion": "1",
+      "modelEtag": "aNHG4wLNggpnQryDUaGAlQ==",
+      "sampleCount": null,
+      "sampleCountStatus": "NOT_RECOVERABLE"
+    }
   ],
   "ownerDecision": {
     "decision": "ACCEPT_UNRECOVERABLE_INTERNAL_SPLIT_COUNT",
@@ -40,7 +80,18 @@
       "Crack is shown as low confidence in monsoon.",
       "Models are unchanged: one training run each, Vertex version 1 and the etags recorded above."
     ],
-    "coOwnerReview": "Pending: D4_ACCEPTANCE_CHECKLIST.md names Om and Siddhant as owners of this decision.",
+    "coOwnerReview": {
+      "decision": "APPROVE_SUPERVISED_PROTOTYPE_EXCEPTION",
+      "reviewer": "Siddhant (project owner)",
+      "approvedAt": "2026-10-16T12:40:32.385514Z",
+      "reference": "Explicit owner approval in this Codex session on 2026-10-16: Approve the documented supervised-prototype exception",
+      "limitationsAccepted": [
+        "Original internal evaluation counts and exact membership are unrecoverable.",
+        "Acceptance uses unchanged internal R2 thresholds; independent 219-lot holdout is supplementary, not replacement passing metrics.",
+        "Holdout falls below four model thresholds; CRACK holdout R2 is negative.",
+        "Supervised prototype only; predicted/estimated wording and low-confidence crack disclosure remain required."
+      ]
+    },
     "supplementaryEvaluation": {
       "type": "NEW_INDEPENDENT_HOLDOUT",
       "splitId": "holdout-2026-09: prepagent.lots run_date 2026-09-01..2026-09-30, non-TEST rows",
@@ -75,11 +126,41 @@
       "CRACK": "1"
     },
     "models": [
-      { "defect": "WARP", "resource": "prepagent.m_warp", "r2": 0.6051769, "modelVersion": "1", "sampleCount": null },
-      { "defect": "DELAM", "resource": "prepagent.m_delam", "r2": 0.6664104, "modelVersion": "1", "sampleCount": null },
-      { "defect": "STRENGTH", "resource": "prepagent.m_strength", "r2": 0.4672613, "modelVersion": "1", "sampleCount": null },
-      { "defect": "PRINT", "resource": "prepagent.m_print", "r2": 0.7511529, "modelVersion": "1", "sampleCount": null },
-      { "defect": "CRACK", "resource": "prepagent.m_crack", "r2": 0.3010716, "modelVersion": "1", "sampleCount": null }
+      {
+        "defect": "WARP",
+        "resource": "prepagent.m_warp",
+        "r2": 0.6051769,
+        "modelVersion": "1",
+        "sampleCount": null
+      },
+      {
+        "defect": "DELAM",
+        "resource": "prepagent.m_delam",
+        "r2": 0.6664104,
+        "modelVersion": "1",
+        "sampleCount": null
+      },
+      {
+        "defect": "STRENGTH",
+        "resource": "prepagent.m_strength",
+        "r2": 0.4672613,
+        "modelVersion": "1",
+        "sampleCount": null
+      },
+      {
+        "defect": "PRINT",
+        "resource": "prepagent.m_print",
+        "r2": 0.7511529,
+        "modelVersion": "1",
+        "sampleCount": null
+      },
+      {
+        "defect": "CRACK",
+        "resource": "prepagent.m_crack",
+        "r2": 0.3010716,
+        "modelVersion": "1",
+        "sampleCount": null
+      }
     ]
   },
   "acceptanceEvidence": "D4-2026-10-16-OM",
