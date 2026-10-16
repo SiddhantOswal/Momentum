@@ -55,5 +55,96 @@
     "state": "Not connected",
     "loadDisabled": true,
     "mobileNoOverflow": true
+  },
+  "repositoryCleanupVerification": {
+    "at": "2026-10-16T05:18:13.709962+00:00",
+    "commit": "e84b32af45792d06ba477b55ebd03f47e4ea52af",
+    "node": "v22.17.1",
+    "npm": "10.9.2",
+    "npmCi": {
+      "exitCode": 0,
+      "reportedVulnerabilities": 0
+    },
+    "checks": [
+      {
+        "name": "Health responds from fresh clone",
+        "pass": true
+      },
+      {
+        "name": "No mock execution mode",
+        "pass": true
+      },
+      {
+        "name": "Application HTML served",
+        "pass": true
+      },
+      {
+        "name": "Honest empty Impact layout present",
+        "pass": true
+      },
+      {
+        "name": "Actual metrics panel hidden initially",
+        "pass": true
+      },
+      {
+        "name": "Served asset /operator-ui.css",
+        "pass": true
+      },
+      {
+        "name": "Served asset /ui/workflow.js",
+        "pass": true
+      },
+      {
+        "name": "Served asset /ui/components.js",
+        "pass": true
+      },
+      {
+        "name": "Served asset /ui/contracts.js",
+        "pass": true
+      },
+      {
+        "name": "Unconfigured Impact fails closed without KPI output",
+        "pass": true
+      },
+      {
+        "name": "Required model observation fixture included",
+        "pass": true
+      },
+      {
+        "name": "All six proposed SQL files included",
+        "pass": true
+      },
+      {
+        "name": "No env.sh or private .env distributed",
+        "pass": true
+      },
+      {
+        "name": "All tracked JSON files parse",
+        "pass": true
+      },
+      {
+        "name": "Changed JavaScript syntax valid in clone",
+        "pass": true
+      },
+      {
+        "name": "Clean clone Git status after npm ci",
+        "pass": true
+      }
+    ],
+    "trackedJsonFiles": 22,
+    "status": "PASS",
+    "scope": "Independent clean local clone installation/startup and empty-state smoke checks only; no broad test suite, fake cloud acceptance or paid provider call.",
+    "modelAcceptance": "blocked",
+    "packageLockSha256": "77cd7f6966e93a89d3140520b62cb7ffcd1b2431f8ad40ad045b1864b2c8d65d"
+  },
+  "repositorySensitiveFileReview": {
+    "at": "2026-10-16T05:16:57.578577+00:00",
+    "trackedFilesReviewed": 309,
+    "secretPatternFindings": [],
+    "sensitivePaths": [],
+    "missingLiteralRelativeDependencies": [],
+    "unpublishedHistorySecretPatterns": [],
+    "scope": "Current Git index plus unpublished text history; bounded pattern scan and human review, not a complete secret detection guarantee. No credentials printed.",
+    "status": "PASS"
   }
 }

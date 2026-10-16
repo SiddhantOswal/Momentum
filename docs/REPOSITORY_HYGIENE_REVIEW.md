@@ -51,3 +51,18 @@ D4 still blocks model-enabled preparation/approval acceptance. The current local
 ## Verification record
 
 Repository/source inspection, relative dependency completeness, secret-sensitive staging review, JavaScript syntax, JSON parsing, diff validation and a fresh-checkout installation/startup smoke check are the intended checks. Broad local unit/acceptance/browser suites are not rerun under the owner's existing instruction. The verification results are appended below before the final publication commit.
+
+
+### Completed fresh-clone verification
+
+Independent clean clone of `e84b32af45792d06ba477b55ebd03f47e4ea52af`, without the original workspace's ignored/untracked files:
+
+- Node **22.17.1**, npm **10.9.2**.
+- `npm ci`: success, 204 packages installed, zero reported vulnerabilities; lockfile unchanged.
+- **16/16** narrow installation/startup smoke checks passed: health, actual served UI/assets, no mock execution, visible empty layout, hidden unloaded metrics, unavailable Impact 503 without fabricated KPIs, missing-fixture repair, six proposed SQL files, no distributed private `.env`/`env.sh`, JSON validity, syntax and clean checkout state.
+- **22 tracked JSON files** parsed; **seven changed JavaScript/config files** passed syntax checking in the independent clone.
+- Literal relative source/test dependencies all resolve within the staged repository, including the previously missing feature observation.
+- Current index review covered **309 tracked files**. Bounded credential/token/private-key pattern checks and sensitive-path checks reported no findings. The unpublished text history was also checked. This is not a guarantee that every conceivable secret format can be detected.
+- `git diff --check`: passed. No full historical unit, acceptance or browser suites rerun, and no Google model/query/write was needed for these startup checks.
+
+The subsequent verification-record commit changes documentation/evidence summary only, not the smoke-checked runtime. See `docs/evidence/REVIEWED_RELEASE_SUMMARY.json` for machine-readable checks. Publication targets the existing private remote's `main`; the final synchronized SHA is reported in the handoff after the remote is checked.
