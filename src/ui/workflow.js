@@ -2,7 +2,7 @@ import { isConditionsDisplay, isJobDisplay } from "./contracts.js";
 import { markMoney, refreshMoney } from "./currency-display.js";
 import { apiUrl, request, createRequestGate, setResponseAuthorizationMode, isLocalSyntheticRuntime } from "./api.js";
 import { REQUEST_FIELDS, LEVER_DEFINITIONS } from "./fields.js";
-import { initShell, toast, renderRisk, renderComparison, renderStoredSheet, renderImpactCharts, clearCharts, initDefectCheck } from "./components.js";
+import { initShell, toast, renderRisk, renderComparison, renderStoredSheet, renderImpactCharts, clearCharts, initDefectCheck, renderPhotoPresentation, renderPremiumImpact } from "./components.js";
 
 import { formatDisplayCurrency } from "/display-currency.js";
 import { toRiskPredictionPayload } from "/risk-ui.js";
@@ -249,6 +249,7 @@ function clearImpactSummary() {
     document.getElementById(id).replaceChildren();
   }
   document.getElementById("impact-coverage").textContent = "";
+  document.getElementById("premium-impact-comparison").replaceChildren();
 }
 
 function impactMoney(amount, currency) { return { amount, currency }; }
@@ -326,6 +327,7 @@ function renderImpactSummary(payload) {
   ]), ["item group", "lots", "average scrap", "scrap cost", "main defect"]);
   document.getElementById("impact-content").hidden = false;
   renderImpactCharts(payload);
+  renderPremiumImpact(payload);
   refreshMoney();
 }
 
@@ -1856,6 +1858,8 @@ const classifyPhotoButton = document.getElementById("classify-approved-photo");
 const photoRequestGate = createRequestGate();
 approvedPhotoSelect.addEventListener("change", () => {
   photoRequestGate.invalidate();
+  document.getElementById("photo-selected-name").textContent = approvedPhotoSelect.selectedOptions[0]?.textContent ?? "No approved photo selected";
+  renderPhotoPresentation("idle");
   classifyPhotoButton.disabled = !approvedPhotoSelect.value || latestIntegrations.classifyApprovedPhoto !== true;
   document.getElementById("approved-photo-result").textContent = "Selection changed. No classification requested.";
 });
@@ -1866,6 +1870,7 @@ document.getElementById("load-approved-photos").addEventListener("click", async 
     if (!response.ok || payload?.ok !== true || !Array.isArray(payload.photos) || payload.photos.length !== 10 || payload.photos.some(photo=>!/^photo-\d{2}$/.test(photo.id) || typeof photo.label !== "string")) throw new Error("The approved photo set is unavailable.");
     approvedPhotoSelect.replaceChildren(new Option("Select an approved photo", ""));
     for (const photo of payload.photos) approvedPhotoSelect.append(new Option(photo.label, photo.id));
+    photoRequestGate.invalidate(); classifyPhotoButton.disabled = true; renderPhotoPresentation("idle"); document.getElementById("photo-selected-name").textContent = "No approved photo selected";
     document.getElementById("approved-photo-result").textContent = "Ten approved photos loaded. No model call was made.";
   } catch(error) {document.getElementById("approved-photo-result").textContent=error.message;}
   finally {button.disabled = latestIntegrations.getApprovedPhotos !== true;}
@@ -1874,11 +1879,13 @@ classifyPhotoButton.addEventListener("click", async () => {
   const photoId=approvedPhotoSelect.value;if(!photoId)return;
   const gate=photoRequestGate.begin();classifyPhotoButton.disabled=true;
   document.getElementById("approved-photo-result").textContent="Classifying the approved image…";
+  renderPhotoPresentation("loading");
   try {
     const {response,payload}=await sendRequest("/evidence/classify-photo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({photoId}),signal:gate.signal});
     if(!gate.current())return;
     if(!response.ok || payload?.ok!==true || payload.source!=="vertex-gemini" || payload.photoId!==photoId || !["WARP","DELAM","STRENGTH","PRINT","CRACK","NONE"].includes(payload.label)) throw new Error(payload?.error?.message ?? "The photo classification was invalid.");
+    renderPhotoPresentation("success",payload);
     document.getElementById("approved-photo-result").textContent=`${photoId}: ${payload.label}. Real Gemini classification at ${payload.classifiedAt}. Owner-approved demo photo; not a calibrated factory quality assessment.`;
-  } catch(error) {if(gate.current())document.getElementById("approved-photo-result").textContent=error.message;}
+  } catch(error) {if(gate.current()){document.getElementById("approved-photo-result").textContent=error.message;renderPhotoPresentation("error");}}
   finally {if(gate.current())classifyPhotoButton.disabled=latestIntegrations.classifyApprovedPhoto!==true;}
 });
