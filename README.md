@@ -2,7 +2,7 @@
 
 Ustaad turns an approved purchase order into a reviewed production setup: Gemini extraction, catalog validation, confirmed conditions, five defect-risk models, constrained optimization, explanations, a JobSheet, operator approval and a stored PDF card. Historical evidence, photo diagnosis and Production Impact support the preparation workflow.
 
-**Model acceptance (D4):** this source records the five models as accepted for the supervised prototype by owner decision D4-2026-10-16-OM ([D4 report](docs/d4/D4_MODEL_ACCEPTANCE_REPORT.md)). Internal-split sample counts are not recoverable, so complete acceptance evidence is not claimed; a 219-lot September 2026 holdout is disclosed instead. The deployed Cloud Run candidate predates this change and stays blocked until a new revision is deployed. The newest local source also contains an honest empty Impact dashboard; it is newer than the deployed premium candidate. See [release provenance](docs/RELEASE_PROVENANCE.md).
+**Model acceptance (D4):** accepted for the supervised prototype under Om's and the project owner's explicit exception for unrecoverable internal evaluation counts/membership. Complete strict evidence is **not** claimed; the September holdout and CRACK limitations remain disclosed. The genuine private PO1 → prediction → optimization → approved stored card workflow was exercised on 16 October. The latest presentation revision also passed durable job/PDF read-back. Cross-instance PO review/replay remains a documented process-local limitation. See [release evidence and scope](docs/RELEASE_PROVENANCE.md).
 
 ## Run locally — no credentials or dummy metrics
 

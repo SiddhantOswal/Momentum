@@ -1,0 +1,229 @@
+{
+  "verifiedAt": "2026-10-16T13:20:42.873887+00:00",
+  "verdict": "CORE_REFERENCE_WORKFLOW_PASS_WITH_DOCUMENTED_LIMITATIONS",
+  "latestPrivateCandidate": {
+    "revision": "prepagent-d4-owner-verified-v8",
+    "url": "https://d4-owner-verified-v8---prepagent-26mwt2n7ba-el.a.run.app",
+    "image": "asia-south1-docker.pkg.dev/prepagent-hack/prepagent/prepagent@sha256:e205981b2735ad2bc665923a503a27c4c12ebe02184cedca0814991a3e5898f0",
+    "buildId": "079a1385-a5b8-434d-9667-61c6c71ea7d9",
+    "runtimeSourceCommit": "197d5c8dc9cbe97d624410329ec94e371945014f",
+    "sourceManifestSha256": "4ec4a69614db8560f7fc1ad8408009c6197eec571ff9b4c1baaf4f3b18e9ed26",
+    "sourceArchiveSha256": "e704be41b973b514aa317bc660090c619fb1aa4e4d959a5ed9d6f4dec729bd72"
+  },
+  "fullWorkflowRevision": "prepagent-d4-owner-verified-v7",
+  "fullWorkflowImage": "asia-south1-docker.pkg.dev/prepagent-hack/prepagent/prepagent@sha256:7ce33bb4b6aa6a0f393b19832dfe7c5b61213ef4cc432dff6c3413929ad119f7",
+  "latestRevisionVerification": "Approved-record/PDF cross-revision retrieval, current assets, historical evidence, photo inventory, Impact and navigation. Only two UI presentation files differ from the complete v7 workflow; backend/configuration/SQL/dependencies match byte-for-byte. No repeated AI calls.",
+  "poSha256": "d789722039e0d9f29d2106655416aae0447159d23df56c7dc215ee875c8fb44a",
+  "jobId": "JOB-HACK-01f4e715f22e4026a1f72fab032d5d2c-70a1c7a70bfe46b580b30664f14eefb874903231",
+  "jobStatus": "APPROVED",
+  "approvalIdentity": "Server-signed Approach B demo session; authenticatedHuman=false, not verified human identity.",
+  "result": {
+    "baselineScrapPct": 10.18,
+    "baselineScrapKg": 100.4,
+    "baselineCostInr": 5351,
+    "bestScrapPct": 8.42,
+    "bestScrapKg": 83,
+    "bestCostInr": 4426,
+    "predictedSavingsKg": 17.4,
+    "predictedSavingsInr": 925,
+    "changedSettings": {
+      "rollTempC": 170,
+      "gumApplication": "MED",
+      "gumViscositySec": 35
+    }
+  },
+  "pdf": {
+    "status": 200,
+    "contentType": "application/pdf",
+    "bytes": 16994,
+    "sha256": "1e3a6389941c128dd756570d530bfb9af4e5ec41210b4bf249f1112c04a5afb0",
+    "gcsUri": "gs://prepagent-hack-data/jobcards/JOB-HACK-01f4e715f22e4026a1f72fab032d5d2c-70a1c7a70bfe46b580b30664f14eefb874903231-1ebb05d8-bd72-4203-a913-e97141b359c0.pdf",
+    "generation": "1792156107776413",
+    "independentGcsSha256": "1e3a6389941c128dd756570d530bfb9af4e5ec41210b4bf249f1112c04a5afb0",
+    "pageCount": 2,
+    "contentChecksPassed": 12,
+    "allPagesRenderedAndInspected": true
+  },
+  "independentReadbackJobs": {
+    "draft": "ustad_d4_draft_readback_f8c89376b3b0",
+    "approved": "ustad_d4_approved_readback_9e20fd4c1da3",
+    "final": "ustad_d4_final_approved_readback_f4bebce1026c"
+  },
+  "coreBigQueryJobs": [
+    {
+      "jobId": "job_zkVOBRe8T-lbWQIofhsoL0XFZ9X1",
+      "queryFamily": "-- explain.sql",
+      "state": "DONE",
+      "error": null,
+      "cacheHit": true,
+      "bytesBilled": "0",
+      "sqlSha256": "d3b88f3fa95d1386250d509b17a174155e37bb95df910ad24d7484781bd517fe"
+    },
+    {
+      "jobId": "job_D285IdikoULRHr1FvBl7tNzlZV0m",
+      "queryFamily": "-- similar_runs.sql",
+      "state": "DONE",
+      "error": null,
+      "cacheHit": true,
+      "bytesBilled": "0",
+      "sqlSha256": "c8a78d17fb40ad5b02e9006854c62c7d1885cf076e1bd96c71a5f2e2e1abe58a"
+    },
+    {
+      "jobId": "job_f5R4c85j-VOHKTsOlQL9pUCZtNHF",
+      "queryFamily": "-- optimize.sql",
+      "state": "DONE",
+      "error": null,
+      "cacheHit": null,
+      "bytesBilled": "20971520",
+      "sqlSha256": "9b6c048fe5d4185da707e09618165dae92a2312f0c4529edd0f9853d95b0b17b"
+    },
+    {
+      "jobId": "job_wYTbPunpZoNhaKcA-if-Tdca6k5y",
+      "queryFamily": "-- predict.sql",
+      "state": "DONE",
+      "error": null,
+      "cacheHit": true,
+      "bytesBilled": "0",
+      "sqlSha256": "f2e91c75c0f9957738bf192b98dfdf347c0ac408502a10dc0678e2fb12feb037"
+    }
+  ],
+  "modelVersionsAfterRun": [
+    {
+      "resource": {
+        "projectId": "prepagent-hack",
+        "datasetId": "prepagent",
+        "modelId": "m_warp"
+      },
+      "etag": "xXegOiYEc1oyoFRXbFdKBg==",
+      "unchanged": true,
+      "vertexModelVersion": "1"
+    },
+    {
+      "resource": {
+        "projectId": "prepagent-hack",
+        "datasetId": "prepagent",
+        "modelId": "m_delam"
+      },
+      "etag": "cAxJP4gJvL7CwQN5Ie5i2A==",
+      "unchanged": true,
+      "vertexModelVersion": "1"
+    },
+    {
+      "resource": {
+        "projectId": "prepagent-hack",
+        "datasetId": "prepagent",
+        "modelId": "m_strength"
+      },
+      "etag": "u3Gv8hf6VCK4J7f8MHFxFQ==",
+      "unchanged": true,
+      "vertexModelVersion": "1"
+    },
+    {
+      "resource": {
+        "projectId": "prepagent-hack",
+        "datasetId": "prepagent",
+        "modelId": "m_print"
+      },
+      "etag": "4AhmyAJe04Ne+rLdqXFwkA==",
+      "unchanged": true,
+      "vertexModelVersion": "1"
+    },
+    {
+      "resource": {
+        "projectId": "prepagent-hack",
+        "datasetId": "prepagent",
+        "modelId": "m_crack"
+      },
+      "etag": "aNHG4wLNggpnQryDUaGAlQ==",
+      "unchanged": true,
+      "vertexModelVersion": "1"
+    }
+  ],
+  "geminiAttempts": {
+    "passTotal": 7,
+    "counterBefore": 13,
+    "counterAfter": 20,
+    "limit": 100,
+    "timeZone": "Asia/Kolkata",
+    "finalFullWorkflowAttempts": 2,
+    "latestPresentationVerificationAttempts": 0,
+    "ambiguousOrRejectedCallsRemainCounted": true
+  },
+  "observedBigQueryWindow": {
+    "jobCount": 70,
+    "topLevelReportedBilledBytes": 199229440,
+    "note": "Window includes failed attempts, cache hits, read-back checks and source-count verification; not an invoice or model-training/evaluation execution."
+  },
+  "observations": {
+    "fullRun": {
+      "pass": 43,
+      "failedRetained": 2,
+      "total": 45
+    },
+    "pdfContentChecks": 12,
+    "latestRevisionInitialChecks": {
+      "passed": 9,
+      "failed": 1,
+      "reason": "Immediate visibility assertion raced hash navigation; retained."
+    },
+    "latestNavigationRecheck": [
+      {
+        "name": "New Lot upload after stored-job and Impact navigation; awaited hash navigation",
+        "pass": true
+      },
+      {
+        "name": "Visible upload control opens native file chooser",
+        "pass": true
+      },
+      {
+        "name": "No provider calls and unchanged 20/100 counter",
+        "pass": true
+      },
+      {
+        "name": "No page errors",
+        "pass": true
+      }
+    ],
+    "negativeResults": {
+      "crossSessionStatuses": [
+        403,
+        403,
+        403,
+        403
+      ],
+      "unauthenticatedCloudRun": 403,
+      "forgedActorWithoutSession": 401,
+      "unauthenticatedGcs": 403,
+      "incompleteFeedback": 400
+    }
+  },
+  "repairs": [
+    "Explicit co-owner approval required for the model-evidence exception.",
+    "Explanation numeric grounding derives from exact validated prompt JSON, including original change settings.",
+    "Source-history records are not described as independently measured factory outcomes.",
+    "Completed idempotent replay can return a validated audited APPROVED JobSheet.",
+    "PDF CRACK caveat and approval-consistent presentation."
+  ],
+  "remainingLimitations": [
+    "Original internal evaluation sample counts and exact membership are unavailable; supervised-prototype exception expressly approved by Om and project owner. Complete acceptance evidence remains false.",
+    "Four September holdout R2 values miss their existing thresholds; CRACK R2 is negative. Internal R2 remains the unchanged acceptance metric.",
+    "Om identifies training/history as modeled data based on a real 117-item master; no measured factory accuracy or savings are claimed.",
+    "Process-local review/idempotency/trace state: later replay reached another instance and failed closed with stale_review. Cross-instance conflict/exactly-once behavior is unverified; durable approved-record/card retrieval succeeds.",
+    "Historical ten-photo result remains 7/10; no reclassification or calibrated accuracy claim.",
+    "No genuine observed-outcome feedback was fabricated; completed-lot learning is outside approved V1 scope.",
+    "Private only; no public release or submission verification performed."
+  ],
+  "safeguards": {
+    "privateIamUnchanged": true,
+    "defaultTraffic": {
+      "prepagent-00005-s5x": 100
+    },
+    "maxInstances": 2,
+    "runtimeServiceAccount": "prepagent-run@prepagent-hack.iam.gserviceaccount.com",
+    "noModelRetrainingOrNewEvaluation": true,
+    "noIamOrBudgetMutation": true,
+    "localSuitesRerun": false
+  },
+  "cost": "Observed attempts, billed bytes and build durations retained privately. Exact invoiced charges/remaining credits unverified; budget alerts are not spending caps.",
+  "rawEvidence": "Retained outside Git; no tokens/cookies/raw headers or manufacturing row dumps added to the repository."
+}

@@ -38,5 +38,6 @@
     "Photo preview unavailable under the existing API; result presentation replay explicitly labeled.",
     "No public IAM or default traffic change.",
     "No new live cloud acceptance performed as part of repository cleanup."
-  ]
+  ],
+  "supersededBy": "D4_LIVE_ACCEPTANCE_20261016.json"
 }

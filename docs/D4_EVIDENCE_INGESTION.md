@@ -1,5 +1,12 @@
 # D4 evidence ingestion — offline validation, explicit installation
 
+## Current supervised-prototype exception — 16 October 2026
+
+Om supplied the current-version evidence and disclosed that original internal evaluation counts/membership cannot be recovered. The project owner explicitly approved that exception after the weaker 219-lot holdout (including negative CRACK R²) was disclosed. `config/model-acceptance.json` records both approvals; the gate rejects a missing/pending co-owner decision. It keeps every internal R² threshold unchanged and continues to report complete acceptance evidence as false. The strict bundle validator below remains strict and is not claimed to have passed this incomplete packet. [Actual private workflow verification](RELEASE_PROVENANCE.md).
+
+The source query independently confirmed 5,131 training-window rows and 219 September holdout rows/fingerprints. These are **not** recovered internal-split sample counts. All five etags and Vertex v1 links matched current GCP metadata before/after. Om's saved evaluation query job metadata was readable; another user's cached query results were not. No fresh ML.EVALUATE or training queries were run to bypass that access limitation.
+
+
 **Status (16 Oct 2026):** neither bundle kind below can be completed for the current version-1 models. HISTORICAL needs the internal-split members, which BigQuery deleted; NEW_EVALUATION is the September 2026 holdout, where warp, delam, strength and crack fall below their bars. The source config is instead accepted for the supervised prototype by owner decision D4-2026-10-16-OM (`ownerDecision` in `config/model-acceptance.json`, evidence in [docs/d4](d4/D4_MODEL_ACCEPTANCE_REPORT.md)). This procedure remains the route for any future model version. It never retrains or evaluates a model. Approach B governs application participants; Om's model review is a separate project decision, not a visitor-granted privilege.
 
 ## Required reviewed model evidence
