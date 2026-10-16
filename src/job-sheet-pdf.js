@@ -203,8 +203,9 @@ function appendLevers(lines, levers) {
 }
 
 function formatRates(rates) {
+  // Same caveat as the UI risk card: the crack model has the weakest fit (D4, R² 0.30).
   return ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"]
-    .map((defect) => `${defect} ${rates[defect]}%`)
+    .map((defect) => `${defect} ${rates[defect]}%${defect === "CRACK" ? " (low confidence in monsoon)" : ""}`)
     .join(", ");
 }
 

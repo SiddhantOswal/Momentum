@@ -26,7 +26,7 @@
   .guided-dashboard .agent-workspace { grid-template-columns:210px minmax(0,1fr); }
 }
 @media (max-width:900px) {
-  .guided-dashboard .intake-layout,.guided-dashboard .agent-workspace,.guided-dashboard .job-layout { grid-template-columns:1fr; }
+  .guided-dashboard .intake-layout,.guided-dashboard .agent-workspace,.guided-dashboard .job-layout { grid-template-columns:minmax(0,1fr); }
   .guided-dashboard .job-workspace .approval-area { padding-left:0; }
 }
 @media (max-width:600px) {

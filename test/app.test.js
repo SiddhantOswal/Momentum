@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
 
@@ -17,7 +18,7 @@ async function stopServer(child) {
 
 async function startServer(extraEnv = {}) {
   const child = spawn(process.execPath, ["index.mjs"], {
-    cwd: new URL("..", import.meta.url).pathname,
+    cwd: fileURLToPath(new URL("..", import.meta.url)),
     env: { ...process.env, PORT: String(PORT), ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"],
   });
