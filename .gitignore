@@ -23,18 +23,4 @@ application_default_credentials.json
 *service_account*.json
 SOURCE_MANIFEST.json
 release-artifacts/
-
-# Raw operational evidence is local-only. Keep just the reviewed product views.
-docs/evidence/*
-!docs/evidence/README.md
-!docs/evidence/REVIEWED_RELEASE_SUMMARY.json
-!docs/evidence/premium-analytics-20261016/
-docs/evidence/premium-analytics-20261016/*
-!docs/evidence/premium-analytics-20261016/after-history-1440.png
-!docs/evidence/premium-analytics-20261016/after-history-mobile-default-390.png
-!docs/evidence/premium-analytics-20261016/after-impact-1440.png
-!docs/evidence/premium-analytics-20261016/after-photo-initial-1440.png
-!docs/evidence/impact-empty-state-20261016/
-docs/evidence/impact-empty-state-20261016/*
-!docs/evidence/impact-empty-state-20261016/empty-impact-1440.png
-!docs/evidence/impact-empty-state-20261016/empty-impact-390.png
+docs/evidence/

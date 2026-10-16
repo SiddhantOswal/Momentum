@@ -70,7 +70,7 @@ test('guided dashboard reorganizes all screens at desktop/tablet/mobile sizes wi
     await page.getByLabel('Primary navigation').getByRole('link',{name:'New Lot',exact:true}).click();
     await expect(page.locator('#screen-order-input')).toBeVisible();
     await page.locator('#screen-order-input').evaluate(async el=>{await Promise.all(el.getAnimations().map(a=>a.finished.catch(()=>{})));});
-    if([1440,768,390].includes(width))await page.screenshot({path:`docs/evidence/shared-dashboard/new-lot-${width}.png`,fullPage:true,animations:'disabled'});
+    if([1440,768,390].includes(width))await page.screenshot({path:`test-results/evidence/shared-dashboard/new-lot-${width}.png`,fullPage:true,animations:'disabled'});
   }
 });
 
@@ -96,11 +96,11 @@ test('one persisted job request feeds analysis, then explicit review/approval/PD
   await expect(page.locator('#optimization-settings .setting-change-note')).toHaveText('Changed');expect(creates).toBe(1);
   await stage(page,3).click();await expect(page.locator('#stored-job-preview')).toBeVisible();
   await page.getByText('Manufacturing sequence and settings',{exact:true}).click();await expect(page.locator('.manufacturing-sequence tbody tr')).toHaveCount(9);await expect(page.locator('.manufacturing-sequence')).toContainText('170 °C');await expect(page.locator('.manufacturing-sequence caption')).toContainText('approval required');
-  await labelEvidence(page);await page.screenshot({path:'docs/evidence/shared-dashboard/job-draft-settings-fixture-1440.png',fullPage:true,animations:'disabled'});
+  await labelEvidence(page);await page.screenshot({path:'test-results/evidence/shared-dashboard/job-draft-settings-fixture-1440.png',fullPage:true,animations:'disabled'});
   await page.route('**/jobs/*/approve?*',route=>{approvals++;expect(route.request().postData()).toBeNull();const url=new URL(route.request().url());expect(url.searchParams.get('lang')).toBe('en');return fulfill(route,{ok:true,jobSheet:{...job,status:'APPROVED'}});});
   await page.locator('#approval-form button').click();expect(approvals).toBe(0);await expect(page.locator('#approval-dialog')).toBeVisible();await page.locator('#confirm-approval').click();await expect(page.locator('#job-status-badge')).toContainText('APPROVED');expect(approvals).toBe(1);
   await page.route('**/jobs/*/card.pdf?*',route=>route.fulfill({contentType:'application/pdf',body:Buffer.from('%PDF-1.4 offline browser fixture')}));await page.locator('#stored-card-form button').click();await expect(page.locator('#stored-card-link')).toBeVisible();
-  await labelEvidence(page);await page.screenshot({path:'docs/evidence/shared-dashboard/job-card-fixture-1440.png',fullPage:true,animations:'disabled'});
+  await labelEvidence(page);await page.screenshot({path:'test-results/evidence/shared-dashboard/job-card-fixture-1440.png',fullPage:true,animations:'disabled'});
   await page.getByRole('link',{name:'Defect Check',exact:true}).click();await page.locator('#production-feedback > summary').click();await page.locator('#feedback-warp').fill('1.5');
   await page.route('**/jobs/*/feedback',route=>{const data=route.request().postDataJSON();expect(FeedbackInputSchema.safeParse(data).success).toBe(true);expect(data).not.toHaveProperty('actualScrapKg');expect(data).not.toHaveProperty('mainDefect');return fulfill(route,{ok:true,feedback:data});});
   await page.locator('#feedback-form button').click();await expect(page.locator('#feedback-result')).toHaveAttribute('data-state','success');expect(errors).toEqual([]);
@@ -135,7 +135,7 @@ test('Impact and currency retain configured authorization/provenance and malform
   const impact={ok:true,source:'bigquery',kpis:{lotsScored:2,lotsChanged:1,netSavingMonth:10,kgSavedMonth:1,scrapPctBefore:5,scrapPctAfter:4,scrapCostBefore:100,scrapCostAfter:90,currency:'INR'},monthly:[{month:'2026-09',lots:2,scrapCost:100,scrapKg:10,avgScrapPct:5,series:'simulated'}],seasonal:[{season:'Monsoon',warp:2,delam:1,strength:1,print:0.5,crack:0.5}],topItems:[],counterfactual:{month:'2026-09',scrapCost:90,currency:'INR',label:'counterfactual, not observed production'}};
   await page.route('**/impact/summary',route=>fulfill(route,impact));await page.getByRole('link',{name:'Impact',exact:true}).click();await page.locator('#load-impact').click();await expect(page.locator('#impact-content')).toBeVisible();
   await page.route('**/fx?base=INR',route=>fulfill(route,{base:'INR',date:'2026-10-14',source:'static-fallback',rates:{INR:1,JPY:1.7}}));await page.locator('#display-currency').selectOption('JPY');await expect(page.locator('#impact-kpis')).toContainText('≈');await expect(page.locator('#impact-kpis')).toContainText('2026-10-14');
-  await labelEvidence(page);await page.screenshot({path:'docs/evidence/shared-dashboard/impact-fixture-1440.png',fullPage:true,animations:'disabled'});
+  await labelEvidence(page);await page.screenshot({path:'test-results/evidence/shared-dashboard/impact-fixture-1440.png',fullPage:true,animations:'disabled'});
   await page.route('**/impact/summary',route=>fulfill(route,{ok:true,source:'bigquery',kpis:{}}));await page.locator('#load-impact').click();await expect(page.locator('#impact-content')).toBeHidden();expect(await page.evaluate(()=>!!Chart.getChart(document.getElementById('impact-monthly-chart')))).toBe(false);
 });
 

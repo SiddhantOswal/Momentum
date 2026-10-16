@@ -97,7 +97,7 @@ test('real offline startup, all navigation, dialogs, keyboard, files and unavail
   await page.getByRole('link', { name: 'Impact', exact: true }).click();
   await expect(page.locator('#load-impact')).toBeDisabled();
   await expect(page.locator('#impact-content')).toBeHidden();
-  await page.screenshot({ path: 'docs/evidence/frontend/impact-unavailable-1440.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/evidence/frontend/impact-unavailable-1440.png', fullPage: true });
   expect(errors).toEqual([]);
 });
 
@@ -110,7 +110,7 @@ test('responsive real offline screens have no page overflow at every requested w
       await expect(page.locator('#'+id)).toBeVisible();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       expect(overflow, label+' at '+width).toBeLessThanOrEqual(1);
-      if ((width === 1440 || width === 768 || width === 390) && label === 'New Lot') await page.screenshot({ path: `docs/evidence/frontend/new-lot-${width}.png`, fullPage: true });
+      if ((width === 1440 || width === 768 || width === 390) && label === 'New Lot') await page.screenshot({ path: `test-results/evidence/frontend/new-lot-${width}.png`, fullPage: true });
     }
   }
 });
@@ -170,7 +170,7 @@ test('contract-correct planning, actual trace events, stored review, approval an
   await page.route('**/jobs/*/card.pdf?*', (route) => route.fulfill({contentType:'application/pdf',body:Buffer.from('%PDF-1.4 local offline fixture')}));
   await page.locator('#stored-card-form button').click(); await expect(page.locator('#stored-card-link')).toBeVisible();
   await page.evaluate(() => { const p=document.createElement('p');p.textContent='OFFLINE BROWSER TEST · injected service fixtures';p.style.cssText='padding:12px;color:#e0c08c';document.body.prepend(p); });
-  await page.screenshot({path:'docs/evidence/frontend/agent-run-fixture-1440.png',fullPage:true});
+  await page.screenshot({path:'test-results/evidence/frontend/agent-run-fixture-1440.png',fullPage:true});
   await page.getByRole('link',{name:'Defect Check',exact:true}).click();
   await page.locator('#production-feedback > summary').click();
   await page.locator('#feedback-warp').fill('1.5');
@@ -180,7 +180,7 @@ test('contract-correct planning, actual trace events, stored review, approval an
     await page.setViewportSize({width,height:1000});
     await navigate(page,'Production analysis');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
-    if(width===768) await page.screenshot({path:'docs/evidence/frontend/agent-run-fixture-768.png',fullPage:true});
+    if(width===768) await page.screenshot({path:'test-results/evidence/frontend/agent-run-fixture-768.png',fullPage:true});
   }
   expect(errors).toEqual([]);
 });
@@ -209,7 +209,7 @@ test('Impact excludes explicitly simulated records, including diagnostics and ch
   await expect(page.locator('#impact-result')).toContainText('Production data is unavailable');
   await expect(page.locator('#impact-result-diagnostic')).toBeEmpty();
   expect(await page.evaluate(()=>!!Chart.getChart(document.getElementById('impact-monthly-chart')))).toBe(false);
-  await page.screenshot({path:'docs/evidence/frontend/impact-real-data-unavailable-1440.png',fullPage:true});
+  await page.screenshot({path:'test-results/evidence/frontend/impact-real-data-unavailable-1440.png',fullPage:true});
   await page.route('**/impact/summary',route=>fulfill(route,{ok:true,source:'bigquery',kpis:{}}));
   await page.locator('#load-impact').click();await expect(page.locator('#impact-result')).toContainText('malformed');
   expect(errors).toEqual([]);
@@ -222,7 +222,7 @@ test('Defect Check uses only supported evidence requests and safely renders note
   await expect(page.locator('#seen-before-content')).toContainText('3');await expect(page.locator('#seen-before-content')).toContainText('<img src=x');await expect(page.locator('#seen-before-content img')).toHaveCount(0);
   await expect(page.locator('[data-evidence-kpi="cases"]')).toHaveText('3');await expect(page.locator('[data-rate-value]')).toHaveCount(2);await page.locator('#detailed-evidence > summary').focus();await page.keyboard.press('Enter');await expect(page.locator('#detailed-evidence tbody tr')).toHaveCount(9);await expect(page.locator('#evidence-scope-note')).toContainText('Different cohorts');
   await page.evaluate(()=>{const p=document.createElement('p');p.textContent='OFFLINE BROWSER TEST · injected service fixtures';p.style.cssText='padding:12px;color:#e0c08c';document.body.prepend(p);});
-  await page.screenshot({path:'docs/evidence/frontend/defect-fixture-1440.png',fullPage:true});
+  await page.screenshot({path:'test-results/evidence/frontend/defect-fixture-1440.png',fullPage:true});
   await page.locator('#evidence-humidity').fill('60');await expect(page.locator('#seen-before-content')).toBeHidden();
 });
 

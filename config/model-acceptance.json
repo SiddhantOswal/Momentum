@@ -71,7 +71,7 @@
     "decision": "ACCEPT_UNRECOVERABLE_INTERNAL_SPLIT_COUNT",
     "owner": "Om (model owner)",
     "decidedAt": "2026-10-16",
-    "reference": "D4-2026-10-16-OM; docs/d4/D4_MODEL_ACCEPTANCE_REPORT.md and D4_ACCEPTANCE_CHECKLIST.md",
+    "reference": "D4-2026-10-16-OM; summarized in docs/README.md#model-acceptance-and-evidence-boundary",
     "scope": "Supervised prototype demonstration for the AI Builder Cup 2026; every recommendation needs supervisor approval. Not certification for autonomous control.",
     "basis": "Internal-split R2 meets every unchanged threshold. The internal-split sample counts cannot be recovered because BigQuery deleted the temporary split tables, and the models must not be retrained. The independent, exactly counted September 2026 holdout below is disclosed in their place; it is supplementary and is not the acceptance metric.",
     "conditions": [
@@ -106,7 +106,7 @@
         "CRACK": -0.013623408295655226
       }
     },
-    "verification": "Re-run read-only on 2026-10-16 with D4_REPRODUCIBILITY.sql queries 2-4 and bq show --model (BigQuery jobs qa_om_d4_q2_1792136607, qa_om_d4_q3_1792136610, qa_om_d4_q4b_1792136633): training SQL hashes, both data fingerprints and row counts, all ten R2 values, one training run each, Vertex version 1 and the etags above matched."
+    "verification": "Read-only GCP verification on 2026-10-16: BigQuery jobs qa_om_d4_q2_1792136607, qa_om_d4_q3_1792136610 and qa_om_d4_q4b_1792136633 checked training SQL hashes, dataset fingerprints and row counts, all ten R2 values, one training run per model, Vertex version 1 and the model etags above. Original internal-split membership/counts remain unrecoverable; see docs/README.md#model-acceptance-and-evidence-boundary."
   },
   "recordedEvaluation": {
     "asOf": "2026-10-14",
