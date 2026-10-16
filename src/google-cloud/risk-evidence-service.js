@@ -258,8 +258,47 @@ export function createSimilarRunsService({ bigquery, sql } = {}) {
   };
 }
 
+function sentences(text) {
+  return text.trim().split(/(?<=[.!?])(?:\s+|$)/).filter(Boolean);
+}
+
 function sentenceCount(text) {
-  return text.trim().split(/(?<=[.!?])(?:\s+|$)/).filter(Boolean).length;
+  return sentences(text).length;
+}
+
+// Historical run dates are supplied in the prompt; only those exact dates may appear.
+function withoutSuppliedDates(text, suppliedDates) {
+  return text.replace(/\b\d{4}-\d{2}-\d{2}\b/g, (date) => (suppliedDates.has(date) ? " " : date));
+}
+
+// Whole-word alias match, so "ply" does not fire on "supply" or "apply".
+function mentions(text, alias) {
+  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![a-z0-9_])${escaped}(?![a-z0-9_])`, "i").test(text);
+}
+
+// Inputs and recommended settings the prompt supplies. They may be named outside
+// attribution sentences; attribution claims stay limited to reported drivers.
+const SUPPLIED_SETTING_DRIVERS = Object.freeze([
+  "sf_speed_mpm", "roll_temp_c", "gum_application", "gum_viscosity_sec", "pasting_pressure",
+  "drying_hours", "print_speed_spm", "quantity", "shift", "ambient_rh_pct", "ambient_temp_c",
+  "paper_moisture_pct",
+]);
+const ATTRIBUTION_LANGUAGE = /\b(?:attribut\w*|contribut\w*|associat\w*|drivers?)\b/i;
+
+function namesUnsupportedDriver(text, reportedDrivers) {
+  return sentences(text).some((sentence) => {
+    const allowed = ATTRIBUTION_LANGUAGE.test(sentence)
+      ? reportedDrivers
+      : new Set([...reportedDrivers, ...SUPPLIED_SETTING_DRIVERS]);
+    return Object.entries(DRIVER_ALIASES).some(([driver, aliases]) =>
+      !allowed.has(driver) && aliases.some((alias) => mentions(sentence, alias)));
+  });
+}
+
+// The prompt asks Gemini to disclaim causation; a negated disclaimer is not a causal claim.
+function withoutNegatedCausation(text) {
+  return text.replace(/\b(?:not|no|never|without|rather than|instead of)\b[^.!?]{0,60}?\bcause[- ]and[- ]effect\b/gi, " ");
 }
 
 function permittedNumbers(values) {
@@ -423,15 +462,14 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
           ...Object.values(run.levers).filter((value) => typeof value === "number"),
         ]),
       ]);
+      const suppliedDates = new Set(historicalEvidence.map((run) => run.runDate));
       if (!explanation || sentenceCount(explanation) < 3 || sentenceCount(explanation) > 5 ||
-          numericClaims(explanation).some((value) => !allowedNumbers.has(value))) {
+          numericClaims(withoutSuppliedDates(explanation, suppliedDates)).some((value) => !allowedNumbers.has(value))) {
         throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the evidence contract.");
       }
       const reportedDrivers = new Set(rows.map((row) => row.driver.toLowerCase()));
-      const lowerExplanation = explanation.toLowerCase();
-      const unsupportedDriver = Object.entries(DRIVER_ALIASES).some(([driver, aliases]) =>
-        aliases.some((alias) => lowerExplanation.includes(alias)) && !reportedDrivers.has(driver));
-      if (unsupportedDriver || containsCausalClaim(explanation)) {
+      if (namesUnsupportedDriver(explanation, reportedDrivers) ||
+          containsCausalClaim(withoutNegatedCausation(explanation))) {
         throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the attribution evidence contract.");
       }
       return {

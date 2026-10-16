@@ -1,0 +1,626 @@
+{
+  "provenance": "Actual gemini-3.5-flash explanation (finishReason STOP) from a counted local replay on 2026-10-16 of the PKBX0041 acceptance inputs; BigQuery explain.sql result recorded from the same replay. Test fixture only.",
+  "geminiText": "Under the recommended settings, such as a roll temperature of 170\u00b0C and 5 drying hours, the model predicts a total scrap rate of 8.42% (83 kg, costing 4426 INR) with warp predicted at 2.419% as the primary defect. In the model's attribution, ambient relative humidity (ambient_rh_pct) is associated with an upward contribution of 0.751 points to the warp prediction, while gum application (gum_application) is associated with a downward contribution of -0.137 points. Historically, actual observed runs under similar conditions show varying outcomes, such as on 2025-07-14 when a run with an ambient relative humidity of 87.3% resulted in an observed total scrap rate of 9.87% (59.94 kg) and a scrap cost of 3194.8 INR with delamination as the primary defect. These model attributions represent statistical associations within the data rather than proven real-world cause-and-effect relationships.",
+  "inputs": {
+    "order": {
+      "orderId": "TEST-CLA/PO/2026/1047",
+      "itemCode": "PKBX0041",
+      "customerId": "CUST-A",
+      "boxStyle": "RSC",
+      "lengthMm": 410,
+      "widthMm": 305,
+      "heightMm": 255,
+      "ply": 5,
+      "fluteProfile": "BC",
+      "topLinerGsm": 200,
+      "fluteGsm": 140,
+      "innerLinerGsm": 200,
+      "linerBf": 20,
+      "paperType": "RECYCLED",
+      "paperSupplier": "SUP-D",
+      "inkColors": 2,
+      "inkCoveragePct": 38,
+      "quantity": 1300
+    },
+    "conditions": {
+      "runDate": "2026-10-16",
+      "shift": "DAY",
+      "ambientRhPct": 86,
+      "ambientTempC": 26,
+      "paperMoisturePct": 10.8
+    },
+    "prediction": {
+      "ratesPct": {
+        "WARP": 3.423,
+        "DELAM": 2.98,
+        "STRENGTH": 1.167,
+        "PRINT": 1.828,
+        "CRACK": 0.778
+      },
+      "totalScrapPct": 10.18,
+      "totalScrapKg": 100.4,
+      "scrapCost": 5351,
+      "currency": "INR",
+      "primaryDefect": "WARP"
+    },
+    "optimization": {
+      "baseline": {
+        "levers": {
+          "sfSpeedMpm": 48,
+          "rollTempC": 162,
+          "gumApplication": "HIGH",
+          "gumViscositySec": 32,
+          "pastingPressure": "MED",
+          "dryingHours": 5,
+          "printSpeedSpm": 60
+        },
+        "risk": {
+          "ratesPct": {
+            "WARP": 3.423,
+            "DELAM": 2.98,
+            "STRENGTH": 1.167,
+            "PRINT": 1.828,
+            "CRACK": 0.778
+          },
+          "totalScrapPct": 10.18,
+          "totalScrapKg": 100.4,
+          "scrapCost": 5351,
+          "currency": "INR",
+          "primaryDefect": "WARP"
+        }
+      },
+      "best": {
+        "levers": {
+          "sfSpeedMpm": 48,
+          "rollTempC": 170,
+          "gumApplication": "MED",
+          "gumViscositySec": 35,
+          "pastingPressure": "MED",
+          "dryingHours": 5,
+          "printSpeedSpm": 60
+        },
+        "risk": {
+          "ratesPct": {
+            "WARP": 2.419,
+            "DELAM": 2.376,
+            "STRENGTH": 1.245,
+            "PRINT": 1.721,
+            "CRACK": 0.657
+          },
+          "totalScrapPct": 8.42,
+          "totalScrapKg": 83,
+          "scrapCost": 4426,
+          "currency": "INR",
+          "primaryDefect": "WARP"
+        }
+      },
+      "changes": [
+        {
+          "lever": "rollTempC",
+          "from": 162,
+          "to": 170,
+          "reason": "Roll temperature changed in the lowest modeled total-cost candidate; not a causal effect estimate."
+        },
+        {
+          "lever": "gumApplication",
+          "from": "HIGH",
+          "to": "MED",
+          "reason": "Gum application changed in the lowest modeled total-cost candidate; not a causal effect estimate."
+        },
+        {
+          "lever": "gumViscositySec",
+          "from": 32,
+          "to": 35,
+          "reason": "Gum viscosity changed in the lowest modeled total-cost candidate; not a causal effect estimate."
+        }
+      ],
+      "savings": {
+        "kg": 17.4,
+        "inr": 925,
+        "percent": 17.286488506821154
+      },
+      "modelPredicted": true,
+      "note": "Predicted savings compare this recommendation with the supervisor's plan. The slower-production allowance is a linear heuristic, not a measured cost."
+    },
+    "evidence": [
+      {
+        "lotId": "LOT-002087",
+        "orderId": "PO-2507-02087",
+        "runDate": "2025-07-14",
+        "primaryDefect": "DELAM",
+        "levers": {
+          "sfSpeedMpm": 47.7,
+          "rollTempC": 173.1,
+          "gumApplication": "MED",
+          "gumViscositySec": 50.8,
+          "pastingPressure": "MED",
+          "dryingHours": 4.8,
+          "printSpeedSpm": 65.1
+        },
+        "itemCode": "PKBX0041",
+        "description": "B1047 Client A",
+        "shift": "NIGHT",
+        "ambientRhPct": 87.3,
+        "paperType": "RECYCLED",
+        "paperSupplier": "SUP-D",
+        "totalScrapPct": 9.87,
+        "totalScrapKg": 59.94,
+        "scrapCost": 3194.8,
+        "currency": "INR",
+        "distance": -0.37
+      },
+      {
+        "lotId": "LOT-004576",
+        "orderId": "PO-2606-04576",
+        "runDate": "2026-06-11",
+        "primaryDefect": "WARP",
+        "levers": {
+          "sfSpeedMpm": 55.1,
+          "rollTempC": 168.2,
+          "gumApplication": "MED",
+          "gumViscositySec": 58,
+          "pastingPressure": "MED",
+          "dryingHours": 4.8,
+          "printSpeedSpm": 45.3
+        },
+        "itemCode": "PKBX0041",
+        "description": "B1047 Client A",
+        "shift": "NIGHT",
+        "ambientRhPct": 84.6,
+        "paperType": "MIXED",
+        "paperSupplier": "SUP-A",
+        "totalScrapPct": 9.87,
+        "totalScrapKg": 44.94,
+        "scrapCost": 2395.3,
+        "currency": "INR",
+        "distance": -0.36
+      },
+      {
+        "lotId": "LOT-001849",
+        "orderId": "PO-2506-01849",
+        "runDate": "2025-06-11",
+        "primaryDefect": "DELAM",
+        "levers": {
+          "sfSpeedMpm": 56.7,
+          "rollTempC": 166.1,
+          "gumApplication": "LOW",
+          "gumViscositySec": 39.7,
+          "pastingPressure": "MED",
+          "dryingHours": 4.6,
+          "printSpeedSpm": 42.2
+        },
+        "itemCode": "PKBX0041",
+        "description": "B1047 Client A",
+        "shift": "NIGHT",
+        "ambientRhPct": 84.4,
+        "paperType": "VIRGIN",
+        "paperSupplier": "SUP-A",
+        "totalScrapPct": 13.31,
+        "totalScrapKg": 75.77,
+        "scrapCost": 4038.54,
+        "currency": "INR",
+        "distance": -0.34
+      },
+      {
+        "lotId": "LOT-002327",
+        "orderId": "PO-2508-02327",
+        "runDate": "2025-08-07",
+        "primaryDefect": "DELAM",
+        "levers": {
+          "sfSpeedMpm": 46.5,
+          "rollTempC": 168.5,
+          "gumApplication": "LOW",
+          "gumViscositySec": 43,
+          "pastingPressure": "HIGH",
+          "dryingHours": 7.9,
+          "printSpeedSpm": 56.9
+        },
+        "itemCode": "PKBX0041",
+        "description": "B1047 Client A",
+        "shift": "NIGHT",
+        "ambientRhPct": 84.2,
+        "paperType": "RECYCLED",
+        "paperSupplier": "SUP-E",
+        "totalScrapPct": 8.85,
+        "totalScrapKg": 43.65,
+        "scrapCost": 2326.54,
+        "currency": "INR",
+        "distance": -0.32
+      },
+      {
+        "lotId": "LOT-002552",
+        "orderId": "PO-2509-02552",
+        "runDate": "2025-09-27",
+        "primaryDefect": "PRINT",
+        "levers": {
+          "sfSpeedMpm": 35.1,
+          "rollTempC": 178.2,
+          "gumApplication": "MED",
+          "gumViscositySec": 41.3,
+          "pastingPressure": "MED",
+          "dryingHours": 2,
+          "printSpeedSpm": 65
+        },
+        "itemCode": "PKBX0041",
+        "description": "B1047 Client A",
+        "shift": "NIGHT",
+        "ambientRhPct": 83.9,
+        "paperType": "VIRGIN",
+        "paperSupplier": "SUP-A",
+        "totalScrapPct": 10.25,
+        "totalScrapKg": 46.67,
+        "scrapCost": 2487.51,
+        "currency": "INR",
+        "distance": -0.29
+      }
+    ]
+  },
+  "explainResult": {
+    "schema": {
+      "fields": [
+        {
+          "name": "defect",
+          "type": "STRING",
+          "mode": "NULLABLE"
+        },
+        {
+          "name": "predicted_pct",
+          "type": "FLOAT",
+          "mode": "NULLABLE"
+        },
+        {
+          "name": "typical_pct",
+          "type": "FLOAT",
+          "mode": "NULLABLE"
+        },
+        {
+          "name": "driver_rank",
+          "type": "INTEGER",
+          "mode": "NULLABLE"
+        },
+        {
+          "name": "driver",
+          "type": "STRING",
+          "mode": "NULLABLE"
+        },
+        {
+          "name": "attribution_pts",
+          "type": "FLOAT",
+          "mode": "NULLABLE"
+        }
+      ]
+    },
+    "rows": [
+      {
+        "f": [
+          {
+            "v": "WARP"
+          },
+          {
+            "v": "2.419"
+          },
+          {
+            "v": "1.35"
+          },
+          {
+            "v": "1"
+          },
+          {
+            "v": "ambient_rh_pct"
+          },
+          {
+            "v": "0.751"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "WARP"
+          },
+          {
+            "v": "2.419"
+          },
+          {
+            "v": "1.35"
+          },
+          {
+            "v": "2"
+          },
+          {
+            "v": "drying_hours"
+          },
+          {
+            "v": "0.162"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "WARP"
+          },
+          {
+            "v": "2.419"
+          },
+          {
+            "v": "1.35"
+          },
+          {
+            "v": "3"
+          },
+          {
+            "v": "gum_application"
+          },
+          {
+            "v": "-0.137"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "DELAM"
+          },
+          {
+            "v": "2.376"
+          },
+          {
+            "v": "1.491"
+          },
+          {
+            "v": "1"
+          },
+          {
+            "v": "paper_moisture_pct"
+          },
+          {
+            "v": "0.328"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "DELAM"
+          },
+          {
+            "v": "2.376"
+          },
+          {
+            "v": "1.491"
+          },
+          {
+            "v": "2"
+          },
+          {
+            "v": "ambient_rh_pct"
+          },
+          {
+            "v": "0.326"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "DELAM"
+          },
+          {
+            "v": "2.376"
+          },
+          {
+            "v": "1.491"
+          },
+          {
+            "v": "3"
+          },
+          {
+            "v": "gum_application"
+          },
+          {
+            "v": "-0.324"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "PRINT"
+          },
+          {
+            "v": "1.721"
+          },
+          {
+            "v": "0.874"
+          },
+          {
+            "v": "1"
+          },
+          {
+            "v": "ink_colors"
+          },
+          {
+            "v": "0.607"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "PRINT"
+          },
+          {
+            "v": "1.721"
+          },
+          {
+            "v": "0.874"
+          },
+          {
+            "v": "2"
+          },
+          {
+            "v": "flute_profile"
+          },
+          {
+            "v": "0.128"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "PRINT"
+          },
+          {
+            "v": "1.721"
+          },
+          {
+            "v": "0.874"
+          },
+          {
+            "v": "3"
+          },
+          {
+            "v": "ambient_rh_pct"
+          },
+          {
+            "v": "0.091"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "STRENGTH"
+          },
+          {
+            "v": "1.245"
+          },
+          {
+            "v": "0.777"
+          },
+          {
+            "v": "1"
+          },
+          {
+            "v": "ambient_rh_pct"
+          },
+          {
+            "v": "0.295"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "STRENGTH"
+          },
+          {
+            "v": "1.245"
+          },
+          {
+            "v": "0.777"
+          },
+          {
+            "v": "2"
+          },
+          {
+            "v": "paper_type"
+          },
+          {
+            "v": "0.135"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "STRENGTH"
+          },
+          {
+            "v": "1.245"
+          },
+          {
+            "v": "0.777"
+          },
+          {
+            "v": "3"
+          },
+          {
+            "v": "height_mm"
+          },
+          {
+            "v": "0.052"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "CRACK"
+          },
+          {
+            "v": "0.657"
+          },
+          {
+            "v": "0.708"
+          },
+          {
+            "v": "1"
+          },
+          {
+            "v": "shift"
+          },
+          {
+            "v": "-0.029"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "CRACK"
+          },
+          {
+            "v": "0.657"
+          },
+          {
+            "v": "0.708"
+          },
+          {
+            "v": "2"
+          },
+          {
+            "v": "gum_application"
+          },
+          {
+            "v": "-0.019"
+          }
+        ]
+      },
+      {
+        "f": [
+          {
+            "v": "CRACK"
+          },
+          {
+            "v": "0.657"
+          },
+          {
+            "v": "0.708"
+          },
+          {
+            "v": "3"
+          },
+          {
+            "v": "ambient_rh_pct"
+          },
+          {
+            "v": "-0.019"
+          }
+        ]
+      }
+    ]
+  }
+}
