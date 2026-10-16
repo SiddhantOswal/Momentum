@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
-import { JobIdSchema, JobSheetSchema } from "./schemas.js";
+import { JobIdSchema, JobSheetSchema, StoredJobSheetSchema } from "./schemas.js";
 import { createIdempotentJobService } from "./job-idempotency.js";
+import { validStoredApprovalAudit } from "./google-cloud/job-sheet-repository.js";
 
 const persistFailed = {
   ok: false,
@@ -157,8 +158,14 @@ export function createStoredJobReplayLoader({ getStoredJobSheet, storedJobLookup
     const stored = await getStoredJobSheet({ jobId, signal });
     if (stored == null || stored.ok === false) return null;
     const draft = readPersistedDraft(stored, jobId);
-    if (!draft) return null;
-    return { ok: true, jobId, jobSheet: draft, durable: true };
+    if (draft) return { ok: true, jobId, jobSheet: draft, durable: true };
+    // Completion is a request identity, not a frozen DRAFT lifecycle state.
+    // Replaying after approval must return that same durable approved record.
+    const candidate = stored.ok === true ? (stored.jobSheet ?? stored.data) : stored;
+    const approved = StoredJobSheetSchema.safeParse(candidate);
+    if (!approved.success || approved.data.jobId !== jobId || approved.data.status !== "APPROVED" ||
+        !validStoredApprovalAudit(approved.data)) return null;
+    return { ok: true, jobId, jobSheet: approved.data, durable: true };
   };
 }
 

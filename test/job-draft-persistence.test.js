@@ -504,3 +504,22 @@ test("persistence AbortError is propagated and releases the idempotency claim", 
   await assert.rejects(submitJob({ identity, request: request() }), { name: "AbortError" });
   assert.equal(store.inspect(identity.keyHash), undefined);
 });
+
+test("completed request replay retains the durable APPROVED lifecycle and audit", async () => {
+  const { createStoredJobReplayLoader } = await import("../src/job-draft-persistence.js");
+  const approvedAt = "2026-10-16T12:00:00.000Z";
+  const cardUri = "gs://prepagent-hack-data/jobcards/TEST-approved.pdf";
+  const approved = { ...structuredClone(jobSheetFixture), plantId: "PLANT-01", status: "APPROVED",
+    createdAt: "2026-10-16T11:59:00.000Z", approvedAt, cardUri,
+    savings: { kg: jobSheetFixture.savings.kg, amount: jobSheetFixture.savings.inr, currency: "INR" },
+    approvalAudit: { jobId: jobSheetFixture.jobId, actorUid: "test-supervisor", action: "APPROVE",
+      previousStatus: "DRAFT", newStatus: "APPROVED", decidedAt: approvedAt, cardUri,
+      correlationId: "b7380926-8709-4cda-8395-27a742686de2", decisionId: "16d914b6-7315-43f2-8f6b-41063f909e24" } };
+  const load = createStoredJobReplayLoader({ storedJobLookupEnabled: true, getStoredJobSheet: async () => approved });
+  const result = await load({ jobId: approved.jobId });
+  assert.equal(result?.jobSheet.status, "APPROVED");
+  assert.deepEqual(result.jobSheet.approvalAudit, approved.approvalAudit);
+  assert.equal(await load({ jobId: "WRONG-JOB" }), null);
+  approved.approvalAudit.cardUri = "gs://prepagent-hack-data/jobcards/OTHER.pdf";
+  assert.equal(await load({ jobId: approved.jobId }), null);
+});

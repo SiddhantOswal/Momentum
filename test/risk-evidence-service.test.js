@@ -367,3 +367,36 @@ test("seen-before validates the recognized defect and maps historical aggregates
   assert.deepEqual(result.notes, ["Use medium gum."]);
   assert.equal((await service({ defect: "NONE", ambientRhPct: 86 })).ok, false);
 });
+
+test("explanation grounds original change values against the exact supplied prompt", async () => {
+  const service = createRiskExplanationService({
+    bigquery: { query: async () => bigqueryResult(explanationColumns, explanationRows) },
+    gemini: { generateContent: async () => ({ parts: [{ text:
+      "The reviewed roll temperature changes from 162 to 170, while gum viscosity changes from 32 to 35. WARP is predicted at 3.42%. These model predictions are not proof of cause and effect."
+    }] }) },
+    sql: query("explain.sql"),
+  });
+  const result = await service({ order, conditions, prediction, optimization: {
+    ...optimization,
+    changes: [
+      { lever: "rollTempC", from: 162, to: 170, reason: "Lowest modeled cost candidate." },
+      { lever: "gumViscositySec", from: 32, to: 35, reason: "Lowest modeled cost candidate." },
+    ],
+  }, evidence: [] });
+  assert.equal(result.ok, true);
+});
+
+test("explanation rejects assertions that source records are verified real-world outcomes", async () => {
+  for (const text of [
+    "WARP is predicted at 3.42%. The source records represent actual observed outcomes. Attribution is an association.",
+    "Humidity at 86% is resulting in WARP risk. WARP is predicted at 3.42%. Attribution is an association.",
+  ]) {
+    const service = createRiskExplanationService({
+      bigquery: { query: async () => bigqueryResult(explanationColumns, explanationRows) },
+      gemini: { generateContent: async () => ({ parts: [{ text }] }) },
+      sql: query("explain.sql"),
+    });
+    const result = await service({ order, conditions, prediction, optimization, evidence: historicalEvidence });
+    assert.equal(result.ok, false);
+  }
+});

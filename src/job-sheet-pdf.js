@@ -140,6 +140,7 @@ function collectText(jobSheet) {
   appendLevers(lines, jobSheet.baseline.levers);
   lines.push(
     ["heading", "Baseline risk"],
+    ["line", "Model estimates require supervisor review. CRACK is low confidence under monsoon conditions."],
     ["line", `Primary defect: ${jobSheet.baseline.risk.primaryDefect}`],
     ["line", `Total scrap: ${jobSheet.baseline.risk.totalScrapKg} kg; scrap cost: ${jobSheet.baseline.risk.currency} ${jobSheet.baseline.risk.scrapCost}`],
     ["line", `Defect rates (%): ${formatRates(jobSheet.baseline.risk.ratesPct)}`],

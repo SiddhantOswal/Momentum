@@ -1417,9 +1417,9 @@ document.getElementById("prepare-job").addEventListener("click", async (event) =
       if (payload?.durable === true || (localSyntheticUI && payload?.storageScope === "process-memory")) {
         applyStoredJobContext(payload.jobSheet);
         renderRisk(payload.jobSheet.baseline.risk);
-        setResult("risk-result", "Prediction from the persisted draft’s planned settings.", "success");
-        setResult("optimization-result", "Recommendation from the persisted draft. Review before approval.", "success");
-        setResult("stored-job-result", localSyntheticUI ? "Local in-memory draft loaded; not cloud persisted." : "Persisted draft returned and loaded for review.", "success");
+        setResult("risk-result", "Prediction from the persisted JobSheet’s planned settings.", "success");
+        setResult("optimization-result", "Recommendation from the persisted JobSheet. Review its approval status.", "success");
+        setResult("stored-job-result", localSyntheticUI ? "Local in-memory draft loaded; not cloud persisted." : "Persisted JobSheet returned and loaded for review.", "success");
         renderComparison({ baseline: payload.jobSheet.baseline, best: payload.jobSheet.recommended, changes: payload.jobSheet.changes, savings: payload.jobSheet.savings });
         if (payload.jobSheet.explanation) {
           const text = document.getElementById("risk-explanation-content"); text.textContent = payload.jobSheet.explanation; text.hidden = false;

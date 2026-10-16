@@ -318,7 +318,13 @@ function numericClaims(text) {
 }
 
 function containsCausalClaim(text) {
-  return /\b(?:cause[sd]?|causing|causal(?:ly)?|because of|due to|leads? to|results? (?:in|from)|drives?|proves?|demonstrates?)\b|\b(?:increases?|decreases?|raises?|lowers?|worsens?|improves?)(?:\s+\w+){0,3}\s+\b(?:risk|scrap|defect|prediction|rate)\b/i.test(text);
+  return /\b(?:cause[sd]?|causing|causal(?:ly)?|because of|due to|leads? to|result(?:s|ing)? (?:in|from)|drives?|proves?|demonstrates?)\b|\b(?:increases?|decreases?|raises?|lowers?|worsens?|improves?)(?:\s+\w+){0,3}\s+\b(?:risk|scrap|defect|prediction|rate)\b/i.test(text);
+}
+
+function containsUnverifiedOutcomeClaim(text) {
+  const outcome = String.raw`(?:actual(?:\s+observed)?|measured|real[- ]world)\s+(?:factory\s+|production\s+)?outcomes?`;
+  const assertions = text.replace(new RegExp(String.raw`\b(?:not|rather than|instead of)\s+${outcome}\b`, "gi"), " ");
+  return new RegExp(String.raw`\b${outcome}\b`, "i").test(assertions);
 }
 
 function sameRisk(left, right) {
@@ -431,7 +437,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         contents: [{
           role: "user",
           parts: [{
-            text: `Write 3 to 5 concise plain-language sentences explaining the validated model attribution and, when relevant, the supplied historical observations. Distinguish predictions and attribution from observed historical outcomes. Describe attribution only as a model contribution or association, not as proof of cause and effect. Use only the provided drivers, percentages, attribution points, inputs, settings, and historical metrics. Do not mention lot or order identifiers, add unsupported facts, claim causality or guarantees, or use numeric values not present in the JSON. A positive attribution contributes upward to the model prediction and a negative attribution contributes downward; neither establishes a real-world causal effect. Return only the explanation.\\n${JSON.stringify(promptData)}`,
+            text: `Write 3 to 5 concise plain-language sentences explaining the validated model attribution and, when relevant, the supplied historical observations. Distinguish model predictions and attribution from source-history records. Historical entries are source records, not independently verified factory measurements. Call them source-history records; do not describe them as actual or measured factory outcomes or infer causal links between their settings and defect labels. Describe attribution only as a model contribution or association, not as proof of cause and effect. Use only the provided drivers, percentages, attribution points, inputs, settings, and historical metrics. Do not mention lot or order identifiers, add unsupported facts, claim causality or guarantees, or use numeric values not present in the JSON. A positive attribution contributes upward to the model prediction and a negative attribution contributes downward; neither establishes a real-world causal effect. Describe settings using their supplied values without calculating differences, ratios, or combined rates. For total predicted rates and costs use the provided totals exactly; do not sum component rates or calculate new figures. Return only the explanation.\\n${JSON.stringify(promptData)}`,
           }],
         }],
         // Measured live: this prompt used 1,964 thinking tokens, exhausting the 2,048 default.
@@ -440,36 +446,23 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
       });
       const explanation = response.parts.map((part) => part.text)
         .filter((text) => typeof text === "string").join("").trim();
-      const allowedNumbers = permittedNumbers([
-        inputOrder.quantity,
-        inputConditions.ambientRhPct,
-        inputConditions.ambientTempC,
-        inputConditions.paperMoisturePct,
-        ...Object.values(levers).filter((value) => typeof value === "number"),
-        ...rows.flatMap((row) => [row.predictedPct, row.typicalPct, row.attributionPts]),
-        ...Object.values(inputPrediction.ratesPct),
-        inputPrediction.totalScrapPct,
-        inputPrediction.totalScrapKg,
-        inputPrediction.scrapCost,
-        ...Object.values(inputOptimization.best.risk.ratesPct),
-        inputOptimization.best.risk.totalScrapPct,
-        inputOptimization.best.risk.totalScrapKg,
-        inputOptimization.best.risk.scrapCost,
-        inputOptimization.savings.kg,
-        inputOptimization.savings.inr,
-        ...historicalEvidence.flatMap((run) => [
-          run.ambientRhPct, run.totalScrapPct, run.totalScrapKg, run.scrapCost, run.distance,
-          ...Object.values(run.levers).filter((value) => typeof value === "number"),
-        ]),
-      ]);
+      // Ground against the exact validated JSON supplied to Gemini, including
+      // original settings in changes.from. A separately maintained subset can
+      // reject genuine supplied values when the prompt evolves.
+      const numericValues = (value) => typeof value === "number" ? [value]
+        : value && typeof value === "object" ? Object.values(value).flatMap(numericValues) : [];
+      const allowedNumbers = permittedNumbers(numericValues(promptData));
       const suppliedDates = new Set(historicalEvidence.map((run) => run.runDate));
       if (!explanation || sentenceCount(explanation) < 3 || sentenceCount(explanation) > 5 ||
           numericClaims(withoutSuppliedDates(explanation, suppliedDates)).some((value) => !allowedNumbers.has(value))) {
+        console.error(JSON.stringify({ event: "risk_explanation_rejected", reason: "evidence_contract", sentenceCount: sentenceCount(explanation), unsupportedNumericClaims: numericClaims(withoutSuppliedDates(explanation, suppliedDates)).filter((value) => !allowedNumbers.has(value)).length }));
         throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the evidence contract.");
       }
       const reportedDrivers = new Set(rows.map((row) => row.driver.toLowerCase()));
       if (namesUnsupportedDriver(explanation, reportedDrivers) ||
-          containsCausalClaim(withoutNegatedCausation(explanation))) {
+          containsCausalClaim(withoutNegatedCausation(explanation)) ||
+          containsUnverifiedOutcomeClaim(explanation)) {
+        console.error(JSON.stringify({ event: "risk_explanation_rejected", reason: "attribution_contract", unsupportedDriver: namesUnsupportedDriver(explanation, reportedDrivers), causalClaim: containsCausalClaim(withoutNegatedCausation(explanation)), unverifiedOutcomeClaim: containsUnverifiedOutcomeClaim(explanation) }));
         throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the attribution evidence contract.");
       }
       return {
@@ -481,6 +474,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
       };
     } catch (error) {
       if (error?.name === "AbortError") throw error;
+      console.error(JSON.stringify({ event: "risk_explanation_failed", code: /^[A-Z_]{1,64}$/.test(error?.code ?? "") ? error.code : "UNEXPECTED_ERROR" }));
       return geminiUsageFailure(error) ?? unavailable("The evidence-grounded risk explanation is temporarily unavailable.");
     }
   };
