@@ -11,7 +11,8 @@ const optimization = { ok: true, source: 'bigquery-ml', isRealModelPrediction: t
 const impact = { ok: true, source: 'bigquery', kpis: { lotsScored: 219, lotsChanged: 207, netSavingMonth: 7320, kgSavedMonth: 138, scrapPctBefore: 7.06, scrapPctAfter: 6.39, scrapCostBefore: 78774, scrapCostAfter: 71434, currency: 'INR' }, monthly: [{ month: '2026-08', lots: 200, scrapCost: 80000, scrapKg: 1500, avgScrapPct: 7.2, series: 'simulated' }, { month: '2026-09', lots: 219, scrapCost: 78776, scrapKg: 1478, avgScrapPct: 7.06, series: 'simulated' }], seasonal: [{ season: 'Monsoon', warp: 2.2, delam: 1.4, strength: 1.3, print: .7, crack: .4 }], topItems: [{ label: 'Item 1', lots: 42, avgScrapPct: 7.1, scrapCost12m: 15000, mainDefect: 'WARP' }], counterfactual: { month: '2026-09', scrapCost: 71454, currency: 'INR', label: 'September 2026 with agent settings (counterfactual, not observed production)' } };
 
 async function fulfill(route, body, status = 200) { await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }); }
-async function boot(page, configured = false, hackathon = false) {
+// Lot-workflow tests start on New Lot; the app itself lands on Impact (see the landing test).
+async function boot(page, configured = false, hackathon = false, path = '/#screen-order-input') {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
@@ -36,7 +37,7 @@ async function boot(page, configured = false, hackathon = false) {
       await fulfill(route, status);
     });
   }
-  await page.goto('/');
+  await page.goto(path);
   await expect(page.locator('#connection-label')).toHaveText('Backend reachable');
   return errors;
 }
@@ -276,7 +277,8 @@ test('optimization, historical evidence and explanation retain strict request sc
 });
 
 test('local PDF utility remains separate from persisted approval and handles invalid JSON',async({page})=>{
-  await boot(page);await navigate(page,'Production analysis');await page.locator('.utility-panel').filter({has:page.locator('#job-sheet-form')}).locator('summary').click();
+  // The developer utility is hidden by default and shown with ?debug=1.
+  await boot(page,false,false,'/?debug=1#screen-order-input');await navigate(page,'Production analysis');await page.locator('.utility-panel').filter({has:page.locator('#job-sheet-form')}).locator('summary').click();
   await page.locator('#job-sheet-json').fill('invalid');await page.locator('#job-sheet-form button').click();await expect(page.locator('#job-sheet-result')).toContainText('valid JobSheet JSON');
   await page.locator('#job-sheet-json').fill(JSON.stringify(job));
   await page.route('**/job-sheets/render.pdf?lang=en',route=>route.fulfill({contentType:'application/pdf',body:Buffer.from('%PDF-1.4 supplied fixture only')}));
@@ -326,7 +328,7 @@ test('hackathon participants share one genuine-action UI with explicit demo acto
   const errors = await boot(page, true, true);
   await expect(page.locator('#supervisor-auth-status')).toContainText('Temporary demo session active');
   await expect(page.locator('#supervisor-sign-in')).toBeHidden();
-  await expect(page.locator('#hackathon-provenance-note')).toContainText('Owner-approved data');
+  await expect(page.locator('#hackathon-provenance-note')).toContainText('Prototype · modelled on our plant');
   await sourceContext(page);
   await page.route('**/orders/extract', route => fulfill(route, extraction()));
   await page.locator('#review-order').click();
@@ -389,4 +391,40 @@ test('approved-photo controls enforce the ten-image contract and safe label rend
   await page.locator('#classify-approved-photo').click();await expect(page.locator('#approved-photo-result')).toContainText('CRACK');expect(calls).toBe(1);
   await page.route('**/evidence/classify-photo',route=>fulfill(route,{ok:true,source:'vertex-gemini',photoId:'photo-01',label:'<img src=x onerror=alert(1)>'}));
   await page.locator('#classify-approved-photo').click();await expect(page.locator('#approved-photo-result')).toContainText('invalid');await expect(page.locator('#approved-photo-result img')).toHaveCount(0);
+});
+
+test('light UI: developer panels hidden by default, sample order fills the approved PO1 context', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('details.diagnostics').first()).toBeHidden();
+  await expect(page.locator('.utility-panel.technical-only')).toBeHidden();
+  await page.locator('#use-sample-order').click();
+  await expect(page.locator('#selected-file-name')).toContainText('PO1_ClientA_single_B1047.pdf');
+  await expect(page.locator('#extraction-order-id')).toHaveValue('TEST-CLA/PO/2026/1047');
+  await expect(page.locator('#extraction-paper-type')).toHaveValue('RECYCLED');
+  await expect(page.locator('#extraction-paper-supplier')).toHaveValue('SUP-D');
+  await expect(page.locator('#upload-result')).toContainText('Sample order loaded');
+});
+
+test('the app lands on Impact, with Plan a lot leading into New Lot', async ({ page }) => {
+  await boot(page, false, false, '/');
+  await expect(page).toHaveURL(/#screen-impact$/);
+  await expect(page.locator('#screen-impact')).toBeVisible();
+  await expect(page.getByLabel('Primary navigation').getByRole('link').first()).toHaveText('Impact');
+  await page.locator('#plan-a-lot').click();
+  await expect(page.locator('#screen-order-input')).toBeVisible();
+});
+
+test('theme toggle switches light and dark, and remembers the choice', async ({ page }) => {
+  // The theme is client-only, so this test does not wait on the (rate-limited) status API.
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/#screen-order-input');
+  const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const lightBackground = await background();
+  await expect(page.locator('#theme-toggle')).toHaveAttribute('aria-label', 'Switch to dark mode');
+  await page.locator('#theme-toggle').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  expect(await background()).not.toBe(lightBackground);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('#theme-toggle')).toHaveAttribute('aria-label', 'Switch to light mode');
 });

@@ -77,7 +77,7 @@ async function configureSupervisorSession(status) {
   if (localSyntheticUI) {
     if (!document.getElementById("local-synthetic-demo-note")) {
       const note = document.createElement("p"); note.id = "local-synthetic-demo-note"; note.className = "method-note"; note.setAttribute("role", "note");
-      note.textContent = "LOCAL MOCK BACKUP — deterministic mock outputs, not live Gemini or accepted models. Records and feedback exist only in this process memory; restarting resets them. PDFs are generated locally, not stored in Cloud Storage.";
+      note.className = "provenance-pill"; note.textContent = "Local mock · not live Gemini or models · records reset on restart";
       document.getElementById("main-content").prepend(note);
     }
     document.getElementById("supervisor-auth-status").textContent = "Local simulated approval only — no authenticated human or cloud persistence.";
@@ -251,12 +251,12 @@ function setImpactEmptyState(state = "idle") {
   const configured = latestIntegrations.getImpactSummary === true;
   const loading = state === "loading";
   const failed = ["error", "unavailable"].includes(state);
-  document.getElementById("impact-empty-badge").textContent = loading ? "Loading evidence" : failed ? "No results available" : configured ? "Ready to load" : "Not connected";
+  document.getElementById("impact-empty-badge").textContent = loading ? "Loading" : failed ? "Unavailable" : configured ? "Ready" : "Not connected";
   document.getElementById("impact-empty-message").textContent = loading
-    ? "Retrieving impact evidence. Verified values will replace these placeholders when the request succeeds."
-    : failed ? "Evidence could not be loaded. No results are shown. Review the message above and retry when the service is available."
-    : configured ? "Choose Load impact evidence to retrieve the existing BigQuery analysis. No results have been loaded."
-    : "The read-only data integration is not connected in this environment. Once connected, use Load impact evidence to populate this dashboard.";
+    ? "Fetching the held-out analysis…"
+    : failed ? "Impact data could not be loaded. Try Refresh."
+    : configured ? "Open this tab to load the held-out analysis."
+    : "Impact data is not connected in this environment.";
 }
 
 function clearImpactSummary() {
@@ -567,8 +567,8 @@ function applyIntegrationAvailability(integrations = latestIntegrations) {
   const impactAvailability = document.getElementById("impact-availability");
   if (impactAvailability) {
     impactAvailability.textContent = latestIntegrations.getImpactSummary === true
-      ? "Impact adapter is configured; load the summary to check data availability."
-      : "Impact data is unavailable because its read-only integration is not configured.";
+      ? ""
+      : "Impact data is not connected in this environment.";
   }
   if (document.getElementById("impact-content").hidden && document.getElementById("impact-empty").dataset.state === "idle") setImpactEmptyState();
   const extractionDescription = document.getElementById("extraction-workflow-description");
@@ -593,6 +593,7 @@ function applyIntegrationAvailability(integrations = latestIntegrations) {
   syncRiskExplanationAvailability();
   syncPlanReadiness();
   syncJobControls();
+  queueMicrotask(autoLoadImpact);
 }
 
 document.querySelectorAll("[data-json-get]").forEach((button) => {
@@ -614,6 +615,16 @@ document.querySelectorAll("[data-json-get]").forEach((button) => {
     });
   });
 });
+
+// Impact loads itself the first time its tab opens; Refresh reloads it.
+let impactAutoLoaded = false;
+function autoLoadImpact() {
+  const button = document.getElementById("load-impact");
+  if (impactAutoLoaded || button.disabled || document.getElementById("screen-impact").hidden) return;
+  impactAutoLoaded = true;
+  button.click();
+}
+document.addEventListener("ustaad:navigation", autoLoadImpact);
 
 document.getElementById("load-impact").addEventListener("click", (event) => {
   const button = event.currentTarget;
@@ -888,6 +899,38 @@ dropzone.addEventListener("drop", (event) => {
   transfer.items.add(file);
   orderFile.files = transfer.files;
   validateSelectedFile(file);
+});
+
+// Demo helper: loads the approved sample PO1 with its TEST- record ID and loaded-paper
+// context. Every value stays editable and still goes through source-line review.
+const SAMPLE_ORDER = Object.freeze({
+  url: "/samples/PO1_ClientA_single_B1047.pdf", name: "PO1_ClientA_single_B1047.pdf",
+  orderId: "TEST-CLA/PO/2026/1047", paperType: "RECYCLED", paperSupplier: "SUP-D",
+});
+document.getElementById("use-sample-order").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const response = await fetch(SAMPLE_ORDER.url);
+    if (!response.ok) throw new Error("The sample order is unavailable. Upload a purchase order instead.");
+    const file = new File([await response.blob()], SAMPLE_ORDER.name, { type: "application/pdf" });
+    clearPurchaseOrderReview();
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    orderFile.files = transfer.files;
+    validateSelectedFile(file);
+    for (const [id, value] of [["extraction-order-id", SAMPLE_ORDER.orderId], ["extraction-paper-type", SAMPLE_ORDER.paperType], ["extraction-paper-supplier", SAMPLE_ORDER.paperSupplier]]) {
+      const control = document.getElementById(id);
+      control.value = value;
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    setResult("upload-result", "Sample order loaded. Select Extract & review order.", "success");
+  } catch (error) {
+    setResult("upload-result", error.message, "error");
+  } finally {
+    button.disabled = false;
+  }
 });
 
 function readFieldGroup(containerId, fieldNames) {

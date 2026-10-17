@@ -23,7 +23,7 @@ async function boot(page,configured=true,hackathon=false){
     await page.route('**/api/auth/config',route=>fulfill(route,{enabled:false,authorizationMode:'HACKATHON_DEMO',demoSessionConfigured:true,approvalNote:'Demonstration approval is not a production supervisor identity.'}));
     await page.route('**/api/auth/demo-session',route=>fulfill(route,{ok:true,authorizationMode:'HACKATHON_DEMO',authenticatedHuman:false}));
   }
-  await page.goto('/dashboard?mock=1');await expect(page.locator('#connection-label')).toHaveText('Backend reachable');return errors;
+  await page.goto('/dashboard?mock=1#screen-order-input');await expect(page.locator('#connection-label')).toHaveText('Backend reachable');return errors;
 }
 const stage=(page,n)=>page.locator(`[data-dashboard-stage="${n}"]`);
 async function intake(page,status='MATCHED'){

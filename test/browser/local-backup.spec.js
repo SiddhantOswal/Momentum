@@ -12,7 +12,7 @@ test.beforeAll(async()=>{
 test.afterAll(async()=>{if(server && server.exitCode===null && server.signalCode===null){await Promise.race([new Promise(r=>{server.once('exit',r);server.kill('SIGTERM');}),new Promise(r=>setTimeout(r,2000))]);}});
 test('real local backup UI uses its actual local adapters through draft, approval, PDF, feedback and Impact',async({page,request},testInfo)=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(base);await expect(page.locator('#local-synthetic-demo-note')).toContainText('not live Gemini');
+ await page.goto(base+'#screen-order-input');await expect(page.locator('#local-synthetic-demo-note')).toContainText('not live Gemini');
  await page.locator('#order-pdf').setInputFiles('test/fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf');
  await page.locator('#extraction-order-id').fill('TEST-LOCAL-42');await page.locator('#extraction-paper-type').selectOption('VIRGIN');await page.locator('#extraction-paper-supplier').fill('SUPPLIER-TEST');
  await page.locator('#review-order').click();await expect(page.locator('.po-line-review__item')).toHaveCount(1);

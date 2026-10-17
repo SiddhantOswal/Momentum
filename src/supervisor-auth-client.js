@@ -35,13 +35,10 @@ if (statusNode && signInButton && signOutButton) {
       document.getElementById("approval-form")?.after(note);
       const banner = document.createElement("p");
       banner.id = "hackathon-provenance-note";
-      banner.className = "method-note";
-      banner.textContent = "Owner-approved data · simulated/manual conditions · predicted savings, not measured factory outcomes.";
-      const sample = document.createElement("a");
-      sample.href = "/samples/PO1_ClientA_single_B1047.pdf";
-      sample.download = "PO1_ClientA_single_B1047.pdf";
-      sample.textContent = "Download approved PO1";
-      banner.append(document.createTextNode(" For PO1 use record ID TEST-CLA/PO/2026/1047; the original PO number is preserved. "), sample);
+      banner.className = "provenance-pill";
+      banner.setAttribute("role", "note");
+      // Required disclosure (D1/D5); "Try sample order" in New Lot replaces the PO1 instructions.
+      banner.textContent = "Prototype · modelled on our plant · simulated conditions · predicted, not measured";
       document.getElementById("main-content")?.prepend(banner);
       document.getElementById("open-session").textContent = "Demo session";
       document.getElementById("session-title").textContent = "Hackathon session";

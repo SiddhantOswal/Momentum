@@ -32,7 +32,7 @@ export function initShell() {
     let id;
     try { id = decodeURIComponent(location.hash.slice(1)); } catch { id = ""; }
     const target = byId(id);
-    const panel = target?.matches("[data-screen-panel]") ? target : target?.closest("[data-screen-panel]") ?? panels[0];
+    const panel = target?.matches("[data-screen-panel]") ? target : target?.closest("[data-screen-panel]") ?? panels.find((candidate) => candidate.hasAttribute("data-default-screen")) ?? panels[0];
     panels.forEach((candidate) => { candidate.hidden = candidate !== panel; candidate.classList.toggle("is-active", candidate === panel); });
     links.forEach((link) => { if (link.hash === "#" + panel.id) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current"); });
     document.title = (links.find((link) => link.hash === "#" + panel.id)?.textContent.trim() ?? "Production preparation") + " · Momentum";
@@ -176,18 +176,25 @@ export function renderStoredSheet(sheet) {
 }
 const charts = new Map();
 export function clearCharts() { for (const chart of charts.values()) chart.destroy(); charts.clear(); }
+// Chart colours come from the active theme; charts redraw when the theme changes.
+let lastImpactChartPayload;
+document.addEventListener("ustaad:theme", () => { if (lastImpactChartPayload && charts.size) renderImpactCharts(lastImpactChartPayload); });
 export function renderImpactCharts(payload) {
   clearCharts();
+  lastImpactChartPayload = payload;
+  const css = getComputedStyle(document.documentElement);
+  const token = (name) => css.getPropertyValue(name).trim();
   if (!window.Chart) { byId("impact-chart-status").textContent = "Charts are unavailable. All returned values remain available in the tables."; return; }
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const colors = ["#c8a57c", "#86bdd4", "#a3c8b0", "#b6a2c4", "#e0b4a1"];
-  const options = { responsive: true, maintainAspectRatio: false, animation: reduced ? false : { duration: 180 }, color: "#b0bdbd", plugins: { legend: { labels: { color: "#b0bdbd", boxWidth: 10, boxHeight: 10, font: { family: "Plex", size: 13 } } }, tooltip: { backgroundColor: "#1d292c", borderColor: "#405459", borderWidth: 1, titleColor: "#edf1ee", bodyColor: "#b0bdbd" } }, scales: { x: { ticks: { color: "#94a6a8", font: { family: "Plex", size: 13 }, maxRotation: 0, maxTicksLimit: 10 }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: "#94a6a8", font: { family: "Plex", size: 13 } }, grid: { color: "#30404480" } } } };
+  const colors = [1, 2, 3, 4, 5].map((n) => token("--chart-" + n));
+  const text = token("--chart-text"), muted = token("--muted"), grid = token("--chart-grid");
+  const options = { responsive: true, maintainAspectRatio: false, animation: reduced ? false : { duration: 180 }, color: text, plugins: { legend: { labels: { color: text, boxWidth: 10, boxHeight: 10, font: { family: "Plex", size: 13 } } }, tooltip: { backgroundColor: token("--chart-tooltip"), borderColor: token("--line"), borderWidth: 1, titleColor: token("--text"), bodyColor: text } }, scales: { x: { ticks: { color: muted, font: { family: "Plex", size: 13 }, maxRotation: 0, maxTicksLimit: 10 }, grid: { display: false } }, y: { beginAtZero: true, ticks: { color: muted, font: { family: "Plex", size: 13 } }, grid: { color: grid } } } };
   const monthly = [...payload.monthly].sort((a, b) => a.month.localeCompare(b.month));
   if (monthly.length) {
-    charts.set("monthly", new Chart(byId("impact-monthly-chart"), { type: "line", data: { labels: monthly.map((r) => r.month), datasets: [{ label: "Historical scrap cost (" + payload.kpis.currency + ")", data: monthly.map((r) => r.scrapCost), borderColor: colors[0], backgroundColor: "#c8a57c14", borderWidth: 2, pointRadius: 3, tension: 0, fill: true }, { label: "Agent settings · modelled counterfactual", data: monthly.map((r) => r.month === payload.counterfactual.month ? payload.counterfactual.scrapCost : null), borderColor: colors[1], backgroundColor: colors[1], pointRadius: 6, showLine: false }] }, options: { ...options, scales: { ...options.scales, y: { ...options.scales.y, title: { display: true, text: "Scrap cost (" + payload.kpis.currency + ")", color: "#94a6a8" } } } } }));
+    charts.set("monthly", new Chart(byId("impact-monthly-chart"), { type: "line", data: { labels: monthly.map((r) => r.month), datasets: [{ label: "Historical scrap cost (" + payload.kpis.currency + ")", data: monthly.map((r) => r.scrapCost), borderColor: colors[0], backgroundColor: colors[0] + "14", borderWidth: 2, pointRadius: 3, tension: 0, fill: true }, { label: "Agent settings · modelled counterfactual", data: monthly.map((r) => r.month === payload.counterfactual.month ? payload.counterfactual.scrapCost : null), borderColor: colors[1], backgroundColor: colors[1], pointRadius: 6, showLine: false }] }, options: { ...options, scales: { ...options.scales, y: { ...options.scales.y, title: { display: true, text: "Scrap cost (" + payload.kpis.currency + ")", color: muted } } } } }));
   }
   if (payload.seasonal.length) {
-    charts.set("seasonal", new Chart(byId("impact-seasonal-chart"), { type: "bar", data: { labels: payload.seasonal.map((r) => r.season), datasets: ["warp", "delam", "strength", "print", "crack"].map((key, index) => ({ label: DEFECT_NAMES[key.toUpperCase()], data: payload.seasonal.map((r) => r[key]), backgroundColor: colors[index], borderRadius: 2 })) }, options: { ...options, scales: { ...options.scales, y: { ...options.scales.y, title: { display: true, text: "Average scrap (%)", color: "#94a6a8" } } } } }));
+    charts.set("seasonal", new Chart(byId("impact-seasonal-chart"), { type: "bar", data: { labels: payload.seasonal.map((r) => r.season), datasets: ["warp", "delam", "strength", "print", "crack"].map((key, index) => ({ label: DEFECT_NAMES[key.toUpperCase()], data: payload.seasonal.map((r) => r[key]), backgroundColor: colors[index], borderRadius: 2 })) }, options: { ...options, scales: { ...options.scales, y: { ...options.scales.y, title: { display: true, text: "Average scrap (%)", color: muted } } } } }));
   }
   byId("impact-chart-status").textContent = monthly.length ? "A single counterfactual point is shown only for the held-out month. Exact values follow below." : "No monthly history returned. No chart values were substituted.";
 }
