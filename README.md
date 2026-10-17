@@ -2,7 +2,7 @@
 
 **Production intelligence for corrugated manufacturing.** Momentum turns an approved purchase order into a reviewed setup recommendation and supervisor-approved production card, combining Gemini, BigQuery ML and constrained optimization.
 
-[Open the application](https://prepagent-26mwt2n7ba-el.a.run.app) · [Local setup and testing](docs/README.md) · [Approved PO fixtures](public/samples/)
+[Open the application](https://momentum-514663464609.asia-south1.run.app) · [Local setup and testing](docs/README.md) · [Approved PO fixtures](public/samples/)
 
 ## How it works
 
@@ -39,8 +39,8 @@ For PKBX0041, the recorded optimizer acceptance compared a **100.4 kg / ₹5,351
 Requires Node.js 22, npm and repository access.
 
 ```sh
-git clone https://github.com/SiddhantOswal/UstaadAI---PrepAgent.git
-cd UstaadAI---PrepAgent
+git clone https://github.com/SiddhantOswal/Momentum.git
+cd Momentum
 npm ci
 npm run preview:local
 ```

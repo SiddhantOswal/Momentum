@@ -37,7 +37,7 @@ npm run test:ui
 
 ## Cloud architecture and safeguards
 
-The deployed application is [Momentum on Cloud Run](https://prepagent-26mwt2n7ba-el.a.run.app), service `prepagent`, region `asia-south1`. Cloud Run uses its runtime service identity to access Vertex AI Gemini, BigQuery / BigQuery ML, Cloud Storage and Firestore. A local machine needs its own authorized credentials; cloning the repository does not grant GCP access.
+The deployed application is [Momentum on Cloud Run](https://momentum-514663464609.asia-south1.run.app), service `momentum`, region `asia-south1`. The original `prepagent` service serves the same build. Cloud Run uses its runtime service identity to access Vertex AI Gemini, BigQuery / BigQuery ML, Cloud Storage and Firestore. A local machine needs its own authorized credentials; cloning the repository does not grant GCP access.
 
 - Cloud Run maximum: two instances. Shared Gemini usage limit: 100 attempted calls per Asia/Kolkata day; failed or ambiguous attempts count.
 - Existing project budget notification: ₹5,000. This is an alert, not a hard spending limit.
