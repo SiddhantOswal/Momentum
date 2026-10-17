@@ -380,7 +380,7 @@ app.get("/samples/:filename", async (c) => {
 });
 
 // Explicit static allowlists: presentation modules and locally bundled assets only.
-const presentationModules = new Set(["workflow.js", "fields.js", "api.js", "components.js", "currency-display.js", "contracts.js", "dashboard.js"]);
+const presentationModules = new Set(["workflow.js", "fields.js", "api.js", "components.js", "currency-display.js", "contracts.js", "dashboard.js", "welcome.js"]);
 app.get("/ui/:filename", async (c) => {
   const name = c.req.param("filename");
   if (!presentationModules.has(name)) return c.notFound();

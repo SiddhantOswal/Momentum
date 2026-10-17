@@ -407,6 +407,7 @@ test('light UI: developer panels hidden by default, sample order fills the appro
 
 test('the app lands on Impact, with Plan a lot leading into New Lot', async ({ page }) => {
   await boot(page, false, false, '/');
+  await page.locator('#welcome-login').click();
   await expect(page).toHaveURL(/#screen-impact$/);
   await expect(page.locator('#screen-impact')).toBeVisible();
   await expect(page.getByLabel('Primary navigation').getByRole('link').first()).toHaveText('Impact');
@@ -427,4 +428,22 @@ test('theme toggle switches light and dark, and remembers the choice', async ({ 
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('#theme-toggle')).toHaveAttribute('aria-label', 'Switch to light mode');
+});
+
+test('demo welcome screen shows the brand once, logs in without credentials and never blocks direct links', async ({ page }) => {
+  // Client-only screen: no wait on the (rate-limited) status API.
+  await page.goto('/');
+  await expect(page.locator('#welcome-screen')).toBeVisible();
+  await expect(page.locator('#welcome-tagline')).toHaveText('Where manufacturing gains intelligence');
+  await expect(page.locator('#welcome-screen input')).toHaveCount(0);
+  await expect(page.locator('#welcome-login')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#welcome-screen')).toHaveCount(0);
+  await expect(page.locator('#screen-impact')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#welcome-screen')).toHaveCount(0);
+  const fresh = await page.context().newPage();
+  await fresh.goto('/#screen-order-input');
+  await expect(fresh.locator('#welcome-screen')).toHaveCount(0);
+  await expect(fresh.locator('#screen-order-input')).toBeVisible();
 });

@@ -1,4 +1,5 @@
 // One controller owns API requests, confirmations, persistence and approval.
+import "./welcome.js";
 import "./workflow.js";
 
 const lotScreens = new Set(["screen-order-input", "screen-production-analysis", "dashboard-job-review"]);

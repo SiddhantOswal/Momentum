@@ -37,6 +37,18 @@ export const homePage = `<!doctype html>
   <link rel="stylesheet" href="/dashboard.css" />
 </head>
 <body class="guided-dashboard">
+<section id="welcome-screen" class="welcome-screen" role="dialog" aria-modal="true" aria-labelledby="welcome-title" aria-describedby="welcome-tagline" hidden>
+  <div class="welcome-flutes" aria-hidden="true"></div>
+  <div class="welcome-card">
+    <div class="welcome-mark" aria-hidden="true">${box}</div>
+    <h1 id="welcome-title" class="welcome-wordmark">momentum</h1>
+    <p class="welcome-kicker">PRODUCTION INTELLIGENCE</p>
+    <p id="welcome-tagline" class="welcome-tagline">Where manufacturing gains intelligence</p>
+    <button type="button" id="welcome-login" class="welcome-login">Log in ${arrows}</button>
+    <p class="welcome-note">Demo access · no account needed</p>
+  </div>
+  <p class="welcome-foot"><span class="welcome-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Google AI Builder Cup 2026 · Built on Google Cloud with Gemini and BigQuery ML</p>
+</section>
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <div class="app-shell">
   <header class="app-header">
