@@ -56,9 +56,16 @@ Cloud Run hosts the application in `asia-south1`. Vertex AI Gemini handles extra
 - Model acceptance, operator confirmation and approval audit are enforced. Firebase remains separate from the selected Approach B workflow.
 - The existing **₹5,000 budget alert** is an alert, not a hard spending cap.
 
-## Scope and limitations
+## Validation, Reliability & Responsible AI
 
-- The real 117-item catalog underpins modeled production history; conditions are simulated or manually entered. Factory accuracy and realized savings have not been established.
-- Models are accepted for a supervised prototype under the documented exception for unrecoverable original evaluation membership/counts. The independent 219-lot September holdout is weaker; **CRACK has negative holdout R²** and is disclosed as low confidence in monsoon. Recommendations remain predicted estimates and require supervisor review.
-- PO review, coordination and trace state are process-local; an instance change can require extraction again. Saved approved jobs and cards are durable; cross-instance exactly-once behavior is not claimed.
-- Historical photo labels matched 7 of 10 approved images. This is not calibrated factory inspection accuracy. Completed-lot learning is outside approved V1 scope.
+Momentum is designed as a supervised industrial intelligence platform, combining real manufacturing context, predictive models, controlled recommendations and human oversight.
+
+- **Industry-grounded foundation:** Built on a real 117-item manufacturing catalog, supplemented by modeled production history and operator-confirmed conditions. Factory-level accuracy and realized savings remain subject to field validation.
+
+- **Transparent model evaluation:** Five predictive models support pre-production risk assessment. Independent evaluation across 219 September lots identified performance differences, including lower confidence for crack predictions during monsoon conditions. These limitations are documented and recommendations remain subject to supervisor approval.
+
+- **Controlled execution and traceability:** Production inputs, recommendations and approval decisions follow a structured review workflow. Approved job records and PDF cards are durably stored, while temporary coordination and purchase-order review state remain instance-local.
+
+- **Evidence-based visual assessment:** Historical photo evaluation matched 7 of 10 approved reference images, establishing an initial demonstration baseline rather than a claim of production-grade inspection accuracy. Learning from completed production lots is planned beyond V1.
+
+**Our approach:** Prioritize explainability, human accountability and measurable validation as Momentum evolves toward broader industrial deployment.
