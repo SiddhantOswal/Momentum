@@ -2,7 +2,7 @@
 
 **Production intelligence for corrugated manufacturing.** Momentum turns an approved purchase order into a reviewed setup recommendation and supervisor-approved production card, combining Gemini, BigQuery ML and constrained optimization.
 
-[Open the application](https://momentum-514663464609.asia-south1.run.app) · [Local setup and testing](docs/README.md) · [Approved PO fixtures](public/samples/)
+[Open the application](https://momentum-ai.cloud.run/) · [Local setup and testing](docs/README.md) · [Approved PO fixtures](public/samples/)
 
 ## How it works
 

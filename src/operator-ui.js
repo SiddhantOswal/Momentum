@@ -47,7 +47,7 @@ export const homePage = `<!doctype html>
     <button type="button" id="welcome-login" class="welcome-login">Log in ${arrows}</button>
     <p class="welcome-note">Demo access · no account needed</p>
   </div>
-  <p class="welcome-foot"><span class="welcome-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Google AI Builder Cup 2026 · Built on Google Cloud with Gemini and BigQuery ML</p>
+  <p class="welcome-foot"><span class="welcome-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Google Cloud AI Builder Cup 2026 · Built on Google Cloud with Gemini and BigQuery ML</p>
 </section>
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <div class="app-shell">
