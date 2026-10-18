@@ -70,6 +70,7 @@ export const homePage = `<!doctype html>
     <section id="screen-order-input" class="screen" data-screen-panel aria-labelledby="screen-order-heading">
       <header class="page-heading"><div><h1 id="screen-order-heading">New lot</h1><p class="page-description">Upload an order, review the inputs and prepare your lot.</p></div></header>
 
+      <section id="evaluator-guide" class="evaluator-guide" aria-labelledby="evaluator-guide-title" hidden><div class="evaluator-guide__intro"><p class="eyebrow">FOR EVALUATORS</p><h2 id="evaluator-guide-title">Try Momentum in three steps</h2><p class="muted">No plant knowledge needed. The demo lot uses a sample order and a humid monsoon day.</p></div><ol class="evaluator-steps"><li id="evaluator-step-fill" data-state="current"><strong>Fill demo lot</strong><span>Loads the sample order, reads it with Gemini and fills today's conditions and settings.</span></li><li id="evaluator-step-plan"><strong>Plan this lot</strong><span>The agent predicts each defect and recommends better settings.</span></li><li id="evaluator-step-approve"><strong>Approve the job card</strong><span>Open Job review, check the plan and approve it.</span></li></ol><div class="evaluator-guide__action"><button type="button" id="fill-demo-lot">Fill demo lot ${arrows}</button><p id="fill-demo-lot-status" class="muted small" role="status" aria-live="polite"></p></div></section>
       <div class="intake-layout">
         <section class="surface order-source" aria-labelledby="upload-title">
           ${sectionHeading("01", "Purchase-order document", "Upload the customer's order, or try the sample.")}
@@ -87,6 +88,7 @@ export const homePage = `<!doctype html>
         <section class="planned-settings" aria-labelledby="planned-title">${sectionHeading("03", "Your planned settings", "The optimizer compares its recommendation with your plan.")}<details class="settings-disclosure" open><summary>Machine settings <span class="muted">7 levers · within approved ranges</span></summary><div id="lever-request-fields" class="field-grid lever-grid">${LEVER_FIELDS.map(field).join("")}</div></details><label class="confirmation"><input id="machine-settings-confirmed" type="checkbox" /><span>I reviewed these planned settings.</span></label><p class="muted small">No settings are sent to machine controls.</p></section>
       </div>
       </details>
+      <p id="demo-fill-banner" class="demo-fill-banner" role="note" hidden><strong>Demo values filled and confirmed for you.</strong> In real use, a supervisor checks each value and ticks each confirmation. Nothing reaches the machines until a person approves the job card.</p>
       <div class="plan-bar"><div><strong id="plan-readiness">Complete the lot before planning</strong><span id="plan-prerequisites">Review a source line, confirm conditions and planned settings.</span></div><button type="button" id="prepare-job" disabled>Plan this lot ${arrows}</button></div>
     </section>
 

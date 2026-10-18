@@ -73,6 +73,7 @@ let supervisorSessionModule;
 async function configureSupervisorSession(status) {
   localSyntheticUI = isLocalSyntheticRuntime(status, location.hostname);
   hackathonUI = localSyntheticUI || status.authorizationMode === "HACKATHON_DEMO";
+  document.getElementById("evaluator-guide").hidden = !hackathonUI;
   setResponseAuthorizationMode(status.authorizationMode, status);
   if (localSyntheticUI) {
     if (!document.getElementById("local-synthetic-demo-note")) {
@@ -787,10 +788,10 @@ function renderPurchaseOrderReview(payload) {
   panel.hidden = false;
 }
 
-document.getElementById("review-order").addEventListener("click", async (event) => {
-  const button = event.currentTarget;
+// Returns true when the extracted lines are shown for review.
+async function extractAndReviewOrder(button) {
   const file = orderFile.files[0];
-  if (!validateSelectedFile(file)) return;
+  if (!validateSelectedFile(file)) return false;
   const fields = {
     orderId: document.getElementById("extraction-order-id"),
     paperType: document.getElementById("extraction-paper-type"),
@@ -808,9 +809,9 @@ document.getElementById("review-order").addEventListener("click", async (event) 
       setResult("upload-result",
         "Enter the operator-confirmed " + fieldLabels[name] + " before extraction.", "error");
       input.reportValidity();
-      return;
+      return false;
     }
-    if (!input.reportValidity()) return;
+    if (!input.reportValidity()) return false;
     body.append(name, input.value);
   }
   clearPurchaseOrderReview();
@@ -828,7 +829,9 @@ document.getElementById("review-order").addEventListener("click", async (event) 
       }
     },
   });
-});
+  return !document.getElementById("purchase-order-review").hidden;
+}
+document.getElementById("review-order").addEventListener("click", (event) => extractAndReviewOrder(event.currentTarget));
 
 document.getElementById("confirm-order-line").addEventListener("change", (event) => {
   if (event.currentTarget.checked && selectedReviewLineIndex === undefined) {
@@ -907,24 +910,27 @@ const SAMPLE_ORDER = Object.freeze({
   url: "/samples/PO1_ClientA_single_B1047.pdf", name: "PO1_ClientA_single_B1047.pdf",
   orderId: "TEST-CLA/PO/2026/1047", paperType: "RECYCLED", paperSupplier: "SUP-D",
 });
+async function loadSampleOrder() {
+  const response = await fetch(SAMPLE_ORDER.url);
+  if (!response.ok) throw new Error("The sample order is unavailable. Upload a purchase order instead.");
+  const file = new File([await response.blob()], SAMPLE_ORDER.name, { type: "application/pdf" });
+  clearPurchaseOrderReview();
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  orderFile.files = transfer.files;
+  validateSelectedFile(file);
+  for (const [id, value] of [["extraction-order-id", SAMPLE_ORDER.orderId], ["extraction-paper-type", SAMPLE_ORDER.paperType], ["extraction-paper-supplier", SAMPLE_ORDER.paperSupplier]]) {
+    const control = document.getElementById(id);
+    control.value = value;
+    control.dispatchEvent(new Event("input", { bubbles: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+}
 document.getElementById("use-sample-order").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
   try {
-    const response = await fetch(SAMPLE_ORDER.url);
-    if (!response.ok) throw new Error("The sample order is unavailable. Upload a purchase order instead.");
-    const file = new File([await response.blob()], SAMPLE_ORDER.name, { type: "application/pdf" });
-    clearPurchaseOrderReview();
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    orderFile.files = transfer.files;
-    validateSelectedFile(file);
-    for (const [id, value] of [["extraction-order-id", SAMPLE_ORDER.orderId], ["extraction-paper-type", SAMPLE_ORDER.paperType], ["extraction-paper-supplier", SAMPLE_ORDER.paperSupplier]]) {
-      const control = document.getElementById(id);
-      control.value = value;
-      control.dispatchEvent(new Event("input", { bubbles: true }));
-      control.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+    await loadSampleOrder();
     setResult("upload-result", "Sample order loaded. Select Extract & review order.", "success");
   } catch (error) {
     setResult("upload-result", error.message, "error");
@@ -1916,6 +1922,87 @@ document.getElementById("confirm-order-line").addEventListener("change", syncSel
 for (const id of ["conditions-supervisor-confirmed", "machine-settings-confirmed"]) document.getElementById(id).addEventListener("change", (event) => { if (!event.currentTarget.checked) invalidateAnalysisResults(); syncPlanReadiness(); });
 document.getElementById("purchase-order-lines").addEventListener("input", syncPlanReadiness);
 document.getElementById("purchase-order-lines").addEventListener("change", syncPlanReadiness);
+
+// Evaluator demo (demo mode only): one click runs the same steps a supervisor would — sample
+// order, Gemini extraction, line confirmation, a humid monsoon day's conditions and planned
+// settings — through the normal controls and checks. The evaluator still plans and approves.
+const DEMO_LOT = Object.freeze({
+  shift: "DAY", ambientRhPct: "86", ambientTempC: "26", paperMoisturePct: "10.8",
+  sfSpeedMpm: "48", rollTempC: "162", gumApplication: "HIGH", gumViscositySec: "32", pastingPressure: "MED", dryingHours: "5", printSpeedSpm: "60",
+});
+const demoBanner = document.getElementById("demo-fill-banner");
+const demoStatus = (message) => { document.getElementById("fill-demo-lot-status").textContent = message; };
+let demoFilling = false;
+function setEvaluatorStep(step) {
+  const order = ["fill", "plan", "approve"];
+  for (const [index, name] of order.entries()) {
+    const item = document.getElementById("evaluator-step-" + name);
+    if (index < order.indexOf(step)) item.dataset.state = "done"; else if (name === step) item.dataset.state = "current"; else delete item.dataset.state;
+  }
+}
+function setDemoControl(id, value) {
+  const control = document.getElementById(id);
+  control.value = value;
+  control.dispatchEvent(new Event("input", { bubbles: true }));
+  control.dispatchEvent(new Event("change", { bubbles: true }));
+}
+function checkDemoBox(id) {
+  const box = document.getElementById(id);
+  box.checked = true;
+  box.dispatchEvent(new Event("change", { bubbles: true }));
+  return box.checked;
+}
+async function fillDemoLot() {
+  demoBanner.hidden = true;
+  if (document.getElementById("review-order").disabled) throw new Error("Order reading is unavailable right now. Try again in a moment.");
+  demoStatus("Loading the sample order…");
+  await loadSampleOrder();
+  demoStatus("Reading the order with Gemini…");
+  if (!(await extractAndReviewOrder(document.getElementById("review-order")))) throw new Error("The sample order could not be read. See the message under the order.");
+  demoFilling = true;
+  try {
+    const line = [...document.querySelectorAll('input[name="selected-po-line"]')].find((radio) => {
+      radio.checked = true;
+      radio.dispatchEvent(new Event("change", { bubbles: true }));
+      return reviewSelection().valid;
+    });
+    if (!line || !checkDemoBox("confirm-order-line")) throw new Error("The extracted line needs a manual check. Review it under the order.");
+    setDemoControl("analysis-runDate", new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+    for (const [name, value] of Object.entries(DEMO_LOT)) setDemoControl("analysis-" + name, value);
+    document.getElementById("condition-source-label").textContent = "Demo values · monsoon day";
+    if (!checkDemoBox("conditions-supervisor-confirmed") || !checkDemoBox("machine-settings-confirmed")) throw new Error("The demo values could not be confirmed. Check the production setup.");
+  } finally {
+    demoFilling = false;
+  }
+  demoBanner.hidden = false;
+  setEvaluatorStep("plan");
+  const plan = document.getElementById("prepare-job");
+  demoStatus(plan.disabled ? "Demo lot filled. Planning is unavailable right now; open backend status for details." : "Demo lot ready. Select Plan this lot.");
+  plan.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  if (!plan.disabled) plan.focus({ preventScroll: true });
+}
+document.getElementById("fill-demo-lot").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  try {
+    await fillDemoLot();
+  } catch (error) {
+    demoBanner.hidden = true;
+    demoStatus(error.message);
+  } finally {
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+  }
+});
+// Any manual edit after the demo fill clears the banner; the normal checks untick the confirmations.
+for (const id of ["condition-request-fields", "lever-request-fields", "purchase-order-lines", "extraction-order-id", "extraction-paper-type", "extraction-paper-supplier", "order-pdf"]) {
+  document.getElementById(id).addEventListener("input", () => { if (!demoFilling) demoBanner.hidden = true; });
+}
+for (const id of ["confirm-order-line", "conditions-supervisor-confirmed", "machine-settings-confirmed"]) {
+  document.getElementById(id).addEventListener("change", (event) => { if (!demoFilling && !event.currentTarget.checked) demoBanner.hidden = true; });
+}
+document.getElementById("prepare-job").addEventListener("click", () => { if (!demoBanner.hidden) setEvaluatorStep("approve"); });
 
 
 const approvedPhotoSelect = document.getElementById("approved-photo-id");
