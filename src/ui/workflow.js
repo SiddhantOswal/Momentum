@@ -412,7 +412,8 @@ function describeResponse(response, payload) {
     const adapterNote = payload?.source === "offline-test-adapter"
       ? " OFFLINE TEST ADAPTER — no production data was read or written."
       : "";
-    const acceptanceNote = payload?.isRealModelPrediction === true &&
+    // R² acceptance applies to the BigQuery ML defect models, not to Gemini reading an order.
+    const acceptanceNote = payload?.isRealModelPrediction === true && payload?.source !== "vertex-gemini" &&
       payload?.modelAcceptance?.status !== "accepted"
       ? " Model output is not accepted against the required R² threshold and current model versions; production preparation is blocked."
       : "";

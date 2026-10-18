@@ -447,3 +447,38 @@ test('demo welcome screen shows the brand once, logs in without credentials and 
   await expect(fresh.locator('#welcome-screen')).toHaveCount(0);
   await expect(fresh.locator('#screen-order-input')).toBeVisible();
 });
+
+test('evaluator guide stays hidden outside demo mode', async ({ page }) => {
+  await boot(page, true);
+  await expect(page.locator('#evaluator-guide')).toBeHidden();
+});
+
+test('evaluator demo lot fills the sample order, line, conditions and settings, and leaves planning to the evaluator', async ({ page }) => {
+  const errors = await boot(page, true, true);
+  await expect(page.locator('#evaluator-guide')).toBeVisible();
+  let extractions = 0;
+  // A live Gemini extraction is a real model call but is not an R²-accepted defect model.
+  await page.route('**/orders/extract', (route) => { extractions++; return fulfill(route, { ...extraction(), isRealModelPrediction: true }); });
+  await page.locator('#fill-demo-lot').click();
+  await expect(page.locator('#fill-demo-lot-status')).toHaveText('Demo lot ready. Select Plan this lot.');
+  expect(extractions).toBe(1);
+  await expect(page.locator('#extraction-order-id')).toHaveValue('TEST-CLA/PO/2026/1047');
+  await expect(page.locator('#confirm-order-line')).toBeChecked();
+  await expect(page.locator('#analysis-ambientRhPct')).toHaveValue('86');
+  await expect(page.locator('#analysis-rollTempC')).toHaveValue('162');
+  await expect(page.locator('#analysis-gumApplication')).toHaveValue('HIGH');
+  await expect(page.locator('#conditions-supervisor-confirmed')).toBeChecked();
+  await expect(page.locator('#machine-settings-confirmed')).toBeChecked();
+  await expect(page.locator('#demo-fill-banner')).toBeVisible();
+  await expect(page.locator('#evaluator-step-plan')).toHaveAttribute('data-state', 'current');
+  await expect(page.locator('#prepare-job')).toBeEnabled();
+  await expect(page.locator('#prepare-job')).toBeFocused();
+  await expect(page.locator('#job-status-badge')).not.toContainText('APPROVED');
+  await expect(page.locator('#upload-result')).not.toContainText('R²');
+  // A manual edit clears the banner and the normal checks untick the settings.
+  await page.locator('#analysis-rollTempC').fill('165');
+  await expect(page.locator('#demo-fill-banner')).toBeHidden();
+  await expect(page.locator('#machine-settings-confirmed')).not.toBeChecked();
+  await expect(page.locator('#prepare-job')).toBeDisabled();
+  expect(errors).toEqual([]);
+});
