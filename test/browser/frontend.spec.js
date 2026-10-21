@@ -363,7 +363,7 @@ test('hackathon participants share one genuine-action UI with explicit demo acto
   await page.route('**/impact/summary',route=>fulfill(route,impact));
   await page.locator('#load-impact').click();
   await expect(page.locator('#impact-content')).toBeVisible();
-  await expect(page.locator('#impact-coverage')).toContainText('not measured factory outcomes');
+  await expect(page.locator('#impact-coverage')).toContainText('Predicted savings on a held-out month');
   for (const width of [768,390]) {
     await page.setViewportSize({width,height:1000});
     try { await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1); }
@@ -451,6 +451,7 @@ test('demo welcome screen shows the brand once, logs in without credentials and 
 test('evaluator guide stays hidden outside demo mode', async ({ page }) => {
   await boot(page, true);
   await expect(page.locator('#evaluator-guide')).toBeHidden();
+  await expect(page.locator('[data-guide-next]')).toHaveCount(0);
 });
 
 test('evaluator demo lot fills the sample order, line, conditions and settings, and leaves planning to the evaluator', async ({ page }) => {
@@ -473,6 +474,9 @@ test('evaluator demo lot fills the sample order, line, conditions and settings, 
   await expect(page.locator('#evaluator-step-plan')).toHaveAttribute('data-state', 'current');
   await expect(page.locator('#prepare-job')).toBeEnabled();
   await expect(page.locator('#prepare-job')).toBeFocused();
+  // Only the next button the reviewer presses is highlighted.
+  await expect(page.locator('[data-guide-next]')).toHaveCount(1);
+  await expect(page.locator('#prepare-job')).toHaveAttribute('data-guide-next', 'true');
   await expect(page.locator('#job-status-badge')).not.toContainText('APPROVED');
   await expect(page.locator('#upload-result')).not.toContainText('R²');
   // A manual edit clears the banner and the normal checks untick the settings.
@@ -480,5 +484,6 @@ test('evaluator demo lot fills the sample order, line, conditions and settings, 
   await expect(page.locator('#demo-fill-banner')).toBeHidden();
   await expect(page.locator('#machine-settings-confirmed')).not.toBeChecked();
   await expect(page.locator('#prepare-job')).toBeDisabled();
+  await expect(page.locator('[data-guide-next]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

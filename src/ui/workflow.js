@@ -137,7 +137,7 @@ function applyRuntimeAvailability(status = {}) {
 }
 
 function humanizeFieldName(name) {
-  return name.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
+  return name.replace(/([A-Z])/g, " $1").toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
 }
 
 function renderFieldList(targetId, values) {
@@ -327,10 +327,10 @@ function renderImpactSummary(payload) {
     ? " Latest returned monthly row: " + lastMonth + "."
     : " The monthly query returned no rows.";
   document.getElementById("impact-coverage").textContent =
-    (hackathonUI ? "Held-out/simulated estimates, not measured factory outcomes. No annualization. " : "") + queryStatus + " SQL coverage: records before 1 October 2026." + latestMonth;
-  appendImpactMetric("Estimated net savings · after slower-production allowance", impactMoney(kpis.netSavingMonth, kpis.currency));
-  appendImpactMetric("Estimated scrap reduction", kpis.kgSavedMonth.toLocaleString("en-IN") + " kg");
-  appendImpactMetric("Held-out lots scored / settings changed", kpis.lotsScored + " / " + kpis.lotsChanged);
+    (hackathonUI ? "Predicted savings on a held-out month. No annualization. " : "") + queryStatus + " SQL coverage: records before 1 October 2026." + latestMonth;
+  appendImpactMetric("Predicted net savings · after slowdown allowance", impactMoney(kpis.netSavingMonth, kpis.currency));
+  appendImpactMetric("Predicted scrap reduction", kpis.kgSavedMonth.toLocaleString("en-IN") + " kg");
+  appendImpactMetric("Lots scored / settings changed", kpis.lotsScored + " / " + kpis.lotsChanged);
   appendImpactMetric("Held-out baseline scrap cost", impactMoney(kpis.scrapCostBefore, kpis.currency));
   appendImpactMetric("Agent-settings scrap cost before throughput penalty", impactMoney(kpis.scrapCostAfter, kpis.currency));
   appendImpactMetric("Implied modelled cost after throughput penalty", impactMoney(counterfactual.scrapCost, counterfactual.currency));
@@ -417,8 +417,8 @@ function describeResponse(response, payload) {
       payload?.modelAcceptance?.status !== "accepted"
       ? " Model output is not accepted against the required R² threshold and current model versions; production preparation is blocked."
       : "";
-    return "Response received. Review the result below." +
-      adapterNote + acceptanceNote;
+    // A plain success needs no status line; the result itself is shown below.
+    return (adapterNote + acceptanceNote).trim();
   }
   const code = payload?.error?.code;
   const serverMessage = typeof payload?.error?.message === "string" ? payload.error.message : "";
@@ -1938,7 +1938,7 @@ function setEvaluatorStep(step) {
   const order = ["fill", "plan", "approve"];
   for (const [index, name] of order.entries()) {
     const item = document.getElementById("evaluator-step-" + name);
-    if (index < order.indexOf(step)) item.dataset.state = "done"; else if (name === step) item.dataset.state = "current"; else delete item.dataset.state;
+    if (step === "done" || index < order.indexOf(step)) item.dataset.state = "done"; else if (name === step) item.dataset.state = "current"; else delete item.dataset.state;
   }
 }
 function setDemoControl(id, value) {
@@ -1976,7 +1976,7 @@ async function fillDemoLot() {
     demoFilling = false;
   }
   demoBanner.hidden = false;
-  setEvaluatorStep("plan");
+  setGuide("plan");
   const plan = document.getElementById("prepare-job");
   demoStatus(plan.disabled ? "Demo lot filled. Planning is unavailable right now; open backend status for details." : "Demo lot ready. Select Plan this lot.");
   plan.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -2003,7 +2003,36 @@ for (const id of ["condition-request-fields", "lever-request-fields", "purchase-
 for (const id of ["confirm-order-line", "conditions-supervisor-confirmed", "machine-settings-confirmed"]) {
   document.getElementById(id).addEventListener("change", (event) => { if (!demoFilling && !event.currentTarget.checked) demoBanner.hidden = true; });
 }
-document.getElementById("prepare-job").addEventListener("click", () => { if (!demoBanner.hidden) setEvaluatorStep("approve"); });
+
+// Guided demo: after Try Momentum, highlight only the next button the reviewer presses —
+// Plan this lot, Review job card, Approve job, then the approval confirmation. Anyone who
+// plans a lot directly sees no highlights.
+let guideStep = null;
+const guideTargets = {
+  plan: () => document.getElementById("prepare-job"),
+  review: () => document.querySelector('#screen-production-analysis > .actions a[href="#dashboard-job-review"]'),
+  approve: () => document.querySelector("#approval-form button[type=submit]"),
+  confirm: () => document.getElementById("confirm-approval"),
+};
+function setGuide(step) {
+  guideStep = step;
+  for (const element of document.querySelectorAll("[data-guide-next]")) element.removeAttribute("data-guide-next");
+  const target = guideTargets[step]?.();
+  if (target) target.dataset.guideNext = "true";
+  setEvaluatorStep(step === "plan" ? "plan" : step === "done" ? "done" : step ? "approve" : "fill");
+}
+const onResultState = (id, handler) => new MutationObserver(() => handler(document.getElementById(id).dataset.state))
+  .observe(document.getElementById(id), { attributes: true, attributeFilter: ["data-state"] });
+onResultState("prepare-job-result", (state) => { if (guideStep === "plan" && state === "success") setGuide("review"); });
+onResultState("approval-result", (state) => { if (guideStep === "approving") setGuide(state === "success" ? "done" : "approve"); });
+document.addEventListener("ustaad:navigation", (event) => { if (guideStep === "review" && event.detail === "dashboard-job-review") setGuide("approve"); });
+document.getElementById("approval-form").addEventListener("submit", () => { if (guideStep === "approve" && document.getElementById("approval-dialog").open) setGuide("confirm"); });
+document.getElementById("confirm-approval").addEventListener("click", () => { if (guideStep === "confirm") setGuide("approving"); });
+document.getElementById("approval-dialog").addEventListener("close", () => { if (guideStep === "confirm") setGuide("approve"); });
+// Starting your own order ends the guide.
+for (const id of ["condition-request-fields", "lever-request-fields", "purchase-order-lines", "extraction-order-id", "extraction-paper-type", "extraction-paper-supplier", "order-pdf"]) {
+  document.getElementById(id).addEventListener("input", () => { if (!demoFilling && guideStep) setGuide(null); });
+}
 
 
 const approvedPhotoSelect = document.getElementById("approved-photo-id");

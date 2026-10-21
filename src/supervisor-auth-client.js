@@ -38,7 +38,7 @@ if (statusNode && signInButton && signOutButton) {
       banner.className = "provenance-pill";
       banner.setAttribute("role", "note");
       // Required disclosure (D1/D5); "Try sample order" in New Lot replaces the PO1 instructions.
-      banner.textContent = "Prototype · modelled on our plant · simulated conditions · predicted, not measured";
+      banner.textContent = "Prototype · modelled on our plant · simulated conditions · predicted";
       document.getElementById("main-content")?.prepend(banner);
       document.getElementById("open-session").textContent = "Demo session";
       document.getElementById("session-title").textContent = "Hackathon session";
