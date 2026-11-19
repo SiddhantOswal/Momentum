@@ -34,6 +34,7 @@ import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
 import { streamSSE } from "hono/streaming";
 import { createLiveStore } from "./src/google-cloud/live-store.js";
+import { canApprove, initializeUserSessionAuth, SESSION_COOKIE } from "./src/user-session-auth.js";
 import { createWeatherProviderFromEnv } from "./src/google-cloud/weather-service.js";
 import { traceRegistry } from "./src/trace-registry.js";
 import { fxRatesService } from "./src/fx-rates.js";
@@ -72,6 +73,9 @@ const demoMode = !isCloudRun && process.env.USTAAD_AUTHORIZATION_MODE !== "HACKA
 const executionMode = demoMode ? "demo" : isCloudRun ? "live-service" : "offline";
 const supervisorAuthenticator = await initializeFirebaseSupervisorAuthenticator(process.env);
 const supervisorWebConfig = firebaseWebClientConfig(process.env);
+// Production sign-in (USTAAD_AUTH_MODE=FIREBASE_SESSION): Google accounts, session cookie, roles by email.
+const userSessionAuth = await initializeUserSessionAuth(process.env);
+const sessionWebConfig = userSessionAuth ? firebaseWebClientConfig({ ...process.env, USTAAD_FIREBASE_AUTH_ENABLED: "true" }) : undefined;
 const hackathonAuth = createHackathonDemoAuthenticator({ mode: process.env.USTAAD_AUTHORIZATION_MODE,
   signingKey: process.env.USTAAD_DEMO_SESSION_SIGNING_KEY,
   syntheticOnly: process.env.USTAAD_SYNTHETIC_ONLY === "true",
@@ -212,6 +216,13 @@ const privilegedPortNames = [
 const localPrivilegedAdapterConfigured = privilegedPortNames.some((name) => servicePorts.availability[name] === true);
 
 async function requireSupervisor(c) {
+  if (userSessionAuth) {
+    const result = await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE));
+    if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
+    if (!["GET", "HEAD"].includes(c.req.method) && !sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
+    c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
+    return undefined;
+  }
   if (hackathonAuth.enabled) {
     const result = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
     if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
@@ -234,6 +245,8 @@ async function requireSupervisor(c) {
 }
 
 function syntheticPurchaseOrderUnavailable(c, bytes) {
+  // Production: signed-in plant users may upload their own customers' orders.
+  if (userSessionAuth?.configured && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true") return undefined;
   const extractionAdapterConfigured = servicePorts.availability.extractOrderForReview === true;
   if (executionMode === "offline" && !extractionAdapterConfigured) return undefined;
   if (executionMode === "live-service" && process.env.USTAAD_SYNTHETIC_ONLY !== "true") {
@@ -518,7 +531,35 @@ app.post("/api/auth/demo-session", (c) => {
   return c.json({ ok: true, authorizationMode: "HACKATHON_DEMO", authenticatedHuman: false, expiresAt: new Date(hackathonAuth.authenticate(token).principal.expiresAt * 1000).toISOString(), approvalNote: HACKATHON_APPROVAL_NOTE }, 200, { "Cache-Control": "no-store" });
 });
 
+// Google sign-in: a fresh Firebase ID token becomes an HttpOnly session cookie.
+app.post("/api/auth/session", async (c) => {
+  if (!userSessionAuth) return c.json({ ok: false, error: { code: "NOT_FOUND", message: "Google sign-in is not enabled here." } }, 404);
+  if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
+  const body = await c.req.json().catch(() => ({}));
+  const result = await userSessionAuth.startSession(body?.idToken);
+  if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
+  setCookie(c, SESSION_COOKIE, result.cookie, { secure: true, httpOnly: true, sameSite: "Lax", path: "/", maxAge: result.maxAge });
+  const { email, name, role } = result.principal;
+  return c.json({ ok: true, user: { email, name, role } }, 200, { "Cache-Control": "no-store" });
+});
+app.post("/api/auth/logout", (c) => {
+  if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
+  setCookie(c, SESSION_COOKIE, "", { secure: true, httpOnly: true, sameSite: "Lax", path: "/", maxAge: 0 });
+  return c.json({ ok: true }, 200, { "Cache-Control": "no-store" });
+});
+app.get("/api/auth/me", async (c) => {
+  if (!userSessionAuth) return c.json({ ok: false, error: { code: "NOT_FOUND", message: "Google sign-in is not enabled here." } }, 404);
+  const result = await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE));
+  if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
+  const { email, name, role } = result.principal;
+  return c.json({ ok: true, user: { email, name, role, canApprove: canApprove(result.principal) } }, 200, { "Cache-Control": "no-store" });
+});
+
 app.get("/api/auth/config", (c) => {
+  if (userSessionAuth) {
+    return c.json({ enabled: userSessionAuth.configured && sessionWebConfig !== undefined, authorizationMode: "FIREBASE_SESSION", provider: "firebase-google",
+      ...(sessionWebConfig ? { clientConfig: sessionWebConfig } : { reasonCode: "FIREBASE_WEB_CONFIG_MISSING" }) }, 200, { "Cache-Control": "no-store" });
+  }
   if (hackathonAuth.enabled) return c.json({ enabled: false, authorizationMode: "HACKATHON_DEMO", demoSessionConfigured: hackathonAuth.configured, sessionEndpoint: "/api/auth/demo-session", approvalNote: HACKATHON_APPROVAL_NOTE }, 200, { "Cache-Control": "no-store" });
   // Sign-in must be possible before the owner can verify/provision a first UID.
   // Publishing public Firebase web config grants no supervisor authorization.
@@ -1150,6 +1191,9 @@ app.get("/jobs/:id", async (c) => {
 app.post("/jobs/:id/approve", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
+  if (userSessionAuth && !canApprove(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY))) {
+    return c.json({ ok: false, error: { code: "APPROVER_ROLE_REQUIRED", message: "Only a supervisor or manager can approve a job card." } }, 403);
+  }
   if (executionMode !== "demo" && !isModelSetAccepted(modelAcceptanceConfig)) {
     return c.json({
       ok: false,
