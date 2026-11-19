@@ -20,8 +20,8 @@ import {
   OrderOperatorFieldsSchema,
   RiskOptimizationRequestSchema,
   RiskExplanationRequestSchema,
-  RiskPredictionRequestSchema,
-  RunConditionsSchema,
+  GuardedRiskPredictionRequestSchema,
+  ManualRunConditionsSchema,
   SeenBeforeRequestSchema,
   SimilarRunsRequestSchema,
   SUPPORTED_CURRENCIES,
@@ -793,7 +793,7 @@ app.post("/risk/predict", async (c) => {
 
   const validated = validateInput(
     c,
-    RiskPredictionRequestSchema,
+    GuardedRiskPredictionRequestSchema,
     request.body,
     "Risk prediction request failed validation."
   );
@@ -943,14 +943,20 @@ app.post("/jobs", async (c) => {
     }], "The selected PO line has not been confirmed.");
   }
   const shift = form.shift;
+  // A blank humidity or temperature field is "missing", not 0; the condition
+  // guard then falls back to weather or the seasonal typical value.
+  const conditionNumber = (value) => value === undefined || value === null ||
+    (typeof value === "string" && value.trim() === "")
+    ? undefined
+    : typeof value === "string" ? Number(value) : value;
   const rawManualConditions = {
     runDate: form.runDate,
     shift,
-    ambientRhPct: typeof form.ambientRhPct === "string" ? Number(form.ambientRhPct) : form.ambientRhPct,
-    ambientTempC: typeof form.ambientTempC === "string" ? Number(form.ambientTempC) : form.ambientTempC,
-    paperMoisturePct: typeof form.paperMoisturePct === "string" ? Number(form.paperMoisturePct) : form.paperMoisturePct,
+    ambientRhPct: conditionNumber(form.ambientRhPct),
+    ambientTempC: conditionNumber(form.ambientTempC),
+    paperMoisturePct: conditionNumber(form.paperMoisturePct),
   };
-  const manualConditions = RunConditionsSchema.safeParse(rawManualConditions);
+  const manualConditions = ManualRunConditionsSchema.safeParse(rawManualConditions);
   const conditionsConfirmed = form.conditionsConfirmed === "true";
   const issues = [
     ...(operatorFields.success ? [] : operatorFields.error.issues.map((issue) => ({

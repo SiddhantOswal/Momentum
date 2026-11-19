@@ -1,0 +1,12 @@
+{
+  "provider": "google-maps-platform-weather",
+  "endpoint": "https://weather.googleapis.com/v1/currentConditions:lookup",
+  "location": {
+    "name": "Pune plant",
+    "latitude": 18.5204,
+    "longitude": 73.8567
+  },
+  "timeoutMs": 4000,
+  "apiKeyEnv": "WEATHER_API_KEY",
+  "note": "Used only as a humidity/temperature fallback when the plant reading is missing or outside the recorded range. Disabled unless WEATHER_API_KEY is set."
+}

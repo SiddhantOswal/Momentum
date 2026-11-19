@@ -12,6 +12,8 @@ const storageConfig = readFileSync(new URL("../config/gcp-storage.json", import.
 const vertexConfig = readFileSync(new URL("../config/gcp-vertex-ai.json", import.meta.url), "utf8");
 const approvedPhotoConfig = readFileSync(new URL("../config/approved-photos.json", import.meta.url), "utf8");
 const modelAcceptanceConfig = readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8");
+const conditionRangesConfig = readFileSync(new URL("../config/condition-ranges.json", import.meta.url), "utf8");
+const weatherConfig = readFileSync(new URL("../config/weather.json", import.meta.url), "utf8");
 
 test("container build excludes local credentials and uses an explicit source allowlist", () => {
   for (const pattern of [
@@ -36,6 +38,9 @@ test("container build excludes local credentials and uses an explicit source all
   assert.ok(dockerignore.includes("!config/gcp-vertex-ai.json"));
   assert.ok(dockerignore.includes("!config/model-acceptance.json"));
   assert.ok(dockerignore.includes("!config/approved-photos.json"));
+  // The condition guard and weather fallback load these at startup.
+  assert.ok(dockerignore.includes("!config/condition-ranges.json"));
+  assert.ok(dockerignore.includes("!config/weather.json"));
   assert.ok(!dockerignore.includes("!config/gcp-cloud-run.json"));
   assert.ok(!dockerignore.includes("!config/gcp-firestore.json"));
 
@@ -52,7 +57,7 @@ test("container build excludes local credentials and uses an explicit source all
 
   const looksSensitive =
     /-----BEGIN [A-Z ]*PRIVATE KEY-----|AIza[0-9A-Za-z_-]{20,}|ya29\.[0-9A-Za-z_-]+|AKIA[0-9A-Z]{16}/;
-  for (const configText of [storageConfig, vertexConfig, modelAcceptanceConfig, approvedPhotoConfig]) {
+  for (const configText of [storageConfig, vertexConfig, modelAcceptanceConfig, approvedPhotoConfig, conditionRangesConfig, weatherConfig]) {
     assert.equal(looksSensitive.test(configText), false,
       "A copied runtime manifest contains a credential-like value.");
   }

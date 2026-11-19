@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse, datetime, gzip, hashlib, json, subprocess, tarfile
 
 ROOT_FILES = ['Dockerfile', '.dockerignore', 'package.json', 'package-lock.json', 'index.mjs']
-CONFIG_FILES = ['gcp-storage.json', 'gcp-vertex-ai.json', 'model-acceptance.json', 'approved-photos.json']
+CONFIG_FILES = ['gcp-storage.json', 'gcp-vertex-ai.json', 'model-acceptance.json', 'approved-photos.json', 'condition-ranges.json', 'weather.json']
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()

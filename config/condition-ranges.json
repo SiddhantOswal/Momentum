@@ -1,0 +1,83 @@
+{
+  "source": {
+    "table": "prepagent-hack.prepagent.lots",
+    "queriedOn": "2026-11-20",
+    "rowCount": 5350,
+    "runDateRange": {
+      "first": "2024-10-01",
+      "last": "2026-09-30"
+    },
+    "nullCounts": {
+      "ambientRhPct": 0,
+      "ambientTempC": 0,
+      "paperMoisturePct": 0
+    },
+    "method": "One read-only BigQuery query (asia-south1, maximum_bytes_billed 20000000): MIN, MAX and exact PERCENTILE_CONT p01/p99 over all lots; PERCENTILE_CONT median per calendar month of run_date.",
+    "note": "The valid range used by the condition guard is the historical min..max; the models have not seen conditions outside it."
+  },
+  "fields": {
+    "ambientRhPct": {
+      "unit": "%RH",
+      "min": 25.0,
+      "max": 98.0,
+      "p01": 26.0,
+      "p99": 98.0,
+      "monthlyMedian": {
+        "1": 42.0,
+        "2": 40.7,
+        "3": 35.95,
+        "4": 36.05,
+        "5": 35.6,
+        "6": 87.2,
+        "7": 86.4,
+        "8": 85.45,
+        "9": 86.0,
+        "10": 61.55,
+        "11": 61.0,
+        "12": 41.6
+      }
+    },
+    "ambientTempC": {
+      "unit": "degC",
+      "min": 6.1,
+      "max": 40.0,
+      "p01": 9.5,
+      "p99": 39.2,
+      "monthlyMedian": {
+        "1": 18.65,
+        "2": 19.0,
+        "3": 30.9,
+        "4": 31.5,
+        "5": 31.9,
+        "6": 24.7,
+        "7": 24.85,
+        "8": 24.7,
+        "9": 24.9,
+        "10": 23.8,
+        "11": 23.9,
+        "12": 18.9
+      }
+    },
+    "paperMoisturePct": {
+      "unit": "% moisture",
+      "min": 5.0,
+      "max": 12.0,
+      "p01": 5.18,
+      "p99": 12.0,
+      "monthlyMedian": {
+        "1": 7.01,
+        "2": 7.0,
+        "3": 6.51,
+        "4": 6.56,
+        "5": 6.53,
+        "6": 10.93,
+        "7": 10.86,
+        "8": 10.82,
+        "9": 10.74,
+        "10": 8.68,
+        "11": 8.72,
+        "12": 7.08
+      }
+    }
+  }
+}

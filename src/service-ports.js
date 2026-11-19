@@ -16,6 +16,8 @@ import { createJobCardService } from "./google-cloud/job-card-service.js";
 import { createFeedbackService } from "./google-cloud/feedback-service.js";
 import { createLotAssociationService } from "./google-cloud/lot-association-service.js";
 import { createRiskPredictionService } from "./google-cloud/risk-prediction-service.js";
+import { createWeatherProviderFromEnv } from "./google-cloud/weather-service.js";
+import { createConditionGuard } from "./condition-guard.js";
 import { createRiskOptimizationService } from "./google-cloud/risk-optimization-service.js";
 import {
   createRiskExplanationService,
@@ -137,6 +139,9 @@ export function createServicePorts(adapters = {}) {
     getLotOrder: adapters.getLotOrder ?? unavailable("getLotOrder"),
     getInsights: adapters.getInsights ?? unavailable("getInsights"),
     getImpactSummary: adapters.getImpactSummary ?? unavailable("getImpactSummary"),
+    // Resolves humidity/temperature fallbacks and checks paper moisture against
+    // the plant's recorded ranges before any prediction (src/condition-guard.js).
+    conditionGuard: adapters.conditionGuard ?? createConditionGuard(),
   });
 }
 
@@ -441,7 +446,14 @@ export function createConfiguredServicePorts({
     fetchImpl,
     tokenProvider,
   });
-  const adapters = { geminiUsage: Object.freeze({ sharedCounterConfigured, liveConnectivityVerified: false }) };
+  // The weather fallback is enabled only when WEATHER_API_KEY is set.
+  const conditionGuard = createConditionGuard({
+    weatherProvider: createWeatherProviderFromEnv(env, { fetchImpl }),
+  });
+  const adapters = {
+    geminiUsage: Object.freeze({ sharedCounterConfigured, liveConnectivityVerified: false }),
+    conditionGuard,
+  };
   if (projectId) {
     adapters.getLotOrder = createLotAssociationService({ bigquery, projectId });
     if (env.USTAAD_ENABLE_IMPACT_SUMMARY === "true") {
@@ -464,7 +476,7 @@ export function createConfiguredServicePorts({
       fetchImpl,
       tokenProvider,
     });
-    adapters.predictRisk = createRiskPredictionService({ bigquery: riskBigquery, projectId, modelAcceptance });
+    adapters.predictRisk = createRiskPredictionService({ bigquery: riskBigquery, projectId, modelAcceptance, conditionGuard });
     const optimizerContractApproved = env.USTAAD_OPTIMIZER_CONTRACT_STATUS === "approved" &&
       typeof env.USTAAD_OPTIMIZER_CONTRACT_VERSION === "string" &&
       /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(env.USTAAD_OPTIMIZER_CONTRACT_VERSION);

@@ -22,6 +22,8 @@ config
 !config/gcp-storage.json
 !config/gcp-vertex-ai.json
 !config/model-acceptance.json
+!config/condition-ranges.json
+!config/weather.json
 *.log
 
 !config/approved-photos.json

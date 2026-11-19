@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@font-face { font-family: "Plex"; src: url("/app/fonts/plex-regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex"; src: url("/app/fonts/plex-medium.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Plex"; src: url("/app/fonts/plex-semibold.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+
+/* Design tokens. One accent (kraft amber); green and red only mean good and bad. */
+:root, [data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0d0f;
+  --panel: #121518;
+  --panel-2: #171b1f;
+  --raised: #1d2226;
+  --line: #242a2f;
+  --line-strong: #323a40;
+  --text: #e9edee;
+  --muted: #8b959b;
+  --faint: #5d676d;
+  --accent: #e8a33d;
+  --accent-ink: #1a1206;
+  --accent-soft: rgb(232 163 61 / 0.14);
+  --good: #7fd35b;
+  --good-soft: rgb(127 211 91 / 0.14);
+  --bad: #f2604c;
+  --bad-soft: rgb(242 96 76 / 0.14);
+  --warn: #f0c24b;
+  --info: #56c8dd;
+  --iso-top: #2a3137;
+  --iso-left: #1b2024;
+  --iso-right: #22282d;
+  --iso-floor: #0f1215;
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f0eb;
+  --panel: #ffffff;
+  --panel-2: #f8f6f2;
+  --raised: #efece6;
+  --line: #e3ded4;
+  --line-strong: #d3ccbf;
+  --text: #15181b;
+  --muted: #5d666b;
+  --faint: #8d959a;
+  --accent: #b8700f;
+  --accent-ink: #ffffff;
+  --accent-soft: rgb(184 112 15 / 0.12);
+  --good: #2f8a3b;
+  --good-soft: rgb(47 138 59 / 0.12);
+  --bad: #c2412d;
+  --bad-soft: rgb(194 65 45 / 0.12);
+  --warn: #a7790b;
+  --info: #1d7f95;
+  --iso-top: #e7e2d8;
+  --iso-left: #cfc8bb;
+  --iso-right: #dcd6ca;
+  --iso-floor: #ebe7df;
+  --shadow: 0 1px 2px rgb(20 24 27 / 0.06), 0 8px 24px rgb(20 24 27 / 0.06);
+}
+
+@theme inline {
+  --font-sans: "Plex", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn);
+  --color-info: var(--info);
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

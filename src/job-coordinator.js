@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   LeversSchema,
+  ManualRunConditionsSchema,
   OperatorItemConfirmationSchema,
   OptimizationResultSchema,
   OrderOperatorFieldsSchema,
@@ -11,6 +12,7 @@ import {
   SensorProvenanceSchema,
 } from "./schemas.js";
 import { buildDraftJobSheet } from "./job-sheet-builder.js";
+import { createConditionGuard } from "./condition-guard.js";
 
 const REQUIRED_OPERATOR_FIELDS = ["orderId", "paperType", "paperSupplier"];
 
@@ -77,7 +79,13 @@ function optimizerMatchesPlan(optimization, plannedLevers) {
  * injected so missing Om-owned query tools remain explicit unavailable steps;
  * this coordinator never substitutes sample values or creates persistent data.
  */
-export function createJobCoordinator({ services, traceRegistry, plantId, allowSyntheticDemoConditions = false } = {}) {
+export function createJobCoordinator({
+  services,
+  traceRegistry,
+  plantId,
+  allowSyntheticDemoConditions = false,
+  conditionGuard = services?.conditionGuard ?? createConditionGuard(),
+} = {}) {
   if (!services || typeof services !== "object" || Array.isArray(services) ||
       !traceRegistry || typeof traceRegistry.startRun !== "function" ||
       typeof traceRegistry.startTool !== "function" ||
@@ -90,6 +98,9 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
     if (typeof services[name] !== "function") {
       throw new TypeError(`The ${name} service port is required.`);
     }
+  }
+  if (typeof conditionGuard !== "function") {
+    throw new TypeError("A condition guard is required.");
   }
 
   return async function prepareJob({
@@ -126,6 +137,16 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         ...issue,
         path: ["levers", ...issue.path],
       }))),
+      // Paper moisture has no weather or seasonal fallback; ask for it before
+      // any extraction work. Range checks run in the condition guard.
+      ...(manualConditions !== undefined && manualConditions !== null &&
+        (manualConditions.paperMoisturePct === undefined || manualConditions.paperMoisturePct === null)
+        ? [{
+          path: ["conditions", "paperMoisturePct"],
+          code: "required",
+          message: "Paper moisture is missing. Measure the paper reel and enter its moisture.",
+        }]
+        : []),
       ...(conditionsConfirmed === true ? [] : [{
         path: ["conditionsConfirmed"],
         code: "confirmation_required",
@@ -361,7 +382,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
 
     const manualConditionsParsed = manualConditions === undefined
       ? undefined
-      : RunConditionsSchema.safeParse({ ...manualConditions, shift: context.shift });
+      : ManualRunConditionsSchema.safeParse({ ...manualConditions, shift: context.shift });
     if (manualConditionsParsed && !manualConditionsParsed.success) {
       traceRegistry.finishRun(runId, "failed");
       return {
@@ -377,7 +398,32 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
     if (conditionsResult.stopped) {
       return { ...conditionsResult.result, ...purchaseOrderOutput() };
     }
-    const parsedConditions = RunConditionsSchema.safeParse(conditionsResult.result.data);
+    // Check humidity, temperature and paper moisture against the plant's
+    // recorded ranges; humidity and temperature fall back to weather or the
+    // seasonal typical value, paper moisture must come from the operator.
+    const rawConditions = conditionsResult.result.data;
+    const guarded = await conditionGuard({
+      conditions: rawConditions ?? {},
+      runDate: rawConditions?.runDate,
+      signal,
+    });
+    if (!guarded.ok) {
+      traceRegistry.finishRun(runId, "failed");
+      return {
+        ...guarded,
+        runId,
+        blockedAt: "getConditions",
+        ...purchaseOrderOutput(),
+      };
+    }
+    const conditionGuardOutput = {
+      conditionSources: guarded.conditionSources,
+      confidence: guarded.confidence,
+      ...(guarded.notes.length > 0 ? { conditionNotes: guarded.notes } : {}),
+    };
+    const parsedConditions = RunConditionsSchema.safeParse(rawConditions === undefined
+      ? undefined
+      : { ...rawConditions, ...guarded.conditions });
     if (!parsedConditions.success) {
       traceRegistry.finishRun(runId, "failed");
       return {
@@ -427,6 +473,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
       };
     }
 
@@ -443,8 +490,44 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
       signal,
     }));
     if (prediction.stopped) {
-      return { ...prediction.result, ...purchaseOrderOutput() };
+      return { ...prediction.result, ...purchaseOrderOutput(), ...conditionGuardOutput };
     }
+    if (prediction.result.partial === true) {
+      // One or more defect models failed. Show what is available, but a job
+      // sheet needs all five defects and a matching optimizer baseline.
+      const unavailableDefects = Array.isArray(prediction.result.unavailableDefects)
+        ? prediction.result.unavailableDefects
+        : [];
+      traceRegistry.finishRun(runId, "failed");
+      return {
+        ok: false,
+        error: {
+          code: "SERVICE_UNAVAILABLE",
+          message: `The ${unavailableDefects.join(", ") || "some"} defect model${unavailableDefects.length === 1 ? " is" : "s are"} unavailable right now, so only part of the risk could be predicted. A job sheet needs all five defects; try again shortly.`,
+        },
+        runId,
+        blockedAt: "predictRisk",
+        completedStages: ["extractOrder", "getConditions"],
+        orderProfile: order,
+        ...purchaseOrderOutput(),
+        conditions: conditionsOutput,
+        ...conditionGuardOutput,
+        partialPrediction: {
+          ratesPct: prediction.result.ratesPct,
+          totalScrapPct: prediction.result.totalScrapPct,
+          totalScrapKg: prediction.result.totalScrapKg,
+          scrapCost: prediction.result.scrapCost,
+          currency: prediction.result.currency,
+          primaryDefect: prediction.result.primaryDefect,
+          unavailableDefects,
+          totalsCover: prediction.result.totalsCover,
+          ...(prediction.result.humidityBand === undefined ? {} : { humidityBand: prediction.result.humidityBand }),
+        },
+      };
+    }
+    const humidityBandOutput = prediction.result.humidityBand === undefined
+      ? {}
+      : { humidityBand: prediction.result.humidityBand };
 
     const risk = RiskResultSchema.safeParse({
       ratesPct: prediction.result.ratesPct,
@@ -471,6 +554,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         ...purchaseOrderOutput(),
       };
     }
@@ -490,6 +574,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
         modelProvenance: prediction.result.modelProvenance,
         modelAcceptance: prediction.result.modelAcceptance,
@@ -510,6 +595,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
       };
     }
@@ -531,6 +617,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
       };
     }
@@ -553,6 +640,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
       };
     }
@@ -568,6 +656,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
         optimization: optimizationData,
       };
@@ -592,6 +681,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
         optimization: optimizationData,
       };
@@ -620,6 +710,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
         optimization: optimizationData,
         evidence,
@@ -643,6 +734,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
         optimization: optimizationData,
         evidence,
@@ -668,7 +760,9 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         supervisorConfirmed: conditionsOutput.supervisorConfirmed,
         optimization: optimizationData,
         evidence: evidence ?? [],
-        explanation: `${optimizationData.modelPredicted === true
+        explanation: `${guarded.confidence === "reduced"
+          ? `Reduced confidence: ${guarded.notes.join(" ")} `
+          : ""}${optimizationData.modelPredicted === true
           ? "Savings are model-predicted estimates, not observed production outcomes."
           : "Savings are optimizer-reported estimates, not verified production outcomes."} ${
           optimizationData.note === undefined ? "" : `${optimizationData.note} `
@@ -685,6 +779,7 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
         orderProfile: order,
         ...purchaseOrderOutput(),
         conditions: conditionsOutput,
+        ...conditionGuardOutput,
         prediction: risk.data,
         optimization: optimizationData,
         evidence,
@@ -700,7 +795,9 @@ export function createJobCoordinator({ services, traceRegistry, plantId, allowSy
       orderProfile: order,
       ...purchaseOrderOutput(),
       conditions: conditionsOutput,
+      ...conditionGuardOutput,
       prediction: risk.data,
+      ...humidityBandOutput,
       optimization: optimizationData,
       evidence,
       explanation: explanation.result.explanation,

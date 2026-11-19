@@ -1,0 +1,211 @@
+{
+  "kind": "humidity-sweep",
+  "generatedAt": "2026-11-19T20:59:47.362Z",
+  "source": {
+    "query": "sql/predict.sql spec/input/ML.PREDICT CTEs with the RH rows replaced by the sweep grid (tools/humidity-sweep.mjs)",
+    "project": "prepagent-hack",
+    "location": "asia-south1",
+    "maximumBytesBilled": 83886080,
+    "models": [
+      "prepagent.m_warp",
+      "prepagent.m_delam",
+      "prepagent.m_strength",
+      "prepagent.m_print",
+      "prepagent.m_crack"
+    ]
+  },
+  "inputs": {
+    "order": "TEST-CLA/PO/2026/1047 (PO1)",
+    "item_code": "PKBX0041",
+    "quantity": 1300,
+    "paper_type": "RECYCLED",
+    "paper_supplier": "SUP-D",
+    "shift": "DAY",
+    "ambient_temp_c": 26,
+    "paper_moisture_pct": 10.8,
+    "sf_speed_mpm": 48,
+    "roll_temp_c": 162,
+    "gum_application": "HIGH",
+    "gum_viscosity_sec": 32,
+    "pasting_pressure": "MED",
+    "drying_hours": 5,
+    "print_speed_spm": 60,
+    "ambientRhPct": {
+      "fromPct": 40,
+      "toPct": 95,
+      "stepPct": 5
+    }
+  },
+  "points": [
+    {
+      "rhPct": 40,
+      "WARP": 1.525,
+      "DELAM": 1.923,
+      "STRENGTH": 0.7146,
+      "PRINT": 1.9057,
+      "CRACK": 0.6262
+    },
+    {
+      "rhPct": 45,
+      "WARP": 1.525,
+      "DELAM": 1.923,
+      "STRENGTH": 0.7146,
+      "PRINT": 1.9057,
+      "CRACK": 0.6262
+    },
+    {
+      "rhPct": 50,
+      "WARP": 1.525,
+      "DELAM": 1.923,
+      "STRENGTH": 0.7146,
+      "PRINT": 1.9057,
+      "CRACK": 0.6262
+    },
+    {
+      "rhPct": 55,
+      "WARP": 1.5877,
+      "DELAM": 1.923,
+      "STRENGTH": 0.7146,
+      "PRINT": 1.9057,
+      "CRACK": 0.6262
+    },
+    {
+      "rhPct": 60,
+      "WARP": 1.5877,
+      "DELAM": 1.923,
+      "STRENGTH": 0.7146,
+      "PRINT": 1.9057,
+      "CRACK": 0.6262
+    },
+    {
+      "rhPct": 65,
+      "WARP": 1.5877,
+      "DELAM": 1.923,
+      "STRENGTH": 0.7146,
+      "PRINT": 1.9057,
+      "CRACK": 0.6262
+    },
+    {
+      "rhPct": 70,
+      "WARP": 1.6164,
+      "DELAM": 2.4801,
+      "STRENGTH": 0.7146,
+      "PRINT": 1.9057,
+      "CRACK": 0.6262
+    },
+    {
+      "rhPct": 75,
+      "WARP": 1.6164,
+      "DELAM": 2.8314,
+      "STRENGTH": 0.7146,
+      "PRINT": 1.9057,
+      "CRACK": 0.6601
+    },
+    {
+      "rhPct": 80,
+      "WARP": 2.7366,
+      "DELAM": 2.98,
+      "STRENGTH": 0.8938,
+      "PRINT": 2.2393,
+      "CRACK": 0.7589
+    },
+    {
+      "rhPct": 85,
+      "WARP": 3.4439,
+      "DELAM": 2.98,
+      "STRENGTH": 1.167,
+      "PRINT": 1.8276,
+      "CRACK": 0.778
+    },
+    {
+      "rhPct": 90,
+      "WARP": 4.1163,
+      "DELAM": 2.98,
+      "STRENGTH": 1.167,
+      "PRINT": 1.8276,
+      "CRACK": 0.8212
+    },
+    {
+      "rhPct": 95,
+      "WARP": 4.0026,
+      "DELAM": 2.98,
+      "STRENGTH": 1.167,
+      "PRINT": 1.8551,
+      "CRACK": 0.7225
+    }
+  ],
+  "analysis": {
+    "abruptJumpPp": 1,
+    "defects": {
+      "WARP": {
+        "largestJump": {
+          "fromRhPct": 75,
+          "toRhPct": 80,
+          "jumpPp": 1.1202,
+          "signedJumpPp": 1.1202
+        },
+        "minPct": 1.525,
+        "maxPct": 4.1163,
+        "rangePp": 2.5913,
+        "jumpShareOfRange": 0.4323,
+        "abrupt": true
+      },
+      "DELAM": {
+        "largestJump": {
+          "fromRhPct": 65,
+          "toRhPct": 70,
+          "jumpPp": 0.5571,
+          "signedJumpPp": 0.5571
+        },
+        "minPct": 1.923,
+        "maxPct": 2.98,
+        "rangePp": 1.057,
+        "jumpShareOfRange": 0.5271,
+        "abrupt": false
+      },
+      "STRENGTH": {
+        "largestJump": {
+          "fromRhPct": 80,
+          "toRhPct": 85,
+          "jumpPp": 0.2732,
+          "signedJumpPp": 0.2732
+        },
+        "minPct": 0.7146,
+        "maxPct": 1.167,
+        "rangePp": 0.4524,
+        "jumpShareOfRange": 0.6039,
+        "abrupt": false
+      },
+      "PRINT": {
+        "largestJump": {
+          "fromRhPct": 80,
+          "toRhPct": 85,
+          "jumpPp": 0.4117,
+          "signedJumpPp": -0.4117
+        },
+        "minPct": 1.8276,
+        "maxPct": 2.2393,
+        "rangePp": 0.4117,
+        "jumpShareOfRange": 1,
+        "abrupt": false
+      },
+      "CRACK": {
+        "largestJump": {
+          "fromRhPct": 75,
+          "toRhPct": 80,
+          "jumpPp": 0.0988,
+          "signedJumpPp": 0.0988
+        },
+        "minPct": 0.6262,
+        "maxPct": 0.8212,
+        "rangePp": 0.195,
+        "jumpShareOfRange": 0.5067,
+        "abrupt": false
+      }
+    },
+    "abruptDefects": [
+      "WARP"
+    ],
+    "anyAbrupt": true
+  }
+}
