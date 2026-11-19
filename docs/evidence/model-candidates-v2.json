@@ -1,8 +1,7 @@
 {
   "kind": "model-candidates-v2",
   "generatedAt": "2026-11-20",
-  "status": "PARTIAL: baseline done, candidates not trained",
-  "blockedReason": "BigQuery ML bills boosted-tree CREATE MODEL by compute, not by the ~1.5 MB the dry run reports. The Oct 2026 training of the current five m_* models billed 96.1 GB in total (7.4 to 49.7 GB per model, about 1,670 bytes billed per slot-ms; job bqjob_r4cfdf43fbdc1dad1_000001a12c5223a4_1). The task cap was 200 MB per query and 'keep total bytes billed small', so no CREATE MODEL was run. Needs Om's decision on a training budget; suggested first step is a single m2_warp config-A cost probe.",
+  "status": "COMPLETE: config A candidates trained and evaluated (read-only evaluation)",
   "source": {
     "project": "prepagent-hack",
     "dataset": "prepagent",
@@ -91,28 +90,17 @@
         "min_tree_child_weight": 20,
         "early_stop": false,
         "enable_global_explain": false
-      },
-      "B": {
-        "modelName": "m2_<defect>_b (copied to m2_<defect> if it wins)",
-        "model_type": "BOOSTED_TREE_REGRESSOR",
-        "data_split_method": "NO_SPLIT",
-        "max_tree_depth": 3,
-        "learn_rate": 0.1,
-        "max_iterations": 60,
-        "subsample": 0.7,
-        "colsample_bytree": 0.7,
-        "l2_reg": 10,
-        "min_tree_child_weight": 40,
-        "early_stop": false,
-        "enable_global_explain": false
       }
     },
     "notes": [
       "early stopping is not available with NO_SPLIT (BQML rejects min_relative_progress), so iterations are fixed",
       "global explain is off to save compute; top drivers come from ML.FEATURE_IMPORTANCE",
-      "picking A vs B on the holdout is a mild selection effect on the reported candidate score"
+      "config B was not trained (Om approved config A only)"
     ],
-    "validation": "both CREATE MODEL configs pass a BigQuery dry run; the sweep query reproduces docs/evidence/humidity-sweep.json exactly when pointed at m_*"
+    "validation": "both CREATE MODEL configs pass a BigQuery dry run; the sweep query reproduces docs/evidence/humidity-sweep.json exactly when pointed at m_*",
+    "configsTrained": [
+      "A"
+    ]
   },
   "perDefect": {
     "WARP": {
@@ -147,17 +135,122 @@
           "r2": -0.0122,
           "maePp": 0.5582
         },
-        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat",
+        "holdoutSep2026Only": {
+          "r2": 0.0107,
+          "maePp": 0.5297
+        }
       },
       "candidate": {
         "model": "prepagent.m2_warp",
-        "status": "NOT_TRAINED",
-        "holdoutJulSep2026": null,
-        "configChosen": null,
-        "topDrivers": null,
-        "humiditySweepPO1": null
+        "status": "TRAINED",
+        "configChosen": "A (only config trained; no B)",
+        "trainingJob": "bqjob_r4fe6150c02c58590_000001a1f5bd3ea3_1",
+        "trainingBytesBilled": 31685869568,
+        "trainRows": "run_date < 2026-07-01 (4,710 lots)",
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.4446,
+          "maePp": 0.3267
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.4682,
+          "maePp": 0.3169
+        },
+        "pairedSep2026VsCurrent": {
+          "maeGainPp": 0.0128,
+          "maeGainSe": 0.014,
+          "mseGain": 0.0403,
+          "mseGainSe": 0.0182,
+          "note": "per-lot error of current minus candidate on the same 219 September lots; positive = candidate better"
+        },
+        "topDrivers": [
+          {
+            "feature": "ambient_rh_pct",
+            "importanceGain": 25.827
+          },
+          {
+            "feature": "rh_x_paper_moisture",
+            "importanceGain": 17.71
+          },
+          {
+            "feature": "gum_application",
+            "importanceGain": 15.249
+          },
+          {
+            "feature": "top_liner_gsm",
+            "importanceGain": 8.523
+          },
+          {
+            "feature": "drying_hours",
+            "importanceGain": 8.231
+          }
+        ],
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.8348,
+          "between": [
+            75,
+            80
+          ],
+          "rangePp": 2.1531,
+          "abrupt": false,
+          "points": [
+            {
+              "rhPct": 40,
+              "ratePct": 1.4792
+            },
+            {
+              "rhPct": 45,
+              "ratePct": 1.4792
+            },
+            {
+              "rhPct": 50,
+              "ratePct": 1.496
+            },
+            {
+              "rhPct": 55,
+              "ratePct": 1.5239
+            },
+            {
+              "rhPct": 60,
+              "ratePct": 1.5239
+            },
+            {
+              "rhPct": 65,
+              "ratePct": 1.5239
+            },
+            {
+              "rhPct": 70,
+              "ratePct": 1.8129
+            },
+            {
+              "rhPct": 75,
+              "ratePct": 2.2497
+            },
+            {
+              "rhPct": 80,
+              "ratePct": 3.0845
+            },
+            {
+              "rhPct": 85,
+              "ratePct": 3.5497
+            },
+            {
+              "rhPct": 90,
+              "ratePct": 3.4939
+            },
+            {
+              "rhPct": 95,
+              "ratePct": 3.6323
+            }
+          ]
+        }
       },
-      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+      "recommendation": "SWITCH_TO_CANDIDATE",
+      "sweepJumpChangePp": -0.2854,
+      "recommendationReason": "Sep R2 0.468 vs 0.402 and largest humidity jump 0.83 pp vs 1.12 pp; squared-error gain is about 2 standard errors",
+      "recommendationNote": "recommendation only; switching needs Om's separate D4 decision"
     },
     "DELAM": {
       "label": "rate_delam_pct",
@@ -191,17 +284,122 @@
           "r2": -0.0061,
           "maePp": 0.8866
         },
-        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat",
+        "holdoutSep2026Only": {
+          "r2": -0.0131,
+          "maePp": 0.9888
+        }
       },
       "candidate": {
         "model": "prepagent.m2_delam",
-        "status": "NOT_TRAINED",
-        "holdoutJulSep2026": null,
-        "configChosen": null,
-        "topDrivers": null,
-        "humiditySweepPO1": null
+        "status": "TRAINED",
+        "configChosen": "A (only config trained; no B)",
+        "trainingJob": "bqjob_r370ce011145499f8_000001a1f5c5cb10_1",
+        "trainingBytesBilled": 13480493056,
+        "trainRows": "run_date < 2026-07-01 (4,710 lots)",
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.568,
+          "maePp": 0.4606
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.5194,
+          "maePp": 0.4989
+        },
+        "pairedSep2026VsCurrent": {
+          "maeGainPp": 0.0396,
+          "maeGainSe": 0.0186,
+          "mseGain": 0.0455,
+          "mseGainSe": 0.0523,
+          "note": "per-lot error of current minus candidate on the same 219 September lots; positive = candidate better"
+        },
+        "topDrivers": [
+          {
+            "feature": "rh_x_paper_moisture",
+            "importanceGain": 75.729
+          },
+          {
+            "feature": "gum_application",
+            "importanceGain": 33.484
+          },
+          {
+            "feature": "recycled_paper_flag",
+            "importanceGain": 16.044
+          },
+          {
+            "feature": "sf_speed_mpm",
+            "importanceGain": 15.627
+          },
+          {
+            "feature": "ambient_rh_pct",
+            "importanceGain": 15.526
+          }
+        ],
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.4658,
+          "between": [
+            70,
+            75
+          ],
+          "rangePp": 0.8295,
+          "abrupt": false,
+          "points": [
+            {
+              "rhPct": 40,
+              "ratePct": 1.8921
+            },
+            {
+              "rhPct": 45,
+              "ratePct": 1.8921
+            },
+            {
+              "rhPct": 50,
+              "ratePct": 1.9271
+            },
+            {
+              "rhPct": 55,
+              "ratePct": 1.9412
+            },
+            {
+              "rhPct": 60,
+              "ratePct": 1.9412
+            },
+            {
+              "rhPct": 65,
+              "ratePct": 1.9155
+            },
+            {
+              "rhPct": 70,
+              "ratePct": 2.0277
+            },
+            {
+              "rhPct": 75,
+              "ratePct": 2.4935
+            },
+            {
+              "rhPct": 80,
+              "ratePct": 2.6201
+            },
+            {
+              "rhPct": 85,
+              "ratePct": 2.6116
+            },
+            {
+              "rhPct": 90,
+              "ratePct": 2.6573
+            },
+            {
+              "rhPct": 95,
+              "ratePct": 2.7216
+            }
+          ]
+        }
       },
-      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+      "recommendation": "SWITCH_TO_CANDIDATE (marginal)",
+      "sweepJumpChangePp": -0.0913,
+      "recommendationReason": "Sep R2 0.519 vs 0.500; MAE 0.04 pp lower (about 2 standard errors) but squared-error gain is within noise",
+      "recommendationNote": "recommendation only; switching needs Om's separate D4 decision"
     },
     "STRENGTH": {
       "label": "rate_strength_pct",
@@ -235,17 +433,122 @@
           "r2": 0.0106,
           "maePp": 0.2654
         },
-        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat",
+        "holdoutSep2026Only": {
+          "r2": 0.0138,
+          "maePp": 0.2893
+        }
       },
       "candidate": {
         "model": "prepagent.m2_strength",
-        "status": "NOT_TRAINED",
-        "holdoutJulSep2026": null,
-        "configChosen": null,
-        "topDrivers": null,
-        "humiditySweepPO1": null
+        "status": "TRAINED",
+        "configChosen": "A (only config trained; no B)",
+        "trainingJob": "bqjob_r612e96cb87ab39b1_000001a1f5c5cb0c_1",
+        "trainingBytesBilled": 13427015680,
+        "trainRows": "run_date < 2026-07-01 (4,710 lots)",
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.4871,
+          "maePp": 0.1518
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.388,
+          "maePp": 0.1708
+        },
+        "pairedSep2026VsCurrent": {
+          "maeGainPp": 0.0193,
+          "maeGainSe": 0.0055,
+          "mseGain": 0.0188,
+          "mseGainSe": 0.0056,
+          "note": "per-lot error of current minus candidate on the same 219 September lots; positive = candidate better"
+        },
+        "topDrivers": [
+          {
+            "feature": "ambient_rh_pct",
+            "importanceGain": 7.678
+          },
+          {
+            "feature": "paper_type",
+            "importanceGain": 5.869
+          },
+          {
+            "feature": "recycled_paper_flag",
+            "importanceGain": 4.457
+          },
+          {
+            "feature": "rh_x_paper_moisture",
+            "importanceGain": 2.188
+          },
+          {
+            "feature": "pasting_pressure",
+            "importanceGain": 1.608
+          }
+        ],
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.2405,
+          "between": [
+            80,
+            85
+          ],
+          "rangePp": 0.4448,
+          "abrupt": false,
+          "points": [
+            {
+              "rhPct": 40,
+              "ratePct": 0.7104
+            },
+            {
+              "rhPct": 45,
+              "ratePct": 0.7104
+            },
+            {
+              "rhPct": 50,
+              "ratePct": 0.7104
+            },
+            {
+              "rhPct": 55,
+              "ratePct": 0.714
+            },
+            {
+              "rhPct": 60,
+              "ratePct": 0.7112
+            },
+            {
+              "rhPct": 65,
+              "ratePct": 0.7112
+            },
+            {
+              "rhPct": 70,
+              "ratePct": 0.7112
+            },
+            {
+              "rhPct": 75,
+              "ratePct": 0.7076
+            },
+            {
+              "rhPct": 80,
+              "ratePct": 0.9119
+            },
+            {
+              "rhPct": 85,
+              "ratePct": 1.1524
+            },
+            {
+              "rhPct": 90,
+              "ratePct": 1.1138
+            },
+            {
+              "rhPct": 95,
+              "ratePct": 1.1196
+            }
+          ]
+        }
       },
-      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+      "recommendation": "SWITCH_TO_CANDIDATE",
+      "sweepJumpChangePp": -0.0327,
+      "recommendationReason": "Sep R2 0.388 vs 0.297; clearest gain, about 3.5 standard errors on both MAE and squared error",
+      "recommendationNote": "recommendation only; switching needs Om's separate D4 decision"
     },
     "PRINT": {
       "label": "rate_print_pct",
@@ -279,17 +582,122 @@
           "r2": -0.0095,
           "maePp": 0.8409
         },
-        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat",
+        "holdoutSep2026Only": {
+          "r2": -0.0064,
+          "maePp": 0.8459
+        }
       },
       "candidate": {
         "model": "prepagent.m2_print",
-        "status": "NOT_TRAINED",
-        "holdoutJulSep2026": null,
-        "configChosen": null,
-        "topDrivers": null,
-        "humiditySweepPO1": null
+        "status": "TRAINED",
+        "configChosen": "A (only config trained; no B)",
+        "trainingJob": "bqjob_rbfdc8eff4416773_000001a1f5c5cb0c_1",
+        "trainingBytesBilled": 13373538304,
+        "trainRows": "run_date < 2026-07-01 (4,710 lots)",
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.6012,
+          "maePp": 0.2747
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.6404,
+          "maePp": 0.2616
+        },
+        "pairedSep2026VsCurrent": {
+          "maeGainPp": 0.0301,
+          "maeGainSe": 0.0167,
+          "mseGain": 0.0367,
+          "mseGainSe": 0.0325,
+          "note": "per-lot error of current minus candidate on the same 219 September lots; positive = candidate better"
+        },
+        "topDrivers": [
+          {
+            "feature": "ink_colors",
+            "importanceGain": 162.878
+          },
+          {
+            "feature": "ink_coverage_pct",
+            "importanceGain": 21.791
+          },
+          {
+            "feature": "flute_profile",
+            "importanceGain": 18.002
+          },
+          {
+            "feature": "ply",
+            "importanceGain": 11.469
+          },
+          {
+            "feature": "box_weight_kg",
+            "importanceGain": 10.2
+          }
+        ],
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.3094,
+          "between": [
+            90,
+            95
+          ],
+          "rangePp": 0.5802,
+          "abrupt": false,
+          "points": [
+            {
+              "rhPct": 40,
+              "ratePct": 1.92
+            },
+            {
+              "rhPct": 45,
+              "ratePct": 1.9358
+            },
+            {
+              "rhPct": 50,
+              "ratePct": 1.9358
+            },
+            {
+              "rhPct": 55,
+              "ratePct": 1.9358
+            },
+            {
+              "rhPct": 60,
+              "ratePct": 1.9358
+            },
+            {
+              "rhPct": 65,
+              "ratePct": 1.9358
+            },
+            {
+              "rhPct": 70,
+              "ratePct": 1.9358
+            },
+            {
+              "rhPct": 75,
+              "ratePct": 2.0493
+            },
+            {
+              "rhPct": 80,
+              "ratePct": 2.0488
+            },
+            {
+              "rhPct": 85,
+              "ratePct": 2.1429
+            },
+            {
+              "rhPct": 90,
+              "ratePct": 2.1908
+            },
+            {
+              "rhPct": 95,
+              "ratePct": 2.5002
+            }
+          ]
+        }
       },
-      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+      "recommendation": "SWITCH_TO_CANDIDATE (marginal)",
+      "sweepJumpChangePp": -0.1023,
+      "recommendationReason": "Sep R2 0.640 vs 0.610; MAE 0.03 pp lower (about 1.8 standard errors), within noise on squared error",
+      "recommendationNote": "recommendation only; switching needs Om's separate D4 decision"
     },
     "CRACK": {
       "label": "rate_crack_pct",
@@ -323,21 +731,157 @@
           "r2": -0.0005,
           "maePp": 0.1601
         },
-        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat",
+        "holdoutSep2026Only": {
+          "r2": 0.0022,
+          "maePp": 0.1637
+        }
       },
       "candidate": {
         "model": "prepagent.m2_crack",
-        "status": "NOT_TRAINED",
-        "holdoutJulSep2026": null,
-        "configChosen": null,
-        "topDrivers": null,
-        "humiditySweepPO1": null
+        "status": "TRAINED",
+        "configChosen": "A (only config trained; no B)",
+        "trainingJob": "bqjob_r79ce0e69eff9e52b_000001a1f5c5cb0c_1",
+        "trainingBytesBilled": 13321109504,
+        "trainRows": "run_date < 2026-07-01 (4,710 lots)",
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.0657,
+          "maePp": 0.1347
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.1081,
+          "maePp": 0.1374
+        },
+        "pairedSep2026VsCurrent": {
+          "maeGainPp": 0.0033,
+          "maeGainSe": 0.0059,
+          "mseGain": 0.0095,
+          "mseGainSe": 0.0064,
+          "note": "per-lot error of current minus candidate on the same 219 September lots; positive = candidate better"
+        },
+        "topDrivers": [
+          {
+            "feature": "ambient_rh_pct",
+            "importanceGain": 10.742
+          },
+          {
+            "feature": "rh_x_paper_moisture",
+            "importanceGain": 2.155
+          },
+          {
+            "feature": "paper_type",
+            "importanceGain": 1.551
+          },
+          {
+            "feature": "shift",
+            "importanceGain": 1.543
+          },
+          {
+            "feature": "inner_liner_gsm",
+            "importanceGain": 1.31
+          }
+        ],
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.085,
+          "between": [
+            60,
+            65
+          ],
+          "rangePp": 0.2158,
+          "abrupt": false,
+          "points": [
+            {
+              "rhPct": 40,
+              "ratePct": 0.6341
+            },
+            {
+              "rhPct": 45,
+              "ratePct": 0.6341
+            },
+            {
+              "rhPct": 50,
+              "ratePct": 0.6341
+            },
+            {
+              "rhPct": 55,
+              "ratePct": 0.6341
+            },
+            {
+              "rhPct": 60,
+              "ratePct": 0.6415
+            },
+            {
+              "rhPct": 65,
+              "ratePct": 0.7265
+            },
+            {
+              "rhPct": 70,
+              "ratePct": 0.7265
+            },
+            {
+              "rhPct": 75,
+              "ratePct": 0.7423
+            },
+            {
+              "rhPct": 80,
+              "ratePct": 0.8022
+            },
+            {
+              "rhPct": 85,
+              "ratePct": 0.8186
+            },
+            {
+              "rhPct": 90,
+              "ratePct": 0.847
+            },
+            {
+              "rhPct": 95,
+              "ratePct": 0.8499
+            }
+          ]
+        }
       },
-      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+      "recommendation": "SWITCH_TO_CANDIDATE, keep low-confidence label",
+      "sweepJumpChangePp": -0.0138,
+      "recommendationReason": "Sep R2 0.108 vs -0.014 (rule: positive R2 on the monsoon test); gain is small and not statistically clear",
+      "recommendationNote": "recommendation only; switching needs Om's separate D4 decision"
     }
   },
   "budget": {
-    "trainingJobs": 0,
+    "trainingJobs": [
+      {
+        "model": "m2_warp",
+        "job": "bqjob_r4fe6150c02c58590_000001a1f5bd3ea3_1",
+        "bytesBilled": 31685869568,
+        "maximumBytesBilled": 64424509440
+      },
+      {
+        "model": "m2_delam",
+        "job": "bqjob_r370ce011145499f8_000001a1f5c5cb10_1",
+        "bytesBilled": 13480493056,
+        "maximumBytesBilled": 64424509440
+      },
+      {
+        "model": "m2_strength",
+        "job": "bqjob_r612e96cb87ab39b1_000001a1f5c5cb0c_1",
+        "bytesBilled": 13427015680,
+        "maximumBytesBilled": 64424509440
+      },
+      {
+        "model": "m2_print",
+        "job": "bqjob_rbfdc8eff4416773_000001a1f5c5cb0c_1",
+        "bytesBilled": 13373538304,
+        "maximumBytesBilled": 64424509440
+      },
+      {
+        "model": "m2_crack",
+        "job": "bqjob_r79ce0e69eff9e52b_000001a1f5c5cb0c_1",
+        "bytesBilled": 13321109504,
+        "maximumBytesBilled": 64424509440
+      }
+    ],
     "queryJobs": [
       {
         "job": "m2_eval_current_1795123168",
@@ -358,10 +902,61 @@
         "job": "m2_sweepcheck_1795123351",
         "purpose": "sweep SQL check against current m_*",
         "bytesBilled": 62914560
+      },
+      {
+        "job": "m2_eval_cand_1795125845",
+        "purpose": "candidate ML.EVALUATE Jul-Sep and Sep-only",
+        "bytesBilled": 62914560
+      },
+      {
+        "job": "m2_naive_sep_1795125845",
+        "purpose": "RH-band mean on Sep-only",
+        "bytesBilled": 10485760
+      },
+      {
+        "job": "m2_fi_1795125845",
+        "purpose": "ML.FEATURE_IMPORTANCE top 5",
+        "bytesBilled": 0
+      },
+      {
+        "job": "m2_sweep_cand_1795125845",
+        "purpose": "PO1 humidity sweep of m2_*",
+        "bytesBilled": 62914560
+      },
+      {
+        "job": "m2_paired_sep_1795125845",
+        "purpose": "paired per-lot error comparison on Sep-only",
+        "bytesBilled": 115343360
       }
     ],
-    "totalBytesBilled": 146800640,
-    "dryRuns": "several, not billed"
+    "dryRuns": "several, not billed",
+    "totalQueryBytesBilled": 398458880,
+    "totalTrainingBytesBilled": 85288026112,
+    "totalBytesBilled": 85686484992,
+    "trainingRunBy": "main session after Om's direct approval (config A only)"
   },
-  "objectsCreated": "none (no models, tables or views)"
+  "objectsCreated": [
+    "prepagent.m2_warp",
+    "prepagent.m2_delam",
+    "prepagent.m2_strength",
+    "prepagent.m2_print",
+    "prepagent.m2_crack"
+  ],
+  "switchRule": {
+    "WARP": "Sep-only R2 > 0.402 and largest PO1 humidity jump < 1.12 pp",
+    "DELAM": "Sep-only R2 > 0.500",
+    "STRENGTH": "Sep-only R2 > 0.297",
+    "PRINT": "Sep-only R2 > 0.610",
+    "CRACK": "positive Sep-only R2; otherwise show RH-band mean"
+  },
+  "readingTheResults": [
+    "Jul-Sep favours the current models: about 80% of their Jul-Aug rows were in their training data. September 2026 is clean for both.",
+    "The current models were trained on data up to Aug 2026; candidates only up to Jun 2026, so September favours the current models on recency and the candidates still score higher.",
+    "September has 219 lots; R2 differences of 0.02-0.03 (DELAM, PRINT) are within noise (see pairedSep2026VsCurrent)."
+  ],
+  "switchingNotes": [
+    "features are built in the model TRANSFORM, so predict.sql needs only the model names changed",
+    "sql/explain.sql uses ML.EXPLAIN_PREDICT; with TRANSFORM its attributions name the engineered features (e.g. rh_x_paper_moisture), so check explain.sql and its UI labels before switching",
+    "other files that reference m_*: sql/optimize.sql, sql/impact_batch.sql, src/google-cloud/risk-prediction-service.js"
+  ]
 }

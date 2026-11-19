@@ -52,6 +52,11 @@
 --   drivers come from ML.FEATURE_IMPORTANCE (section 4).
 -- =====================================================================================
 
+-- Run record, 20 Nov 2026: Om approved configuration A only. Section 1 was run for all five
+-- defects (85.3 GB billed in total: m2_warp 31.7 GB, the other four 13.3-13.5 GB each).
+-- Section 2 (configuration B) was NOT run. Sections 3-5 were run with the candidate_B /
+-- m2_*_b parts removed. Results: docs/evidence/model-candidates-v2.json.
+
 -- ---------- 1. Configuration A (start with m2_warp alone as the cost probe) ----------
 CREATE MODEL `prepagent-hack.prepagent.m2_warp`
 TRANSFORM (
