@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.4",
-    "firebase-admin": "14.5.0",
+    "firebase-admin": "14.5.1",
     "hono": "^4.13.13",
     "pdfkit": "^0.20.2",
     "zod": "^4.6.5"
@@ -35,5 +35,8 @@
   "devDependencies": {
     "@google-cloud/pubsub": "6.2.0",
     "@playwright/test": "1.58.2"
+  },
+  "overrides": {
+    "rimraf": "6.1.4"
   }
 }
