@@ -38,6 +38,10 @@ export type Conditions = {
   provenance?: { timestamp: string; freshness: string };
 };
 
+// The plant runs a day shift from 06:00 to 18:00 and a night shift otherwise.
+export const currentShift = (date = new Date()) => (date.getHours() >= 6 && date.getHours() < 18 ? "DAY" : "NIGHT");
+export const conditionsPath = (shift: string = currentShift()) => `/conditions/current?shift=${shift}`;
+
 export const formatMoney = (value: number, currency = "INR") =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
 export const formatNumber = (value: number, digits = 0) =>

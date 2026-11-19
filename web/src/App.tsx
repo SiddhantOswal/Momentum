@@ -2,6 +2,7 @@ import { Shell } from "./components/Shell";
 import { Empty } from "./components/ui";
 import { Floor } from "./screens/Floor";
 import { Lots } from "./screens/Lots";
+import { Defects } from "./screens/Defects";
 import { useScreen, useTheme, type Screen } from "./lib/useApp";
 
 const TITLES: Record<Screen, { title: string; subtitle: string }> = {
@@ -18,7 +19,7 @@ export function App() {
   const { title, subtitle } = TITLES[screen];
   return (
     <Shell screen={screen} go={go} theme={theme} toggleTheme={toggle} title={title} subtitle={subtitle}>
-      {screen === "floor" ? <Floor /> : screen === "lots" ? <Lots /> : <div className="panel p-6"><Empty title={`${title} is being built`} hint="Coming in the next build." /></div>}
+      {screen === "floor" ? <Floor /> : screen === "lots" ? <Lots /> : screen === "defects" ? <Defects /> : <div className="panel p-6"><Empty title={`${title} is being built`} hint="Coming in the next build." /></div>}
     </Shell>
   );
 }

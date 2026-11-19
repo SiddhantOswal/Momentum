@@ -1266,6 +1266,34 @@ app.post("/jobs/:id/feedback", async (c) => {
   return responseForResult(c, savedFeedback);
 });
 
+// Defect Intelligence: a photo of a bad sheet -> Gemini diagnosis -> past lots with that defect
+// at similar humidity (what the good runs did differently). Causes come from our history only.
+app.post("/evidence/diagnose-photo", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  let form;
+  try { form = await c.req.parseBody(); } catch {
+    return validationResponse(c, [{ field: "body", path: [], code: "invalid_multipart", message: "Send the photo as a multipart upload." }], "Photo upload is invalid.");
+  }
+  const file = form.file;
+  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
+    return validationResponse(c, [{ field: "file", path: ["file"], code: "invalid_type", message: "A photo is required in the file field." }], "Photo upload is invalid.");
+  }
+  const rawRh = typeof form.ambientRhPct === "string" && form.ambientRhPct.trim() !== "" ? Number(form.ambientRhPct) : undefined;
+  if (rawRh !== undefined && !(Number.isFinite(rawRh) && rawRh >= 0 && rawRh <= 100)) {
+    return validationResponse(c, [{ field: "ambientRhPct", path: ["ambientRhPct"], code: "invalid_value", message: "Humidity must be between 0 and 100%." }], "Photo upload is invalid.");
+  }
+  const lotId = typeof form.lotId === "string" && /^[A-Za-z0-9_-]{1,120}$/.test(form.lotId) ? form.lotId : undefined;
+  const signal = c.get(REQUEST_SIGNAL_CONTEXT_KEY);
+  const result = await servicePorts.diagnoseDefectPhoto({ bytes: new Uint8Array(await file.arrayBuffer()), signal });
+  if (!result?.ok || !result.recognised || result.diagnosis.label === "NONE") return responseForResult(c, result);
+  const pastCases = rawRh === undefined ? undefined
+    : await servicePorts.findSeenBefore({ defect: result.diagnosis.label, ambientRhPct: rawRh, signal }).catch(() => undefined);
+  const defectName = { WARP: "Warp", DELAM: "Delamination", STRENGTH: "Crushed board", PRINT: "Print defect", CRACK: "Crease cracking" }[result.diagnosis.label];
+  void liveStore.publish({ event: { type: "defect.logged", ...(lotId ? { lotId } : {}), text: `${defectName} spotted on a photo · ${result.diagnosis.severity.toLowerCase()} severity`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
+  return responseForResult(c, { ...result, ...(rawRh === undefined ? {} : { ambientRhPct: rawRh }), ...(pastCases?.ok ? { pastCases } : {}) });
+});
+
 // Live floor view: the latest lots and events, now and on every change, as server-sent events.
 app.get("/api/live", async (c) => {
   const authorizationFailure = await requireSupervisor(c);

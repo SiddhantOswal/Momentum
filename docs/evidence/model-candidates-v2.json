@@ -1,0 +1,367 @@
+{
+  "kind": "model-candidates-v2",
+  "generatedAt": "2026-11-20",
+  "status": "PARTIAL: baseline done, candidates not trained",
+  "blockedReason": "BigQuery ML bills boosted-tree CREATE MODEL by compute, not by the ~1.5 MB the dry run reports. The Oct 2026 training of the current five m_* models billed 96.1 GB in total (7.4 to 49.7 GB per model, about 1,670 bytes billed per slot-ms; job bqjob_r4cfdf43fbdc1dad1_000001a12c5223a4_1). The task cap was 200 MB per query and 'keep total bytes billed small', so no CREATE MODEL was run. Needs Om's decision on a training budget; suggested first step is a single m2_warp config-A cost probe.",
+  "source": {
+    "project": "prepagent-hack",
+    "dataset": "prepagent",
+    "location": "asia-south1",
+    "table": "prepagent.lots (5,350 lots, 2024-10-01..2026-09-30)"
+  },
+  "split": {
+    "type": "time",
+    "train": "run_date < 2026-07-01 (4,710 lots)",
+    "holdout": "2026-07-01..2026-09-30 (640 lots)",
+    "holdoutConditions": "all holdout lots have ambient RH 75..98 %, i.e. a monsoon-only test; training covers RH 25..98"
+  },
+  "currentModelTraining": {
+    "query": "CREATE OR REPLACE MODEL m_* ... WHERE run_date < 2026-09-01, data_split_method RANDOM 0.2",
+    "trainedAt": "2026-10-11T18:55Z",
+    "features": "all lots columns except ids, run_date, item_code and other labels (includes customer_id)",
+    "options": {
+      "max_tree_depth": 6,
+      "learn_rate": 0.3,
+      "max_iterations": 20,
+      "l2_reg": 1,
+      "subsample": 1,
+      "early_stop": true
+    }
+  },
+  "candidatePlan": {
+    "sql": "sql/model_v2_training.sql",
+    "features": {
+      "raw": [
+        "box_style",
+        "length_mm",
+        "width_mm",
+        "height_mm",
+        "ply",
+        "flute_profile",
+        "top_liner_gsm",
+        "flute_gsm",
+        "inner_liner_gsm",
+        "liner_bf",
+        "paper_type",
+        "paper_supplier",
+        "ink_colors",
+        "ink_coverage_pct",
+        "quantity",
+        "shift",
+        "ambient_rh_pct",
+        "ambient_temp_c",
+        "paper_moisture_pct",
+        "sf_speed_mpm",
+        "roll_temp_c",
+        "gum_application",
+        "gum_viscosity_sec",
+        "pasting_pressure",
+        "drying_hours",
+        "print_speed_spm",
+        "sheet_area_m2",
+        "box_weight_kg"
+      ],
+      "dropped": {
+        "customer_id": "not a physical driver; does not generalise to new customers"
+      },
+      "engineered": {
+        "rh_band": "ambient RH band <=50, 50-70, 70-85, >85",
+        "rh_x_paper_moisture": "ambient_rh_pct * paper_moisture_pct",
+        "dew_point_c": "Magnus dew point from ambient_rh_pct and ambient_temp_c",
+        "recycled_paper_flag": "1 if paper_type = RECYCLED",
+        "board_gsm_per_m2": "box_weight_kg * 1000 / sheet_area_m2",
+        "gum_visc_x_roll_temp": "gum_viscosity_sec * roll_temp_c"
+      },
+      "consideredNotUsed": {
+        "month_of_year / monsoon flag": "predict.sql sends no run date; monthly scrap means in lots move with RH, which RH and dew point already carry"
+      },
+      "computedIn": "CREATE MODEL TRANSFORM clause, so ML.PREDICT takes the same raw inputs predict.sql already builds"
+    },
+    "configs": {
+      "A": {
+        "modelName": "m2_<defect>",
+        "model_type": "BOOSTED_TREE_REGRESSOR",
+        "data_split_method": "NO_SPLIT",
+        "max_tree_depth": 4,
+        "learn_rate": 0.1,
+        "max_iterations": 60,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "l2_reg": 5,
+        "min_tree_child_weight": 20,
+        "early_stop": false,
+        "enable_global_explain": false
+      },
+      "B": {
+        "modelName": "m2_<defect>_b (copied to m2_<defect> if it wins)",
+        "model_type": "BOOSTED_TREE_REGRESSOR",
+        "data_split_method": "NO_SPLIT",
+        "max_tree_depth": 3,
+        "learn_rate": 0.1,
+        "max_iterations": 60,
+        "subsample": 0.7,
+        "colsample_bytree": 0.7,
+        "l2_reg": 10,
+        "min_tree_child_weight": 40,
+        "early_stop": false,
+        "enable_global_explain": false
+      }
+    },
+    "notes": [
+      "early stopping is not available with NO_SPLIT (BQML rejects min_relative_progress), so iterations are fixed",
+      "global explain is off to save compute; top drivers come from ML.FEATURE_IMPORTANCE",
+      "picking A vs B on the holdout is a mild selection effect on the reported candidate score"
+    ],
+    "validation": "both CREATE MODEL configs pass a BigQuery dry run; the sweep query reproduces docs/evidence/humidity-sweep.json exactly when pointed at m_*"
+  },
+  "perDefect": {
+    "WARP": {
+      "label": "rate_warp_pct",
+      "current": {
+        "model": "prepagent.m_warp",
+        "recordedR2RandomSplit": 0.6052,
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.5702,
+          "maePp": 0.2862,
+          "caveat": "m_* trained on run_date < 2026-09-01 with a RANDOM 80/20 split, so about 80% of Jul-Aug rows were seen in training; this number is optimistic"
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.4021,
+          "maePp": 0.3296,
+          "caveat": "clean out-of-time rows for the current model"
+        },
+        "humiditySweepPO1": {
+          "largestJumpPp": 1.1202,
+          "between": [
+            75,
+            80
+          ],
+          "rangePp": 2.5913,
+          "source": "docs/evidence/humidity-sweep.json"
+        }
+      },
+      "referenceRhBandMean": {
+        "holdoutJulSep2026": {
+          "r2": -0.0122,
+          "maePp": 0.5582
+        },
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+      },
+      "candidate": {
+        "model": "prepagent.m2_warp",
+        "status": "NOT_TRAINED",
+        "holdoutJulSep2026": null,
+        "configChosen": null,
+        "topDrivers": null,
+        "humiditySweepPO1": null
+      },
+      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+    },
+    "DELAM": {
+      "label": "rate_delam_pct",
+      "current": {
+        "model": "prepagent.m_delam",
+        "recordedR2RandomSplit": 0.6664,
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.6901,
+          "maePp": 0.4067,
+          "caveat": "m_* trained on run_date < 2026-09-01 with a RANDOM 80/20 split, so about 80% of Jul-Aug rows were seen in training; this number is optimistic"
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.5003,
+          "maePp": 0.5385,
+          "caveat": "clean out-of-time rows for the current model"
+        },
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.5571,
+          "between": [
+            65,
+            70
+          ],
+          "rangePp": 1.057,
+          "source": "docs/evidence/humidity-sweep.json"
+        }
+      },
+      "referenceRhBandMean": {
+        "holdoutJulSep2026": {
+          "r2": -0.0061,
+          "maePp": 0.8866
+        },
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+      },
+      "candidate": {
+        "model": "prepagent.m2_delam",
+        "status": "NOT_TRAINED",
+        "holdoutJulSep2026": null,
+        "configChosen": null,
+        "topDrivers": null,
+        "humiditySweepPO1": null
+      },
+      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+    },
+    "STRENGTH": {
+      "label": "rate_strength_pct",
+      "current": {
+        "model": "prepagent.m_strength",
+        "recordedR2RandomSplit": 0.4673,
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.4939,
+          "maePp": 0.1491,
+          "caveat": "m_* trained on run_date < 2026-09-01 with a RANDOM 80/20 split, so about 80% of Jul-Aug rows were seen in training; this number is optimistic"
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.2971,
+          "maePp": 0.1901,
+          "caveat": "clean out-of-time rows for the current model"
+        },
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.2732,
+          "between": [
+            80,
+            85
+          ],
+          "rangePp": 0.4524,
+          "source": "docs/evidence/humidity-sweep.json"
+        }
+      },
+      "referenceRhBandMean": {
+        "holdoutJulSep2026": {
+          "r2": 0.0106,
+          "maePp": 0.2654
+        },
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+      },
+      "candidate": {
+        "model": "prepagent.m2_strength",
+        "status": "NOT_TRAINED",
+        "holdoutJulSep2026": null,
+        "configChosen": null,
+        "topDrivers": null,
+        "humiditySweepPO1": null
+      },
+      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+    },
+    "PRINT": {
+      "label": "rate_print_pct",
+      "current": {
+        "model": "prepagent.m_print",
+        "recordedR2RandomSplit": 0.7512,
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.7167,
+          "maePp": 0.2576,
+          "caveat": "m_* trained on run_date < 2026-09-01 with a RANDOM 80/20 split, so about 80% of Jul-Aug rows were seen in training; this number is optimistic"
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": 0.6102,
+          "maePp": 0.2917,
+          "caveat": "clean out-of-time rows for the current model"
+        },
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.4117,
+          "between": [
+            80,
+            85
+          ],
+          "rangePp": 0.4117,
+          "source": "docs/evidence/humidity-sweep.json"
+        }
+      },
+      "referenceRhBandMean": {
+        "holdoutJulSep2026": {
+          "r2": -0.0095,
+          "maePp": 0.8409
+        },
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+      },
+      "candidate": {
+        "model": "prepagent.m2_print",
+        "status": "NOT_TRAINED",
+        "holdoutJulSep2026": null,
+        "configChosen": null,
+        "topDrivers": null,
+        "humiditySweepPO1": null
+      },
+      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+    },
+    "CRACK": {
+      "label": "rate_crack_pct",
+      "current": {
+        "model": "prepagent.m_crack",
+        "recordedR2RandomSplit": 0.3011,
+        "holdoutJulSep2026": {
+          "rows": 640,
+          "r2": 0.043,
+          "maePp": 0.1323,
+          "caveat": "m_* trained on run_date < 2026-09-01 with a RANDOM 80/20 split, so about 80% of Jul-Aug rows were seen in training; this number is optimistic"
+        },
+        "holdoutSep2026Only": {
+          "rows": 219,
+          "r2": -0.0136,
+          "maePp": 0.1407,
+          "caveat": "clean out-of-time rows for the current model"
+        },
+        "humiditySweepPO1": {
+          "largestJumpPp": 0.0988,
+          "between": [
+            75,
+            80
+          ],
+          "rangePp": 0.195,
+          "source": "docs/evidence/humidity-sweep.json"
+        }
+      },
+      "referenceRhBandMean": {
+        "holdoutJulSep2026": {
+          "r2": -0.0005,
+          "maePp": 0.1601
+        },
+        "note": "predicts the training-period mean for the lot's RH band; a floor any model must beat"
+      },
+      "candidate": {
+        "model": "prepagent.m2_crack",
+        "status": "NOT_TRAINED",
+        "holdoutJulSep2026": null,
+        "configChosen": null,
+        "topDrivers": null,
+        "humiditySweepPO1": null
+      },
+      "recommendation": "KEEP_CURRENT (no candidate trained yet)"
+    }
+  },
+  "budget": {
+    "trainingJobs": 0,
+    "queryJobs": [
+      {
+        "job": "m2_eval_current_1795123168",
+        "purpose": "current m_* holdout ML.EVALUATE",
+        "bytesBilled": 62914560
+      },
+      {
+        "job": "m2_explore_1795123224",
+        "purpose": "feature exploration",
+        "bytesBilled": 10485760
+      },
+      {
+        "job": "m2_naive_1795123288",
+        "purpose": "RH-band mean reference",
+        "bytesBilled": 10485760
+      },
+      {
+        "job": "m2_sweepcheck_1795123351",
+        "purpose": "sweep SQL check against current m_*",
+        "bytesBilled": 62914560
+      }
+    ],
+    "totalBytesBilled": 146800640,
+    "dryRuns": "several, not billed"
+  },
+  "objectsCreated": "none (no models, tables or views)"
+}

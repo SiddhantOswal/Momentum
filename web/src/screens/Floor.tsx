@@ -2,7 +2,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContaine
 import { Droplets, Thermometer, Layers3, FileText, ClipboardCheck, BadgeCheck, ScanSearch, PencilLine } from "lucide-react";
 import { PlantView, type StagePin, type StageKey } from "../components/PlantView";
 import { Delta, Empty, Kpi, Panel, Skeleton, Tag } from "../components/ui";
-import { DEFECTS, formatMoney, formatNumber, type Conditions, type Defect, type ImpactSummary } from "../lib/api";
+import { DEFECTS, conditionsPath, formatMoney, formatNumber, type Conditions, type Defect, type ImpactSummary } from "../lib/api";
 import { useResource } from "../lib/useApp";
 import { timeAgo, useLive, type LiveEvent, type LiveState } from "../lib/live";
 
@@ -53,7 +53,7 @@ const tooltipStyle = { background: "var(--panel)", border: "1px solid var(--line
 
 export function Floor() {
   const impact = useResource<ImpactSummary>("/impact/summary");
-  const conditions = useResource<Conditions>("/conditions/current");
+  const conditions = useResource<Conditions>(conditionsPath());
   const summary = impact.result?.ok ? impact.result.data : undefined;
   const season = summary ? currentSeason(summary.seasonal) : undefined;
   const rates = season ? seasonRates(season).sort((a, b) => b.rate - a.rate) : [];

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FileUp, Plus, Sparkles, ArrowRight, Check, FileDown, Loader2, AlertTriangle } from "lucide-react";
-import { DEFECTS, formatMoney, formatNumber, getJson } from "../lib/api";
+import { DEFECTS, conditionsPath, currentShift, formatMoney, formatNumber, getJson } from "../lib/api";
 import { useLive, timeAgo, type LiveLot } from "../lib/live";
 import { LEVERS, send, type Extraction, type ExtractedLine, type JobResult, type JobSheet, type LeverKey, type Levers } from "../lib/session";
 import { Empty, Panel, Tag } from "../components/ui";
@@ -85,7 +85,7 @@ function NewLot({ onPlanned }: { onPlanned: (r: JobResult, file: File) => void }
   const [lineIndex, setLineIndex] = useState<number>();
   const [code, setCode] = useState("");
   const [qty, setQty] = useState("");
-  const [cond, setCond] = useState({ runDate: new Date().toISOString().slice(0, 10), shift: "DAY", ambientRhPct: "", ambientTempC: "", paperMoisturePct: "" });
+  const [cond, setCond] = useState({ runDate: new Date().toISOString().slice(0, 10), shift: currentShift(), ambientRhPct: "", ambientTempC: "", paperMoisturePct: "" });
   const [condSource, setCondSource] = useState<string>();
   const [levers, setLevers] = useState<Levers>(() => Object.fromEntries(LEVERS.map((l) => [l.key, ""])) as Levers);
   const [confirmed, setConfirmed] = useState(false);
@@ -123,7 +123,7 @@ function NewLot({ onPlanned }: { onPlanned: (r: JobResult, file: File) => void }
   };
   const loadConditions = async () => {
     setBusy("cond");
-    const r = await getJson<{ data: typeof cond & { ambientRhPct: number; ambientTempC: number; paperMoisturePct: number }; sensorSource?: string }>("/conditions/current");
+    const r = await getJson<{ data: typeof cond & { ambientRhPct: number; ambientTempC: number; paperMoisturePct: number }; sensorSource?: string }>(conditionsPath(cond.shift));
     setBusy("");
     if (!r.ok) { setError({ step: 2, text: r.status === 401 ? "Sign in to load the plant reading, or enter the values." : r.error }); return; }
     const d = r.data.data;

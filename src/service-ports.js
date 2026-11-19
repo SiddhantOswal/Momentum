@@ -27,6 +27,7 @@ import {
 import { createImpactSummaryService } from "./google-cloud/impact-summary-service.js";
 import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "./daily-gemini-call-cap.js";
 import { createFirestoreGeminiAttemptStore } from "./google-cloud/firestore-gemini-attempt-store.js";
+import { createDefectDiagnosisService } from "./google-cloud/defect-diagnosis-service.js";
 import { mergeDraftWriteArgs } from "./job-draft-persistence.js";
 import { renderJobSheetPdf } from "./job-sheet-pdf.js";
 import {
@@ -42,6 +43,7 @@ import {
 const requirements = {
   getApprovedPhotos: "The approved photo classification service is not enabled.",
   classifyApprovedPhoto: "Approved-photo storage and shared-metered Gemini are not enabled.",
+  diagnoseDefectPhoto: "Photo diagnosis needs Cloud Storage and Gemini on Vertex AI.",
   extractOrder: "Cloud Storage and Gemini on Vertex AI are not configured.",
   extractOrderForReview: "Cloud Storage, Gemini and the item catalog are not configured.",
   confirmPurchaseOrderReview: "The current PO review and catalog item are not available.",
@@ -99,6 +101,7 @@ export function createServicePorts(adapters = {}) {
   const availability = Object.freeze({
     getApprovedPhotos: typeof adapters.getApprovedPhotos === "function",
     classifyApprovedPhoto: typeof adapters.classifyApprovedPhoto === "function",
+    diagnoseDefectPhoto: typeof adapters.diagnoseDefectPhoto === "function",
     extractOrder: typeof adapters.extractOrder === "function",
     currentConditions: typeof adapters.currentConditions === "function",
     predictRisk: typeof adapters.predictRisk === "function",
@@ -120,6 +123,7 @@ export function createServicePorts(adapters = {}) {
     availability,
     getApprovedPhotos: adapters.getApprovedPhotos ?? unavailable("getApprovedPhotos"),
     classifyApprovedPhoto: adapters.classifyApprovedPhoto ?? unavailable("classifyApprovedPhoto"),
+    diagnoseDefectPhoto: adapters.diagnoseDefectPhoto ?? unavailable("diagnoseDefectPhoto"),
     geminiUsage: adapters.geminiUsage ?? Object.freeze({ sharedCounterConfigured: false, liveConnectivityVerified: false }),
     extractOrder: adapters.extractOrder ?? unavailable("extractOrder"),
     extractOrderForReview: adapters.extractOrderForReview ?? unavailable("extractOrderForReview"),
@@ -276,6 +280,13 @@ function createSyntheticDemoServicePorts() {
   });
 
   return createServicePorts({
+    // Local runs only: a fixed diagnosis so the Defects screen can be exercised without Gemini.
+    diagnoseDefectPhoto: async () => ({
+      ok: true, source: "mock-demo", isRealModelPrediction: false, recognised: true,
+      diagnosis: { label: "DELAM", severity: "MEDIUM", confidence: 0.8, visibleSigns: ["Local mock: liner lifting along one edge"] },
+      photo: { uri: "memory://local-mock", contentType: "image/jpeg" }, model: "local-mock",
+      diagnosedAt: new Date().toISOString(), note: "Local mock diagnosis, not a Gemini result.",
+    }),
     extractOrder: async ({ operatorFields, selectedLineIndex, signal } = {}) => {
       return extractOrder({
         orderId: operatorFields?.orderId ?? "PO-TEST-42",
@@ -539,6 +550,9 @@ export function createConfiguredServicePorts({
       tokenProvider,
     });
     adapters.explainRisk = createRiskExplanationService({ bigquery: riskBigquery, gemini });
+  }
+  if (env.USTAAD_ENABLE_DEFECT_DIAGNOSIS === "true") {
+    adapters.diagnoseDefectPhoto = createDefectDiagnosisService({ storage, gemini, bucket, model }).diagnose;
   }
   if (env.USTAAD_ENABLE_APPROVED_PHOTO_CLASSIFICATION === "true" && env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO" && env.USTAAD_SYNTHETIC_ONLY === "true") {
     const photos = createApprovedPhotoService({ storage, gemini, inventory: approvedPhotos, model });
