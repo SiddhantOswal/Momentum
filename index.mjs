@@ -82,7 +82,8 @@ const hackathonAuth = createHackathonDemoAuthenticator({ mode: process.env.USTAA
   auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true" });
 const approvalAuthorizationConfigured = hackathonAuth.enabled ? hackathonAuth.configured : supervisorAuthenticator.configured;
 const demoTraceOwners = new Map();
-// Central live store: Firestore in the cloud (opt-in), memory locally. Publishing never blocks a request.
+// Central live store: Firestore in the cloud (opt-in), memory locally. Publishing never fails a request,
+// but is awaited: Cloud Run throttles CPU once a response is sent, so a fire-and-forget write can stall.
 const liveStore = createLiveStore({
   enabled: process.env.USTAAD_ENABLE_LIVE_STORE === "true",
   projectId: process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT,
@@ -789,7 +790,7 @@ app.post("/orders/extract", async (c) => {
   });
   if (extraction?.ok && Array.isArray(extraction.lines)) {
     const lines = extraction.lines.length;
-    void liveStore.publish({ event: { type: "order.read", text: `${operatorFields.data.orderId ? `Order ${operatorFields.data.orderId}` : "An order"} read by Gemini · ${lines} line${lines === 1 ? "" : "s"}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
+    await liveStore.publish({ event: { type: "order.read", text: `${operatorFields.data.orderId ? `Order ${operatorFields.data.orderId}` : "An order"} read by Gemini · ${lines} line${lines === 1 ? "" : "s"}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
   }
   return responseForResult(c, extraction);
 });
@@ -1109,7 +1110,7 @@ app.post("/jobs", async (c) => {
   });
   if (submissionResult.ok && submissionResult.jobSheet) {
     const sheet = submissionResult.jobSheet;
-    void liveStore.publish({
+    await liveStore.publish({
       lot: liveLot(sheet, "planned"),
       event: { type: "lot.planned", lotId: sheet.jobId, text: `Lot ${sheet.order?.itemCode ?? sheet.jobId} planned · ${sheet.order?.quantity ?? "?"} units`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) },
     });
@@ -1235,7 +1236,7 @@ app.post("/jobs/:id/approve", async (c) => {
     }));
   }
   if (approval.ok && approval.jobSheet) {
-    void liveStore.publish({
+    await liveStore.publish({
       lot: liveLot(approval.jobSheet, "approved"),
       event: { type: "lot.approved", lotId: approval.jobSheet.jobId, text: `Lot ${approval.jobSheet.order?.itemCode ?? approval.jobSheet.jobId} approved for production`, actor: liveActor(principal) },
     });
@@ -1307,7 +1308,7 @@ app.post("/jobs/:id/feedback", async (c) => {
     signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
   });
   if (savedFeedback?.ok) {
-    void liveStore.publish({ event: { type: "feedback.saved", lotId: feedback.data.jobId, text: `Actual scrap recorded for lot ${feedback.data.jobId}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
+    await liveStore.publish({ event: { type: "feedback.saved", lotId: feedback.data.jobId, text: `Actual scrap recorded for lot ${feedback.data.jobId}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
   }
   return responseForResult(c, savedFeedback);
 });
@@ -1336,7 +1337,7 @@ app.post("/evidence/diagnose-photo", async (c) => {
   const pastCases = rawRh === undefined ? undefined
     : await servicePorts.findSeenBefore({ defect: result.diagnosis.label, ambientRhPct: rawRh, signal }).catch(() => undefined);
   const defectName = { WARP: "Warp", DELAM: "Delamination", STRENGTH: "Crushed board", PRINT: "Print defect", CRACK: "Crease cracking" }[result.diagnosis.label];
-  void liveStore.publish({ event: { type: "defect.logged", ...(lotId ? { lotId } : {}), text: `${defectName} spotted on a photo · ${result.diagnosis.severity.toLowerCase()} severity`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
+  await liveStore.publish({ event: { type: "defect.logged", ...(lotId ? { lotId } : {}), text: `${defectName} spotted on a photo · ${result.diagnosis.severity.toLowerCase()} severity`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
   return responseForResult(c, { ...result, ...(rawRh === undefined ? {} : { ambientRhPct: rawRh }), ...(pastCases?.ok ? { pastCases } : {}) });
 });
 
