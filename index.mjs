@@ -32,6 +32,8 @@ import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.
 import { readServerPort } from "./src/runtime-config.js";
 import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
+import { streamSSE } from "hono/streaming";
+import { createLiveStore } from "./src/google-cloud/live-store.js";
 import { traceRegistry } from "./src/trace-registry.js";
 import { fxRatesService } from "./src/fx-rates.js";
 import { servicePorts, getJobLifecycleAvailability } from "./src/service-ports.js";
@@ -75,6 +77,21 @@ const hackathonAuth = createHackathonDemoAuthenticator({ mode: process.env.USTAA
   auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true" });
 const approvalAuthorizationConfigured = hackathonAuth.enabled ? hackathonAuth.configured : supervisorAuthenticator.configured;
 const demoTraceOwners = new Map();
+// Central live store: Firestore in the cloud (opt-in), memory locally. Publishing never blocks a request.
+const liveStore = createLiveStore({
+  enabled: process.env.USTAAD_ENABLE_LIVE_STORE === "true",
+  projectId: process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT,
+});
+const liveActor = (principal) => principal?.provider === "google.com" && typeof principal.email === "string" ? principal.email : undefined;
+function liveLot(jobSheet, status) {
+  const risk = jobSheet?.recommended?.risk ?? jobSheet?.baseline?.risk;
+  return {
+    lotId: jobSheet?.jobId, jobId: jobSheet?.jobId, status,
+    orderId: jobSheet?.order?.orderId, itemCode: jobSheet?.order?.itemCode, quantity: jobSheet?.order?.quantity,
+    ...(risk ? { totalScrapPct: risk.totalScrapPct, primaryDefect: risk.primaryDefect, ratesPct: risk.ratesPct, currency: risk.currency } : {}),
+    ...(Number.isFinite(jobSheet?.savings?.inr) ? { predictedSaving: Math.max(0, jobSheet.savings.inr) } : {}),
+  };
+}
 function sameOrigin(c) {
   return isSameApplicationOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
 }
@@ -721,12 +738,17 @@ app.post("/orders/extract", async (c) => {
     }], "Purchase order line selection is invalid.");
   }
 
-  return responseForResult(c, await servicePorts.extractOrderForReview({
+  const extraction = await servicePorts.extractOrderForReview({
     file,
     operatorFields: operatorFields.data,
     ...(selectedLineIndex === undefined ? {} : { selectedLineIndex }),
     signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  });
+  if (extraction?.ok && Array.isArray(extraction.lines)) {
+    const lines = extraction.lines.length;
+    void liveStore.publish({ event: { type: "order.read", text: `${operatorFields.data.orderId ? `Order ${operatorFields.data.orderId}` : "An order"} read by Gemini · ${lines} line${lines === 1 ? "" : "s"}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
+  }
+  return responseForResult(c, extraction);
 });
 
 app.get("/conditions/current", async (c) => {
@@ -1042,6 +1064,13 @@ app.post("/jobs", async (c) => {
     },
     signal,
   });
+  if (submissionResult.ok && submissionResult.jobSheet) {
+    const sheet = submissionResult.jobSheet;
+    void liveStore.publish({
+      lot: liveLot(sheet, "planned"),
+      event: { type: "lot.planned", lotId: sheet.jobId, text: `Lot ${sheet.order?.itemCode ?? sheet.jobId} planned · ${sheet.order?.quantity ?? "?"} units`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) },
+    });
+  }
   return responseForResult(c, demoMode && submissionResult.ok ? { ...submissionResult, durable: false, storageScope: "process-memory", source: "mock-demo", isRealModelPrediction: false } : submissionResult);
 });
 
@@ -1159,6 +1188,12 @@ app.post("/jobs/:id/approve", async (c) => {
       auditStorage: approval.jobSheet?.approvalAudit ? "bigquery-readback-and-structured-log" : "structured-cloud-log-only",
     }));
   }
+  if (approval.ok && approval.jobSheet) {
+    void liveStore.publish({
+      lot: liveLot(approval.jobSheet, "approved"),
+      event: { type: "lot.approved", lotId: approval.jobSheet.jobId, text: `Lot ${approval.jobSheet.order?.itemCode ?? approval.jobSheet.jobId} approved for production`, actor: liveActor(principal) },
+    });
+  }
   return responseForResult(c, approval);
 });
 
@@ -1221,10 +1256,51 @@ app.post("/jobs/:id/feedback", async (c) => {
     }], "Feedback request failed validation.");
   }
 
-  return responseForResult(c, await saveLinkedFeedback({
+  const savedFeedback = await saveLinkedFeedback({
     ...feedback.data,
     signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  });
+  if (savedFeedback?.ok) {
+    void liveStore.publish({ event: { type: "feedback.saved", lotId: feedback.data.jobId, text: `Actual scrap recorded for lot ${feedback.data.jobId}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
+  }
+  return responseForResult(c, savedFeedback);
+});
+
+// Live floor view: the latest lots and events, now and on every change, as server-sent events.
+app.get("/api/live", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  return streamSSE(c, async (stream) => {
+    let closed = false;
+    const queue = [];
+    let wake;
+    const stop = await liveStore.watch((view) => { queue.push(view); wake?.(); });
+    stream.onAbort(() => { closed = true; stop(); wake?.(); });
+    while (!closed) {
+      if (queue.length === 0) {
+        // Heartbeat every 25 s keeps proxies from closing an idle stream.
+        await Promise.race([new Promise((resolve) => { wake = resolve; }), stream.sleep(25_000)]);
+        if (queue.length === 0 && !closed) await stream.writeSSE({ event: "ping", data: "" });
+        continue;
+      }
+      const view = queue.splice(0).at(-1);
+      await stream.writeSSE({ event: "floor", data: JSON.stringify({ mode: liveStore.mode, ...view }) });
+    }
+  });
+});
+
+app.get("/api/lots", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  // Firestore delivers its first snapshot shortly after the listener starts; wait up to 2 s for it.
+  let latest = { lots: [], events: [] }, calls = 0, wake;
+  const stop = await liveStore.watch((v) => { latest = v; calls += 1; wake?.(); });
+  if (liveStore.mode === "firestore" && calls < 2) {
+    await Promise.race([new Promise((resolve) => { wake = resolve; }), new Promise((resolve) => setTimeout(resolve, 2000))]);
+  }
+  stop();
+  const view = latest;
+  return c.json({ ok: true, mode: liveStore.mode, ...view }, 200, { "Cache-Control": "no-store" });
 });
 
 app.get("/insights/summary", async (c) => {
