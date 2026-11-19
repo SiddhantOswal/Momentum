@@ -115,7 +115,9 @@ export function Defects() {
               </Panel>
             ) : null}
             {defect && (past ? <History past={past} rh={result.ambientRhPct} defect={defect.label} /> : (
-              <Panel title="Seen before"><Empty title="Add the humidity to compare with past lots" hint="Momentum matches lots within ±10 points of humidity." /></Panel>
+              <Panel title="Seen before">{result.ambientRhPct === undefined
+                ? <Empty title="Add the humidity to compare with past lots" hint="Momentum matches lots within ±10 points of humidity." />
+                : <Empty title="No lot history available right now" hint="The diagnosis above still stands; try again to compare with past lots." />}</Panel>
             ))}
           </>
         )}
