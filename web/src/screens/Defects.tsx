@@ -12,7 +12,7 @@ type Diagnosis = {
   ambientRhPct?: number;
   pastCases?: { caseCount: number; avgRateWhenMain: number; costWhenMain: number; goodRuns: Runs; badRuns: Runs; notes: string[] };
 };
-const inputClass = "h-11 w-full rounded-lg border border-line bg-panel-2 px-3 text-[14px] text-text outline-none placeholder:text-faint focus:border-accent";
+const inputClass = "h-11 w-full rounded-[4px] border border-line bg-panel-2 px-3 text-[14px] text-text outline-none placeholder:text-faint focus:border-accent";
 const SEVERITY_TONE = { LOW: "neutral", MEDIUM: "accent", HIGH: "bad" } as const;
 // What to look at first on the line for each defect (plant knowledge, shown beside the history).
 const WHERE: Record<Defect, string> = { WARP: "Single facer and drying", DELAM: "Gum and pasting", STRENGTH: "Single facer and board grade", PRINT: "Printing unit", CRACK: "Creasing and paper moisture" };
@@ -58,7 +58,7 @@ export function Defects() {
     <div className="grid gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
       <Panel title="Diagnose a defect">
         <button type="button" onClick={() => input.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files[0]); }}
-          className="relative flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-line-strong bg-panel-2 text-center hover:border-accent">
+          className="relative flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-[6px] border border-dashed border-line-strong bg-panel-2 text-center hover:border-accent">
           {preview ? <img src={preview} alt="Selected sheet" className="absolute inset-0 h-full w-full object-cover" /> : (
             <>
               <Camera size={22} className="text-accent" aria-hidden="true" />
@@ -78,10 +78,10 @@ export function Defects() {
             </select></label>
         </div>
         <button type="button" onClick={diagnose} disabled={!file || busy}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent text-[13.5px] font-medium text-accent-ink disabled:opacity-45">
+          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[4px] bg-accent text-[13.5px] font-medium text-accent-ink disabled:opacity-45">
           {busy ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}{busy ? "Gemini is looking…" : "Diagnose with Gemini"}
         </button>
-        {error && <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-bad-soft px-3 py-2.5 text-[13px] text-bad"><AlertTriangle size={15} className="mt-0.5 shrink-0" />{error}</p>}
+        {error && <p role="alert" className="mt-3 flex items-start gap-2 rounded-[4px] bg-bad-soft px-3 py-2.5 text-[13px] text-bad"><AlertTriangle size={15} className="mt-0.5 shrink-0" />{error}</p>}
         <p className="mt-3 text-[12px] leading-relaxed text-faint">Gemini only reads what is visible. Causes and fixes below come from our own lot history.</p>
       </Panel>
 
@@ -142,7 +142,7 @@ function History({ past, rh, defect }: { past: NonNullable<Diagnosis["pastCases"
       </div>
       {rows.length > 0 && (
         <Panel title="What the good runs did differently">
-          <div className="overflow-hidden rounded-xl border border-line">
+          <div className="overflow-hidden rounded-[6px] border border-line">
             <table className="w-full text-[13px]">
               <thead className="bg-panel-2 text-left text-[11.5px] uppercase tracking-wide text-faint">
                 <tr><th className="px-4 py-2.5 font-medium">Setting</th><th className="px-4 py-2.5 text-right font-medium">Worst 25% of lots</th><th className="px-4 py-2.5" /><th className="px-4 py-2.5 text-right font-medium">Best 25% of lots</th></tr>
@@ -164,7 +164,7 @@ function History({ past, rh, defect }: { past: NonNullable<Diagnosis["pastCases"
       )}
       {(past.notes ?? []).length > 0 && (
         <Panel title="Operator notes from those lots">
-          <ul className="flex flex-col gap-2">{past.notes.map((n) => <li key={n} className="rounded-lg bg-panel-2 px-3.5 py-2.5 text-[13px]">“{n}”</li>)}</ul>
+          <ul className="flex flex-col gap-2">{past.notes.map((n) => <li key={n} className="rounded-[4px] bg-panel-2 px-3.5 py-2.5 text-[13px]">“{n}”</li>)}</ul>
         </Panel>
       )}
     </>

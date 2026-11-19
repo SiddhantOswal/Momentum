@@ -7,9 +7,9 @@
 /* Design tokens. One accent (kraft amber); green and red only mean good and bad. */
 :root, [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b0d0f;
-  --panel: #121518;
-  --panel-2: #171b1f;
+  --bg: #0a0b0c;
+  --panel: #111315;
+  --panel-2: #16191b;
   --raised: #1d2226;
   --line: #242a2f;
   --line-strong: #323a40;
@@ -61,6 +61,8 @@
 
 @theme inline {
   --font-sans: "Plex", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "IBM Plex Sans Condensed", "Plex", ui-sans-serif, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --color-bg: var(--bg);
   --color-panel: var(--panel);
   --color-panel-2: var(--panel-2);
@@ -91,6 +93,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+/* Instrument-panel type: mono micro labels, condensed figures. */
+.label { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.figure { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.hairline { border-color: var(--line); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

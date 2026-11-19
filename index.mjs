@@ -34,6 +34,7 @@ import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
 import { streamSSE } from "hono/streaming";
 import { createLiveStore } from "./src/google-cloud/live-store.js";
+import { createWeatherProviderFromEnv } from "./src/google-cloud/weather-service.js";
 import { traceRegistry } from "./src/trace-registry.js";
 import { fxRatesService } from "./src/fx-rates.js";
 import { servicePorts, getJobLifecycleAvailability } from "./src/service-ports.js";
@@ -90,6 +91,7 @@ function liveLot(jobSheet, status) {
     orderId: jobSheet?.order?.orderId, itemCode: jobSheet?.order?.itemCode, quantity: jobSheet?.order?.quantity,
     ...(risk ? { totalScrapPct: risk.totalScrapPct, primaryDefect: risk.primaryDefect, ratesPct: risk.ratesPct, currency: risk.currency } : {}),
     ...(Number.isFinite(jobSheet?.savings?.inr) ? { predictedSaving: Math.max(0, jobSheet.savings.inr) } : {}),
+    ...(Array.isArray(jobSheet?.changes) ? { changes: jobSheet.changes.slice(0, 3).map(({ lever, from, to }) => ({ lever, from, to })) } : {}),
   };
 }
 function sameOrigin(c) {
@@ -1292,6 +1294,20 @@ app.post("/evidence/diagnose-photo", async (c) => {
   const defectName = { WARP: "Warp", DELAM: "Delamination", STRENGTH: "Crushed board", PRINT: "Print defect", CRACK: "Crease cracking" }[result.diagnosis.label];
   void liveStore.publish({ event: { type: "defect.logged", ...(lotId ? { lotId } : {}), text: `${defectName} spotted on a photo · ${result.diagnosis.severity.toLowerCase()} severity`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
   return responseForResult(c, { ...result, ...(rawRh === undefined ? {} : { ambientRhPct: rawRh }), ...(pastCases?.ok ? { pastCases } : {}) });
+});
+
+// Live Pune weather from the Google Weather API, cached for 10 minutes so many open screens
+// cost at most six calls an hour. Disabled unless WEATHER_API_KEY is set.
+const weatherProvider = createWeatherProviderFromEnv(process.env);
+let weatherCache;
+app.get("/conditions/weather", async (c) => {
+  if (!weatherProvider) return c.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Live weather is not configured." } }, 503);
+  if (!weatherCache || Date.now() - weatherCache.at > 10 * 60 * 1000) {
+    const reading = await weatherProvider({ signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY) }).catch(() => undefined);
+    if (reading?.ok) weatherCache = { at: Date.now(), reading };
+    else if (!weatherCache) return c.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Live weather is unavailable right now." } }, 503);
+  }
+  return c.json({ ...weatherCache.reading, location: "Pune" }, 200, { "Cache-Control": "no-store" });
 });
 
 // Live floor view: the latest lots and events, now and on every change, as server-sent events.

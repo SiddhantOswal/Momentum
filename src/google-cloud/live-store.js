@@ -19,6 +19,7 @@ export const LiveLotSchema = z.object({
   primaryDefect: z.enum(DEFECTS).optional(),
   ratesPct: z.record(z.enum(DEFECTS), z.number().min(0).max(25)).optional(),
   predictedSaving: z.number().min(0).optional(),
+  changes: z.array(z.object({ lever: z.string().max(40), from: z.union([z.string().max(20), z.number()]), to: z.union([z.string().max(20), z.number()]) }).strict()).max(3).optional(),
   currency: z.string().length(3).optional(),
   updatedBy: z.string().max(120).optional(),
   updatedAt: z.string().datetime(),

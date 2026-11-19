@@ -1,4 +1,5 @@
 import { Shell } from "./components/Shell";
+import { StatusStrip } from "./components/StatusStrip";
 import { Empty } from "./components/ui";
 import { Floor } from "./screens/Floor";
 import { Lots } from "./screens/Lots";
@@ -18,7 +19,7 @@ export function App() {
   const { theme, toggle } = useTheme();
   const { title, subtitle } = TITLES[screen];
   return (
-    <Shell screen={screen} go={go} theme={theme} toggleTheme={toggle} title={title} subtitle={subtitle}>
+    <Shell screen={screen} go={go} theme={theme} toggleTheme={toggle} title={title} subtitle={subtitle} status={<StatusStrip />}>
       {screen === "floor" ? <Floor /> : screen === "lots" ? <Lots /> : screen === "defects" ? <Defects /> : <div className="panel p-6"><Empty title={`${title} is being built`} hint="Coming in the next build." /></div>}
     </Shell>
   );

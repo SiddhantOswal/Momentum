@@ -10,10 +10,10 @@ const tooltipStyle = { background: "var(--panel)", border: "1px solid var(--line
 const SAMPLE = { url: "/samples/PO1_ClientA_single_B1047.pdf", name: "PO1_ClientA_single_B1047.pdf", orderId: "TEST-CLA/PO/2026/1047", paperType: "RECYCLED", paperSupplier: "SUP-D" };
 const STATUS_TONE: Record<string, "neutral" | "accent" | "good" | "bad"> = { planned: "accent", approved: "good", running: "good", done: "neutral", blocked: "bad" };
 
-const inputClass = "h-11 w-full rounded-lg border border-line bg-panel-2 px-3 text-[14px] text-text outline-none transition-colors placeholder:text-faint focus:border-accent";
+const inputClass = "h-11 w-full rounded-[4px] border border-line bg-panel-2 px-3 text-[14px] text-text outline-none transition-colors placeholder:text-faint focus:border-accent";
 const Button = ({ children, tone = "primary", ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "primary" | "ghost" }) => (
   <button type="button" {...props}
-    className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-[13.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${tone === "primary" ? "bg-accent text-accent-ink hover:brightness-105" : "border border-line text-text hover:bg-raised"} ${props.className ?? ""}`}>
+    className={`inline-flex h-11 items-center justify-center gap-2 rounded-[4px] px-4 text-[13.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${tone === "primary" ? "bg-accent text-accent-ink hover:brightness-105" : "border border-line text-text hover:bg-raised"} ${props.className ?? ""}`}>
     {children}
   </button>
 );
@@ -28,28 +28,28 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function Step({ n, title, done, children, action }: { n: number; title: string; done?: boolean; children: ReactNode; action?: ReactNode }) {
   return (
     <section className="panel">
-      <header className="flex items-center gap-3 border-b border-line px-5 py-3.5">
-        <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold ${done ? "bg-good-soft text-good" : "bg-accent-soft text-accent"}`}>{done ? <Check size={13} /> : n}</span>
-        <h3 className="text-[14px] font-medium">{title}</h3>
+      <header className="flex min-h-11 items-center gap-3 border-b border-line px-4">
+        <span className={`mono text-[11px] tracking-[0.1em] ${done ? "text-good" : "text-accent"}`}>{done ? <Check size={13} className="inline" /> : String(n).padStart(2, "0")}</span>
+        <h3 className="label text-text">{title}</h3>
         <div className="ml-auto">{action}</div>
       </header>
-      <div className="p-5">{children}</div>
+      <div className="p-4">{children}</div>
     </section>
   );
 }
 const Alert = ({ children }: { children: ReactNode }) => (
-  <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-bad-soft px-3 py-2.5 text-[13px] text-bad"><AlertTriangle size={15} className="mt-0.5 shrink-0" />{children}</p>
+  <p role="alert" className="mt-3 flex items-start gap-2 rounded-[4px] bg-bad-soft px-3 py-2.5 text-[13px] text-bad"><AlertTriangle size={15} className="mt-0.5 shrink-0" />{children}</p>
 );
 
 function LotList({ lots, selected, onSelect, onNew }: { lots: LiveLot[]; selected?: string; onSelect: (l: LiveLot) => void; onNew: () => void }) {
   return (
-    <Panel title="Lots" action={<button type="button" onClick={onNew} className="inline-flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink"><Plus size={14} />New lot</button>} pad={false}>
+    <Panel title="Lots" action={<button type="button" onClick={onNew} className="inline-flex items-center gap-1 rounded-[4px] bg-accent px-2.5 py-1.5 text-[12px] font-medium text-accent-ink"><Plus size={14} />New lot</button>} pad={false}>
       {lots.length === 0 ? <div className="p-4"><Empty title="No lots yet" hint="Plan your first lot from a purchase order." /></div> : (
         <ul className="flex flex-col p-2">
           {lots.map((lot) => (
             <li key={lot.lotId}>
               <button type="button" onClick={() => onSelect(lot)} aria-current={selected === lot.lotId ? "true" : undefined}
-                className={`flex w-full flex-col gap-1 rounded-xl px-3 py-3 text-left transition-colors ${selected === lot.lotId ? "bg-accent-soft" : "hover:bg-raised"}`}>
+                className={`flex w-full flex-col gap-1 border-l-2 px-3 py-3 text-left transition-colors ${selected === lot.lotId ? "border-accent bg-raised" : "border-transparent hover:bg-raised"}`}>
                 <span className="flex items-center gap-2">
                   <span className="truncate text-[13.5px] font-medium">{lot.itemCode}</span>
                   <span className="ml-auto"><Tag tone={STATUS_TONE[lot.status]}>{lot.status}</Tag></span>
@@ -157,7 +157,7 @@ function NewLot({ onPlanned }: { onPlanned: (r: JobResult, file: File) => void }
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           <button type="button" onClick={() => fileInput.current?.click()}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) { setFile(f); resetReview(); } }}
-            className="flex min-h-[132px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line-strong bg-panel-2 px-4 text-center hover:border-accent">
+            className="flex min-h-[132px] flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-line-strong bg-panel-2 px-4 text-center hover:border-accent">
             <FileUp size={20} className="text-accent" aria-hidden="true" />
             <span className="text-[13.5px]">{file ? file.name : "Drop the order PDF or photo"}</span>
             <span className="text-[12px] text-faint">{file ? `${formatNumber(file.size / 1024, 0)} KB · click to change` : "PDF or JPEG, up to 10 MB"}</span>
@@ -181,7 +181,7 @@ function NewLot({ onPlanned }: { onPlanned: (r: JobResult, file: File) => void }
               const selected = l.lineIndex === lineIndex;
               const bad = l.status !== "MATCHED";
               return (
-                <div key={l.lineIndex} className={`rounded-xl border p-4 ${selected ? "border-accent bg-accent-soft" : "border-line"}`}>
+                <div key={l.lineIndex} className={`rounded-[6px] border p-4 ${selected ? "border-accent bg-accent-soft" : "border-line"}`}>
                   <label className="flex items-center gap-3">
                     <input type="radio" name="po-line" checked={selected} onChange={() => chooseLine(l)} className="h-4 w-4 accent-[var(--accent)]" />
                     <span className="text-[13.5px] font-medium">Line {l.lineIndex + 1}</span>
@@ -305,7 +305,7 @@ function JobView({ result, onApproved }: { result: JobResult; onApproved: (sheet
           {sheet.changes.length === 0 ? <Empty title="Your plan is already the best found" /> : (
             <ul className="flex flex-col gap-2.5">
               {sheet.changes.map((c) => (
-                <li key={c.lever} className="rounded-xl bg-panel-2 px-4 py-3">
+                <li key={c.lever} className="rounded-[6px] bg-panel-2 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <span className="text-[13.5px] font-medium">{leverLabel(c.lever)}</span>
                     <span className="num ml-auto text-[13px] text-muted">{c.from}{unit(c.lever)}</span>
@@ -330,7 +330,7 @@ function JobView({ result, onApproved }: { result: JobResult; onApproved: (sheet
         <p className="text-[13px] text-muted">{approved ? "Approved. The job card is ready for the floor." : "Nothing reaches the machines until a supervisor approves."}</p>
         <div className="ml-auto flex gap-3">
           {approved ? (
-            <a href={`/jobs/${encodeURIComponent(sheet.jobId)}/card.pdf`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 rounded-lg bg-accent px-4 text-[13.5px] font-medium text-accent-ink"><FileDown size={16} />Job card (PDF)</a>
+            <a href={`/jobs/${encodeURIComponent(sheet.jobId)}/card.pdf`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 rounded-[4px] bg-accent px-4 text-[13.5px] font-medium text-accent-ink"><FileDown size={16} />Job card (PDF)</a>
           ) : asking ? (
             <>
               <Button tone="ghost" onClick={() => setAsking(false)}>Keep as draft</Button>

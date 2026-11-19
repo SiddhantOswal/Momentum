@@ -6,6 +6,7 @@ export type LiveLot = {
   status: "planned" | "approved" | "running" | "done" | "blocked";
   totalScrapPct?: number; primaryDefect?: Defect; ratesPct?: Partial<Record<Defect, number>>;
   predictedSaving?: number; currency?: string; updatedAt: string;
+  changes?: { lever: string; from: string | number; to: string | number }[];
 };
 export type LiveEvent = { type: string; lotId?: string; text: string; actor?: string; at: string };
 export type FloorView = { lots: LiveLot[]; events: LiveEvent[] };
