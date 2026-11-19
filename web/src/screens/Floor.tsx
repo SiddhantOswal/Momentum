@@ -1,9 +1,42 @@
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Droplets, Thermometer, Layers3, Radio } from "lucide-react";
+import { Droplets, Thermometer, Layers3, FileText, ClipboardCheck, BadgeCheck, ScanSearch, PencilLine } from "lucide-react";
 import { PlantView, type StagePin, type StageKey } from "../components/PlantView";
 import { Delta, Empty, Kpi, Panel, Skeleton, Tag } from "../components/ui";
 import { DEFECTS, formatMoney, formatNumber, type Conditions, type Defect, type ImpactSummary } from "../lib/api";
 import { useResource } from "../lib/useApp";
+import { timeAgo, useLive, type LiveEvent, type LiveState } from "../lib/live";
+
+const EVENT_ICON: Record<string, typeof FileText> = { "order.read": FileText, "lot.planned": ClipboardCheck, "lot.approved": BadgeCheck, "defect.logged": ScanSearch, "feedback.saved": PencilLine };
+
+export function LiveDot({ status }: { status: LiveState["status"] }) {
+  const tone = status === "live" ? "bg-good" : status === "connecting" ? "bg-warn" : "bg-bad";
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11.5px] text-muted">
+      <i className={`h-2 w-2 rounded-full ${tone} ${status === "live" ? "animate-pulse" : ""}`} />
+      {status === "live" ? "Live" : status === "connecting" ? "Connecting" : "Offline"}
+    </span>
+  );
+}
+
+function Feed({ events }: { events: LiveEvent[] }) {
+  if (!events.length) return <Empty title="Nothing on the line yet" hint="Orders read, lots planned and approvals appear here as they happen." />;
+  return (
+    <ol className="flex flex-col">
+      {events.slice(0, 12).map((e, i) => {
+        const Icon = EVENT_ICON[e.type] ?? FileText;
+        return (
+          <li key={`${e.at}-${i}`} className="flex gap-3 border-b border-line py-3 last:border-0">
+            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent"><Icon size={14} strokeWidth={1.9} aria-hidden="true" /></span>
+            <div className="min-w-0">
+              <p className="text-[13px] leading-snug text-text">{e.text}</p>
+              <p className="mt-0.5 text-[11.5px] text-faint">{timeAgo(e.at)}{e.actor ? ` · ${e.actor}` : ""}</p>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 // Where on the line each defect shows up.
 const STAGE_OF: Record<Defect, StageKey> = { WARP: "dry", DELAM: "paste", STRENGTH: "facer", PRINT: "print", CRACK: "cut" };
@@ -24,15 +57,19 @@ export function Floor() {
   const summary = impact.result?.ok ? impact.result.data : undefined;
   const season = summary ? currentSeason(summary.seasonal) : undefined;
   const rates = season ? seasonRates(season).sort((a, b) => b.rate - a.rate) : [];
-  const pins: StagePin[] = rates.slice(0, 2).map((d, i) => ({
-    stage: STAGE_OF[d.key], level: i === 0 ? "high" : "watch", label: `${d.label} · ${season!.season}`, value: `${formatNumber(d.rate, 2)}% typical`,
-  }));
+  const live = useLive();
+  // Pins follow the latest planned lot; with no lot on the line they show this season's typical risk.
+  const activeLot = live.view.lots.find((l) => (l.status === "planned" || l.status === "approved" || l.status === "running") && l.ratesPct);
+  const lotRates = activeLot ? DEFECTS.map((d) => ({ ...d, rate: activeLot.ratesPct?.[d.key] ?? 0 })).sort((a, b) => b.rate - a.rate) : [];
+  const pins: StagePin[] = activeLot
+    ? lotRates.slice(0, 2).map((d, i) => ({ stage: STAGE_OF[d.key], level: i === 0 ? "high" : "watch", label: `${d.label} · ${activeLot.itemCode}`, value: `${formatNumber(d.rate, 2)}% predicted` }))
+    : rates.slice(0, 2).map((d, i) => ({ stage: STAGE_OF[d.key], level: i === 0 ? "high" : "watch", label: `${d.label} · ${season!.season}`, value: `${formatNumber(d.rate, 2)}% typical` }));
   const k = summary?.kpis;
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-5">
-        <Panel title="Line 1 · Corrugation" action={season && <Tag tone="accent">Risk by stage · {season.season}</Tag>} pad={false}>
+        <Panel title="Line 1 · Corrugation" action={activeLot ? <Tag tone="accent">Risk by stage · lot {activeLot.itemCode}</Tag> : season && <Tag tone="accent">Risk by stage · {season.season}</Tag>} pad={false}>
           <div className="px-3 pb-2">
             {impact.loading && !summary ? <Skeleton className="m-3 h-[360px]" /> : <PlantView pins={pins} />}
           </div>
@@ -40,7 +77,7 @@ export function Floor() {
             <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-bad" />Highest risk now</span>
             <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-warn" />Watch</span>
             <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-good" />Running normally</span>
-            <span className="ml-auto text-faint">Seasonal averages from our lot history</span>
+            <span className="ml-auto text-faint">{activeLot ? "Predicted by the five defect models" : "Seasonal averages from our lot history"}</span>
           </footer>
         </Panel>
 
@@ -77,7 +114,7 @@ export function Floor() {
                   <Area type="monotone" dataKey="avgScrapPct" stroke="var(--accent)" strokeWidth={2} fill="url(#floor-scrap)" />
                 </AreaChart>
               </ResponsiveContainer>
-            ) : <Skeleton className="h-[220px]" />}
+            ) : summary ? <Empty title="No monthly history yet" /> : <Skeleton className="h-[220px]" />}
           </Panel>
           <Panel title={season ? `Defects this season · ${season.season}` : "Defects this season"}>
             {rates.length ? (
@@ -92,7 +129,7 @@ export function Floor() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            ) : <Skeleton className="h-[220px]" />}
+            ) : summary ? <Empty title="No seasonal history yet" /> : <Skeleton className="h-[220px]" />}
           </Panel>
         </div>
       </div>
@@ -115,8 +152,8 @@ export function Floor() {
             </dl>
           ) : conditions.loading ? <Skeleton className="h-[170px]" /> : <Empty title="No plant reading yet" hint={conditions.result && !conditions.result.ok && conditions.result.status === 401 ? "Sign in to see the latest plant reading." : "Readings appear here once the plant feed reports."} />}
         </Panel>
-        <Panel title="Live feed" action={<span className="inline-flex items-center gap-1.5 text-[11.5px] text-faint"><Radio size={13} aria-hidden="true" />Live</span>} className="flex-1">
-          <Empty title="Nothing on the line yet" hint="Orders read, lots planned and approvals appear here as they happen." />
+        <Panel title="Live feed" action={<LiveDot status={live.status} />} className="flex-1">
+          <Feed events={live.view.events} />
         </Panel>
       </aside>
     </div>
