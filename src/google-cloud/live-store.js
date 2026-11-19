@@ -36,6 +36,8 @@ export const LiveEventSchema = z.object({
 const LOT_LIMIT = 50;
 const EVENT_LIMIT = 40;
 const safeId = (value) => String(value).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 120);
+// Firestore rejects undefined values, so optional fields that are absent are dropped first.
+const defined = (record) => Object.fromEntries(Object.entries(record).filter(([, v]) => v !== undefined));
 
 function memoryBackend() {
   const lots = new Map();
@@ -114,10 +116,12 @@ export function createLiveStore({ enabled = false, projectId, firestore, now = (
       try {
         const b = await getBackend();
         const at = stamp();
-        if (lot) await b.upsertLot(LiveLotSchema.parse({ ...lot, updatedAt: at }));
-        if (event) await b.addEvent(LiveEventSchema.parse({ ...event, at }));
+        if (lot) await b.upsertLot(defined(LiveLotSchema.parse({ ...lot, updatedAt: at })));
+        if (event) await b.addEvent(defined(LiveEventSchema.parse({ ...event, at })));
         return true;
-      } catch {
+      } catch (error) {
+        // Never blocks the request, but always leaves a trace in Cloud Logging.
+        console.warn(JSON.stringify({ event: "momentum_live_store_publish_failed", mode: enabled ? "firestore" : "memory", message: String(error?.message ?? error).slice(0, 300) }));
         return false;
       }
     },

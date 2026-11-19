@@ -47,3 +47,12 @@ test("firestore mode writes through the collections and fans one listener out", 
   assert.equal(snapshotCallbacks, 2, "one lots listener and one events listener, shared by all watchers");
   assert.deepEqual(views.at(-1).events, [{ name: "events" }]);
 });
+
+test("absent optional fields are dropped before writing (Firestore rejects undefined)", async () => {
+  const writes = [];
+  const collection = (name) => ({ doc: () => ({ set: async (data) => writes.push({ name, data }) }), add: async (data) => writes.push({ name, data }), orderBy: () => ({ limit: () => ({ onSnapshot: () => () => {} }) }) });
+  const store = createLiveStore({ enabled: true, now: fixedNow, firestore: async () => ({ collection }) });
+  assert.equal(await store.publish({ lot: { ...lot, totalScrapPct: undefined }, event: { type: "defect.logged", text: "Delamination spotted", actor: undefined } }), true);
+  for (const w of writes) assert.ok(Object.values(w.data).every((v) => v !== undefined), `${w.name} has no undefined values`);
+  assert.equal("actor" in writes[1].data, false);
+});
