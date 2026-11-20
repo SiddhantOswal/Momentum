@@ -28,11 +28,11 @@ grid AS (
 ),
 -- Chain the 5 models: each ML.PREDICT passes all columns through and adds its prediction.
 pred AS (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_crack, (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_print, (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_strength, (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_delam, (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_warp, (SELECT * FROM grid))))))))))
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_crack, (
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_print, (
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_strength, (
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_delam, (
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_warp, (SELECT * FROM grid))))))))))
 ),
 costed AS (
   SELECT *,

@@ -310,8 +310,8 @@ test("status endpoint separates backend reachability from configured local integ
       WARP: 0.6, DELAM: 0.6, STRENGTH: 0.45, PRINT: 0.6, CRACK: 0.3,
     });
     assert.equal(payload.modelAcceptance.status, "accepted");
-    assert.equal(payload.modelAcceptance.evaluationId, "D4-2026-10-16-OM");
-    assert.equal(payload.modelAcceptance.completeAcceptanceEvidenceAvailable, false);
+    assert.equal(payload.modelAcceptance.evaluationId, "D4-2026-11-20-OM");
+    assert.equal(payload.modelAcceptance.completeAcceptanceEvidenceAvailable, true);
     assert.equal(payload.modelAcceptance.linkedToCurrentResourceVersions, true);
     assert.equal(payload.modelAcceptance.models.length, 5);
     assert.deepEqual(payload.runtimeAvailability, {

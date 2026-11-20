@@ -27,11 +27,11 @@ const NUMERIC_TYPES = new Set(["INT64", "INTEGER", "FLOAT64", "FLOAT", "NUMERIC"
 // Fixed whitelist for per-defect fallback queries. Model names are never built
 // from request input.
 export const DEFECT_MODELS = Object.freeze({
-  WARP: Object.freeze({ model: "prepagent.m_warp", predictedColumn: "predicted_rate_warp_pct" }),
-  DELAM: Object.freeze({ model: "prepagent.m_delam", predictedColumn: "predicted_rate_delam_pct" }),
-  STRENGTH: Object.freeze({ model: "prepagent.m_strength", predictedColumn: "predicted_rate_strength_pct" }),
-  PRINT: Object.freeze({ model: "prepagent.m_print", predictedColumn: "predicted_rate_print_pct" }),
-  CRACK: Object.freeze({ model: "prepagent.m_crack", predictedColumn: "predicted_rate_crack_pct" }),
+  WARP: Object.freeze({ model: "prepagent.m2_warp", predictedColumn: "predicted_rate_warp_pct" }),
+  DELAM: Object.freeze({ model: "prepagent.m2_delam", predictedColumn: "predicted_rate_delam_pct" }),
+  STRENGTH: Object.freeze({ model: "prepagent.m2_strength", predictedColumn: "predicted_rate_strength_pct" }),
+  PRINT: Object.freeze({ model: "prepagent.m2_print", predictedColumn: "predicted_rate_print_pct" }),
+  CRACK: Object.freeze({ model: "prepagent.m2_crack", predictedColumn: "predicted_rate_crack_pct" }),
 });
 const DEFECT_RESULT_FIELDS = Object.freeze([
   "item_code", "defect", "rate_pct", "rate_low_pct", "rate_high_pct",

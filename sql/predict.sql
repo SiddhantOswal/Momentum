@@ -47,11 +47,11 @@ input AS (
     area * board_gsm / 1000 AS box_weight_kg
   FROM spec CROSS JOIN rh_scenarios s
 ),
-w  AS (SELECT rh_scenario, predicted_rate_warp_pct     AS v FROM ML.PREDICT(MODEL prepagent.m_warp,     (SELECT * FROM input))),
-d  AS (SELECT rh_scenario, predicted_rate_delam_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_delam,    (SELECT * FROM input))),
-st AS (SELECT rh_scenario, predicted_rate_strength_pct AS v FROM ML.PREDICT(MODEL prepagent.m_strength, (SELECT * FROM input))),
-p  AS (SELECT rh_scenario, predicted_rate_print_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_print,    (SELECT * FROM input))),
-c  AS (SELECT rh_scenario, predicted_rate_crack_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_crack,    (SELECT * FROM input))),
+w  AS (SELECT rh_scenario, predicted_rate_warp_pct     AS v FROM ML.PREDICT(MODEL prepagent.m2_warp,     (SELECT * FROM input))),
+d  AS (SELECT rh_scenario, predicted_rate_delam_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_delam,    (SELECT * FROM input))),
+st AS (SELECT rh_scenario, predicted_rate_strength_pct AS v FROM ML.PREDICT(MODEL prepagent.m2_strength, (SELECT * FROM input))),
+p  AS (SELECT rh_scenario, predicted_rate_print_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_print,    (SELECT * FROM input))),
+c  AS (SELECT rh_scenario, predicted_rate_crack_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_crack,    (SELECT * FROM input))),
 scenario_rates AS (
   SELECT i.rh_scenario, i.ambient_rh_pct, i.quantity, i.box_weight_kg,
     GREATEST(w.v, 0) AS r_warp,

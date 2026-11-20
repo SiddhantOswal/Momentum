@@ -65,7 +65,26 @@ const DRIVER_ALIASES = Object.freeze({
   ply: ["ply"],
   quantity: ["quantity"],
   shift: ["shift"],
+  sheet_area_m2: ["sheet_area_m2", "sheet area"],
+  box_weight_kg: ["box_weight_kg", "box weight"],
+  // Engineered in the m2_* model TRANSFORM (sql/model_v2_training.sql).
+  rh_band: ["rh_band", "humidity band"],
+  rh_x_paper_moisture: ["rh_x_paper_moisture", "humidity and paper moisture"],
+  dew_point_c: ["dew_point_c", "dew point"],
+  recycled_paper_flag: ["recycled_paper_flag", "recycled paper"],
+  board_gsm_per_m2: ["board_gsm_per_m2", "board weight"],
+  gum_visc_x_roll_temp: ["gum_visc_x_roll_temp", "gum viscosity and roll temperature"],
 });
+// A combined driver may be described through the inputs it is built from.
+const DRIVER_PARTS = Object.freeze({
+  rh_band: ["ambient_rh_pct"],
+  rh_x_paper_moisture: ["ambient_rh_pct", "paper_moisture_pct"],
+  dew_point_c: ["ambient_rh_pct", "ambient_temp_c"],
+  recycled_paper_flag: ["paper_type"],
+  board_gsm_per_m2: ["box_weight_kg", "sheet_area_m2"],
+  gum_visc_x_roll_temp: ["gum_viscosity_sec", "roll_temp_c"],
+});
+const withDriverParts = (drivers) => new Set([...drivers].flatMap((driver) => [driver, ...(DRIVER_PARTS[driver] ?? [])]));
 const SeenBeforeInputSchema = z.object({
   defect: DefectSchema,
   ambientRhPct: z.number().finite().min(0).max(100),
@@ -458,7 +477,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         console.error(JSON.stringify({ event: "risk_explanation_rejected", reason: "evidence_contract", sentenceCount: sentenceCount(explanation), unsupportedNumericClaims: numericClaims(withoutSuppliedDates(explanation, suppliedDates)).filter((value) => !allowedNumbers.has(value)).length }));
         throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the evidence contract.");
       }
-      const reportedDrivers = new Set(rows.map((row) => row.driver.toLowerCase()));
+      const reportedDrivers = withDriverParts(rows.map((row) => row.driver.toLowerCase()));
       if (namesUnsupportedDriver(explanation, reportedDrivers) ||
           containsCausalClaim(withoutNegatedCausation(explanation)) ||
           containsUnverifiedOutcomeClaim(explanation)) {

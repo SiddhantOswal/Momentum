@@ -160,7 +160,7 @@ function runSweep({ outputFile }) {
       project: "prepagent-hack",
       location: "asia-south1",
       maximumBytesBilled: MAX_BYTES_BILLED,
-      models: ["prepagent.m_warp", "prepagent.m_delam", "prepagent.m_strength", "prepagent.m_print", "prepagent.m_crack"],
+      models: ["prepagent.m2_warp", "prepagent.m2_delam", "prepagent.m2_strength", "prepagent.m2_print", "prepagent.m2_crack"],
     },
     inputs: { order: "TEST-CLA/PO/2026/1047 (PO1)", ...PO1_INPUTS, ambientRhPct: SWEEP },
     points,

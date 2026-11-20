@@ -86,7 +86,7 @@ const historicalBlockedRecord = ({ requiredR2, recordedEvaluation }) => ({ statu
 test("risk prediction fails closed before querying when only historical thresholds are met", async () => {
   let queryCalled = false;
   const service = createRiskPredictionServiceImpl({
-    modelAcceptance: historicalBlockedRecord((await import("../config/model-acceptance.json", { with: { type: "json" } })).default),
+    modelAcceptance: historicalBlockedRecord((await import("../config/model-acceptance.json", { with: { type: "json" } })).default.previousAcceptance),
     bigquery: { query: async () => { queryCalled = true; return resultRow(); } },
   });
   const response = await service(input);

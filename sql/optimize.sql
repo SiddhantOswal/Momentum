@@ -53,11 +53,11 @@ candidates AS (
     CROSS JOIN pastes p CROSS JOIN dries d CROSS JOIN prints pr
 ),
 grid AS (SELECT c.*, b.* FROM candidates c CROSS JOIN base b),
-pw AS (SELECT cid, predicted_rate_warp_pct     AS v FROM ML.PREDICT(MODEL prepagent.m_warp,     (SELECT * FROM grid))),
-pd AS (SELECT cid, predicted_rate_delam_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_delam,    (SELECT * FROM grid))),
-ps AS (SELECT cid, predicted_rate_strength_pct AS v FROM ML.PREDICT(MODEL prepagent.m_strength, (SELECT * FROM grid))),
-pp AS (SELECT cid, predicted_rate_print_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_print,    (SELECT * FROM grid))),
-pc AS (SELECT cid, predicted_rate_crack_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_crack,    (SELECT * FROM grid))),
+pw AS (SELECT cid, predicted_rate_warp_pct     AS v FROM ML.PREDICT(MODEL prepagent.m2_warp,     (SELECT * FROM grid))),
+pd AS (SELECT cid, predicted_rate_delam_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_delam,    (SELECT * FROM grid))),
+ps AS (SELECT cid, predicted_rate_strength_pct AS v FROM ML.PREDICT(MODEL prepagent.m2_strength, (SELECT * FROM grid))),
+pp AS (SELECT cid, predicted_rate_print_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_print,    (SELECT * FROM grid))),
+pc AS (SELECT cid, predicted_rate_crack_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_crack,    (SELECT * FROM grid))),
 rated AS (
   SELECT g.*,
     GREATEST(pw.v, 0) AS r_warp, GREATEST(pd.v, 0) AS r_delam, GREATEST(ps.v, 0) AS r_strength,
