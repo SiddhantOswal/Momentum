@@ -1,8 +1,8 @@
 -- impact_batch.sql: run the optimizer on every held-out lot (Sep 2026) in one go.
--- Creates table prepagent.impact_recs: one row per lot with its ACTUAL levers and the model's BEST levers
+-- Creates table prepagent.impact_recs_v2 (m2_* models; the m_* run is in impact_recs): one row per lot with its ACTUAL levers and the model's BEST levers
 -- (max 3 changes, same grid + objective as optimize.sql). The true-rules scoring happens in impact.ts.
 -- Size: ~220 lots x ~17,000 setting combinations. Takes a few minutes.
-CREATE OR REPLACE TABLE prepagent.impact_recs AS
+CREATE TABLE prepagent.impact_recs_v2 AS
 WITH held AS (
   SELECT * FROM prepagent.lots WHERE run_date >= DATE '2026-09-01'
 ),

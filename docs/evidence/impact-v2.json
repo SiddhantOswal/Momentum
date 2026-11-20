@@ -1,0 +1,21 @@
+{
+  "kind": "impact-v2",
+  "generatedAt": "2026-11-20",
+  "question": "Predicted September 2026 savings when the m2_* models choose the settings, scored with the plant rules",
+  "pipeline": [
+    "sql/impact_batch.sql on prepagent.m2_* -> prepagent.impact_recs_v2 (job impact_v2_1795147447, 73,400,320 bytes billed, 161.5 slot-seconds)",
+    "SELECT * FROM prepagent.impact_recs_v2 -> recs.json",
+    "impact.ts from sid_pack.zip with generator.ts (seed 20261010) and its truth.jsonl -> impact_lots.jsonl",
+    "bq load (schema copied from prepagent.impact_lots) -> prepagent.impact_lots_v2; sql/dash_kpis.sql reads impact_lots_v2"
+  ],
+  "reproductionCheck": "The same scorer reproduces every field of the live prepagent.impact_lots (m_* models) for all 219 lots, with costPerKg set to 53.3 (prepagent.plants PLANT-01). generator.ts in the parent folder still says 45; the live table was built with 53.3.",
+  "lots": 219,
+  "previousModels": { "tables": "impact_recs / impact_lots", "netSavingInr": 7320, "kgSaved": 138, "scrapPctBefore": 7.06, "scrapPctAfter": 6.39, "lotsChanged": 207, "lotsMadeWorse": 10, "modelExpectedSavingInr": 8021 },
+  "newModels": { "tables": "impact_recs_v2 / impact_lots_v2", "netSavingInr": 7934, "kgSaved": 149, "scrapPctBefore": 7.06, "scrapPctAfter": 6.36, "lotsChanged": 217, "lotsMadeWorse": 3, "modelExpectedSavingInr": 7558 },
+  "perLot": "Against the previous models' recommendations: 22 lots save more, 9 save less, 188 the same.",
+  "notes": [
+    "One held-out monsoon month; do not annualise.",
+    "Scored with the generator's rules for modelled plant history, not measured factory outcomes.",
+    "The previous models' own estimate (Rs 8,021) was above the scored saving (Rs 7,320); the new models' estimate (Rs 7,558) is below the scored saving (Rs 7,934)."
+  ]
+}
