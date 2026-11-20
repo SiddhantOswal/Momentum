@@ -432,6 +432,42 @@ for (const [path, [file, contentType]] of Object.entries(presentationAssets)) {
   }));
 }
 
+// The v2 React app (web/, built into public/app). Hash routing, so only real files are served;
+// any other path under /app gets the app shell. Paths never leave public/app.
+const webAppRoot = new URL("./public/app/", import.meta.url);
+const webAppTypes = {
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".woff2": "font/woff2", ".woff": "font/woff",
+};
+const webAppShell = async (c) => {
+  try {
+    return c.body(await readFile(new URL("index.html", webAppRoot)), 200, { "Content-Type": webAppTypes[".html"], "Cache-Control": "no-store" });
+  } catch {
+    return c.notFound();
+  }
+};
+app.get("/app", (c) => c.redirect("/app/", 301));
+app.get("/app/", webAppShell);
+app.get("/app/*", async (c) => {
+  let relative = "";
+  try { relative = decodeURIComponent(c.req.path.slice("/app/".length)); } catch { return c.notFound(); }
+  const extension = relative.slice(relative.lastIndexOf(".")).toLowerCase();
+  if (!/^[\w./-]+$/.test(relative) || relative.split("/").some((part) => part === ".." || part === "." || part === "") || !webAppTypes[extension]) {
+    return webAppShell(c);
+  }
+  const file = new URL(relative, webAppRoot);
+  if (!file.href.startsWith(webAppRoot.href)) return c.notFound();
+  try {
+    return c.body(await readFile(file), 200, {
+      "Content-Type": webAppTypes[extension],
+      // Vite fingerprints files in assets/; everything else may change between releases.
+      "Cache-Control": relative.startsWith("assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+    });
+  } catch {
+    return c.notFound();
+  }
+});
+
 app.get("/impact", async (c) => {
   const source = await readFile(new URL("./public/impact.html", import.meta.url));
   return c.body(source, 200, {
