@@ -1,17 +1,6 @@
-import { getJson, type Defect, type Result } from "./api";
+import { ensureSession, type Defect, type Result } from "./api";
 
-// Opens a session before the first action. Google sign-in replaces the demo session once
-// Firebase Auth is configured; until then the server's signed session cookie is used.
-let ready: Promise<void> | undefined;
-export function ensureSession() {
-  ready ??= (async () => {
-    const config = await getJson<{ authorizationMode?: string; demoSessionConfigured?: boolean }>("/api/auth/config");
-    if (config.ok && config.data.authorizationMode === "HACKATHON_DEMO") {
-      await fetch("/api/auth/demo-session", { method: "POST", credentials: "same-origin", cache: "no-store" });
-    }
-  })().catch(() => { ready = undefined; });
-  return ready;
-}
+export { ensureSession };
 
 export async function send<T>(path: string, init: RequestInit): Promise<Result<T>> {
   await ensureSession();

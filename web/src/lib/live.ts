@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getJson, type Defect } from "./api";
+import { ensureSession, getJson, type Defect } from "./api";
 
 export type LiveLot = {
   lotId: string; jobId?: string; orderId: string; itemCode: string; quantity: number;
@@ -15,10 +15,13 @@ export type LiveState = { view: FloorView; status: "connecting" | "live" | "offl
 const EMPTY: FloorView = { lots: [], events: [] };
 
 // One shared stream for the whole app: every screen sees the same lots and events.
-let shared: { state: LiveState; listeners: Set<(s: LiveState) => void>; source?: EventSource } | undefined;
+let shared: { state: LiveState; listeners: Set<(s: LiveState) => void>; source?: EventSource; connecting?: boolean } | undefined;
 
-function connect() {
+async function connect() {
   const hub = shared!;
+  hub.source = undefined;
+  // EventSource cannot retry with a new session, so open one before connecting.
+  await ensureSession();
   const set = (next: Partial<LiveState>) => {
     hub.state = { ...hub.state, ...next };
     for (const listener of hub.listeners) listener(hub.state);
@@ -41,7 +44,7 @@ export function useLive(): LiveState {
   useEffect(() => {
     const hub = shared!;
     hub.listeners.add(setState);
-    if (!hub.source) connect();
+    if (!hub.connecting) { hub.connecting = true; void connect(); }
     setState(hub.state);
     return () => { hub.listeners.delete(setState); };
   }, []);

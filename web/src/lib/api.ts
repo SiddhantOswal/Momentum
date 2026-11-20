@@ -1,9 +1,28 @@
 // Thin client for the Momentum backend. Every call returns either data or a plain error message.
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
-async function request<T>(path: string, init?: RequestInit): Promise<Result<T>> {
+// Opens a session before protected calls. Google sign-in replaces the demo session once
+// Firebase Auth is configured; until then the server's signed session cookie is used.
+let session: Promise<void> | undefined;
+export function ensureSession() {
+  session ??= (async () => {
+    const config = await request<{ authorizationMode?: string }>("/api/auth/config", undefined, true);
+    if (config.ok && config.data.authorizationMode === "HACKATHON_DEMO") {
+      await fetch("/api/auth/demo-session", { method: "POST", credentials: "same-origin", cache: "no-store" });
+    }
+  })().catch(() => { session = undefined; });
+  return session;
+}
+
+async function request<T>(path: string, init?: RequestInit, retried = false): Promise<Result<T>> {
   try {
     const response = await fetch(path, { credentials: "same-origin", ...init, headers: { Accept: "application/json", ...init?.headers } });
+    // No session yet (or it expired): open one and try once more.
+    if (response.status === 401 && !retried) {
+      session = undefined;
+      await ensureSession();
+      return request<T>(path, init, true);
+    }
     const body = await response.json().catch(() => undefined);
     if (!response.ok || body?.ok === false) {
       return { ok: false, status: response.status, error: body?.error?.message ?? `Request failed (${response.status})` };
