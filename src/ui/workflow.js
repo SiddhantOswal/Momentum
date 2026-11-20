@@ -1178,13 +1178,15 @@ function renderSimilarRuns(payload) {
 }
 
 function renderRiskExplanation(payload) {
-  if (payload?.source !== "bigquery-ml-and-gemini" ||
+  if (!["bigquery-ml-and-gemini", "bigquery-ml-attribution-summary"].includes(payload?.source) ||
       typeof payload.explanation !== "string" || !payload.explanation.trim() ||
       !Array.isArray(payload.rows)) {
     throw new Error("The explanation endpoint returned malformed attribution evidence.");
   }
   const content = document.getElementById("risk-explanation-content");
-  content.textContent = payload.explanation;
+  content.textContent = payload.source === "bigquery-ml-attribution-summary"
+    ? "Summary of the model attribution (Gemini explanation unavailable): " + payload.explanation
+    : payload.explanation;
   const details = document.createElement("details");
   const summary = document.createElement("summary"); summary.textContent = "Model attribution evidence";
   const rows = document.createElement("ul"); rows.className = "change-reasons";

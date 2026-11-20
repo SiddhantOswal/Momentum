@@ -305,19 +305,55 @@ const SUPPLIED_SETTING_DRIVERS = Object.freeze([
 ]);
 const ATTRIBUTION_LANGUAGE = /\b(?:attribut\w*|contribut\w*|associat\w*|drivers?)\b/i;
 
-function namesUnsupportedDriver(text, reportedDrivers) {
-  return sentences(text).some((sentence) => {
-    const allowed = ATTRIBUTION_LANGUAGE.test(sentence)
-      ? reportedDrivers
-      : new Set([...reportedDrivers, ...SUPPLIED_SETTING_DRIVERS]);
-    return Object.entries(DRIVER_ALIASES).some(([driver, aliases]) =>
+// A sentence about the supplied source-history records describes their settings, which the
+// prompt supplies; "associated with past settings" there is not a model-attribution claim.
+const HISTORY_LANGUAGE = /\b(?:source[- ]history|histor(?:y|ical)|records?|past (?:runs?|lots?))\b/i;
+
+/** The first driver named outside what the evidence allows, or undefined. */
+function unsupportedDriverIn(text, reportedDrivers) {
+  for (const sentence of sentences(text)) {
+    const strict = ATTRIBUTION_LANGUAGE.test(sentence) && !HISTORY_LANGUAGE.test(sentence);
+    const allowed = strict ? reportedDrivers : new Set([...reportedDrivers, ...SUPPLIED_SETTING_DRIVERS]);
+    const hit = Object.entries(DRIVER_ALIASES).find(([driver, aliases]) =>
       !allowed.has(driver) && aliases.some((alias) => mentions(sentence, alias)));
-  });
+    if (hit) return hit[0];
+  }
+  return undefined;
+}
+function namesUnsupportedDriver(text, reportedDrivers) {
+  return unsupportedDriverIn(text, reportedDrivers) !== undefined;
 }
 
-// The prompt asks Gemini to disclaim causation; a negated disclaimer is not a causal claim.
+const DEFECT_WORDS = Object.freeze({ WARP: "warp", DELAM: "delamination", STRENGTH: "box strength", PRINT: "print", CRACK: "crease cracking" });
+const driverWords = (driver) => DRIVER_ALIASES[driver]?.[1] ?? driver.replaceAll("_", " ");
+
+// Used when Gemini is unavailable or its text fails the evidence checks twice. It states only
+// the validated attribution rows and the supplied totals, and passes the same checks.
+function attributionSummary(rows, baseline, best) {
+  const byDefect = new Map();
+  for (const row of rows) byDefect.set(row.defect, [...(byDefect.get(row.defect) ?? []), row]);
+  const defects = [...byDefect.keys()];
+  const lines = [];
+  if (Number.isFinite(best?.totalScrapPct) && Number.isFinite(baseline?.totalScrapPct)) {
+    lines.push(`The model predicts a total scrap rate of ${best.totalScrapPct}% with the recommended settings, compared with ${baseline.totalScrapPct}% with the planned settings.`);
+  }
+  for (const defect of defects.slice(0, lines.length ? 2 : 3)) {
+    const ranked = byDefect.get(defect).sort((a, b) => a.driverRank - b.driverRank);
+    const [first, second] = ranked;
+    const drivers = second
+      ? `${driverWords(first.driver)} at ${first.attributionPts} points and ${driverWords(second.driver)} at ${second.attributionPts} points`
+      : `${driverWords(first.driver)} at ${first.attributionPts} points`;
+    lines.push(`For ${DEFECT_WORDS[defect] ?? defect.toLowerCase()}, the model predicts ${first.predictedPct}% against a typical ${first.typicalPct}%, and its largest attributions are ${drivers}.`);
+  }
+  lines.push("These attributions are model associations, not proof of cause and effect, and come from history modelled on the plant.");
+  return lines.join(" ");
+}
+
+// The prompt asks Gemini to disclaim causation; a negated disclaimer ("do not imply causal
+// links", "not proof of cause and effect", "neither establishes a causal effect") is not a claim.
+const NEGATED_CAUSATION = /\b(?:not|no|never|neither|nor|without|rather than|instead of)\b[^.!?]{0,60}?\b(?:cause[- ]and[- ]effect|causal(?:ity|ly)?(?:\s+(?:links?|relationships?|effects?|claims?|connections?|inferences?))?|causation)\b/gi;
 function withoutNegatedCausation(text) {
-  return text.replace(/\b(?:not|no|never|without|rather than|instead of)\b[^.!?]{0,60}?\bcause[- ]and[- ]effect\b/gi, " ");
+  return text.replace(NEGATED_CAUSATION, " ");
 }
 
 function permittedNumbers(values) {
@@ -452,19 +488,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         explanationRows: rows,
         historicalEvidence: evidenceForPrompt,
       };
-      const response = await gemini.generateContent({
-        contents: [{
-          role: "user",
-          parts: [{
-            text: `Write 3 to 5 concise plain-language sentences explaining the validated model attribution and, when relevant, the supplied historical observations. Distinguish model predictions and attribution from source-history records. Historical entries are source records, not independently verified factory measurements. Call them source-history records; do not describe them as actual or measured factory outcomes or infer causal links between their settings and defect labels. Describe attribution only as a model contribution or association, not as proof of cause and effect. Use only the provided drivers, percentages, attribution points, inputs, settings, and historical metrics. Do not mention lot or order identifiers, add unsupported facts, claim causality or guarantees, or use numeric values not present in the JSON. A positive attribution contributes upward to the model prediction and a negative attribution contributes downward; neither establishes a real-world causal effect. Describe settings using their supplied values without calculating differences, ratios, or combined rates. For total predicted rates and costs use the provided totals exactly; do not sum component rates or calculate new figures. Return only the explanation.\\n${JSON.stringify(promptData)}`,
-          }],
-        }],
-        // Measured live: this prompt used 1,964 thinking tokens, exhausting the 2,048 default.
-        maxOutputTokens: 8192,
-        signal,
-      });
-      const explanation = response.parts.map((part) => part.text)
-        .filter((text) => typeof text === "string").join("").trim();
+      const instruction = `Write 3 to 5 concise plain-language sentences explaining the validated model attribution and, when relevant, the supplied historical observations. Distinguish model predictions and attribution from source-history records. Historical entries are source records, not independently verified factory measurements. Call them source-history records; do not describe them as actual or measured factory outcomes or infer causal links between their settings and defect labels. Describe attribution only as a model contribution or association, not as proof of cause and effect. Use only the provided drivers, percentages, attribution points, inputs, settings, and historical metrics. Do not mention lot or order identifiers, add unsupported facts, claim causality or guarantees, or use numeric values not present in the JSON. A positive attribution contributes upward to the model prediction and a negative attribution contributes downward; neither establishes a real-world causal effect. Describe settings using their supplied values without calculating differences, ratios, or combined rates. For total predicted rates and costs use the provided totals exactly; do not sum component rates or calculate new figures. Name drivers in plain words. When describing source-history records, do not use the words attribution, contribution, association or driver. Return only the explanation.\\n${JSON.stringify(promptData)}`;
       // Ground against the exact validated JSON supplied to Gemini, including
       // original settings in changes.from. A separately maintained subset can
       // reject genuine supplied values when the prompt evolves.
@@ -472,21 +496,58 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         : value && typeof value === "object" ? Object.values(value).flatMap(numericValues) : [];
       const allowedNumbers = permittedNumbers(numericValues(promptData));
       const suppliedDates = new Set(historicalEvidence.map((run) => run.runDate));
-      if (!explanation || sentenceCount(explanation) < 3 || sentenceCount(explanation) > 5 ||
-          numericClaims(withoutSuppliedDates(explanation, suppliedDates)).some((value) => !allowedNumbers.has(value))) {
-        console.error(JSON.stringify({ event: "risk_explanation_rejected", reason: "evidence_contract", sentenceCount: sentenceCount(explanation), unsupportedNumericClaims: numericClaims(withoutSuppliedDates(explanation, suppliedDates)).filter((value) => !allowedNumbers.has(value)).length }));
-        throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the evidence contract.");
-      }
       const reportedDrivers = withDriverParts(rows.map((row) => row.driver.toLowerCase()));
-      if (namesUnsupportedDriver(explanation, reportedDrivers) ||
-          containsCausalClaim(withoutNegatedCausation(explanation)) ||
-          containsUnverifiedOutcomeClaim(explanation)) {
-        console.error(JSON.stringify({ event: "risk_explanation_rejected", reason: "attribution_contract", unsupportedDriver: namesUnsupportedDriver(explanation, reportedDrivers), causalClaim: containsCausalClaim(withoutNegatedCausation(explanation)), unverifiedOutcomeClaim: containsUnverifiedOutcomeClaim(explanation) }));
-        throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the attribution evidence contract.");
+      /** Why a text breaks the evidence contract, or undefined when it passes. */
+      const violation = (text) => {
+        const unsupportedNumbers = numericClaims(withoutSuppliedDates(text, suppliedDates)).filter((value) => !allowedNumbers.has(value)).length;
+        if (!text || sentenceCount(text) < 3 || sentenceCount(text) > 5 || unsupportedNumbers > 0) {
+          return { reason: "evidence_contract", sentenceCount: sentenceCount(text), unsupportedNumericClaims: unsupportedNumbers };
+        }
+        const driver = unsupportedDriverIn(text, reportedDrivers);
+        const causalClaim = containsCausalClaim(withoutNegatedCausation(text));
+        const unverifiedOutcomeClaim = containsUnverifiedOutcomeClaim(text);
+        return driver || causalClaim || unverifiedOutcomeClaim
+          ? { reason: "attribution_contract", unsupportedDriver: driver ?? false, causalClaim, unverifiedOutcomeClaim }
+          : undefined;
+      };
+      // Gemini writes the explanation; a text outside the contract gets one more attempt.
+      let explanation;
+      let source = "bigquery-ml-and-gemini";
+      for (let attempt = 1; attempt <= 2 && explanation === undefined; attempt += 1) {
+        let text;
+        try {
+          const response = await gemini.generateContent({
+            contents: [{ role: "user", parts: [{ text: instruction }] }],
+            // Measured live: this prompt used 1,964 thinking tokens, exhausting the 2,048 default.
+            maxOutputTokens: 8192,
+            signal,
+          });
+          text = response.parts.map((part) => part.text).filter((part) => typeof part === "string").join("").trim();
+        } catch (error) {
+          if (error?.name === "AbortError" || signal?.aborted) throw error;
+          console.error(JSON.stringify({ event: "risk_explanation_gemini_failed", attempt, code: /^[A-Z_]{1,64}$/.test(error?.code ?? "") ? error.code : "UNEXPECTED_ERROR" }));
+          break;
+        }
+        const problem = violation(text);
+        if (problem) console.error(JSON.stringify({ event: "risk_explanation_rejected", attempt, ...problem }));
+        else explanation = text;
+      }
+      // Never lose a completed plan to the narrative: fall back to a summary of the validated
+      // attribution rows, held to the same contract.
+      if (explanation === undefined) {
+        const summary = attributionSummary(rows, inputPrediction, inputOptimization.best.risk);
+        const problem = violation(summary);
+        if (problem) {
+          console.error(JSON.stringify({ event: "risk_explanation_rejected", attempt: "summary", ...problem }));
+          throw new BigQueryReadError("EXPLANATION_INVALID", "No explanation met the attribution evidence contract.");
+        }
+        console.warn(JSON.stringify({ event: "risk_explanation_fallback", source: "bigquery-ml-attribution-summary" }));
+        explanation = summary;
+        source = "bigquery-ml-attribution-summary";
       }
       return {
         ok: true,
-        source: "bigquery-ml-and-gemini",
+        source,
         explanation,
         rows,
         evidenceRefs: historicalEvidence.map(({ lotId, orderId, runDate }) => ({ lotId, orderId, runDate })),

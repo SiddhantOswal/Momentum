@@ -208,18 +208,21 @@ test("explanation links attribution to the prediction, optimizer best settings a
     optimization,
     evidence: historicalEvidence,
   });
-  assert.equal(rejected.ok, false);
-  assert.equal(rejected.error.code, "SERVICE_UNAVAILABLE");
+  // The rejected text never reaches the user; the checked attribution summary replaces it.
+  assert.equal(rejected.ok, true);
+  assert.equal(rejected.source, "bigquery-ml-attribution-summary");
+  assert.doesNotMatch(rejected.explanation, /increases the risk|781/);
 
-  // A provider answer cut off at the token limit fails closed, never reaching the evidence checks.
+  // A provider answer cut off at the token limit never reaches the evidence checks; the plan
+  // keeps the checked attribution summary instead of failing.
   const truncated = createRiskExplanationService({
     bigquery: { query: async () => bigqueryResult(explanationColumns, explanationRows) },
     gemini: { generateContent: async () => { throw new VertexGeminiError("VERTEX_OUTPUT_TRUNCATED", "Vertex AI stopped at the output token limit."); } },
     sql: query("explain.sql"),
   });
   const cutOff = await truncated({ order, conditions, prediction, optimization, evidence: historicalEvidence });
-  assert.equal(cutOff.ok, false);
-  assert.equal(cutOff.error.code, "SERVICE_UNAVAILABLE");
+  assert.equal(cutOff.ok, true);
+  assert.equal(cutOff.source, "bigquery-ml-attribution-summary");
 });
 
 test("explanation fails closed when evidence or prediction linkage is invalid", async () => {
@@ -299,8 +302,8 @@ test("explanation rejects generated causal claims about attribution", async () =
     const result = await service({
       order, conditions, prediction, optimization, evidence: historicalEvidence,
     });
-    assert.equal(result.ok, false);
-    assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+    assert.equal(result.source, "bigquery-ml-attribution-summary", text);
+    assert.notEqual(result.explanation, text);
   }
 });
 
@@ -397,6 +400,7 @@ test("explanation rejects assertions that source records are verified real-world
       sql: query("explain.sql"),
     });
     const result = await service({ order, conditions, prediction, optimization, evidence: historicalEvidence });
-    assert.equal(result.ok, false);
+    assert.equal(result.source, "bigquery-ml-attribution-summary", text);
+    assert.notEqual(result.explanation, text);
   }
 });
