@@ -27,3 +27,4 @@ docs/evidence/
 
 # Built frontend (produced from web/ at build time)
 public/app/
+*.tsbuildinfo
