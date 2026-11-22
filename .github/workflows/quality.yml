@@ -1,0 +1,60 @@
+name: quality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Phrase, secret and reference-path checks
+        run: node scripts/quality/check.mjs tree
+
+      # Checks only commits that are not in origin/v2, so Om's V2 history is never flagged.
+      # A pull request uses its head commit, not the synthetic merge commit, so base-branch commits stay out of range.
+      - name: Commit messages
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git rev-parse --verify --quiet "origin/v2^{commit}" >/dev/null \
+            || git fetch --no-tags origin +refs/heads/v2:refs/remotes/origin/v2
+          base=$(git merge-base origin/v2 "$HEAD_SHA")
+          node scripts/quality/check.mjs commits "$base..$HEAD_SHA"
+
+      - name: Install backend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Unit tests
+        run: npm test
+
+      # No linter is configured in this repository. The strict TypeScript build (noUnusedLocals, noUnusedParameters) is the static check.
+      - name: Web type check
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc -b
+
+      - name: Offline evals
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.['eval:offline'] ? 0 : 1)"; then
+            npm run eval:offline
+          else
+            echo "::warning title=Offline evals NOT RUN::package.json has no eval:offline script yet. See docs/arc/delivery/responsible-ai.md."
+          fi
