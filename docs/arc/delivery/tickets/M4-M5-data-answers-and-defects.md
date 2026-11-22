@@ -1,0 +1,55 @@
+# M4 data answers and Insights; M5 defect check
+
+Spec J2 to J7; ADR-0009; data audit question table and proposals P1 to P5.
+
+## M4
+
+### ARC-M4-01 Metric dictionary and `query_metric` (P0)
+- Goal: a read-only query layer of allow-listed, parameterised queries with a 50 MiB cap. The model writes no SQL.
+- AC: each metric has an ID, SQL or view, parameter schema, unit, provenance label and "insufficient data" rule. Unknown metrics and parameters are rejected. The 8 questions the data audit marks "answerable today" work.
+- Depends on: M2-02. Owner: data engineer and AI engineer.
+- Test plan: unit tests per metric with recorded BigQuery results; dry-runs of each query under the cap.
+
+### ARC-M4-02 Labelled views P3 to P5 (P1, cloud change)
+- Goal: `v_arc_job_cards`, `v_arc_lot_history` and `v_arc_feedback`, each with a provenance column. They sit alongside the existing tables, which stay unchanged.
+- AC: a change record exists first. The views return the row counts in `data/data-audit.md`. Every approval row reads "Demo session, simulated".
+- Depends on: M0-01. Owner: data engineer.
+- Test plan: count queries recorded in the change record.
+
+### ARC-M4-03 Insufficient-data answers (P0)
+- Goal: questions about measured scrap, realised savings, live sensors and plant validation get an "insufficient data" answer naming what is missing (spec J4).
+- AC: the answer is decided in code, not by the model. Answerable controls never get it.
+- Depends on: M4-01. Owner: AI engineer.
+- Test plan: the `insufficient-data` offline cases (12).
+
+### ARC-M4-04 Model trust and moisture answers (P0)
+- Goal: J2 shows current R² with no pass ticks, using the headline the founders approve (Q11). J3 "moisture today" uses the operator-entered value or the example, labelled, with weather for RH and temperature. It never uses the one simulated `sensor_readings` row.
+- AC: values match `config/model-acceptance.json` and the weather record exactly.
+- Depends on: M4-01, M3-02, Q11. Owner: AI engineer.
+- Test plan: grounding cases with recorded tool results.
+
+### ARC-M4-05 Insights page data (P1)
+- Goal: the Insights screen tiles read from the metric dictionary. Tiles with no backend (for example "software checks 43 passed", "7 of 10", "2 pages") are removed or relabelled as `data/stale-claims.md` lists.
+- AC: every number on Insights traces to a metric ID. The compliance reviewer signs off the list.
+- Depends on: M4-01. Owner: frontend engineer.
+- Test plan: a component test that each tile's value comes from the API response.
+
+## M5
+
+### ARC-M5-01 Approved-photo diagnosis in Arc (P1)
+- Goal: the user picks one of the ten approved photos and Arc diagnoses it through `diagnose_approved_photo`. The result is cached by photo, prompt version and model.
+- AC: the label reads "Approved sample photo". A second request for the same photo spends no attempt.
+- Depends on: M2-02. Owner: AI engineer.
+- Test plan: offline tests; the photo-injection images in `po-injection`.
+
+### ARC-M5-02 Photo upload in Arc and the dashboard (P1)
+- Goal: an upload control posting to `/evidence/diagnose-photo` (founder decision Q4, design gap G14), with type and size checks, an optional humidity value and a privacy note.
+- AC: non-image and oversized files are refused before any Gemini call. The result is labelled "Uploaded photo". The upload spends a budget unit.
+- Depends on: M1-08. Owner: frontend engineer and backend engineer.
+- Test plan: route tests for refusals; a browser test of the upload.
+
+### ARC-M5-03 Defect history with filters (P2)
+- Goal: extend `seen-before` with optional board and date filters through P4 (C14). If it does not fit, the filters are removed from the design and humidity becomes a single value.
+- AC: the tech lead's sizing is recorded in this ticket before the build starts. A zero-result state is shown (G7).
+- Depends on: M4-02. Owner: data engineer and backend engineer.
+- Test plan: SQL dry-runs; offline grounding cases.

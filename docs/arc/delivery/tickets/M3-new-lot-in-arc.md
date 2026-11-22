@@ -1,0 +1,39 @@
+# M3 new lot in Arc end to end
+
+Spec J1 and J8; design 1.4, 1.5 and section 6; ADR-0005.
+
+### ARC-M3-01 J1 task-run plan (P0)
+- Goal: a fixed `lot_preparation` plan running read order, catalog match, conditions, plan, explain, draft, then waiting for approval, then PDF and card check, through the registry tools.
+- AC: PO1 reaches a DRAFT with the same item, quantity, conditions, settings and scrap estimate as the dashboard route with the same inputs (O3). The run stops at `awaiting_human: approve`. After the human approval it issues the PDF and reads it back.
+- Depends on: M2-02, M2-03, M1-10. Owner: AI engineer and backend engineer.
+- Test plan: an integration test with fake model responses; a parity test of PO1 to PO5 through both routes, compared field by field.
+
+### ARC-M3-02 Conditions with provenance (P0)
+- Goal: `ConditionsSource` (ADR-0005) for operator entry, the Pune weather record (shared cache and stored observation, data proposal P1) and the dataset seasonal value, plus `conditionSources` on `/jobs` (spec C20), behind `USTAAD_ENABLE_CONDITION_PROVENANCE`.
+- AC: every stored condition has one provenance from the fixed list. A weather value is checked against the server's own observation before it is stored as `public_weather_record`. Paper moisture is pre-filled at 7.3% as an example, and the value the user enters is the one used end to end. The on-screen note says no sensor is connected.
+- Depends on: M1-10, M0-04 (Om, weather fairness). Owner: backend engineer; data engineer for the observation record.
+- Test plan: unit tests per source; a forged weather source is rejected.
+
+### ARC-M3-03 Card content check (P1)
+- Goal: after approval, compare the stored PDF with the approved JobSheet (a hash recorded at approval and the key values in the PDF text) and return the page count (spec C11).
+- AC: a tampered PDF fails the check. Until this ships, the receipt reads "PDF stored and opened", not "compared".
+- Depends on: M1-01. Owner: backend engineer.
+- Test plan: unit tests with a good PDF and an altered one.
+
+### ARC-M3-04 Combinations count from the optimizer (P2)
+- Goal: the optimizer returns the number of candidates it scored (spec C12).
+- AC: the count matches the grid arithmetic for PKBX0041 (8,640) and one other planned setting. Until this ships, the UI shows "Up to 3 changes allowed."
+- Depends on: nothing. Owner: data engineer.
+- Test plan: a dry-run of the SQL with `--maximum_bytes_billed` at 100 MiB.
+
+### ARC-M3-05 Multi-line and ambiguous orders (P1)
+- Goal: Arc asks which line to plan for PO2 and PO3 and asks for clarification on PO4 (design gap G4). Line copy comes from the line count (C4).
+- AC: no line is chosen for the user. PO1 reads "One line on this order."
+- Depends on: M3-01. Owner: AI engineer.
+- Test plan: fixture tests for PO1 to PO5.
+
+### ARC-M3-06 Backend copy fixes (P1)
+- Goal: the operator confirms conditions and the supervisor approves (C7), and risk levels display as LOW, MEDIUM and HIGH (C19).
+- AC: both backend messages read "The operator must confirm or edit the condition values before prediction." Stored values are unchanged.
+- Depends on: M1-01. Owner: backend engineer; copy editor checks.
+- Test plan: update the message assertions, and the QA lead confirms the change was intended.

@@ -1,0 +1,119 @@
+# M6 Arc UI to the approved design, dark and light
+
+Source of truth: `docs/arc/design/source/` (HTML, CSS, tokens; byte-identical to `docs/Momentum_UI_Source.zip`) and the PNGs in `docs/arc/design/light` and `dark`. Built in the existing `web/` React and Vite app, with no new UI framework unless an ADR approves one. Founder decision Q7 (2026-11-23): every approved page ships. The gap lists are in `00-plan.md` section 6.
+
+UI work can start on 24 Nov against a typed API client and recorded responses, because the screens are fixed. It wires to the real routes as M2 and M3 land.
+
+### ARC-M6-01 Tokens and theme (P0)
+- Goal: port the design tokens (colour, type, spacing, radius) into `web/` as CSS variables, with dark and light themes and the system preference respected.
+- AC: token values match `design/source/assets` exactly. Theme switching needs no reload.
+- Depends on: M0-02. Owner: frontend engineer.
+- Test plan: a Playwright screenshot of one reference screen per theme, compared with the PNG by eye and recorded in the PR. No pixel-diff claim is made.
+
+### ARC-M6-02 Arc panel shell (P0)
+- Goal: the Arc side panel with header, history clock (G9), message list, input, suggestion chips and the mic button shown but disabled in code (G13).
+- AC: the mic has no handler and is announced as unavailable to screen readers. The panel opens over the host pages chosen in Q7.
+- Depends on: M6-01. Owner: frontend engineer.
+- Test plan: component tests; a check that the mic button has `disabled` and no listener.
+
+### ARC-M6-03 J1 screens (P0)
+- Goal: Arc-Start, Arc-Lot-Source, Arc-Lot-Review, Arc-Lot-Conditions, Arc-Lot-Compare, Arc-Lot-Approve, Arc-Lot-Receipt and Arc-Lot-Replaced, with loading and failure states from the event stream (G1, G2, G3). Copy follows `data/stale-claims.md`.
+- AC: the approval card has a checkbox and an Approve button. The button is disabled until the box is ticked. Its handler is the only caller of the approve route, and it sends `reviewConfirmed` and the revision fingerprint. The approval is labelled as a simulated demo-session approval. No progress percentage is shown.
+- Depends on: M6-02, M2-06, M3-01. Owner: frontend engineer.
+- Test plan: a Playwright J1 run on a test revision with recorded model responses; a test that approval is impossible without ticking the box.
+
+### ARC-M6-04 Answer, refusal and no-data screens (P0)
+- Goal: Arc-Answer-Chart, Arc-Answer-Value, Arc-Out-Of-Scope and Arc-No-Data, with provenance chips including the new ones (G5).
+- AC: every value shows its label. The chart uses current R² with no pass ticks.
+- Depends on: M6-02, M4-04. Owner: frontend engineer.
+- Test plan: component tests driven by recorded tool results.
+
+### ARC-M6-05 Defect screens (P1)
+- Goal: Arc-Defect-Photo with the upload state (G6, G14) and Arc-Defect-History with the results list and zero-result state (G7).
+- AC: the "Approved sample photo" and "Uploaded photo" labels are distinct.
+- Depends on: M6-02, M5-01, M5-02. Owner: frontend engineer.
+- Test plan: component and browser tests.
+
+### ARC-M6-06 Every dashboard page (P0, Q7 decided: all pages)
+- Goal: rebuild every approved page in `web/`: Main, NewLot-Order, NewLot-Conditions, NewLot-Settings, NewLot-Approve (with the checkbox from Q9), NewLot-Recovery, NewLot-Stale, Insights, Photo-Diagnosis, Plant-Explorer, Prep-Flow (with Held and Partial), Planning and Operator-Phone. Stale numbers are fixed as `data/stale-claims.md` lists. The pages are split into groups (New Lot; Main and Insights; Photo and Plant Explorer; Prep Flow and Planning; Operator phone) so that frontend agents can build them in parallel.
+- AC: the manual route and Arc use the same commands. Each page element is either wired to a real route or shows the designed "not connected" state. Nothing is shown as working before its backend ticket (M6-10 to M6-16) passes.
+- Depends on: M6-01, Q9, and the backend ticket for each element. Owner: frontend engineers, one per page group.
+- Test plan: Playwright runs of the manual J1 route (these also give the O1 action counts), one browser test per page in both themes, and a screenshot of each page compared by eye with its PNG and recorded in the PR.
+
+### ARC-M6-19 Design source figures after Om's sign-off (P0)
+- Goal: once Om signs off the final PKBX0041 reference (M0-04), update the figures in `docs/arc/design/source/html/{light,dark}` and regenerate the matching PNGs. The changes cover PKBX0041, the model scores, pass-level wording, "8,640 combinations" and the Insights tiles, each as listed in `data/stale-claims.md`.
+- AC: no screen shows a figure without a source in `stale-claims.md` or `PKBX0041-m2-rerun.md`. Each change is listed in the PR with its source. Light and dark stay identical in text.
+- Depends on: M0-04. Owner: frontend engineer; the compliance reviewer and copy editor check.
+- Test plan: grep for the old values in the design source returns nothing, plus a text diff between light and dark.
+
+### ARC-M6-10 Main: next actions and activity (P0)
+- Goal: "Continue review", the lot stage per PO and the activity list, read from `lot_heads` (M1-10) and `/api/lots` and `/api/live` (B9, U7).
+- AC: a review left open on one instance shows on another. Stages match the lot head.
+- Depends on: M1-10. Owner: backend engineer and frontend engineer.
+- Test plan: an API test of the projection, plus a browser test.
+
+### ARC-M6-11 Prep Flow stage status (P1)
+- Goal: a durable per-lot stage record for the nine steps, derived from `arc_task_runs`, `lot_heads` and durable traces, including the held state for a partial prediction (U9, B2, B8).
+- AC: each step's state comes from a stored record. No step is shown done unless its record says so.
+- Depends on: M1-07, M1-10, M2-01. Owner: backend engineer and frontend engineer.
+- Test plan: unit tests of the projection over recorded runs, plus browser tests of Held and Partial.
+
+### ARC-M6-12 Plant Explorer compare (P1)
+- Goal: a `compareLevers` command that runs predict twice on the same lot with one lever changed ("Compare HIGH and MEDIUM"), and the lever view per stage for the current lot (U8, B3).
+- AC: both predictions come from `m2_*` and are labelled "model estimate". No arithmetic is done in the client. BigQuery bytes stay under the read cap.
+- Depends on: M1-01, M1-10. Owner: backend engineer and data engineer.
+- Test plan: command tests with recorded BigQuery results, plus a dry-run of the byte cost.
+
+### ARC-M6-13 Operator phone receipts and mismatch (P1)
+- Goal: a `card_receipts` Firestore collection, `POST /jobs/:id/receipt` and `POST /jobs/:id/mismatch` with a revision check, and the Operator-Phone and Arc-Phone views (U10).
+- AC: a receipt for a replaced revision is rejected. Each record is labelled "Demo session, simulated". Mismatch text is stored as untrusted data and never reaches a model prompt as an instruction.
+- Depends on: M1-02, M1-04, M1-10. Owner: backend engineer and frontend engineer.
+- Test plan: route tests, including session scoping, plus a phone-width browser test.
+
+### ARC-M6-14 Insights evidence tiles (P1)
+- Goal: CI writes a test-run summary at release and the app serves it read-only. An accuracy run over the ten approved photos is stored with run date, model and prompt version (U3, U4).
+- AC: each tile shows its source and date, labelled "software test, not plant validation" or "eval run on approved photos". If no record exists, the tile shows the "not connected" state rather than a number.
+- Depends on: M2-07, M5-01, M8-01. Owner: backend engineer and AI engineer.
+- Test plan: a test that the tile value equals the stored record, plus a test that a missing record shows the empty state.
+
+### ARC-M6-15 Record actual scrap (P1, needs a design)
+- Goal: a UI for the existing `POST /jobs/:id/feedback` after the receipt, on the dashboard and in Arc, labelled "Operator-entered actual" (B1).
+- AC: the value is stored with its provenance. It never replaces a model estimate in any total unless it is labelled as actual.
+- Depends on: D4 (a design for the screen), M6-03. Owner: frontend engineer.
+- Test plan: a browser test, plus a provenance-labels case.
+
+### ARC-M6-16 "What moved the estimate" panel (P1)
+- Goal: wire the Insights attribution panel to the `/risk/explanation` `rows` for a selected lot (B6).
+- AC: the old warp attribution values in the design are not shown. Values match the response exactly.
+- Depends on: M1-01. Owner: frontend engineer.
+- Test plan: a component test driven by a recorded response.
+
+### ARC-M6-17 Planning page (P2)
+- Goal: the static roadmap page as designed (U13).
+- AC: dates and items match the approved design. Every roadmap item is labelled as roadmap, not shipped.
+- Depends on: M6-01. Owner: frontend engineer.
+- Test plan: a browser test in both themes.
+
+### ARC-M6-18 Missing states G1 to G14 (P0)
+- Goal: draft each missing state from the approved tokens and patterns, get a founder's approval of a screenshot, then build it (D4).
+- AC: each state has an approved screenshot stored in `docs/arc/design/additions/` before its merge.
+- Depends on: M6-01, D4. Owner: frontend engineer; the copy editor checks the text.
+- Test plan: a browser test per state.
+
+### ARC-M6-07 Phone views (P2)
+- Goal: Arc-Phone at phone width.
+- AC: no horizontal scroll at 375 px, and the approval is still a checkbox plus a button.
+- Depends on: M6-03. Owner: frontend engineer.
+- Test plan: a Playwright mobile viewport run.
+
+### ARC-M6-08 Reproducible `/app` build (P0)
+- Goal: the Dockerfile builds `web/` into `public/app`, so an image can be rebuilt from git (audit finding).
+- AC: `docker build` from a clean checkout serves `/app` with the committed sources.
+- Depends on: M0-02. Owner: frontend engineer and release manager.
+- Test plan: a clean-checkout build and a local smoke test.
+
+### ARC-M6-09 README and docs figures (P1)
+- Goal: fix every stale figure listed in `data/stale-claims.md` outside the designs: README, `docs/README.md`, `src/ui/workflow.js` `DEMO_LOT`, and the model card and code comments.
+- AC: each change cites its source from `stale-claims.md`. PKBX0041 values change only after Om signs off (M0-04).
+- Depends on: M0-04. Owner: frontend engineer for UI, release manager for docs; the compliance reviewer checks.
+- Test plan: grep for the old values returns nothing outside history files.
