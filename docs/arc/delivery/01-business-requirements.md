@@ -4,6 +4,8 @@ Status: draft for founder review. Author role: business analyst. Date: 2026-11-2
 
 Each statement names its source. "Assumption" marks anything not yet backed by evidence, and each one needs a founder decision (section 7). No targets in this document have been measured yet.
 
+Amended 2026-11-23 for ticket ARC-M0-06 (product manager): O10 and constraint C8 follow founder decisions A3 and A6 and the raised cap on `momentum`. Q1 to Q6 in section 7 were answered on 2026-11-22; the answers are in `02-product-spec.md` section 9.
+
 ## 1. Business need
 
 **What Momentum does today (manual route).** The manual route takes an approved purchase order (PO) to a stored job card through ten stages: PO upload, Gemini extraction, catalog validation, confirmed conditions, five defect-risk estimates, constrained optimization, a grounded explanation, a draft JobSheet, supervisor approval and a stored PDF (README.md, "How it works"; `src/job-coordinator.js`). In the approved New Lot design these become four steps across separate panels: Order, Conditions, Settings and risk, Review and approve (`docs/arc/design/light/NewLot-*.png`). The Conditions step alone asks for 12 fields, 7 of which are empty or unconfirmed at the start (`NewLot-Conditions.png`).
@@ -51,7 +53,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 | O7 | Numeric fidelity | 100% of numbers Arc shows trace to a backend response or stored record | NOT MEASURED | Eval checks each number in Arc's output against the tool result of the same turn | Overall, Gen AI usage |
 | O8 | Provenance labels | 100% of shown values carry the correct label (model estimate, example, modelled, simulated, weather, operator-entered) | NOT MEASURED | Eval plus a copy review against the label list in CLAUDE.md section 3 | Sustainability and social impact, UI/UX |
 | O9 | Prompt injection in PO content | 0 capability changes or actions triggered by PO text | NOT MEASURED | Injected PO variants. These cannot use the five allowlisted fixtures, so they run offline or in a test mode (see Q5) | Gen AI usage |
-| O10 | Gemini attempts per Arc lot | Small enough for a full rehearsal plus the pitch inside the 100-attempt daily cap | NOT MEASURED. Today one lot uses at least one extraction call and one explanation call, plus one retry if the explanation fails (commit `91c9b09`) | Count Firestore counter deltas per scripted Arc run | Overall (demo reliability) |
+| O10 | Gemini attempts per Arc lot and per Arc turn | A button-only J1 lot uses at most 3 attempts. Each typed message adds 1 attempt (router). A typed data question that returns data uses 2 (router plus answer writer, founder decision A3). A picked suggestion chip or button uses 0 and keeps its template answer (founder decision A6). An "insufficient data" answer or an off-topic refusal skips the writer, so it uses 1 when typed. A full rehearsal plus the pitch must fit inside the daily cap (C8) | NOT MEASURED. Today one lot uses at least one extraction call and one explanation call, plus one retry if the explanation fails (commit `91c9b09`). Estimates, not measurements, from `05-ai-design.md` section 3: 2 attempts (about $0.035) for a button-only lot, 3 with an explanation retry, 6 (about $0.049) with 2 typed condition entries and 1 typed data question. ARC-M2-08 measures them | Count Firestore counter deltas per scripted Arc run and per turn kind (button, typed message, typed data question) | Overall (demo reliability) |
 
 **Figures already in the repo that Arc may show.**
 
@@ -83,7 +85,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 | C5 | PO, photo and document content is untrusted. It cannot grant capabilities, change rules or trigger actions. | CLAUDE.md section 4 |
 | C6 | Live PO intake accepts only the five allowlisted fixtures, each up to 10 MiB. | `src/synthetic-po-allowlist.js`; `index.mjs`; live env `USTAAD_SYNTHETIC_ONLY=true` |
 | C7 | Voice is disabled in code until a voice backend exists. | CLAUDE.md section 4 |
-| C8 | The Gemini cap is 100 attempted calls per Asia/Kolkata day, shared through Firestore. Failed attempts count, and the cap covers extraction, explanation, photo diagnosis and every Arc turn. | `src/daily-gemini-call-cap.js`; live env |
+| C8 | The Gemini cap is a number of attempted calls per Asia/Kolkata day, shared through Firestore: 300 on `momentum` since 2026-11-22, 100 on `prepagent`. Failed attempts count, and the cap covers extraction, explanation, photo diagnosis, every typed Arc turn and the answer writer. | `src/daily-gemini-call-cap.js`; `changes/2026-11-22-momentum-limits.md`; STATUS decision log |
 | C9 | Cloud Run is limited to 2 instances at concurrency 20. PO review state lives in each instance's memory and expires after 30 minutes. | Live service read 2026-11-22; `src/purchase-order-review.js` |
 | C10 | Per-IP rate limit of 60 requests per minute; 60-second request timeout. | `src/request-guardrails.js` |
 | C11 | The ₹5,000 budget alert is an alert, not a spending cap. | README; `ops/billing/` |
@@ -107,7 +109,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 
 - A1. The O1 to O10 targets above are the analyst's proposals.
 - A2. PO1 (PKBX0041 × 1,300) is the measurement fixture for O1 and O2.
-- A3. Arc's added Gemini calls fit inside the existing 100-attempt cap without raising it.
+- A3. Arc's added Gemini calls fit inside the daily cap. The cap on `momentum` was raised from 100 to 300 on 2026-11-22 because Arc needs more calls (C8). This assumption is separate from founder decision A3 on written answers.
 
 **Risks**
 

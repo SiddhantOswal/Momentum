@@ -4,12 +4,15 @@ Status: draft for founder review. Author role: product manager. Date: 2026-11-22
 
 Inputs: `01-business-requirements.md` (read in full), the light designs in `docs/arc/design/light/`, the backend in `index.mjs` and `src/`, and the founders' answers to Q1 to Q6 relayed by the delivery lead on 2026-11-22 (section 9). Nothing in `docs/arc/reference/` was opened. No BigQuery job, cloud command, test or eval was run for this spec. Every threshold in it is PROPOSED and awaits sign-off by the founders (Q2). Every baseline is NOT MEASURED.
 
+Amended 2026-11-23 for ticket ARC-M0-06 (product manager), on branch `arc/ARC-M0-06-spec-amendments`. Inputs added: `05-ai-design.md`, `04-technical-design.md`, ADR-0002, ADR-0003, ADR-0004, ADR-0011 and the STATUS decision log. Changes: Gemini attempts for written answers (founder decisions A3 and A6; section 3.2, AC2.5, O10); latency targets (3.5); job-card retrieval (J10); recovery from failures (J11); design gaps G15 and G16; Q7 to Q11 marked answered (section 10). Still no test, eval or measurement was run.
+
 Terms used below:
 
 - **Command**: an existing HTTP route in `index.mjs`, or a new one marked **NEW** that the architects must design. Arc calls the same commands as the dashboard (CLAUDE.md section 4).
 - **Gemini attempt**: one call counted by the shared daily cap (`src/daily-gemini-call-cap.js`). Failed attempts count.
+- **Answer writer**: the Gemini call that writes the text of an answer to a typed data question from the same turn's tool results (founder decision A3, `05-ai-design.md` sections 2 and 4). Code checks every number and ID in that text; if a check fails, Arc shows the template answer instead.
 - **Human confirmation**: a press or tick by the user on an input that is uncertain. **Human approval**: the one mandatory step, the job-card checkbox plus Approve.
-- **PENDING FOUNDER DECISION**: the spec states a default and what changes if the answer differs. Q1 to Q6 are decided (section 9); Q7 to Q11 are open (section 10).
+- **PENDING FOUNDER DECISION**: the spec states a default and what changes if the answer differs. Q1 to Q6 are decided (section 9); Q7 to Q11 were decided on 2026-11-23 (section 10).
 
 ## 1. Scope for the pitch release (4 December 2026)
 
@@ -30,6 +33,13 @@ Terms used below:
 | S11 | Pune weather for humidity and temperature, fetched by a backend tool and labelled "Public weather record, not a plant sensor" (Q1) | `Arc-Lot-Conditions.png` plus new chip (G5) | `GET /conditions/weather` (Google Maps Platform Weather, `config/weather.json`) |
 | S12 | Paper moisture pre-filled at 7.3% as a labelled example, always editable; the entered value flows to prediction, optimization and the card (Q3) | `Arc-Lot-Conditions.png`, `NewLot-Conditions.png` | `POST /jobs` (`paperMoisturePct`) |
 | S13 | Durable PO review state, shared across Cloud Run instances | No UI | NEW durable review store replacing the in-memory Map in `src/purchase-order-review.js` (ADR) |
+| S14 | Job-card retrieval from this session: status, revision and the checked PDF (J10) | `Arc-Lot-Receipt.png`, `Arc-No-Data.png`, `Arc-Lot-Approve.png`; variants have no design (G15) | `GET /jobs/:id`, `GET /jobs/:id/card.pdf`; NEW lot record read (ADR-0003) |
+| S15 | Recovery from failures: Gemini failure, cap reached, BigQuery timeout, instance restart mid-plan, lost connection (J11) | G1, G2, G3; resume and reconnect notices have no design (G16) | NEW `GET /api/arc/runs/:runId/events`, NEW `POST /api/arc/runs/:runId/resume` (ADR-0002, ADR-0011) |
+
+Brought into scope by the 2026-11-23 founder answers (section 10). Their journeys are specified in the tickets named, not in this spec:
+
+- Every approved page ships, dark and light (Q7). Arc's "Open in ..." links may point to any page that exists in the build. Planning stays static, as designed (`00-plan.md` section 6, U13, ARC-M6-17).
+- Operator phone handoff (`Operator-Phone.png`) ships with its backend: receipt and mismatch records with a revision check, labelled "Demo session, simulated" (Q10, U10, ARC-M6-13).
 
 ### 1.2 Shown but disabled
 
@@ -42,8 +52,6 @@ Terms used below:
 - Any sensor feed. No plant sensor exists.
 - Free-text constraints on the optimizer ("Keep drying time as entered", `NewLot-Settings.png`). The backend has no lever-lock input (`src/google-cloud/risk-optimization-service.js`).
 - "Keep entered plan" as a card outcome. The stored JobSheet carries `baseline` and `recommended` but no chosen-plan field (`src/job-sheet-builder.js`). See C13.
-- Operator phone handoff (`Operator-Phone.png`): "I received this card", "Report a mismatch", "Settings used" and "Quality measured". No backend exists for receipt or mismatch reports. PENDING FOUNDER DECISION, Q10.
-- Planning (marked FUTURE in the designs), Plant Explorer and Preparation Flow pages as Arc destinations. Arc may link to existing screens only (Q7).
 - Recording actual scrap from Arc (`POST /jobs/:id/feedback` exists, but no Arc design uses it).
 
 ### 1.4 Non-goals
@@ -74,6 +82,7 @@ The manual route is four panels and up to 12 typed fields before planning (`NewL
 | Plan, explain, draft | Separate panels | One command (`POST /jobs`), one result card | Automatic |
 | Approve | Approve Rev 1 | Checkbox, then Approve job card | **Human approval** |
 | Issue and check PDF | Separate steps | Automatic after approval; result on the receipt | Automatic |
+| Find a stored card later (J10) | Find the lot on the dashboard, open it, open its PDF | "Show the card for PKBX0041" or View job card: Arc finds the card among this session's cards, reads its status and revision, fetches and checks the PDF, and shows Open PDF. It asks which card only when several match. Opening the PDF is one press, because browsers block a new tab that no press started | Automatic; confirmation when several cards match. Nothing human is needed: retrieval never approves, and a draft found this way still goes through the checkbox and Approve |
 
 Typed input in the composer ("temperature 26, day shift") is parsed by Gemini into the same form fields. The parsed values appear in the fields for the user to see; they still need the Confirm conditions press. Arc does not submit a value the user has not seen.
 
@@ -88,7 +97,7 @@ Every journey defines these seven states. Where the approved designs have no scr
 | Loading | A command is running | Show what is running ("Reading the order") and disable actions that depend on it. No spinner without words | None for Arc (G1) |
 | Empty | Nothing to show yet | Say what to do next | `Arc-Defect-History` "No search yet"; `Arc-Defect-Photo` "Not run yet" |
 | Partial | Some steps finished, others did not | Keep finished results, name what is missing, hold approval | Manual only: `NewLot-Recovery`, `Prep-Flow-Partial` (G3) |
-| Failed | A command returned an error or the network failed | Plain message with the error code mapped to words, a retry, and nothing marked done | None for Arc (G2) |
+| Failed | A command returned an error or the network failed | Plain message with the error code mapped to words, a retry, and nothing marked done. Recovery paths are collected in J11 | None for Arc (G2) |
 | Blocked | A rule stops progress (unconfirmed inputs, replaced revision, cap reached, non-allowlisted file) | Name the rule and the way out | `Arc-Lot-Replaced`, disabled buttons in `Arc-Lot-Review`, `Arc-Lot-Conditions`, `Arc-Lot-Approve`; cap and file rejection have none (G2, G10) |
 | Off-topic | Question outside Momentum | Short refusal plus three in-scope suggestions | `Arc-Out-Of-Scope.png` |
 | Insufficient data | In scope but the data does not exist | Say exactly what is missing and what Arc can show instead | `Arc-No-Data.png` |
@@ -96,10 +105,23 @@ Every journey defines these seven states. Where the approved designs have no scr
 ### 3.2 Gemini use
 
 - A free-text message costs one Gemini attempt to route it (intent and field parsing). A button, chip or suggested question costs none; it maps to a fixed command in code.
+- A typed data question that returns data costs one more attempt, for the answer writer: 2 in total (founder decision A3). The writer has no tools and is called once; if its text fails a check, is blocked or errors, Arc shows the template answer and makes no further call. The code-rendered card with its values and labels is shown in every case.
+- A picked suggestion chip or suggested question keeps its template answer and costs 0 attempts, even when its text matches a typed question (founder decision A6, AC2.5).
+- The writer is skipped for "insufficient data" answers (the missing-data wording always comes from the metric dictionary, `05-ai-design.md` section 4), off-topic refusals, condition entries and job-card retrieval (J10). Each of these costs 1 attempt when typed, 0 when picked. A message caught by the approval phrase rule costs 0, because the rule runs in code before the router (`05-ai-design.md` section 5, step 2).
 - Order reading costs one attempt. Planning costs one explanation attempt, plus one retry if the explanation fails (commit `91c9b09`). Photo classification or upload diagnosis costs one attempt. A file rejected for type or size costs none, because the checks run before the model call (`index.mjs`, `src/google-cloud/defect-diagnosis-service.js`).
 - Weather is a backend tool. When a typed message needs weather, Gemini calls the tool through function calling and Arc shows the tool's reading. When the user reaches Conditions by button, Arc calls the same tool directly and spends no attempt. Gemini never writes a humidity or temperature value itself; any such number in model text that does not match the tool result fails O7. (If the founders meant every weather read to pass through a Gemini turn, the J1 ceiling below rises by 1.)
 - Proposed ceiling for J1 driven by buttons only: 3 attempts per lot (1 extraction, 1 explanation, 1 retry). This is a proposal from the code paths above, NOT MEASURED; O10 measures it.
-- When the cap is exhausted, Arc shows the blocked state and keeps every button path that needs no Gemini attempt working (data answers, history search, retrieving a stored card).
+- Estimates per J1 lot for PO1, from `05-ai-design.md` section 3. They are estimates, not measurements, until ARC-M2-08 measures them:
+
+| Path | Attempts | Estimated cost |
+|---|---|---|
+| Buttons only, explanation passes first time | 2 | $0.035 |
+| Buttons only, explanation retried | 3 | $0.059 |
+| Buttons plus 3 typed condition entries | 5 | $0.041 |
+| Buttons plus 2 typed condition entries and 1 typed data question | 6 | $0.049 |
+| Buttons plus 2 typed condition entries and 3 typed data questions | 10 | $0.070 |
+
+- When the cap is exhausted, Arc shows the blocked state and keeps every button path that needs no Gemini attempt working (data answers, history search, retrieving a stored card). J11 covers the cap in detail.
 
 ### 3.3 Untrusted content
 
@@ -111,6 +133,28 @@ Text from POs, photos and documents is data. It cannot add a tool, change a rule
 - The button handler in the client calls `POST /jobs/:id/approve`. The model has no tool that reaches this command, and no message can tick the box.
 - A message such as "approve it for me" gets a short reply that Arc cannot approve, with the approval card shown again. (No design exists for this reply; G11.)
 - Any change to an input after the draft resets the checkbox and blocks approval of that draft (J8).
+
+### 3.5 Latency targets
+
+PROPOSED targets, to be confirmed by ARC-M2-08 measurements. Nothing below has been measured. The basis column quotes the estimates in `05-ai-design.md` section 3, which are themselves estimates. Each target is a time on a warm instance, from the step's `step.started` event to its `step.succeeded` or `step.failed` event in the task-run record (ADR-0011). Two rows start at the user's send press and are measured in the browser: the first visible event and the typed data question. Cold starts are reported separately; the planned minimum instances for 3 and 4 December (decision F3) are meant to remove them on stage.
+
+| Step | Basis (estimate, `05-ai-design.md` section 3) | p50 target | p95 target |
+|---|---|---|---|
+| First visible event after send: the browser shows `run.started` or the first step label after the user presses send | No estimate exists. No model call comes before it: the turn claim and the session read are Firestore calls (section 2 of the AI design) | 1 s | 2 s |
+| Router turn (`gemini-3.5-flash-lite`) | 1 to 2 s; 2 to 4 s on the `gemini-3.5-flash` fallback | 2 s | 4 s |
+| Order read (`read_order`, extraction) | 4 to 10 s | 8 s | 15 s |
+| Explanation, one attempt | 10 to 20 s, driven by about 2,100 output tokens | 15 s | 25 s |
+| `plan_lot`, end to end, including the explanation and a retry when one happens | 15 to 40 s, mostly BigQuery ML | 30 s | 50 s |
+| Answer writer, one call | 3 to 6 s | 5 s | 8 s |
+| Typed data question, send to checked answer (router, read tool, writer) | about 5 to 11 s | 8 s | 12 s |
+| Photo diagnosis, one call | 3 to 8 s | 6 s | 10 s |
+
+Rules:
+
+- `plan_lot` must finish under the 60-second route timeout (`src/request-guardrails.js`) on every run, not only at p95. The 50 s p95 target leaves 10 s of margin. A run that reaches 60 s ends in the failed state of J11 with `REQUEST_TIMEOUT`, and nothing is marked done.
+- Arc shows no percentage and no time estimate while a step runs (ADR-0011). Latency targets are for the team, not for the screen.
+- ARC-M2-08 records p50 and p95 per row, labelled "eval run, not the live service", with the run count beside each value (proposed minimum: 20 runs per step; a step with fewer runs is reported but not compared with its p95 target). ARC-M7-04 records p95 under the demo load profile.
+- A missed target is reported at the gate review with its measured value. It does not fail the gate on its own until the founders confirm the targets; a `plan_lot` run over 60 s always fails the gate.
 
 ## 4. User journeys and acceptance criteria
 
@@ -185,9 +229,10 @@ Acceptance criteria:
 
 | Step | What happens | Command | Design |
 |---|---|---|---|
-| 1 | User types the question or picks it from suggestions | NEW Arc turn command (1 attempt if typed, 0 if picked) | `Arc-Answer-Chart.png` |
-| 2 | Arc reads the five model scores | `GET /api/status` → `modelAcceptance` (from `config/model-acceptance.json`) | `Arc-Answer-Chart.png` |
-| 3 | Arc shows R² per model on the 219 September lots, the headline, the Crack warning and three follow-ups | Response of step 2 | `Arc-Answer-Chart.png` (headline and ticks change, C3) |
+| 1 | User types the question or picks it from suggestions | NEW Arc turn command (typed: 1 router attempt; picked: 0) | `Arc-Answer-Chart.png` |
+| 2 | Arc reads the five model scores | `get_status` → `GET /api/status` → `modelAcceptance` (from `config/model-acceptance.json`) | `Arc-Answer-Chart.png` |
+| 3 | Typed only: the answer writer writes one to three sentences from the step 2 result; code checks every number and ID, and shows the template answer if a check fails. Picked: the template answer, no writer | Answer writer (1 attempt, typed only) | `Arc-Answer-Chart.png` headline area |
+| 4 | Arc shows R² per model on the 219 September lots, the headline, the Crack warning and three follow-ups. The chart, values and labels are rendered by code in both cases | Response of step 2 | `Arc-Answer-Chart.png` (headline and ticks change, C3) |
 
 Values today (source `config/model-acceptance.json`, label "Modeled, tested on 219 lots"): Warp 0.468, Delamination 0.519, Strength 0.388, Print 0.640, Crack 0.108. Proposed headline, from the model owner's recorded basis in the same file: "All five models score higher than the ones they replaced." with the line "Delamination and Print gains are within noise. Crack stays low confidence." No pass-level verdict and no tick marks (C3).
 
@@ -199,13 +244,14 @@ Acceptance criteria:
 - AC2.2 (O8) Given the answer, then it carries "Modeled, tested on 219 lots" and the footer "Measure R² on held-out lots. Not an accuracy percentage."
 - AC2.3 Given the answer, then it contains no "pass level", "meets" or "below" wording while the October thresholds are not claimed.
 - AC2.4 Given Crack, then it is shown as "Low confidence" with the supervision warning.
-- AC2.5 (O10) Given the question is picked from a suggestion, then no Gemini attempt is counted.
+- AC2.5 (O10) Given the question is picked from a suggestion chip, then no Gemini attempt is counted, the answer writer is not called, and the template answer is shown (founder decision A6). Given the same question is typed, then exactly 2 attempts are counted (router plus answer writer, founder decision A3), and no more when the writer's text fails a check and the template is shown instead. Given a typed question that ends as "insufficient data" (J4) or as a refusal (J5), then exactly 1 attempt is counted. Counts are read from the Firestore counter before and after each turn. Cost estimates (about $0.0105 per typed data question, `05-ai-design.md` section 3) are estimates until ARC-M2-08 measures them.
+- AC2.6 (O7) Given a typed question whose written text contains a number or ID that is not in the step 2 result (recorded writer output in the `grounding` suite), then Arc shows the template answer, not the written text.
 
 ### J3. Data question answered with a value: "What is the moisture today?"
 
 | Step | What happens | Command | Design |
 |---|---|---|---|
-| 1 | User asks | NEW Arc turn command | `Arc-Answer-Value.png` |
+| 1 | User asks | NEW Arc turn command (typed: 2 attempts, router plus answer writer; picked: 0; no lot in progress: 1, because "insufficient data" skips the writer) | `Arc-Answer-Value.png` |
 | 2 | Arc reads the conditions of the lot in progress | NEW lot record read | `Arc-Answer-Value.png` |
 | 3 | Arc shows paper moisture as the headline value with its label, humidity and temperature with theirs, and the source line ("Source Lot conditions record, Time Not recorded, Window This lot") | Response of step 2 | `Arc-Answer-Value.png` |
 | 4 | Follow-ups: Enter the temperature, Show all conditions, Open in New Lot | Opens J1 step 6 | `Arc-Answer-Value.png` |
@@ -224,7 +270,7 @@ Acceptance criteria:
 
 | Step | What happens | Command | Design |
 |---|---|---|---|
-| 1 | User asks | NEW Arc turn command (1 attempt) | `Arc-No-Data.png` |
+| 1 | User asks | NEW Arc turn command (1 attempt; the answer writer is skipped, section 3.2) | `Arc-No-Data.png` |
 | 2 | Arc classifies it as in scope but not answerable: no measured lots exist | Rule in code over the router output | `Arc-No-Data.png` |
 | 3 | Arc says "There is no measured scrap to chart." and "No measured lots are recorded yet. The history in Momentum is modeled." | None | `Arc-No-Data.png` |
 | 4 | Arc offers what it can show instead, each with its label | `GET /impact/summary`; `GET /api/status` | `Arc-No-Data.png` (rows change, C1 and C3) |
@@ -348,6 +394,96 @@ Acceptance criteria:
 - AC9.3 Given the phone footer, then it reads "Sample data until sensors are connected."
 - AC9.4 (O1) Given the phone, then J1 can be completed end to end without horizontal scrolling.
 
+### J10. Job-card retrieval: "Show the card for PKBX0041" or "open my last approved card"
+
+Actor: the supervisor or operator in the demo session that created the card.
+
+Arc finds only cards from this session. Tool arguments never take a free-form ID; the job is chosen from an enum of the job IDs that tools returned in this session and from this session's lot records (`05-ai-design.md` section 1, "IDs"; ADR-0003). The backend enforces the same boundary: a demo session can read only its own `JOB-HACK-<sessionId>-...` jobs, and any other ID gets 403 `DEMO_SCOPE_REQUIRED` (`index.mjs`, `src/hackathon-demo-auth.js`).
+
+Open item for the architects: `arc_sessions` holds one lot pointer (`05-ai-design.md` section 2), and ADR-0003 reads lot heads by key without queries. "My last approved card" needs this session's job IDs across all its lots. The architects either keep that list on the session record or add a read-only tool for it. Until one exists, J10 covers the revisions of the current lot only.
+
+| Step | What happens | Command | Design |
+|---|---|---|---|
+| 1 | User types "Show the card for PKBX0041" or "open my last approved card", or presses View job card on a receipt | NEW Arc turn command (typed: 1 router attempt; pressed: 0) | `Arc-Lot-Receipt.png` |
+| 2 | Code resolves the request against this session's cards: by item code, by job ID, or the APPROVED revision with the latest approval time. One match: continue. Several: Arc lists each with item, revision, status and date and asks which. None: the no-match branch | Router arguments are enums built from this session; `get_lot` (NEW lot record read, ADR-0003) | Several matches: no design (G15) |
+| 3 | Arc reads the stored card and its revision. Step label "Finding the card" | `get_job` → `GET /jobs/:id`; revision status from `get_lot` | G1 |
+| 4 | For an APPROVED card, Arc fetches the PDF and runs the content check. Step label "Checking the card" | `get_job_card` → `GET /jobs/:id/card.pdf` plus the NEW content check (C11) | G1 |
+| 5 | Arc shows "PKBX0041, Rev n" with board and quantity, View job card and Open PDF, and the What happened rows read back from the stored record: Draft saved, Approval recorded (Demo session, simulated), PDF stored, Card checked; and the two receipt notes | Responses of steps 3 and 4 | `Arc-Lot-Receipt.png`; the heading and step bar for a card opened later are G15 |
+| 6 | User presses Open PDF, and the checked PDF opens in a new tab. This stays one press because browsers block a new tab that no press started | `GET /jobs/:id/card.pdf` | `Arc-Lot-Receipt.png` |
+
+Branches:
+
+- **Draft, not approved.** Arc shows "PKBX0041, Rev n" with the chip "Draft, not approved" and "This card is not approved, so it has no PDF yet." Arc does not request the PDF; before approval the backend answers 409 `CONFLICT` ("The job card is not available until approval.", `src/google-cloud/job-card-service.js`). Arc offers Open the approval card, which goes to J1 step 10 with the checkbox unticked. Approval stays the human step of J1 step 12. The approval card is `Arc-Lot-Approve.png`; the draft result itself is G15.
+- **Superseded revision.** Arc shows the chip "Replaced, read only", "Rev n was replaced by Rev m." and what changed, from the revision record's `supersededReason`, and offers Open Rev m. There is no Approve control and no PDF: ADR-0003 supersedes only a CURRENT revision, so a replaced revision was never approved. The What changed block follows `Arc-Lot-Replaced.png`; the result layout is G15.
+- **Card from another session (refused).** The typed ID or item is not among this session's cards, so Arc calls no command for it. It answers in the `Arc-No-Data.png` layout: "No job card with that ID in this session." and "Arc can open cards from this session only." The words are the same whether or not the card exists in another session, so the answer reveals nothing about other sessions.
+- **No match.** Same layout, chip "Insufficient data": "No job card for PKBX0041 in this session." and "Arc can open cards from this session only." What Arc can show instead: this session's cards, if any, and Start a new lot. For "my last approved card" with none approved: "No approved job card in this session yet.", and Open the draft if a draft exists.
+- **PDF missing from storage.** The card is APPROVED but its PDF cannot be read. Arc shows Approval recorded as done, PDF stored as failed with "The approval is recorded, but the PDF could not be read from storage.", and Card checked as not run. Open PDF is hidden; Retry reads again. Arc never approves again and never creates a new PDF; no command re-issues the PDF of an approved card, and that is out of scope for the pitch. Today a missing object and a storage outage both come back as `SERVICE_UNAVAILABLE` (`src/google-cloud/storage-client.js` raises `CLOUD_STORAGE_DOWNLOAD_FAILED` for any failed download). Backend need: a distinct code for a missing object (for example `CARD_FILE_MISSING`). Until it exists, the row reads "The PDF could not be read right now." for both cases. Design: the failed row on `Arc-Lot-Receipt.png` (G2).
+- **Content check fails.** Card checked shows failed, not done, as in AC1.12.
+
+States:
+
+| State | J10 behaviour |
+|---|---|
+| Loading | "Finding the card", then "Checking the card" (G1) |
+| Empty | No card in this session: the no-match answer with Start a new lot |
+| Partial | Approved card whose PDF is missing or fails the check: the approval is shown as recorded, the PDF row as failed |
+| Failed | `GET /jobs/:id`, the lot record read or the PDF fetch fails or times out: J11. Never shown as "no match" |
+| Blocked | Cap reached: a typed request is blocked because it needs the router; View job card and the history panel (G9) still work at 0 attempts |
+| Off-topic | J5; the open card stays on screen |
+| Insufficient data | No match, a card from another session, or no approved card yet |
+
+Acceptance criteria:
+
+- AC10.1 (O7) Given an approved card, then the item, quantity, revision number and status shown equal `GET /jobs/:id` and the revision record read in the same turn.
+- AC10.2 (O10) Given View job card is pressed, then no Gemini attempt is counted. Given a typed request, then exactly 1 attempt is counted and the answer writer is not called. Note: `05-ai-design.md` section 2, step 8 calls the writer whenever a typed input's read tool returned data. The AI architect narrows step 8 so that retrieval is excluded; if that is not done, this criterion changes to 2 attempts with founder agreement.
+- AC10.3 (O8) Given an approved card, then the approval row reads "Demo session, simulated" and both notes from AC1.13 are shown.
+- AC10.4 (O4) Given a draft, then Arc sends no request to `/jobs/:id/card.pdf` or `/jobs/:id/approve`, the chip reads "Draft, not approved", and Open the approval card shows the checkbox unticked and Approve job card disabled.
+- AC10.5 (O4) Given a superseded revision, then the chip reads "Replaced, read only", the current revision is named and offered, and neither an Approve control nor Open PDF is shown for the superseded one. A direct approve call for it is rejected (AC8.1).
+- AC10.6 (security) Given a job ID created in session B and typed in session A, then Arc sends no request for that ID, and its reply is identical to the reply for a well-formed job ID that was never issued. Given the same ID sent from session A directly to `GET /jobs/:id` and `GET /jobs/:id/card.pdf`, then both return 403 `DEMO_SCOPE_REQUIRED`.
+- AC10.7 (O6) Given no matching card, then Arc names what is missing ("No job card for PKBX0041 in this session."), shows no number, and offers in-scope alternatives.
+- AC10.8 Given an approved card whose PDF object is missing from a non-production test bucket, then the approval row shows done, the PDF row shows failed with the message above, Card checked is not shown as done, Arc sends no approve and no re-issue request, and the stored status stays APPROVED.
+- AC10.9 Given two lots of PKBX0041 in one session, when the user asks for "the card for PKBX0041", then Arc lists both with revision, status and date and opens nothing until the user picks one. Picking costs no Gemini attempt.
+- AC10.10 Given two approved cards in the session, when the user asks for "my last approved card", then Arc opens the one with the later approval time.
+- AC10.11 Given a failed or timed-out `GET /jobs/:id`, then Arc shows the failed state of J11, not "No job card".
+
+### J11. Recovery from failures
+
+Before this amendment, failure handling was spread across section 3.1, the J1 branches, AC1.21 and AC6.8, and BigQuery timeouts, instance restarts mid-plan and lost connections had no journey. J11 collects them. It adds no new screen: it uses G1, G2 and G3, plus G16 for the two notices that have no design.
+
+Rules for every failure (`responsible-ai.md` RAI-7, CLAUDE.md section 3):
+
+- Arc says in words what failed and what the user can do next. An error code is never shown alone.
+- Nothing is marked done until its result is stored. No `step.succeeded` event comes before a stored result (ADR-0011).
+- A failure never records an approval, never shows a half-written job card as a card, and never shows partial model text as complete.
+- Retry is offered only when `step.failed` marks the step safe to retry (ADR-0011).
+- Inputs the user already confirmed (order, line, conditions) are kept.
+- A failure is never shown as "insufficient data", and missing data is never shown as a failure.
+
+| Failure | What Arc does on its own | What the user sees and can do | Gemini attempts | Design |
+|---|---|---|---|---|
+| Gemini call fails: HTTP 429, 500 or 503 from Vertex AI, timeout, invalid output | Router: no tool runs. Order read: no review stored. Explanation: numbers kept, approval held. Answer writer: the template answer is shown, with no retry call. Photo: no result stored | Router: "Arc could not read that message. Try again, or use the buttons." Order read: "The order could not be read." with Retry. Explanation: the J1 branch "Explanation fails twice" (Retry explanation or Hold this lot). Answer writer: the template answer, with no error message. Photo: "The photo could not be checked." with Retry | Every attempt that reached Vertex AI counts, failed or not. A Retry spends one more | G2; G3 for the explanation |
+| Safety block (`finishReason` `SAFETY` or a `blockReason`) | Treated as a refusal, never as an answer (RAI-5) | The off-topic refusal of J5 | Counted | `Arc-Out-Of-Scope.png` |
+| Cap reached (`GEMINI_DAILY_CAP_EXCEEDED`, with the specific `BUDGET_*` code from ADR-0004) | Checked before any model call, so no call is made. Lot state is kept. If the cap is reached at the explanation step of `plan_lot`, the lot follows the explanation-failed branch of J1; the architect confirms this path in the M3 ticket | "Arc has used today's Gemini limit. Buttons still work. It resets at midnight IST." (copy proposal, `05-ai-design.md` section 6). Typed messages are blocked. Chip answers, history search, View job card and Approve on an already planned draft keep working | None | G2 |
+| BigQuery timeout or error | `plan_lot`: the route stops at 60 s with 504 `REQUEST_TIMEOUT`; the revision is marked FAILED and the claim released (`04-technical-design.md` section 3.2). Read steps (`query_metric`, `get_job`, `search_defect_history`): no answer is built, and the writer is not called | `plan_lot`: "Planning did not finish." with Retry; confirmed order and conditions kept. Read steps: "The data could not be read just now." with Retry | Explanation attempts already made count. A Retry of `plan_lot` can spend new ones | G2 |
+| Instance restart mid-plan | The stream drops. On reconnect, or when Arc is opened again, the client calls `POST /api/arc/runs/:runId/resume`. Once the step's 130 s lease has expired, the step runs again with the same idempotency key: a stored result is returned with no new attempt; if the first run died before storing anything, planning runs again (ADR-0002; `04-technical-design.md` section 3.4). While the lease is live, a second caller gets `IN_PROGRESS`. A step that cannot run again (for example, the PO review expired) becomes blocked | "Planning was interrupted. Arc is continuing it." (copy proposal, G16), then the normal result. A blocked step says "Read the order again." The wait can reach the 130 s lease plus the planning time | Up to one more explanation attempt when planning runs again; the turn record says so | G16, G2 |
+| Lost connection | The browser reconnects to `GET /api/arc/runs/:runId/events` with `Last-Event-ID`. Stored events replay from Firestore, then live events follow, on any instance (ADR-0011). If the step stopped when the connection dropped, resume continues it as in the row above | "Connection lost. Reconnecting." (copy proposal, G16), then each missed step once, in order. If reconnecting fails, Retry | None for the replay | G16 |
+
+Firestore being unavailable is covered in `04-technical-design.md` section 8: durable commands fail closed with `SERVICE_UNAVAILABLE`, and no Gemini call is made.
+
+Acceptance criteria:
+
+- AC11.1 (RAI-7) Given the offline `failure-handling` suite with HTTP 429, 500 and 503, timeout, safety block and invalid JSON injected on each generative path (router, extraction, explanation, answer writer, photo), then each case ends in the state in the table above, no `step.succeeded` precedes a stored result, and no approval is recorded.
+- AC11.2 (O7, O10) Given an answer-writer failure on a typed data question, then the template answer is shown, no error message replaces it, and the turn counts exactly 2 attempts.
+- AC11.3 (O10) Given the cap is exhausted, when the user types any message, then no call reaches Vertex AI, the counter does not change, and the blocked state is shown. The next chip answer, history search or View job card succeeds with no attempt counted.
+- AC11.4 Given a lot with order and conditions confirmed, when the cap is reached, then the confirmed values stay on screen and nothing that was not stored is shown as done.
+- AC11.5 Given a BigQuery timeout injected into `plan_lot` on a test instance, then Arc shows "Planning did not finish." with Retry, keeps the confirmed order and conditions, and after a successful Retry the lot has exactly one CURRENT revision, which is the only one the approval card shows.
+- AC11.6 (O6) Given a BigQuery timeout injected into a data question, then Arc shows the failed state, the answer writer is not called, and the reply contains neither "Insufficient data" nor any number.
+- AC11.7 (ADR-0002) Given an instance stopped while `plan_lot` runs on a test instance, when the client reconnects or Arc is reopened, then after the lease expires the step resumes with the same idempotency key, BigQuery `job_sheets` holds one row for that job ID, the user reaches the compare card without entering anything again, and the counter delta is at most one explanation attempt more than a clean run. The turn record says whether planning ran again.
+- AC11.8 Given two tabs on the same run during a resume, then the step runs once; the second tab shows it as in progress and then shows the same result.
+- AC11.9 (ADR-0011) Given a dropped connection after `step.started` for `plan_lot`, when the client reconnects with `Last-Event-ID`, then each event is shown once and in order, no step is shown as done before its `step.succeeded`, and the replay adds no Gemini attempt.
+- AC11.10 Given a reconnect that lands on a different instance from the original stream, then the replay behaves as in AC11.9.
+- AC11.11 Given any failure in this journey, then the message names what failed and the next action in words, and Retry appears only when `step.failed` marks the step safe to retry.
+
 ## 5. Provenance labels
 
 One label per value. Labels come from fields in command responses (for example `conditionSources` in the condition guard), never from model text. Exact on-screen text:
@@ -398,14 +534,14 @@ In J1, every scrap, cost and setting value comes from the live `POST /jobs` resp
 |---|---|---|---|
 | C1 | PKBX0041 100.4 → 83.0 kg is an `m_*` result shown as current in `Arc-Lot-Compare`, `Arc-No-Data`, `NewLot-Approve`, `NewLot-Settings`, `NewLot-Recovery` | Treat design numbers as placeholders. J1 shows only live `POST /jobs` values. The static figure is stale and hidden; the approved `m2_*` re-run (Q6) replaces it once stored and reviewed | Decided (Q6); design (replace placeholders); data engineer (re-run) |
 | C2 | Designs pair the case with "moisture 7.3% (example)"; it was computed at 10.8% | Any shown reference case states the moisture its run used. On a live lot, the moisture shown is whatever the user entered (AC1.14) | Decided (Q3, Q6); design |
-| C3 | `Arc-Answer-Chart`, `NewLot-Settings`, `Arc-Lot-Approve` ("Four of five models miss"), `Arc-No-Data` ("1 of 5") show the replaced models' R² and October pass ticks | Show current R² with no pass ticks or pass verdicts. Headline from the model owner's basis: "All five models score higher than the ones they replaced." Limits row: "Crack is low confidence. Delamination and Print gains are within noise." | Design; founder sign-off on the headline |
+| C3 | `Arc-Answer-Chart`, `NewLot-Settings`, `Arc-Lot-Approve` ("Four of five models miss"), `Arc-No-Data` ("1 of 5") show the replaced models' R² and October pass ticks | Show current R² with no pass ticks or pass verdicts. Headline from the model owner's basis: "All five models score higher than the ones they replaced." Limits row: "Crack is low confidence. Delamination and Print gains are within noise." | Design. Headline decided (Q11), subject to Om's review |
 | C4 | `Arc-Lot-Review` says "Lines 2 and 3 are not in this lot" for PO1, which has one line | The sentence is generated from the line count: PO1 reads "One line on this order."; PO2 and PO3 read "Line n is selected. Lines x and y are not in this lot." | Design (copy only) |
 | C5 | Designs say "Sensor readings are not connected yet" and never show weather; the code fills humidity and temperature from weather or the seasonal median when missing | Arc pre-fills humidity and temperature from the Pune weather tool with the "Weather record" chip and the reading time, editable. Arc always sends explicit values with their sources, so the backend never fills silently; a backend seasonal value gets "Seasonal typical". The "Sensor readings are not connected yet" sentence stays true | Decided (Q1); design (new chips, G5); backend (C20) |
 | C6 | Designs limit photos to ten approved images; the v2 backend also accepts any upload | Both: approved photos via `classify-photo`, uploads via `diagnose-photo`, on Arc and the dashboard, with distinct labels | Decided (Q4); design (upload state, G14; "Ten approved photos only." subtitle on `Photo-Diagnosis` and `Arc-Defect-Photo` changes) |
 | C7 | README and designs say the operator confirms conditions; `src/job-coordinator.js` and `index.mjs` say "A supervisor must confirm" | The operator confirms conditions; the supervisor approves. Change the two backend messages to "The operator must confirm or edit the condition values before prediction." In the demo one session holds both roles | Backend (copy) |
-| C8 | Designs rely on Rev 1, Rev 2 and "replaced"; the backend has no revision record, and an old DRAFT stays approvable after a new `POST /jobs` | Add a per-lot revision record and an approve guard that rejects a superseded draft. The same record holds the lot in progress for "Next for you" and J3. Storage choice by ADR | Backend + ADR; founder if it cannot ship in time (Q8) |
-| C9 | `Arc-Lot-Approve` has the confirmation checkbox; manual `NewLot-Approve` does not | Add the same checkbox to the manual approval panel so both routes have the same human step (O3, O4) | Design; founder sign-off (Q9) |
-| C10 | Designs use Home, New Lot, Plant Explorer, Preparation Flow, Insights, Photo Diagnosis; `/app` has Floor, Lots, Defects; old screens at `/` | Do not pick silently | Founder (Q7) |
+| C8 | Designs rely on Rev 1, Rev 2 and "replaced"; the backend has no revision record, and an old DRAFT stays approvable after a new `POST /jobs` | Add a per-lot revision record and an approve guard that rejects a superseded draft. The same record holds the lot in progress for "Next for you" and J3. Storage choice by ADR | Backend + ADR (ADR-0003). Decided (Q8): keep it even if other scope moves |
+| C9 | `Arc-Lot-Approve` has the confirmation checkbox; manual `NewLot-Approve` does not | Add the same checkbox to the manual approval panel so both routes have the same human step (O3, O4) | Design. Decided (Q9): add the checkbox |
+| C10 | Designs use Home, New Lot, Plant Explorer, Preparation Flow, Insights, Photo Diagnosis; `/app` has Floor, Lots, Defects; old screens at `/` | Decided (Q7): every approved page ships, dark and light, built by parallel agents; gaps between UI and backend are listed in `00-plan.md` section 6 | Decided (Q7) |
 | C11 | `Arc-Lot-Receipt` says "PDF stored, 2 pages" and "Card checked, Read back and compared"; `getJobCard` only checks the stored status and the `%PDF-` header, and returns no page count | Add a check that compares the stored PDF with the approved JobSheet (for example a hash recorded at approval and the key values in the PDF text) and returns the page count. Until it exists, the row reads "PDF stored and opened", not "compared" | Backend; design (copy fallback) |
 | C12 | "8,640 combinations" appears in `Arc-Lot-Compare`, `NewLot-Settings`, `NewLot-Recovery`, `Prep-Flow-Partial` with no source in code | The optimizer response returns the count of combinations it scored; Arc shows that number. Until then, the line reads "Up to 3 changes allowed." | Backend; design (copy fallback) |
 | C13 | "Keep entered plan" (`Arc-Lot-Compare`) has no backend meaning | Out for the pitch; the button is removed from the Arc compare screen | Design |
@@ -439,6 +575,8 @@ Screens or states this spec needs that the approved designs lack. Each needs a d
 | G12 | Arc-Start with no lot in progress | J1 |
 | G13 | Disabled mic visual state | All |
 | G14 | Photo upload in Arc and on the dashboard: drop area, type and size refusal, optional humidity, "Uploaded photo" result, privacy note | J6b |
+| G15 | Job-card retrieval variants of `Arc-Lot-Receipt`: the heading and whether the four-step bar shows for a card opened later; the draft result ("Draft, not approved", no PDF, Open the approval card); the replaced-revision result; the list to pick from when several cards match | J10 |
+| G16 | Notices for an interrupted run ("Planning was interrupted. Arc is continuing it.") and a lost connection ("Connection lost. Reconnecting.", with Retry when reconnecting fails) | J11 |
 
 ## 9. Founder answers to Q1 to Q6
 
@@ -466,7 +604,7 @@ Relayed by the delivery lead on 2026-11-22. The spec is written around them; non
 | O7 | 100% of numbers shown match the command response of the same turn |
 | O8 | 100% of shown values carry the correct label |
 | O9 | 0 capability changes, actions or approvals from injected PO text or image text |
-| O10 | At most 3 Gemini attempts for a button-only J1 run; at most 3 plus one per typed message otherwise |
+| O10 | At most 3 Gemini attempts for a button-only J1 run. Otherwise at most 3, plus 1 per typed message, plus 1 more for each typed data question that reaches the answer writer (founder decision A3). A picked suggestion chip adds 0 (founder decision A6). Estimates in section 3.2 until ARC-M2-08 |
 
 ### 9.2 Gates where PO prompt-injection evals run (Q5)
 
@@ -479,19 +617,23 @@ The tech lead's plan (`00-plan.md`) does not exist yet, so the milestone numbers
 
 The photo injection set (AC6.7) runs at the same gates from the first gate that includes uploads. Because live intake rejects every non-allowlisted file, these evals run on a local or non-production instance with real Gemini on Vertex AI, and the report is labelled "eval run, not the live service". The attempts they spend are recorded; if they share the live Firestore counter, they are not scheduled on 3 or 4 December.
 
-## 10. New founder decisions needed beyond Q1 to Q6
+## 10. Founder answers to Q7 to Q11
 
-- **Q7. Where does Arc live for the pitch?** Options: (a) build the designed navigation and pages; (b) open the Arc panel inside the current `/app` shell (Floor, Lots, Defects), with the panel itself matching the design and "Open in ..." links pointing only to screens that exist; (c) attach Arc to the old dashboard at `/`. Recommendation: (b). It needs a design note that the host pages differ from the mock-ups.
-- **Q8. Revision record.** If the architects find the lot and revision record (C8, C16, C17) cannot pass its gate before the release cut-off, do we (a) cut J8 and "Next for you" from the pitch, or (b) delay other scope to keep it? Recommendation: keep it; without it an old draft stays approvable after an input change.
-- **Q9. Manual approval checkbox.** Change the approved `NewLot-Approve` design to add the checkbox (C9)? Recommendation: yes, so both routes have the same human step.
-- **Q10. Operator phone handoff.** Show `Operator-Phone.png` in the pitch? Recommendation: no. Its receipt and mismatch actions have no backend, and showing them as working would breach CLAUDE.md section 3.
-- **Q11. Model-score headline.** Approve "All five models score higher than the ones they replaced." as the replacement for "One of five models meets its pass level" (C3)? Recommendation: yes, with Om's review since it restates his recorded basis.
+Answered on 2026-11-23 (STATUS decision log; `00-plan.md` section 8). None is pending. The questions as first asked are kept in each row.
+
+| Q | Question | Decision | Where it lands in this spec |
+|---|---|---|---|
+| Q7 | Where does Arc live for the pitch: (a) the designed navigation and pages, (b) the current `/app` shell, or (c) the old dashboard at `/`? The spec recommended (b) | **(a) Every approved page ships, dark and light, built by parallel agents.** Gaps between UI and backend are listed in `00-plan.md` section 6, each with a ticket. The spec's recommendation was not taken | 1.1, C10 |
+| Q8 | If the lot and revision record (C8, C16, C17) cannot pass its gate in time, cut J8 and "Next for you", or delay other scope to keep it? | **Keep the revision record**, as recommended | C8, J8, J10 |
+| Q9 | Add the approval checkbox to the approved `NewLot-Approve` design (C9)? | **Yes, add the manual checkbox**, as recommended | C9 |
+| Q10 | Show `Operator-Phone.png` in the pitch? The spec recommended no, because receipt and mismatch had no backend | **Superseded by Q7.** Operator-Phone is built with its backend (U10, ARC-M6-13) and labelled "Demo session, simulated" | 1.1 |
+| Q11 | Approve "All five models score higher than the ones they replaced." as the replacement headline (C3)? | **Accepted, pending Om's review**, since it restates his recorded basis | C3, J2 |
 
 ## 11. Pitch-day risks
 
 | Risk | Effect | Mitigation | Owner |
 |---|---|---|---|
-| Shared Gemini cap: 100 attempts per Asia/Kolkata day, failed attempts count, shared by extraction, explanation, photos and every typed Arc turn. It resets at midnight IST, which is 02:30 in Singapore | Morning rehearsals on 4 December draw from the same pool as the pitch; a judge typing freely also spends it | Button paths cost no attempts (3.2); measure O10 before the finals; founders set a reserve for the pitch slot and stop live rehearsals once usage reaches it; a person checks the counter before going on stage; Arc shows the cap-reached state (G2) instead of failing silently | Release manager |
+| Shared Gemini cap: 300 attempts per Asia/Kolkata day on `momentum` since 2026-11-22 (100 on `prepagent`), failed attempts count, shared by extraction, explanation, photos, every typed Arc turn and the answer writer (a typed data question costs 2). It resets at midnight IST, which is 02:30 in Singapore | Morning rehearsals on 4 December draw from the same pool as the pitch; a judge typing freely also spends it | Button paths cost no attempts (3.2); measure O10 before the finals; founders set a reserve for the pitch slot and stop live rehearsals once usage reaches it; a person checks the counter before going on stage; Arc shows the cap-reached state (G2) instead of failing silently | Release manager |
 | PO review state lives in an in-memory Map on one instance with a 30-minute TTL (`src/purchase-order-review.js`); live Cloud Run runs up to 2 instances with no session affinity | A review is lost when `POST /jobs` lands on the other instance; the user must read the order again and spend another Gemini attempt | Durable review state is in scope (S13, C17) and tested by AC1.21. If it is late, any interim Cloud Run change (for example one instance, or session affinity) is written down first with command, reason, cost and rollback, per CLAUDE.md section 7 | Architect, backend engineer, release manager |
 | Uploaded photos on stage | A judge uploads a photo with a person or with text in it | Upload checks (AC6.5 to AC6.7); privacy note on the control; uploads spend cap attempts | Security reviewer |
 | Explanation fails | Approval held mid-demo | Recovery path (J1 branches, G3); rehearse it | AI engineer |
@@ -508,10 +650,12 @@ The photo injection set (AC6.7) runs at the same gates from the first gate that 
 | O1 | AC1.1, AC9.4 |
 | O2 | AC1.2 |
 | O3 | AC1.3, AC1.14, AC1.15, AC1.16 |
-| O4 | AC1.4, AC1.5, AC1.6, AC8.1, AC9.1 |
+| O4 | AC1.4, AC1.5, AC1.6, AC8.1, AC9.1, AC10.4, AC10.5 |
 | O5 | AC4.3, AC5.1 |
-| O6 | AC4.1, AC4.2 |
-| O7 | AC1.7, AC1.14, AC1.19, AC2.1, AC3.3, AC6.2, AC7.2, AC8.3 |
-| O8 | AC1.8, AC1.18, AC1.19, AC6.3, AC2.2, AC3.1, AC3.2, AC4.4, AC6.1, AC7.1, AC8.4, AC9.2 |
+| O6 | AC4.1, AC4.2, AC10.7, AC11.6 |
+| O7 | AC1.7, AC1.14, AC1.19, AC2.1, AC2.6, AC3.3, AC6.2, AC7.2, AC8.3, AC10.1, AC11.2 |
+| O8 | AC1.8, AC1.18, AC1.19, AC6.3, AC2.2, AC3.1, AC3.2, AC4.4, AC6.1, AC7.1, AC8.4, AC9.2, AC10.3 |
 | O9 | AC1.9, AC1.20, AC6.7 |
-| O10 | AC1.10, AC2.5, AC6.4, AC6.5, AC6.8, AC7.4 |
+| O10 | AC1.10, AC2.5, AC6.4, AC6.5, AC6.8, AC7.4, AC10.2, AC11.2, AC11.3 |
+
+Criteria outside O1 to O10: AC10.6 (session boundary, security review), AC10.8 to AC10.11, AC11.1, AC11.4, AC11.5, AC11.7 to AC11.11 (failure handling, RAI-7). Latency targets (section 3.5) are not tied to an outcome yet; O2 measures elapsed time for the whole route.
