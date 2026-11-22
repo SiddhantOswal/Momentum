@@ -31,3 +31,6 @@ public/app/
 
 # Arc reference material (V5 pack, source PDFs, strategy); never commit
 docs/arc/reference/
+
+# Agent worktrees, one per ticket branch
+.claude/worktrees/
