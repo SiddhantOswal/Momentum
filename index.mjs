@@ -1,7 +1,7 @@
 import { PhotoClassificationRequestSchema } from "./src/google-cloud/approved-photo-service.js";
 import { isSameApplicationOrigin } from "./src/request-origin.js";
 import { getCookie, setCookie } from "hono/cookie";
-import { createHackathonDemoAuthenticator, demoJobIdentity, demoOwnsJob, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
+import { createHackathonDemoAuthenticator, demoJobIdentity, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
@@ -48,6 +48,7 @@ import { createJobRequestIdentity, InMemoryIdempotencyStore } from "./src/job-id
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
 import { identifyPurchaseOrderMimeType, MAX_PURCHASE_ORDER_BYTES } from "./src/purchase-order-file.js";
 import { readDailyGeminiCallCapConfig } from "./src/daily-gemini-call-cap.js";
+import { authorizeSupervisor } from "./src/commands/authorize.js";
 import {
   firebaseWebClientConfig,
   initializeFirebaseSupervisorAuthenticator,
@@ -99,8 +100,11 @@ function liveLot(jobSheet, status) {
     ...(Array.isArray(jobSheet?.changes) ? { changes: jobSheet.changes.slice(0, 3).map(({ lever, from, to }) => ({ lever, from, to })) } : {}),
   };
 }
+function isSameOrigin({ origin, requestUrl }) {
+  return isSameApplicationOrigin({ origin, requestUrl, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
+}
 function sameOrigin(c) {
-  return isSameApplicationOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
+  return isSameOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url });
 }
 
 const plantId = process.env.USTAAD_PLANT_ID ??
@@ -197,6 +201,15 @@ function responseForResult(c, result) {
   return c.json(result, status);
 }
 
+// Command failures that choose their own HTTP status carry it beside the body.
+function commandResponse(c, result) {
+  if (result?.ok === false && Number.isInteger(result.status)) {
+    const { status, ...body } = result;
+    return c.json(body, status);
+  }
+  return responseForResult(c, result);
+}
+
 function demoAgentUnavailable(c) {
   if (executionMode === "demo") return undefined;
   return c.json({
@@ -216,32 +229,30 @@ const privilegedPortNames = [
 ];
 const localPrivilegedAdapterConfigured = privilegedPortNames.some((name) => servicePorts.availability[name] === true);
 
+// Shared by every command call from a route; Arc tools build the same set.
+const commandDeps = Object.freeze({
+  userSessionAuth,
+  hackathonAuth,
+  supervisorAuthenticator,
+  executionMode,
+  localPrivilegedAdapterConfigured,
+  traceOwners: demoTraceOwners,
+  isSameOrigin,
+});
+
 async function requireSupervisor(c) {
-  if (userSessionAuth) {
-    const result = await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE));
-    if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
-    if (!["GET", "HEAD"].includes(c.req.method) && !sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
-    c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
-    return undefined;
-  }
-  if (hackathonAuth.enabled) {
-    const result = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
-    if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
-    if (!["GET", "HEAD"].includes(c.req.method) && !sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
-    if (c.req.path === "/insights/summary") return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "Use the anonymized impact summary." } }, 403);
-    const jobMatch = /^\/jobs\/([^/]+)/.exec(c.req.path);
-    if (jobMatch && !demoOwnsJob(result.principal, c.req.param("id") ?? jobMatch[1])) return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "This record does not belong to this demo session." } }, 403);
-    if (c.req.path.startsWith("/api/runs/") && demoTraceOwners.get(c.req.path.split("/")[3]) !== result.principal.sessionId) return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "This trace does not belong to this demo session." } }, 403);
-    c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
-    return undefined;
-  }
-  if (executionMode === "demo") return undefined;
-  if (executionMode === "offline" && !localPrivilegedAdapterConfigured) return undefined;
-  const result = await supervisorAuthenticator.authenticate(c.req.header("Authorization"));
-  if (!result.ok) {
-    return c.json({ ok: false, error: result.error }, result.status);
-  }
-  c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
+  const result = await authorizeSupervisor({
+    method: c.req.method,
+    path: c.req.path,
+    jobId: c.req.param("id"),
+    sessionCookie: getCookie(c, SESSION_COOKIE),
+    demoCookie: getCookie(c, "__Host-ustaad-demo"),
+    authorization: c.req.header("Authorization"),
+    origin: c.req.header("Origin"),
+    requestUrl: c.req.url,
+  }, commandDeps);
+  if (!result.ok) return commandResponse(c, result);
+  if (result.principal) c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
   return undefined;
 }
 
