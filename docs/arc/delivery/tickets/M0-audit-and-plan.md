@@ -19,7 +19,7 @@ Most M0 work is written (see `00-plan.md` section 1). These tickets are what rem
 - Depends on: ARC-SETUP-01. Owner: backend engineer (scripts, CI); delivery lead (docs).
 - Test plan: `node --test test/quality-rules.test.js`; a CI run on the PR.
 
-Settings-file hardening (security B2 and N1 to N3, code reviewer 1) changes Claude Code permissions and is a founder decision, so it is listed in STATUS and not in this ticket.
+Settings-file hardening (security B2 and N1 to N3, code reviewer 1) was decided by the founders on 2026-11-23 (option a) and applied, so it is not part of this ticket.
 
 ### ARC-M0-01 Founder approval of the plan (P0)
 - Goal: founders approve `00-plan.md` and answer the open questions in its section 7.

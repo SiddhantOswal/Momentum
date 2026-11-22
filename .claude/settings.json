@@ -7,25 +7,36 @@
       "Bash(git status*)", "Bash(git diff*)", "Bash(git log*)", "Bash(git show*)", "Bash(git add*)",
       "Bash(git commit*)", "Bash(git checkout*)", "Bash(git switch*)", "Bash(git branch*)",
       "Bash(git fetch*)", "Bash(git merge*)", "Bash(git stash list*)", "Bash(git rev-parse*)",
-      "Bash(npm *)", "Bash(npx *)", "Bash(node *)",
-      "Bash(ls*)", "Bash(cat *)", "Bash(grep *)", "Bash(find *)", "Bash(mkdir *)", "Bash(unzip *)",
+      "Bash(npm test*)", "Bash(npm run test*)", "Bash(npm run eval:offline*)", "Bash(npm ci*)",
+      "Bash(npx tsc*)", "Bash(npx playwright test*)",
+      "Bash(node --test*)", "Bash(node scripts/quality/check.mjs*)",
+      "Bash(ls*)", "Bash(cat *)", "Bash(grep *)", "Bash(mkdir *)", "Bash(unzip *)",
       "Bash(gcloud * list*)", "Bash(gcloud * describe*)", "Bash(gcloud config *)",
-      "Bash(gcloud auth print-access-token*)", "Bash(gcloud logging read*)",
-      "Bash(bq ls*)", "Bash(bq show*)", "Bash(bq query*)", "Bash(gsutil ls*)"
+      "Bash(gcloud logging read*)",
+      "Bash(bq ls*)", "Bash(bq show*)", "Bash(gsutil ls*)"
     ],
     "ask": [
       "Bash(git push*)",
+      "Bash(bq query*)", "Bash(gcloud auth print-access-token*)",
       "Bash(gcloud run deploy*)", "Bash(gcloud run services update*)",
       "Bash(gcloud services enable*)", "Bash(gcloud projects add-iam-policy-binding*)",
       "Bash(gcloud * create*)", "Bash(gcloud * update*)",
-      "Bash(bq mk*)", "Bash(bq load*)", "Bash(bq cp*)", "Bash(gsutil cp*)"
+      "Bash(bq mk*)", "Bash(bq load*)", "Bash(bq cp*)", "Bash(gsutil cp*)",
+      "Edit(./scripts/git-hooks/**)", "Write(./scripts/git-hooks/**)",
+      "Edit(./scripts/quality/**)", "Write(./scripts/quality/**)",
+      "Edit(./.github/workflows/**)", "Write(./.github/workflows/**)"
     ],
     "deny": [
       "Read(./.env)", "Read(./.env.*)", "Read(./**/*service-account*.json)",
+      "Bash(cat *.env*)", "Bash(grep *.env*)",
       "Bash(git push --force*)", "Bash(git push -f*)", "Bash(git reset --hard*)",
       "Bash(git commit*--no-verify*)", "Bash(git push*--no-verify*)",
-      "Bash(git commit -n*)", "Bash(git commit *-n *)",
-      "Bash(git -c core.hooksPath*)", "Bash(git config core.hooksPath*)",
+      "Bash(git commit *--no-v*)", "Bash(git -C * commit *--no-v*)",
+      "Bash(git commit -n*)", "Bash(git commit *-n *)", "Bash(git commit * -n)",
+      "Bash(git commit -an*)", "Bash(git commit *-an *)", "Bash(git commit * -an)",
+      "Bash(git -c *hooks*)", "Bash(git -c *Hooks*)",
+      "Bash(git config *core.hooksPath*)", "Bash(git config *core.hookspath*)",
+      "Bash(*GIT_CONFIG_COUNT*)", "Bash(*GIT_CONFIG_PARAMETERS*)",
       "Bash(gcloud * delete*)", "Bash(bq rm*)", "Bash(gsutil rm*)", "Bash(rm -rf*)"
     ]
   }

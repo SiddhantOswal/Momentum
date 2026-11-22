@@ -23,10 +23,10 @@ Date: 2026-11-23. Branch `arc/setup` (cut from `origin/v2` at `eb6eab9`, no upst
 ## Open, not blocking this commit
 
 - ARC-SETUP-02 (a condition for the M1 gate): a shared CI range path, install-hooks output, diff path parsing, pinned action SHAs with `persist-credentials: false`, CODEOWNERS on `scripts/quality/**`, and rewording public docs that map live exposure.
-- A founder decision on settings hardening: security B2 and N1 to N3, plus code reviewer finding 1. The options are in STATUS.
+- Settings hardening (security B2 and N1 to N3, code reviewer finding 1): founders chose option (a) on 2026-11-23, and it was applied in `.claude/settings.json`. Pattern denies cannot cover every spelling of a git command, so CI stays the real gate.
 - Not edited, as instructed: README, `DEMO_LOT` and the design files (ARC-M6-09, ARC-M6-19). Compliance finding 8, a placeholder note in the design README, waits for ARC-M6-19.
 - Not run in this gate: QA lead test verification, AI evals, responsible-AI review and copy edit. The founders scoped them out of this short gate. They run at the M0 gate (ARC-M0-03).
 
 ## Verdict
 
-**CONDITIONAL GO** for committing on `arc/setup`. The conditions are ARC-SETUP-02 and the settings decision, both before the M1 gate. Nothing is merged to `arc/main` and nothing is pushed.
+**CONDITIONAL GO** for committing on `arc/setup`. The remaining condition is ARC-SETUP-02, before the M1 gate. The settings decision is done. Nothing is merged to `arc/main` and nothing is pushed.

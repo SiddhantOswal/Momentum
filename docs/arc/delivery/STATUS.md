@@ -43,7 +43,7 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## Open founder questions
 
-- **Settings hardening (from the setup gate).** `.claude/settings.json` auto-allows `bq query`, which can run DDL and DML (`DROP`, `DELETE`, `--replace`), plus `node *`, `npx *`, `find *`, `cat *` and `gcloud auth print-access-token*`. Each of these can be used to get around the denies or to print a token. Options: (a) move `bq query*` and `gcloud auth print-access-token*` to "ask", replace `node *` and `find *` with exact commands, and add denies for the remaining hook bypasses; (b) move `bq query*` to "ask" only; (c) leave the settings as they are and rely on CI. Recommendation: (a). CI stays the real gate in every case.
+- Settings hardening: decided 2026-11-23, option (a); see the decision log.
 
 - Plan section 8: Q8, Q9, Q11, A1, A2, A4, A5, A6, F2, F4, F5, D1, D2, D4, D5 and D6. D3 decided. Answered on 2026-11-23: Q7, A3 and F3 (decision log).
 - F1 (`prepagent`): evidence gathered (`changes/2026-11-23-prepagent-usage-evidence.md`). Recommendation is to turn its Gemini off, but a founder must first check whether the competition submission lists the `prepagent` URL.
@@ -89,3 +89,4 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 | 2026-11-23 | README, `DEMO_LOT` and design files are not edited until the figures are final; the edits are ARC-M6-09 and ARC-M6-19 | Change claims only with final evidence | Founders |
 | 2026-11-23 | Commit check covers only commits not in `origin/v2`; hook bypass commands denied | Om's commits are never flagged or rewritten | Founders |
 | 2026-11-23 | RAI thresholds stay PROPOSED until the plan is approved | A reviewer cannot set its own pass mark | Founders |
+| 2026-11-23 | Settings hardening, option (a): `bq query` and `gcloud auth print-access-token` move to ask; `node`, `npm` and `npx` are allowed only for named test, check and build commands; `find` is no longer auto-allowed; `cat` and `grep` on `.env` files are denied; more hook bypasses are denied (`-an`, trailing `-n`, abbreviated `--no-verify`, `git -c` hooks, any `git config` of `core.hooksPath`, git config env vars); edits to `scripts/git-hooks`, `scripts/quality` and `.github/workflows` ask first. CI remains the real gate | Setup gate: security B2 and N1 to N3, code review finding 1 | Founders |
