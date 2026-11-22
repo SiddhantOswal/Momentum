@@ -4,7 +4,7 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 
 ### ARC-M2-01 Arc routes, session and task-run stores (P0)
 - Goal: the `/arc` Hono sub-app behind `USTAAD_ENABLE_ARC`, with `arc_sessions`, `arc_turns` and `arc_task_runs` stores.
-- AC: this ticket settles the route prefix, because the two designs differ (`/arc/*` in 04 section 1.3, `/api/arc/*` in 05 section 2), and records the choice in ADR-0007. Every route uses `authorizeSupervisor`, the same-origin check and the rate limiter. A replayed `clientTurnId` returns the stored events and spends nothing. Sessions are scoped to the demo session.
+- AC: this ticket settles the route prefix, because the two designs differ (`/arc/*` in 04 section 1.3, `/api/arc/*` in 05 section 2), and records the choice in ADR-0007. Every route uses `authorizeSupervisor`, the same-origin check and the rate limiter. A replayed `clientTurnId` returns the stored events and spends nothing. Sessions are scoped to the demo session. `arc_sessions` keeps the list of job IDs the session created or opened (bounded, newest first), so J10 "open my last approved card" works across lots without a collection query.
 - Depends on: M1-02, M1-05. Owner: backend engineer.
 - Test plan: route tests for authentication, replay and cross-session access.
 
@@ -28,7 +28,7 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 
 ### ARC-M2-05 Answer rendering and output checks (P0)
 - Goal: Gemini writes the answer from the same turn's tool results (founder decision A3, 2026-11-23). Code runs the schema, numeric-fidelity and tool-IDs-only checks before anything is emitted, and the template rendering is the fallback.
-- AC: a number or ID that is not in the turn's tool results blocks the model's answer, and the template answer is shown instead. The fallback is counted in the turn record. Every value carries its provenance label from code, not from the model.
+- AC: typed job-card retrieval (J10) and refusals never call the writer, so they cost 1 attempt (spec AC10.2). A number or ID that is not in the turn's tool results blocks the model's answer, and the template answer is shown instead. The fallback is counted in the turn record. Every value carries its provenance label from code, not from the model.
 - Depends on: M2-03. Owner: AI engineer.
 - Test plan: the offline `numeric-fidelity` (30 cases) and `provenance-labels` suites.
 

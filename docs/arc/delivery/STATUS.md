@@ -25,11 +25,13 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - PKBX0041 final reference (data engineer, read-only, 100 MiB billed in two jobs): 7.3% moisture, 42.0% RH, 18.5 °C (the modeled winter median 18.35 °C; founders asked for about 19 °C). 62.9 to 55.1 kg, ₹3,355 to ₹2,934, a reduction of 7.8 kg and ₹421. Roll 162 to 170 °C, gum HIGH to MED, viscosity 32 to 45 s. All five risks fall. Job `arc_pkbx0041_m2_t19_rh420_t185_20261122T212952Z`. Model estimate, awaiting Om sign-off. README, `DEMO_LOT` and designs not edited (ARC-M6-09, ARC-M6-19).
 - New tickets: ARC-M1-11 (replayed APPROVED status undefined, `job-draft-persistence.test.js:508`), ARC-M1-13 (weather timeout test fails only in the full run), ARC-M1-14 (no Vertex `safetySettings`), ARC-M1-15 (check safety names against current Vertex docs), ARC-M2-07 (`npm run eval:offline`), ARC-M1-16 (stale m_* fixtures), ARC-M6-19 (design figures after sign-off).
 - Plan extended to production readiness: Phase B, M9 to M14 (`tickets/M9-M14-production-readiness.md`), and a production-ready definition in `00-plan.md` section 9.
+- ARC-M0-06 merged (`5dd674f`): O10 now allows 2 attempts for a typed data question and 0 for a chip; J10 job-card retrieval (AC10.1 to AC10.11, design gap G15); J11 recovery (AC11.1 to AC11.11, design gap G16); PROPOSED latency targets (spec section 3.5; `plan_lot` p50 30 s, p95 50 s, over 60 s fails); Q7 to Q11 marked answered. Follow-ups placed in ARC-M2-01, ARC-M2-05 and ARC-M3-03.
+- ARC-M0-04 question list for Om: `data/om-signoff-request.md` (`00ff9c1`). Waiting for the founders to send it.
 
 ## In progress
 
-- ARC-M0-06 (product manager): O10 amendment, job-card retrieval journey, latency targets.
-- Then ARC-M0-03, the full M0 review gate.
+- ARC-M0-03, the full M0 review gate.
+- Built and waiting for QA and the M0 gate before merging: ARC-M1-15 (`arc/ARC-M1-15-vertex-reference`, `3279481`, Vertex field reference). Running: ARC-M1-01 (`arc/ARC-M1-01-commands`).
 
 ## Blocked
 

@@ -16,7 +16,7 @@ Spec J1 and J8; design 1.4, 1.5 and section 6; ADR-0005.
 
 ### ARC-M3-03 Card content check (P1)
 - Goal: after approval, compare the stored PDF with the approved JobSheet (a hash recorded at approval and the key values in the PDF text) and return the page count (spec C11).
-- AC: a tampered PDF fails the check. Until this ships, the receipt reads "PDF stored and opened", not "compared".
+- AC: a card PDF missing from storage returns its own code, `CARD_PDF_MISSING` (404), and not the `SERVICE_UNAVAILABLE` used for a storage outage (spec J10). A tampered PDF fails the check. Until this ships, the receipt reads "PDF stored and opened", not "compared".
 - Depends on: M1-01. Owner: backend engineer.
 - Test plan: unit tests with a good PDF and an altered one.
 
