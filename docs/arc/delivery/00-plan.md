@@ -1,6 +1,6 @@
 # 00. Arc by Momentum: delivery plan
 
-Status: PROPOSED, awaiting founder approval. Written 2026-11-23 by the delivery lead from the M0 records below. Revised 2026-11-23 for the founder decisions on the reference lot, the setup safeguards and the production phase. Branch `arc/m0-discovery` (code identical to `origin/v2` at `eb6eab9`). Finals 3 to 5 December 2026, pitch 4 December. Release candidate (RC) due 30 November.
+Status: APPROVED by the founders on 2026-11-23 (Phases A and B). Written 2026-11-23 by the delivery lead from the M0 records below. Revised 2026-11-23 for the founder decisions on the reference lot, the setup safeguards and the production phase. Branch `arc/m0-discovery` (code identical to `origin/v2` at `eb6eab9`). Finals 3 to 5 December 2026, pitch 4 December. Release candidate (RC) due 30 November.
 
 No application code, data or cloud resource has been changed for this plan. The only repository changes are the setup safeguards in section 0. No eval suite exists yet, so every eval result is NOT RUN, and every target below is a proposal until it is measured.
 
@@ -22,7 +22,7 @@ The plan has two phases, and every milestone in both ends with the review gate i
 - Keep PKBX0041 and use the honest m2 re-run figures, labelled as a model estimate. Do not search for a bigger number.
 - The ambient temperature is provisional, pending Om. The founders asked for about 19 °C (December to February). The modeled winter median is 18.35 °C (364 lots at 7.0 to 7.6% moisture), so the run used 18.5 °C with 42.0% RH (median 43.15%). Result: 62.9 to 55.1 kg, a reduction of 7.8 kg and ₹421, with roll 162 to 170 °C, gum HIGH to MED and viscosity 32 to 45 s. All five risks fall. Job `arc_pkbx0041_m2_t19_rh420_t185_20261122T212952Z`. Label: model estimate on the m2_* models, not a measured saving. The figures are in `data/PKBX0041-m2-rerun.md`, marked "awaiting Om sign-off".
 - The README, `DEMO_LOT` and the design files are not edited until the figures are final. ARC-M6-09 and ARC-M6-19 cover those edits.
-- The RAI thresholds stay PROPOSED until the founders approve this plan.
+- The RAI thresholds in section 5.3 were signed off by the founders with the plan on 2026-11-23 (A5).
 
 ## 1. M0 records
 
@@ -159,7 +159,7 @@ The plan works only with backend, AI and frontend engineering running in paralle
 
 ### 5.3 Evals
 
-All suites live in `evals/`. Offline suites run in CI on every push; live suites run on a separate counter at gates. All thresholds are PROPOSED and need founder sign-off (A5).
+All suites live in `evals/`. Offline suites run in CI on every push; live suites run on a separate counter at gates. Thresholds signed off by the founders on 2026-11-23 (A5).
 
 | Suite | Threshold (proposed) |
 |---|---|

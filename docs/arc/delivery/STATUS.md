@@ -28,8 +28,8 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## In progress
 
-- `00-plan.md` (Phase A and Phase B) awaiting founder approval. The RAI thresholds stay PROPOSED until then.
-- ARC-SETUP-02 (gate follow-ups), due before the M1 gate.
+- ARC-M0-06 (product manager): O10 amendment, job-card retrieval journey, latency targets.
+- Then ARC-M0-03, the full M0 review gate.
 
 ## Blocked
 
@@ -37,16 +37,16 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## Next
 
-1. Founder approval of `00-plan.md` (ARC-M0-01).
-2. Merge `arc/setup` into a new `arc/main` cut from `origin/v2` (ARC-M0-02).
-3. M0 review gate (ARC-M0-03), then M1 starting with ARC-M1-01.
+1. ARC-M0-06, then the ARC-M0-03 gate.
+2. M1, starting with ARC-M1-01 (move route logic into `src/commands/`).
 
 ## Open founder questions
 
-- Settings hardening: decided 2026-11-23, option (a); see the decision log.
-
-- Plan section 8: Q8, Q9, Q11, A1, A2, A4, A5, A6, F2, F4, F5, D1, D2, D4, D5 and D6. D3 decided. Answered on 2026-11-23: Q7, A3 and F3 (decision log).
-- F1 (`prepagent`): evidence gathered (`changes/2026-11-23-prepagent-usage-evidence.md`). Recommendation is to turn its Gemini off, but a founder must first check whether the competition submission lists the `prepagent` URL.
+Asked only when a ticket needs them.
+- F1: which URL the competition submission lists (decides `prepagent` Gemini off or a separate counter). Blocks the ARC-M1-08 cloud change.
+- F2: the time of the pitch slot (budget numbers accepted with the plan). Blocks the ARC-M1-08 reserve window.
+- F4: whether Billing credits cover Vertex AI and Cloud Run (console check). Blocks the first cost-bearing cloud change.
+- D1: Om's sign-offs (ARC-M0-04). D2: where `sid_pack.zip` is. D5: Phase B dates and plant profile.
 
 ## Known risks
 
@@ -90,3 +90,5 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 | 2026-11-23 | Commit check covers only commits not in `origin/v2`; hook bypass commands denied | Om's commits are never flagged or rewritten | Founders |
 | 2026-11-23 | RAI thresholds stay PROPOSED until the plan is approved | A reviewer cannot set its own pass mark | Founders |
 | 2026-11-23 | Settings hardening, option (a): `bq query` and `gcloud auth print-access-token` move to ask; `node`, `npm` and `npx` are allowed only for named test, check and build commands; `find` is no longer auto-allowed; `cat` and `grep` on `.env` files are denied; more hook bypasses are denied (`-an`, trailing `-n`, abbreviated `--no-verify`, `git -c` hooks, any `git config` of `core.hooksPath`, git config env vars); edits to `scripts/git-hooks`, `scripts/quality` and `.github/workflows` ask first. CI remains the real gate | Setup gate: security B2 and N1 to N3, code review finding 1 | Founders |
+| 2026-11-23 | Plan approved, Phases A and B. RAI thresholds signed off (A5). The plan's recommendations are accepted for Q8, Q9, Q11 (with Om's review), A1, A2, A4, A6, F5, D4 and D6 | Founder approval | Founders |
+| 2026-11-23 | `arc/main` cut from `origin/v2` (`eb6eab9`), no upstream, fast-forwarded to `arc/setup` (`8bc30fd`) | ARC-M0-02 | Delivery lead |

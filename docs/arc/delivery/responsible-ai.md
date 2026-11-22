@@ -1,6 +1,6 @@
 # Arc responsible-AI policy
 
-Status: draft, 2026-11-22. Owner: AI architect. Checked at every gate by the responsible-ai-reviewer. Thresholds are PROPOSED and need founder sign-off, as the 2026-11-22 decision log requires. They repeat outcomes O4 to O9 in `02-product-spec.md` section 9.1, plus two new lines marked "new".
+Status: draft, 2026-11-22. Owner: AI architect. Checked at every gate by the responsible-ai-reviewer. Thresholds were signed off by the founders on 2026-11-23 with the plan approval (A5), as the 2026-11-22 decision log requires. They repeat outcomes O4 to O9 in `02-product-spec.md` section 9.1, plus two new lines marked "new".
 
 It applies to every generative call Arc and Momentum make: order extraction, explanations, photo diagnosis and Arc chat turns. Deterministic work (constraints, costs, approvals, arithmetic) stays in code and SQL and is out of scope, except where a rule says it must not be reachable from the model.
 
