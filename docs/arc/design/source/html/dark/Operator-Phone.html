@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Operator Phone Card</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.m *{box-sizing:border-box}
+.m{--bg:#121519;--sb:#0B0D10;--cd:#1A1E23;--rz:#21262C;--ln:#2A3038;--ln2:#3A434D;--tx:#EAEDF0;--mu:#A3ACB6;--dim:#7B8590;--ac:#E8664F;--ok:#5FBF98;--wn:#E3A340;--bd:#F0707A;--inv:#111;--ct:#F3A394;--g1:#4E9E7F;--g2:#6A7683;--pap:#D8C6A3;--bar0:#4A5460;--stg:#0E1013;
+ font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.4;color:var(--tx);background:var(--bg);width:1440px;position:relative;overflow:hidden}
+.d{font-family:'Inter Tight','Inter',sans-serif}
+.n{font-family:'Inter Tight','Inter',sans-serif;font-variant-numeric:tabular-nums;font-feature-settings:'tnum'}
+/* chrome */
+.side{position:absolute;left:0;top:0;bottom:0;width:232px;background:var(--sb);border-right:1px solid var(--ln);padding:20px 12px 16px;display:flex;flex-direction:column}
+.brand{display:block;width:200px;height:48px;object-fit:cover;border-radius:10px;margin:0 0 28px 0}
+.nv{display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;white-space:nowrap;font-size:16px;font-weight:500;color:var(--mu);text-decoration:none;margin-bottom:2px;position:relative}
+.nv svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nv.on{background:var(--rz);color:var(--tx)}
+.nv.on:before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:2px;background:var(--ac)}
+.grp{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);padding:18px 12px 8px}
+.sess{margin-top:12px;border:1px solid var(--ln);border-radius:12px;padding:14px;font-size:14px;line-height:1.45;color:var(--mu)}
+.sess b{display:block;color:var(--tx);font-size:15px;font-weight:600;margin-bottom:4px}
+.main{position:absolute;left:232px;top:0;width:1208px;padding:0 24px}
+.top{height:56px;display:flex;align-items:center;gap:20px;border-bottom:1px solid var(--ln);margin:0 -24px;padding:0 24px}
+.bc{font-size:15px;color:var(--mu);white-space:nowrap}.bc b{color:var(--tx);font-weight:600}
+.srch{display:flex;align-items:center;gap:10px;height:36px;width:340px;padding:0 12px;border:1px solid var(--ln);border-radius:10px;background:var(--cd);color:var(--dim);font-size:14px;margin-left:12px}
+.srch svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.srch kbd{margin-left:auto;font:600 12px 'Inter',sans-serif;color:var(--dim);border:1px solid var(--ln2);border-radius:6px;padding:1px 6px}
+.tr{margin-left:auto;display:flex;align-items:center;gap:12px}
+.ph{display:flex;justify-content:space-between;align-items:flex-end;padding:22px 0 18px}
+.ph h1{margin:0;font:600 28px/34px 'Inter Tight','Inter',sans-serif;letter-spacing:-.4px}
+.ph p{margin:4px 0 0;font-size:15px;color:var(--mu)}
+/* grid */
+.g{display:grid;grid-template-columns:repeat(12,82px);column-gap:16px;row-gap:16px}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+/* surfaces */
+.cd{background:var(--cd);border:1px solid var(--ln);border-radius:12px;padding:20px;min-width:0}
+.cd.flush{padding:0;overflow:hidden}
+.m .kr,.m.lt .kr{--cd:#D7C39A;--rz:rgba(255,255,255,.38);--bg:rgba(255,255,255,.42);--ln:rgba(31,24,16,.22);--ln2:rgba(31,24,16,.4);--tx:#1F1810;--mu:rgba(31,24,16,.76);--dim:rgba(31,24,16,.68);--ok:#14573C;--wn:#6E4200;--bd:#9C2430;--ct:#9E3320;--bar0:rgba(31,24,16,.3);--g1:#14573C;--g2:rgba(31,24,16,.4);--inv:#D7C39A;
+ background:linear-gradient(160deg,rgba(255,255,255,.16),transparent 50%),#D7C39A;border-color:rgba(31,24,16,.28);color:#1F1810;box-shadow:0 14px 28px -18px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.12)}
+.m .kr .bt.s,.m.lt .kr .bt.s{border-color:rgba(31,24,16,.5)}
+
+.ct{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.t{font:600 17px/24px 'Inter Tight','Inter',sans-serif;letter-spacing:-.1px}
+.mt{font-size:13px;color:var(--mu);white-space:nowrap}
+.lb{font-size:14px;color:var(--mu)}
+.th{font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.hr{height:1px;background:var(--ln)}
+.gl{background:rgba(22,26,31,.58);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);border:1px solid rgba(255,255,255,.17);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 18px 36px -20px rgba(0,0,0,.8);border-radius:12px;color:var(--tx)}
+/* buttons */
+.bt{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:44px;padding:0 20px;border-radius:10px;font:600 16px 'Inter',sans-serif;text-decoration:none;white-space:nowrap;border:1px solid transparent}
+.bt svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.bt.p{background:var(--ac);color:#18110E}
+.bt.s{border-color:var(--ln2);color:var(--tx);background:transparent}
+.bt.sm{height:36px;padding:0 14px;font-size:14px}
+.lk{font-size:14px;font-weight:600;color:var(--tx);text-decoration:underline;text-decoration-color:var(--ac);text-decoration-thickness:2px;text-underline-offset:4px;white-space:nowrap}
+a:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+/* provenance chips */
+.pv{display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 9px;border-radius:6px;font-size:13px;font-weight:600;border:1px solid var(--ln2);color:var(--mu);white-space:nowrap}
+.pv i{width:8px;height:8px;border-radius:50%;background:var(--tx);display:block;flex:none}
+.pv.mod i{background:none;border:2px solid var(--tx)}
+.pv.ex{border-style:dashed}.pv.ex i{background:none;border:2px dashed var(--tx)}
+.pv.nc i{background:var(--dim)}
+.pv.ac{border-color:rgba(232,102,79,.55);color:var(--ct)}.pv.ac i{background:var(--ac)}
+.pv.gl2{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--tx)}
+/* status (colour + shape + text) */
+.sx{display:inline-flex;align-items:center;gap:8px;font-size:15px;white-space:nowrap}
+.sx svg{width:16px;height:16px;flex:none;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sx.ok{color:var(--ok)}.sx.ok svg{stroke:var(--ok)}
+.sx.ac{color:var(--ct)}.sx.ac svg{stroke:var(--ac)}
+.sx.wn{color:var(--wn)}.sx.wn svg{stroke:var(--wn)}
+.sx.bd{color:var(--bd)}.sx.bd svg{stroke:var(--bd)}
+.sx.id{color:var(--mu)}.sx.id svg{stroke:var(--dim)}
+.seg{display:flex;gap:3px}.seg i{width:22px;height:5px;border-radius:2px;background:var(--ln2);display:block}.seg i.d{background:var(--tx)}.seg i.n{background:var(--ac)}
+/* table */
+.tb{display:grid;align-items:center;column-gap:12px;min-height:52px;border-top:1px solid var(--ln)}
+.tb.h{min-height:34px;border-top:0}
+/* key value */
+.kv{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--ln)}
+.kv:first-of-type{border-top:0}
+.kv .v{font:600 24px/28px 'Inter Tight','Inter',sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kv .v small{font:500 15px 'Inter',sans-serif;color:var(--mu);margin-left:4px}
+.ck{display:flex;align-items:flex-start;gap:12px;font-size:16px;line-height:1.4;padding:11px 0;border-top:1px solid var(--ln)}
+.ck i{flex:none;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--ln2);display:flex;align-items:center;justify-content:center;margin-top:1px}
+.ck.on i{background:var(--tx);border-color:var(--tx)}
+/* stepper */
+.stp{display:flex;gap:12px;margin-bottom:16px}
+.stp div{flex:1;border-top:3px solid var(--ln2);padding-top:10px;font-size:15px;font-weight:600;color:var(--dim);display:flex;align-items:center;gap:10px;white-space:nowrap}
+.stp div b{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ln2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.stp div.d{border-color:var(--tx);color:var(--tx)}.stp div.d b{background:var(--tx);border-color:var(--tx);color:var(--inv)}
+.stp div.c{border-color:var(--ac);color:var(--tx)}.stp div.c b{background:var(--ac);border-color:var(--ac);color:#18110E}
+
+.ids{display:flex;align-items:center;gap:0;height:56px;border:1px solid var(--ln);border-radius:12px;background:var(--cd);margin-bottom:16px;padding:0 4px}
+.ids>div{padding:0 18px;border-left:1px solid var(--ln);min-width:0}
+.ids>div:first-child{border-left:0}
+.ids small{display:block;font-size:12px;color:var(--dim);line-height:14px}
+.ids b{display:block;font:600 16px/20px 'Inter Tight','Inter',sans-serif;white-space:nowrap}
+.thm{margin-top:auto;display:flex;align-items:center;gap:12px;width:100%;height:44px;padding:0 12px;border-radius:12px;border:1px solid var(--ln2);background:transparent;color:var(--tx);font:600 15px 'Inter',sans-serif;cursor:pointer;text-align:left}
+.thm svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.thm .sw{margin-left:auto;width:36px;height:20px;border-radius:10px;border:1.5px solid var(--ln2);position:relative;flex:none}
+.thm .sw:after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--mu)}
+.m.lt .thm .sw:after{left:18px;background:var(--ac)}
+.thm:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.thm .i-sun{display:block}.thm .i-moon{display:none}
+.thm.fl{position:absolute;left:56px;top:690px;width:430px;margin:0;z-index:3}
+/* alerts */
+.ci{display:flex;align-items:center;gap:12px}.ci>svg{width:20px;height:20px;flex:none;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ci.ok>svg{stroke:var(--ok)}
+.bell{position:relative;width:36px;height:36px;border-radius:10px;border:1px solid var(--ln2);background:transparent;color:var(--tx);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;flex:none}
+.bell svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.bell b{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--ac);color:#18110E;font:700 11px/18px 'Inter',sans-serif;text-align:center}
+.bell:focus-visible,.tst .x:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.tsts{position:absolute;right:24px;top:68px;width:400px;display:flex;flex-direction:column;gap:10px;z-index:30;pointer-events:none}
+.tst{display:flex;pointer-events:auto;align-items:center;gap:12px;padding:12px 10px 12px 14px;border-radius:12px;background:var(--cd);border:1px solid var(--ln2);border-left-width:4px;box-shadow:0 16px 32px -14px rgba(0,0,0,.6);animation:tin .35s ease-out both}
+.m.lt .tst{box-shadow:0 12px 28px -12px rgba(20,24,28,.35)}
+.tst.ok{border-left-color:var(--ok)}.tst.wn{border-left-color:var(--wn)}.tst.bd{border-left-color:var(--bd)}
+.tst>svg{width:22px;height:22px;flex:none;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tst.ok>svg{stroke:var(--ok)}.tst.wn>svg{stroke:var(--wn)}.tst.bd>svg{stroke:var(--bd)}
+.tst div{flex:1;min-width:0}
+.tst b{display:block;font:600 16px/22px 'Inter Tight','Inter',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tst span{display:block;font-size:14px;line-height:20px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tst .x{flex:none;width:32px;height:32px;border:0;border-radius:10px;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.tst .x svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+@keyframes tin{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.tst{animation:none}}
+.arc{display:flex;align-items:center;gap:12px;height:40px;width:372px;padding:0 5px;margin-left:8px;border:1px solid rgba(232,102,79,.55);border-radius:12px;background:rgba(232,102,79,.09);text-decoration:none;color:var(--tx);flex:none}
+.arc:hover{background:rgba(232,102,79,.16);border-color:var(--ac)}
+.arc .mk{flex:none;display:block}
+.arc .at{display:flex;align-items:baseline;gap:10px;min-width:0;white-space:nowrap}
+.arc .at b{font:600 17px/20px 'Inter Tight','Inter',sans-serif}
+.arc .at span{font-size:14px;color:var(--mu);overflow:hidden;text-overflow:ellipsis}
+.arc .go{margin-left:auto;height:30px;padding:0 14px;border-radius:8px;background:var(--ac);color:#18110E;font:600 14px/30px 'Inter',sans-serif}
+.arc.on{border-color:var(--ac);background:rgba(232,102,79,.18)}
+.arc.on .go{background:transparent;color:var(--tx);border:1px solid var(--ac);line-height:28px}
+.fld{height:44px;border:1px solid var(--ln2);border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 18px 'Inter Tight','Inter',sans-serif;font-variant-numeric:tabular-nums}
+.fld small{font:500 14px 'Inter',sans-serif;color:var(--mu)}
+.fld.rq{border-color:rgba(227,163,64,.65);color:var(--dim);font-weight:500;font-size:16px;font-family:'Inter',sans-serif}
+.fr{display:grid;grid-template-columns:1fr 190px;align-items:center;column-gap:16px;min-height:56px;border-top:1px solid var(--ln)}
+.fr:first-of-type{border-top:0}
+.chp{display:inline-flex;align-items:center;height:34px;padding:0 14px;border-radius:10px;border:1px solid var(--ln2);font-size:14px;font-weight:600;color:var(--mu);white-space:nowrap}
+.chp.on{background:var(--tx);color:var(--inv);border-color:var(--tx)}
+.ph2{width:390px;border:1px solid var(--ln2);border-radius:32px;background:var(--bg);padding:22px 20px 24px;position:relative}
+.ph2 .big{font:600 30px/34px 'Inter Tight','Inter',sans-serif;font-variant-numeric:tabular-nums}
+.sr{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:58px;border-top:1px solid var(--ln)}
+.sr b{font:600 20px/24px 'Inter Tight','Inter',sans-serif;font-variant-numeric:tabular-nums;text-align:right}
+.mb{display:flex;align-items:center;justify-content:center;gap:10px;height:56px;border-radius:12px;font:600 18px 'Inter',sans-serif;text-decoration:none;border:1px solid transparent;width:100%}
+.mb.p{background:var(--ac);color:#18110E}.mb.s{border-color:var(--ln2);color:var(--tx)}
+.rd{display:flex;align-items:center;gap:14px;min-height:56px;border:1px solid var(--ln2);border-radius:12px;padding:0 14px;font-size:17px;font-weight:600;margin-top:10px}
+.rd i{width:22px;height:22px;border-radius:50%;border:2px solid var(--ln2);flex:none}
+.rd.on{border-color:var(--ac);background:var(--rz)}.rd.on i{border-color:var(--ac);background:radial-gradient(circle,var(--ac) 45%,transparent 50%)}
+.m.lt{--bg:#EEF0F2;--sb:#E3E6E9;--cd:#FFFFFF;--rz:#E5E8EB;--ln:#D5DADF;--ln2:#B3BCC5;--tx:#14181C;--mu:#46515C;--dim:#66717C;--ac:#E8664F;--ok:#1F7A58;--wn:#8F5A00;--bd:#B8333F;--inv:#FFFFFF;--ct:#B23F2A;--g1:#1F7A58;--g2:#7E8995;--pap:#B38D52;--bar0:#8F99A4;--stg:#F6F4EE;}
+.m.lt .cd{box-shadow:0 1px 2px rgba(20,24,28,.06),0 6px 18px -12px rgba(20,24,28,.18)}
+.m.lt .nv.on{background:#fff;box-shadow:0 1px 2px rgba(20,24,28,.12)}
+.m.lt .gl{--tx:#EAEDF0;--mu:#C3CBD3;--dim:#9AA4AE;--ln:#3A434D;--ln2:#55606B;--ok:#5FBF98;--wn:#E3A340}
+.m.lt .pv.gl2{color:#EAEDF0;background:rgba(22,26,31,.62);border-color:rgba(255,255,255,.28)}
+.m.lt .pv.gl2 i{background:#EAEDF0}
+.m.lt .bt.p{color:#1B0F0B}
+.m.lt .fld.rq{border-color:#C98A1C}
+.m{height:1200px}
+
+</style>
+</head>
+<body>
+<div class="m">
+<button type="button" class="thm fl" onClick="" aria-pressed="false"><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></svg><span>Light theme</span><span class="sw" aria-hidden="true"></span></button>
+<div style="position:absolute;left:0;top:0;width:1440px;height:1200px;background:var(--bg);padding:48px 56px;display:flex;gap:56px;align-items:flex-start"><div style="width:430px">
+ <div class="th">Operator handoff</div>
+ <h2 class="d" style="margin:8px 0 12px;font-size:32px;line-height:38px;font-weight:600;letter-spacing:-.5px">The same card, on the operator's phone.</h2>
+ <div class="lb" style="font-size:16px;line-height:1.55">Opens the exact revision the supervisor approved.</div>
+ <div style="margin-top:22px">
+  <div style="border-top:1px solid var(--ln);padding:14px 0"><b style="font-size:16px">One task at a time</b><div class="lb" style="margin-top:3px;line-height:1.5">Next check first, then every value with its unit.</div></div>
+  <div style="border-top:1px solid var(--ln);padding:14px 0"><b style="font-size:16px">Same revision as the supervisor</b><div class="lb" style="margin-top:3px;line-height:1.5">A replaced card cannot be acknowledged.</div></div>
+  <div style="border-top:1px solid var(--ln);padding:14px 0"><b style="font-size:16px">Received, used, measured are different records</b><div class="lb" style="margin-top:3px;line-height:1.5">Missing reads Not recorded, never zero.</div></div>
+  <div style="border-top:1px solid var(--ln);padding:14px 0"><b style="font-size:16px">An instruction for people</b><div class="lb" style="margin-top:3px;line-height:1.5">Momentum does not send commands to a machine.</div></div>
+ </div>
+</div><div class="ph2 kr">
+ <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 16px 'Inter Tight','Inter',sans-serif;letter-spacing:.02em">momentum</span><span class="pv ex"><i></i>Synthetic demonstration</span></div>
+ <div style="margin-top:18px"><div class="lb" style="font-size:14px">Approved job card</div><div class="big">PKBX0041, Rev 1</div></div>
+ <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><span class="sx ok"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg>Approved, latest revision</span></div>
+ <div class="lb" style="font-size:13.5px;margin-top:4px">Approved in a demo session. Not a named supervisor.</div>
+ <div style="border:1px solid var(--ac);border-radius:12px;padding:14px 16px;margin-top:16px;background:var(--rz)"><div class="th" style="color:var(--ct)">Next check</div><div style="font-size:20px;font-weight:600;margin-top:4px;line-height:1.3">Set roll temperature to 170 &deg;C at the single facer.</div></div>
+ <div style="margin-top:14px">
+  <div class="sr"><div><div style="font-size:17px;font-weight:600">Roll temperature</div><div style="margin-top:3px"><span class="pv ac"><i></i>Changed</span></div></div><div><b>170<span class="lb" style="font-size:15px;margin-left:4px;font-weight:500">&deg;C</span></b><div class="lb" style="font-size:13px;text-align:right">was 162 &deg;C</div></div></div><div class="sr"><div><div style="font-size:17px;font-weight:600">Gum application</div><div style="margin-top:3px"><span class="pv ac"><i></i>Changed</span></div></div><div><b>MEDIUM<span class="lb" style="font-size:15px;margin-left:4px;font-weight:500"></span></b><div class="lb" style="font-size:13px;text-align:right">was HIGH</div></div></div><div class="sr"><div><div style="font-size:17px;font-weight:600">Gum viscosity</div><div style="margin-top:3px"><span class="pv ac"><i></i>Changed</span></div></div><div><b>35<span class="lb" style="font-size:15px;margin-left:4px;font-weight:500">s</span></b><div class="lb" style="font-size:13px;text-align:right">was 32 s</div></div></div>
+  <div class="sr"><div style="font-size:17px;font-weight:600">Single-facer speed</div><div><b style="color:var(--mu)">&bull;&bull;&bull;<span class="lb" style="font-size:15px;margin-left:4px;font-weight:500">m/min</span></b></div></div><div class="sr"><div style="font-size:17px;font-weight:600">Pasting pressure</div><div><b style="color:var(--mu)">&bull;&bull;&bull;<span class="lb" style="font-size:15px;margin-left:4px;font-weight:500"></span></b></div></div><div class="sr"><div style="font-size:17px;font-weight:600">Drying time</div><div><b style="color:var(--mu)">&bull;&bull;&bull;<span class="lb" style="font-size:15px;margin-left:4px;font-weight:500">h</span></b></div></div><div class="sr"><div style="font-size:17px;font-weight:600">Print speed</div><div><b style="color:var(--mu)">&bull;&bull;&bull;<span class="lb" style="font-size:15px;margin-left:4px;font-weight:500">sheets/min</span></b></div></div>
+ </div>
+ <div class="lb" style="font-size:12.5px;margin-top:8px">Dots stand for values taken from the approved record.</div>
+ <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px"><a class="mb p" href="#">I received this card</a><a class="mb s" href="#">Report a mismatch</a></div>
+<div style="border-top:1px solid var(--ln);margin-top:20px;padding-top:14px"><div class="th">Three separate records</div>
+  <div style="display:flex;align-items:center;gap:12px;height:46px;border-top:1px solid var(--ln);margin-top:10px"><span class="sx id"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg></span><span style="flex:1;font-size:15px;font-weight:600">Card received</span><span class="lb" style="font-size:13px">Not yet</span></div>
+  <div style="display:flex;align-items:center;gap:12px;height:46px;border-top:1px solid var(--ln)"><span class="sx id"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg></span><span style="flex:1;font-size:15px;font-weight:600">Settings used</span><span class="lb" style="font-size:13px">Not recorded</span></div>
+  <div style="display:flex;align-items:center;gap:12px;height:46px;border-top:1px solid var(--ln)"><span class="sx id"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg></span><span style="flex:1;font-size:15px;font-weight:600">Quality measured</span><span class="lb" style="font-size:13px">Not recorded</span></div>
+ </div>
+</div><div class="ph2">
+ <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 16px 'Inter Tight','Inter',sans-serif">Report a mismatch</span><span class="lb" style="font-size:14px">Close</span></div>
+ <div class="lb" style="font-size:14px;margin-top:6px">PKBX0041, Rev 1</div>
+ <div style="font-size:18px;font-weight:600;margin-top:18px">What does not match?</div>
+ <div class="rd on"><i></i>A setting value</div><div class="rd"><i></i>The lot or board</div><div class="rd"><i></i>A unit</div><div class="rd"><i></i>Machine cannot reach value</div>
+ <div style="font-size:16px;font-weight:600;margin-top:20px">Which setting?</div>
+ <div class="rd" style="justify-content:space-between;color:var(--mu);font-weight:500">Choose a setting<span>&darr;</span></div>
+ <div style="font-size:16px;font-weight:600;margin-top:20px">What do you see?</div>
+ <div style="border:1px solid var(--ln2);border-radius:12px;height:84px;margin-top:10px;padding:12px 14px;color:var(--dim);font-size:16px">Type what you see</div>
+ <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px"><a class="mb p" href="#">Send to supervisor</a><a class="mb s" href="#">Stop and call supervisor</a></div>
+ <div class="lb" style="font-size:13.5px;line-height:1.5;margin-top:16px">A mismatch report does not change the card.</div>
+ </div></div>
+</div>
+
+</body>
+</html>
