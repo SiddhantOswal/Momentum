@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": { "commit": "", "pr": "" },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git status*)", "Bash(git diff*)", "Bash(git log*)", "Bash(git show*)", "Bash(git add*)",
+      "Bash(git commit*)", "Bash(git checkout*)", "Bash(git switch*)", "Bash(git branch*)",
+      "Bash(git fetch*)", "Bash(git merge*)", "Bash(git stash list*)", "Bash(git rev-parse*)",
+      "Bash(npm *)", "Bash(npx *)", "Bash(node *)",
+      "Bash(ls*)", "Bash(cat *)", "Bash(grep *)", "Bash(find *)", "Bash(mkdir *)", "Bash(unzip *)",
+      "Bash(gcloud * list*)", "Bash(gcloud * describe*)", "Bash(gcloud config *)",
+      "Bash(gcloud auth print-access-token*)", "Bash(gcloud logging read*)",
+      "Bash(bq ls*)", "Bash(bq show*)", "Bash(bq query*)", "Bash(gsutil ls*)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(gcloud run deploy*)", "Bash(gcloud run services update*)",
+      "Bash(gcloud services enable*)", "Bash(gcloud projects add-iam-policy-binding*)",
+      "Bash(gcloud * create*)", "Bash(gcloud * update*)",
+      "Bash(bq mk*)", "Bash(bq load*)", "Bash(bq cp*)", "Bash(gsutil cp*)"
+    ],
+    "deny": [
+      "Read(./.env)", "Read(./.env.*)", "Read(./**/*service-account*.json)",
+      "Bash(git push --force*)", "Bash(git push -f*)", "Bash(git reset --hard*)",
+      "Bash(git commit*--no-verify*)", "Bash(git push*--no-verify*)",
+      "Bash(git commit -n*)", "Bash(git commit *-n *)",
+      "Bash(git -c core.hooksPath*)", "Bash(git config core.hooksPath*)",
+      "Bash(gcloud * delete*)", "Bash(bq rm*)", "Bash(gsutil rm*)", "Bash(rm -rf*)"
+    ]
+  }
+}
