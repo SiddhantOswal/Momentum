@@ -30,8 +30,8 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## In progress
 
-- ARC-M0-03, the full M0 review gate.
-- Built and waiting for QA and the M0 gate before merging: ARC-M1-15 (`arc/ARC-M1-15-vertex-reference`, `3279481`, Vertex field reference). Running: ARC-M1-01 (`arc/ARC-M1-01-commands`).
+- **Resume point (2026-11-23).** ARC-M0-03, the full M0 review gate over `origin/v2..arc/main` (252 files, 12 commits at `ed821e4` plus this status commit), was started with all eight reviewers in parallel. The account usage limit stopped them; it resets at 07:20 IST. On resume: collect or rerun each reviewer, write `reviews/M0-review.md`, fix blocking findings through their owners, and re-review.
+- Built, not merged (they wait for QA and the M0 GO): ARC-M1-15 on `arc/ARC-M1-15-vertex-reference` (`3279481`). ARC-M1-01 on `arc/ARC-M1-01-commands` was being built in worktree `.claude/worktrees/agent-ae8940e3f24a159d2`; check its branch for commits and run `npm test` there before QA.
 
 ## Blocked
 
