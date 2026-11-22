@@ -42,15 +42,16 @@ import { createLinkedFeedbackService } from "./src/linked-feedback-service.js";
 import { createStoredJobSheetLookup } from "./src/stored-job-sheet-lookup.js";
 import { createJobRequestIdentity, InMemoryIdempotencyStore } from "./src/job-idempotency.js";
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
-import { identifyPurchaseOrderMimeType, MAX_PURCHASE_ORDER_BYTES } from "./src/purchase-order-file.js";
 import { authorizeSupervisor } from "./src/commands/authorize.js";
 import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
 import { getStatus, impactSummary } from "./src/commands/status.js";
+import { liveActor, liveLot } from "./src/commands/live-events.js";
+import { readPurchaseOrderUpload } from "./src/commands/purchase-order-upload.js";
+import { readOrder } from "./src/commands/read-order.js";
 import {
   firebaseWebClientConfig,
   initializeFirebaseSupervisorAuthenticator,
 } from "./src/firebase-supervisor-auth.js";
-import { isApprovedSyntheticPurchaseOrder } from "./src/synthetic-po-allowlist.js";
 import {
   createPerIpRateLimitMiddleware,
   createRequestTimeoutMiddleware,
@@ -86,17 +87,6 @@ const liveStore = createLiveStore({
   enabled: process.env.USTAAD_ENABLE_LIVE_STORE === "true",
   projectId: process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT,
 });
-const liveActor = (principal) => principal?.provider === "google.com" && typeof principal.email === "string" ? principal.email : undefined;
-function liveLot(jobSheet, status) {
-  const risk = jobSheet?.recommended?.risk ?? jobSheet?.baseline?.risk;
-  return {
-    lotId: jobSheet?.jobId, jobId: jobSheet?.jobId, status,
-    orderId: jobSheet?.order?.orderId, itemCode: jobSheet?.order?.itemCode, quantity: jobSheet?.order?.quantity,
-    ...(risk ? { totalScrapPct: risk.totalScrapPct, primaryDefect: risk.primaryDefect, ratesPct: risk.ratesPct, currency: risk.currency } : {}),
-    ...(Number.isFinite(jobSheet?.savings?.inr) ? { predictedSaving: Math.max(0, jobSheet.savings.inr) } : {}),
-    ...(Array.isArray(jobSheet?.changes) ? { changes: jobSheet.changes.slice(0, 3).map(({ lever, from, to }) => ({ lever, from, to })) } : {}),
-  };
-}
 function isSameOrigin({ origin, requestUrl }) {
   return isSameApplicationOrigin({ origin, requestUrl, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
 }
@@ -242,6 +232,12 @@ const commandDeps = Object.freeze({
   jobCreationAvailable,
   idempotencyStore,
   modelAcceptanceConfig,
+  liveStore,
+  purchaseOrderPolicy: Object.freeze({
+    acceptRealOrders: Boolean(userSessionAuth?.configured) && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true",
+    extractionAdapterConfigured: servicePorts.availability.extractOrderForReview === true,
+    syntheticOnly: process.env.USTAAD_SYNTHETIC_ONLY === "true",
+  }),
 });
 
 function commandContext(c) {
@@ -265,32 +261,6 @@ async function requireSupervisor(c) {
   }, commandDeps);
   if (!result.ok) return commandResponse(c, result);
   if (result.principal) c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
-  return undefined;
-}
-
-function syntheticPurchaseOrderUnavailable(c, bytes) {
-  // Production: signed-in plant users may upload their own customers' orders.
-  if (userSessionAuth?.configured && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true") return undefined;
-  const extractionAdapterConfigured = servicePorts.availability.extractOrderForReview === true;
-  if (executionMode === "offline" && !extractionAdapterConfigured) return undefined;
-  if (executionMode === "live-service" && process.env.USTAAD_SYNTHETIC_ONLY !== "true") {
-    return c.json({
-      ok: false,
-      error: {
-        code: "SERVICE_UNAVAILABLE",
-        message: "Approved-document restrictions must be explicitly enabled before live-service PO processing.",
-      },
-    }, 503);
-  }
-  if (!isApprovedSyntheticPurchaseOrder(bytes)) {
-    return c.json({
-      ok: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Only the owner-approved purchase-order documents are accepted in this prototype.",
-      },
-    }, 400);
-  }
   return undefined;
 }
 
@@ -624,75 +594,7 @@ app.post("/orders/extract", async (c) => {
       message: "Request must contain a valid multipart purchase-order file.",
     }], "Purchase order upload is invalid.");
   }
-
-  const file = form.file;
-  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_type",
-      message: "A purchase-order PDF or JPEG file is required in the file field.",
-    }], "Purchase order upload is invalid.");
-  }
-
-  if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > MAX_PURCHASE_ORDER_BYTES) {
-    return c.json({ ok: false, error: { code: "PAYLOAD_TOO_LARGE", message: "Purchase-order files must be between 1 byte and 10 MiB." } }, 413);
-  }
-  const fileBytes = new Uint8Array(await file.arrayBuffer());
-  const mimeType = identifyPurchaseOrderMimeType(file, fileBytes);
-  if (!mimeType) {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_format",
-      message: "The uploaded purchase order must be a valid PDF or JPEG image.",
-    }], "Purchase order upload is invalid.");
-  }
-
-  const syntheticOnlyResponse = syntheticPurchaseOrderUnavailable(c, fileBytes);
-  if (syntheticOnlyResponse) return syntheticOnlyResponse;
-
-  const rawOperatorFields = {};
-  for (const field of ["orderId", "paperType", "paperSupplier"]) {
-    const value = form[field];
-    if (value === undefined || value === "") continue;
-    rawOperatorFields[field] = value;
-  }
-  const operatorFields = OrderOperatorFieldsSchema.safeParse(rawOperatorFields);
-  if (!operatorFields.success) {
-    return validationResponse(c, operatorFields.error.issues.map((issue) => ({
-      field: issue.path.join(".") || "operatorFields",
-      path: ["operatorFields", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    })), "Operator-supplied order context is invalid.");
-  }
-
-  const rawLineIndex = form.selectedLineIndex;
-  const selectedLineIndex = rawLineIndex === undefined || rawLineIndex === ""
-    ? undefined
-    : Number(rawLineIndex);
-  if (selectedLineIndex !== undefined &&
-      (!Number.isSafeInteger(selectedLineIndex) || selectedLineIndex < 0)) {
-    return validationResponse(c, [{
-      field: "selectedLineIndex",
-      path: ["selectedLineIndex"],
-      code: "invalid_value",
-      message: "selectedLineIndex must be a non-negative PO line number.",
-    }], "Purchase order line selection is invalid.");
-  }
-
-  const extraction = await servicePorts.extractOrderForReview({
-    file,
-    operatorFields: operatorFields.data,
-    ...(selectedLineIndex === undefined ? {} : { selectedLineIndex }),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  });
-  if (extraction?.ok && Array.isArray(extraction.lines)) {
-    const lines = extraction.lines.length;
-    await liveStore.publish({ event: { type: "order.read", text: `${operatorFields.data.orderId ? `Order ${operatorFields.data.orderId}` : "An order"} read by Gemini · ${lines} line${lines === 1 ? "" : "s"}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
-  }
-  return responseForResult(c, extraction);
+  return commandResponse(c, await readOrder({ fields: form }, commandContext(c)));
 });
 
 app.get("/conditions/current", async (c) => {
@@ -830,32 +732,9 @@ app.post("/jobs", async (c) => {
     }], "Job request is invalid.");
   }
 
-  const file = form.file;
-  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_type",
-      message: "A purchase-order PDF or JPEG file is required in the file field.",
-    }], "Job request is invalid.");
-  }
-
-  if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > MAX_PURCHASE_ORDER_BYTES) {
-    return c.json({ ok: false, error: { code: "PAYLOAD_TOO_LARGE", message: "Purchase-order files must be between 1 byte and 10 MiB." } }, 413);
-  }
-  const fileBytes = new Uint8Array(await file.arrayBuffer());
-  const mimeType = identifyPurchaseOrderMimeType(file, fileBytes);
-  if (!mimeType) {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_format",
-      message: "The uploaded purchase order must be a valid PDF or JPEG image.",
-    }], "Job request is invalid.");
-  }
-
-  const syntheticOnlyResponse = syntheticPurchaseOrderUnavailable(c, fileBytes);
-  if (syntheticOnlyResponse) return syntheticOnlyResponse;
+  const upload = await readPurchaseOrderUpload(form.file, { invalidMessage: "Job request is invalid.", ...commandDeps });
+  if (!upload.ok) return commandResponse(c, upload);
+  const { fileBytes } = upload;
 
   const rawOperatorFields = {};
   for (const field of ["orderId", "paperType", "paperSupplier"]) {
