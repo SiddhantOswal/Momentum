@@ -9,7 +9,6 @@ import { bodyLimit } from "hono/body-limit";
 import { serve } from "@hono/node-server";
 import {
   FeedbackInputSchema,
-  DisplayPrefsQuerySchema,
   InsightsQuerySchema,
   JobIdSchema,
   JobSheetSchema,
@@ -26,7 +25,6 @@ import {
   SimilarRunsRequestSchema,
   SUPPORTED_CURRENCIES,
   SUPPORTED_LANGUAGES,
-  ValidationFailureSchema,
 } from "./src/schemas.js";
 import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.js";
 import { readServerPort } from "./src/runtime-config.js";
@@ -49,6 +47,7 @@ import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
 import { identifyPurchaseOrderMimeType, MAX_PURCHASE_ORDER_BYTES } from "./src/purchase-order-file.js";
 import { readDailyGeminiCallCapConfig } from "./src/daily-gemini-call-cap.js";
 import { authorizeSupervisor } from "./src/commands/authorize.js";
+import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
 import {
   firebaseWebClientConfig,
   initializeFirebaseSupervisorAuthenticator,
@@ -291,49 +290,23 @@ function invalidJsonResponse(c) {
   }], "Request body must be valid JSON.");
 }
 
-function validationResponse(c, issues, message = "Request fields failed validation.") {
-  return c.json(ValidationFailureSchema.parse({
-    ok: false,
-    error: {
-      code: "VALIDATION_ERROR",
-      message,
-      issues,
-    },
-  }), 400);
+function validationResponse(c, issues, message) {
+  return c.json(validationFailure(issues, message), 400);
+}
+
+function validationResult(c, validated) {
+  return validated.ok ? validated : { ok: false, response: c.json(validated.failure, 400) };
 }
 
 function validateInput(c, schema, input, message) {
-  const parsed = schema.safeParse(input);
-
-  if (!parsed.success) {
-    return {
-      ok: false,
-      response: validationResponse(
-        c,
-        parsed.error.issues.map((issue) => ({
-          field: issue.path.join(".") || "root",
-          path: issue.path,
-          code: issue.code,
-          message: issue.message,
-        })),
-        message
-      ),
-    };
-  }
-
-  return { ok: true, data: parsed.data };
+  return validationResult(c, validateWith(schema, input, message));
 }
 
 function validateDisplayPrefs(c) {
-  return validateInput(
-    c,
-    DisplayPrefsQuerySchema,
-    {
-      lang: c.req.query("lang"),
-      currency: c.req.query("currency"),
-    },
-    "Display preferences failed validation."
-  );
+  return validationResult(c, validateDisplayPrefsInput({
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+  }));
 }
 
 async function readJsonBody(c) {
