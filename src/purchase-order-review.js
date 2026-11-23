@@ -5,8 +5,11 @@ import {
   OrderOperatorFieldsSchema,
   PURCHASE_ORDER_FIELDS,
 } from "./schemas.js";
+import { SessionIdSchema, STATE_SCHEMA_VERSION } from "./state-schemas.js";
 
 const REVIEW_TTL_MS = 30 * 60 * 1000;
+// Design 2.0: Firestore TTL removes the document a day later; the 30 minutes above is checked here.
+const REVIEW_DOCUMENT_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_REVIEWS = 100;
 
 function digest(value) {
@@ -20,6 +23,107 @@ function validationFailure(message, field, code, detail) {
       code: "VALIDATION_ERROR",
       message,
       issues: [{ field, path: [field], code, message: detail }],
+    },
+  };
+}
+
+function reviewStoreUnavailable(message) {
+  return { ok: false, error: { code: "SERVICE_UNAVAILABLE", message } };
+}
+
+function staleReview() {
+  return validationFailure(
+    "This PO review is stale or does not match the uploaded document.",
+    "reviewId",
+    "stale_review",
+    "Extract and review the current document again before confirming a line.",
+  );
+}
+
+function isCallerAbort(error, signal) {
+  return error?.name === "AbortError" && signal?.aborted === true;
+}
+
+function createMemoryReviewStore(now) {
+  const reviews = new Map();
+
+  function pruneExpired() {
+    const currentTime = now();
+    for (const [reviewId, review] of reviews) {
+      if (review.expiresAt <= currentTime) reviews.delete(reviewId);
+    }
+  }
+
+  return {
+    async save(reviewId, review) {
+      pruneExpired();
+      while (reviews.size >= MAX_REVIEWS) {
+        const oldest = reviews.keys().next().value;
+        if (oldest === undefined) break;
+        reviews.delete(oldest);
+      }
+      reviews.set(reviewId, review);
+      return { ok: true };
+    },
+    async load(reviewId) {
+      pruneExpired();
+      return { ok: true, review: reviews.get(reviewId) };
+    },
+  };
+}
+
+// Firestore-backed reviews are bound to the demo session that read the order.
+function createDurableReviewStore(store, now) {
+  return {
+    async save(reviewId, review, { ownerSessionId, signal }) {
+      const createdAt = now();
+      try {
+        await store.create({
+          schemaVersion: STATE_SCHEMA_VERSION,
+          createdAt: new Date(createdAt).toISOString(),
+          updatedAt: new Date(createdAt).toISOString(),
+          expiresAt: new Date(createdAt + REVIEW_DOCUMENT_TTL_MS).toISOString(),
+          reviewId,
+          ownerSessionId,
+          reviewFingerprint: review.reviewFingerprint,
+          fileDigest: review.fileDigest,
+          operatorFields: review.operatorFields,
+          result: review.result,
+          reviewExpiresAt: new Date(review.expiresAt).toISOString(),
+        }, { signal });
+        return { ok: true };
+      } catch (error) {
+        if (isCallerAbort(error, signal)) throw error;
+        if (error?.code === "DOCUMENT_TOO_LARGE") {
+          return validationFailure(
+            "This purchase order is too large to keep for review.",
+            "file",
+            "review_too_large",
+            "Split the purchase order into smaller files and read each one.",
+          );
+        }
+        return reviewStoreUnavailable("The PO review could not be saved. Read the order again when the service is available.");
+      }
+    },
+    async load(reviewId, { ownerSessionId, signal }) {
+      let stored;
+      try {
+        stored = await store.get(reviewId, { signal });
+      } catch (error) {
+        if (isCallerAbort(error, signal)) throw error;
+        return reviewStoreUnavailable("The PO review could not be read. Try again when the service is available.");
+      }
+      if (!stored || stored.ownerSessionId !== ownerSessionId) return { ok: true, review: undefined };
+      return {
+        ok: true,
+        review: {
+          result: stored.result,
+          operatorFields: stored.operatorFields,
+          fileDigest: stored.fileDigest,
+          reviewFingerprint: stored.reviewFingerprint,
+          expiresAt: Date.parse(stored.reviewExpiresAt),
+        },
+      };
     },
   };
 }
@@ -38,22 +142,28 @@ export function createPurchaseOrderReviewService({
   resolveOrderLine,
   now = () => Date.now(),
   idFactory = randomUUID,
+  reviewStore,
 } = {}) {
   if (typeof extractOrder !== "function" || typeof resolveOrderLine !== "function") {
     throw new TypeError("Order extraction and catalog line-resolution services are required.");
   }
-  const reviews = new Map();
-
-  function pruneExpired() {
-    const currentTime = now();
-    for (const [reviewId, review] of reviews) {
-      if (review.expiresAt <= currentTime) reviews.delete(reviewId);
-    }
+  if (reviewStore !== undefined &&
+      (typeof reviewStore?.create !== "function" || typeof reviewStore?.get !== "function")) {
+    throw new TypeError("A PO review store needs create and get.");
   }
+  const durable = reviewStore !== undefined;
+  const reviews = durable ? createDurableReviewStore(reviewStore, now) : createMemoryReviewStore(now);
 
-  async function extractForReview({ file, operatorFields = {}, selectedLineIndex, signal } = {}) {
+  async function extractForReview({ file, operatorFields = {}, selectedLineIndex, ownerSessionId, signal } = {}) {
     if (!file || typeof file.arrayBuffer !== "function") {
       return validationFailure("A purchase-order file is required.", "file", "required", "Upload the purchase order to review its extracted lines.");
+    }
+    if (durable && !SessionIdSchema.safeParse(ownerSessionId).success) {
+      return {
+        ok: false,
+        status: 401,
+        error: { code: "DEMO_SESSION_REQUIRED", message: "Start or renew the temporary hackathon session to read a purchase order." },
+      };
     }
     const parsedOperatorFields = OrderOperatorFieldsSchema.safeParse(operatorFields);
     if (!parsedOperatorFields.success) {
@@ -78,21 +188,16 @@ export function createPurchaseOrderReviewService({
         },
       };
     }
-    pruneExpired();
-    while (reviews.size >= MAX_REVIEWS) {
-      const oldest = reviews.keys().next().value;
-      if (oldest === undefined) break;
-      reviews.delete(oldest);
-    }
     const reviewId = idFactory();
     const reviewFingerprint = extractionFingerprint(parsedResult.data);
-    reviews.set(reviewId, {
+    const saved = await reviews.save(reviewId, {
       result: structuredClone(parsedResult.data),
       operatorFields: parsedOperatorFields.data,
       fileDigest: digest(fileBytes),
       reviewFingerprint,
       expiresAt: now() + REVIEW_TTL_MS,
-    });
+    }, { ownerSessionId, signal });
+    if (!saved.ok) return saved;
     return { ...parsedResult.data, reviewId, reviewFingerprint };
   }
 
@@ -105,20 +210,17 @@ export function createPurchaseOrderReviewService({
     itemCode,
     quantity,
     confirmedSourceLine,
+    ownerSessionId,
     signal,
   } = {}) {
-    pruneExpired();
-    const review = reviews.get(reviewId);
+    const loaded = await reviews.load(reviewId, { ownerSessionId, signal });
+    if (!loaded.ok) return loaded;
+    const review = loaded.review;
     const demoMode = !process.env.K_SERVICE && process.env.USTAAD_AUTHORIZATION_MODE !== "HACKATHON_DEMO" && process.env.USTAAD_ENABLE_DEMO_MODE === "true";
-    if (!review || review.reviewFingerprint !== reviewFingerprint ||
+    if (!review || review.expiresAt <= now() || review.reviewFingerprint !== reviewFingerprint ||
         !(fileBytes instanceof Uint8Array) ||
         (!demoMode && digest(fileBytes) !== review.fileDigest)) {
-      return validationFailure(
-        "This PO review is stale or does not match the uploaded document.",
-        "reviewId",
-        "stale_review",
-        "Extract and review the current document again before confirming a line.",
-      );
+      return staleReview();
     }
     const parsedOperatorFields = OrderOperatorFieldsSchema.safeParse(operatorFields);
     if (!parsedOperatorFields.success ||

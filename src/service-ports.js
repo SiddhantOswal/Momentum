@@ -27,6 +27,7 @@ import {
 import { createImpactSummaryService } from "./google-cloud/impact-summary-service.js";
 import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "./daily-gemini-call-cap.js";
 import { createFirestoreGeminiAttemptStore } from "./google-cloud/firestore-gemini-attempt-store.js";
+import { createFirestorePoReviewStore } from "./google-cloud/firestore-po-review-store.js";
 import { createDefectDiagnosisService } from "./google-cloud/defect-diagnosis-service.js";
 import { mergeDraftWriteArgs } from "./job-draft-persistence.js";
 import { renderJobSheetPdf } from "./job-sheet-pdf.js";
@@ -562,9 +563,13 @@ export function createConfiguredServicePorts({
   }
   const extractOrder = createPdfOrderExtractionService({ storage, gemini, itemCatalog,
     allowTestOrderNamespace: env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO" && env.USTAAD_SYNTHETIC_ONLY === "true" });
+  // Off: reviews stay in this instance's memory. On: they live in po_reviews and fail closed.
   const review = createPurchaseOrderReviewService({
     extractOrder,
     resolveOrderLine: itemCatalog.resolveOrderLine,
+    ...(env.USTAAD_ENABLE_DURABLE_PO_REVIEWS === "true" ? {
+      reviewStore: createFirestorePoReviewStore({ projectId, fetchImpl, tokenProvider }),
+    } : {}),
   });
   return createServicePorts({
     ...adapters,
