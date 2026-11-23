@@ -9,6 +9,7 @@ Nothing in Phase B changes a Phase A label until the matching capability exists.
 ### ARC-M9-01 Google sign-in with roles (P0)
 - Goal: switch on the existing Google sign-in (`src/user-session-auth.js`, `/api/auth/session`, `USTAAD_AUTH_MODE`) with the roles operator, supervisor and manager, held in Firestore and managed by a manager. Demo mode stays available only on a separate demo service.
 - AC: every route checks the role it needs. Only supervisors and managers can approve. An expired session is refused. Role changes are written to an audit record.
+- Carry-over from ARC-M1-06: durable PO reviews are owned by the demo session ID, so with Google sign-in a review must be owned by the signed-in user's ID. Today a Firebase supervisor gets 401 `DEMO_SESSION_REQUIRED` when durable reviews are on.
 - Depends on: M8. Owner: backend engineer; security reviewer.
 - Test plan: route tests for each role, a session-expiry test and a browser sign-in test.
 
