@@ -27,9 +27,9 @@ Amended 2026-11-23 for ticket ARC-M0-06 (product manager): O10 and constraint C8
 
 Approvals are demo-session approvals, labelled as simulated; no named plant user signs in yet. The audit record marks each one as a demo-session approval (`src/approval-authorization.js`). Demo results must not be presented as plant-user results.
 
-## 3. Today, Arc, roadmap
+## 3. Today, with Arc, and later
 
-| Capability | Momentum today | Arc (this delivery) | Roadmap (not in scope) |
+| Capability | Momentum today | With Arc (this delivery) | Later (not in scope) |
 |---|---|---|---|
 | Read a PO | Five approved fixtures only (`src/synthetic-po-allowlist.js`; live `USTAAD_SYNTHETIC_ONLY=true`) | Same five fixtures, through chat | Real customer POs after Google sign-in (`USTAAD_ACCEPT_REAL_ORDERS`) |
 | Conditions | Operator entry; humidity and temperature fall back to weather, then the seasonal median (`src/condition-guard.js`) | Arc fills what it can and asks for the rest; sources labelled | Plant sensor feed |
@@ -51,7 +51,7 @@ No baselines have been measured. The founders signed the eval thresholds behind 
 | O5 | Off-topic refusal accuracy | Precision and recall at least 95% each (signed, A5) | NOT MEASURED | Labelled eval set of in-scope and off-topic questions; report precision and recall | Gen AI usage |
 | O6 | Insufficient-data answers name what is missing | 100% of no-data cases name the missing data | NOT MEASURED | Eval set built from questions about data that does not exist (for example, measured scrap) | Gen AI usage, Impact |
 | O7 | Numeric fidelity | 100% of numbers Arc shows trace to a backend response or stored record | NOT MEASURED | Eval checks each number in Arc's output against the tool result of the same turn | Overall, Gen AI usage |
-| O8 | Provenance labels | 100% of shown values carry the correct label (model estimate, example, modelled, simulated, weather, operator-entered) | NOT MEASURED | Eval plus a copy review against the label list in CLAUDE.md section 3 | Sustainability and social impact, UI/UX |
+| O8 | Provenance labels | 100% of shown values carry the correct label (model estimate, example, modeled, simulated, weather, operator-entered) | NOT MEASURED | Eval plus a copy review against the label list in CLAUDE.md section 3 | Sustainability and social impact, UI/UX |
 | O9 | Prompt injection in PO content | 0 capability changes or actions triggered by PO text | NOT MEASURED | Injected PO variants. These cannot use the five allowlisted fixtures, so they run offline or in a test mode (see Q5) | Gen AI usage |
 | O10 | Gemini attempts per Arc lot and per Arc turn | A button-only J1 lot uses at most 3 attempts. Each typed message adds 1 attempt (router). A typed data question that returns data uses 2 (router plus answer writer, founder decision A3). A picked suggestion chip or button uses 0 and keeps its template answer (founder decision A6). An "insufficient data" answer or an off-topic refusal skips the writer, so it uses 1 when typed. A full rehearsal plus the pitch must fit inside the daily cap (C8) | NOT MEASURED. Today one lot uses at least one extraction call and one explanation call, plus one retry if the explanation fails (commit `91c9b09`). Estimates, not measurements, from `05-ai-design.md` section 3: 2 attempts (about $0.035) for a button-only lot, 3 with an explanation retry, 6 (about $0.049) with 2 typed condition entries and 1 typed data question. ARC-M2-08 measures them | Count Firestore counter deltas per scripted Arc run and per turn kind (button, typed message, typed data question) | Overall (demo reliability) |
 
@@ -65,7 +65,7 @@ No baselines have been measured. The founders signed the eval thresholds behind 
 - **September 2026 holdout, 219 lots.**
   - Model estimate: scrap cost reduction ₹7,934 net, 149 kg less board, scrap rate 7.06% to 6.36%, 3 lots made worse.
   - Source: `docs/evidence/impact-v2.json`.
-  - Label: predicted on one held-out month, scored with the plant rules on modelled history. Not annualised and not measured.
+  - Label: predicted on one held-out month, scored with the plant rules on modeled history. Not annualised and not measured.
 - **Model R² on the September holdout:** WARP 0.468, DELAM 0.519, STRENGTH 0.388, PRINT 0.640, CRACK 0.108.
   - Source: `config/model-acceptance.json`, README.
   - The October thresholds are kept for reference only and are not claimed.
@@ -99,9 +99,9 @@ No baselines have been measured. The founders signed the eval thresholds behind 
 |---|---|---|
 | Overall winner | One honest route from PO to checked PDF, matching the manual route (O1, O3, O7) | The manual dashboard keeps working unchanged |
 | UI/UX | Fewer actions and page changes (O1, O2); the approved Arc designs, including the phone layout | Labels stay visible; speed must not hide provenance |
-| Impact | Shorter preparation for small plants; modelled scrap and board reduction shown with labels | No measured-savings claims; modelled stays modelled |
+| Impact | Shorter preparation for small plants; modeled scrap and board reduction shown with labels | No measured-savings claims; modeled stays modeled |
 | Gen AI usage | Gemini reads orders, routes intent, explains and answers; evals cover grounding, refusals, injection and bypass (O4 to O9) | Gemini only; no model-made numbers |
-| Sustainability and social impact | Less board scrapped (modelled); a human keeps the decision; honest "insufficient data" answers | The approval stays human; nothing touches a machine |
+| Sustainability and social impact | Less board scrapped (modeled); a human keeps the decision; honest "insufficient data" answers | The approval stays human; nothing touches a machine |
 
 ## 7. Assumptions, risks and open questions
 
