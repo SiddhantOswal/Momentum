@@ -507,6 +507,9 @@ export function createConfiguredServicePorts({
       liveConnectivityVerified: false,
       ...(geminiUsage.policy ? { policy: geminiUsage.policy, budgetStatus: geminiUsage.budgetStatus } : {}),
       ...(geminiUsage.store?.peek ? { peek: geminiUsage.store.peek } : {}),
+      ...(geminiUsage.store?.admitSession ? {
+        admitSession: geminiUsage.store.admitSession, admitPitchClaim: geminiUsage.store.admitPitchClaim,
+      } : {}),
     }),
     conditionGuard,
   };

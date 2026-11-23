@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readGeminiBudgetConfig } from "../src/gemini-budget-config.js";
 import { budgetCapStore, createFirestoreBudgetStore } from "../src/google-cloud/firestore-budget-store.js";
+import { createIpKeyDeriver } from "../src/request-guardrails.js";
 import { parseDocument } from "../src/google-cloud/firestore-rest.js";
 import { BudgetCounterDocSchema } from "../src/state-schemas.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
@@ -79,6 +80,20 @@ test("twenty sessions minted at once from one address are cut off at the hourly 
   // A call that lost every retry is refused as unavailable, never admitted.
   assert.equal(results.length - admitted, results.filter((result) => result.code === "DEMO_SESSION_RATE_LIMITED" || result.code === "BUDGET_UNAVAILABLE").length);
   assert.equal(counter(fake, `live_mint_ip_hour_${IP_A}_2026120309`).units, admitted);
+});
+
+test("the address key is a keyed 16-hex hash, stable per key and absent without a signing key", () => {
+  const derive = createIpKeyDeriver("a".repeat(64));
+  const key = derive("203.0.113.7");
+  assert.match(key, /^[a-f0-9]{16}$/);
+  assert.equal(derive("203.0.113.7"), key);
+  assert.notEqual(derive("203.0.113.8"), key);
+  assert.notEqual(createIpKeyDeriver("b".repeat(64))("203.0.113.7"), key);
+  assert.equal(key.includes("203"), false);
+  assert.equal(derive(undefined), null);
+  assert.equal(derive(""), null);
+  assert.equal(createIpKeyDeriver(undefined)("203.0.113.7"), null);
+  assert.equal(createIpKeyDeriver("short")("203.0.113.7"), null);
 });
 
 test("the cap adapter passes the admission checks through", async () => {

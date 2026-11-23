@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
 
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -94,6 +95,19 @@ export function createClientKeyResolver(env = process.env) {
   }
   const trustedHops = readTrustedHops(env.RATE_LIMIT_TRUSTED_HOPS);
   return (c) => forwardedClientIp(c.req.header("x-forwarded-for"), trustedHops) ?? UNKNOWN_CLIENT_KEY;
+}
+
+/**
+ * The keyed hash the budget counters use for a client (design 5.2): the first
+ * 16 hex of HMAC-SHA-256 over `ip.v1.<key>`. Nothing keeps the raw address.
+ * With no usable key the caller gets null and is charged to the global counters only.
+ */
+export function createIpKeyDeriver(signingKeyHex) {
+  if (typeof signingKeyHex !== "string" || !/^[a-f0-9]{64}$/.test(signingKeyHex)) return () => null;
+  const key = Buffer.from(signingKeyHex, "hex");
+  return (clientKey) => (typeof clientKey === "string" && clientKey !== ""
+    ? createHmac("sha256", key).update(`ip.v1.${clientKey}`).digest("hex").slice(0, 16)
+    : null);
 }
 
 export function createPerIpRateLimitMiddleware({
