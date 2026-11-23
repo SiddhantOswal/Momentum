@@ -3,11 +3,20 @@ import { setTimeout as delay } from "node:timers/promises";
 import { Hono } from "hono";
 import test from "node:test";
 import {
+  createClientKeyResolver,
   createPerIpRateLimitMiddleware,
   createRequestTimeoutMiddleware,
   getSocketClientIp,
   REQUEST_SIGNAL_CONTEXT_KEY,
+  UNKNOWN_CLIENT_KEY,
 } from "../src/request-guardrails.js";
+
+function contextFor({ forwardedFor, socketAddress = "169.254.1.1" } = {}) {
+  return {
+    env: { incoming: { socket: { remoteAddress: socketAddress } } },
+    req: { header: (name) => (name.toLowerCase() === "x-forwarded-for" ? forwardedFor : undefined) },
+  };
+}
 
 test("client IP comes from the Node socket and normalizes IPv4-mapped IPv6", () => {
   assert.equal(
@@ -18,6 +27,88 @@ test("client IP comes from the Node socket and normalizes IPv4-mapped IPv6", () 
     "192.0.2.10"
   );
   assert.equal(getSocketClientIp({ env: { incoming: { socket: {} } } }), undefined);
+});
+
+test("on Cloud Run the key is the last forwarded entry and client-set leading entries are ignored", () => {
+  const resolve = createClientKeyResolver({ K_SERVICE: "momentum" });
+  assert.equal(resolve(contextFor({ forwardedFor: "203.0.113.9" })), "203.0.113.9");
+  assert.equal(resolve(contextFor({ forwardedFor: "10.0.0.1, 192.0.2.77, 203.0.113.9" })), "203.0.113.9");
+  assert.equal(resolve(contextFor({ forwardedFor: "198.51.100.1,203.0.113.9" })), "203.0.113.9");
+  assert.equal(resolve(contextFor({ forwardedFor: "::ffff:203.0.113.9" })), "203.0.113.9");
+  assert.equal(resolve(contextFor({ forwardedFor: "2001:db8::1" })), "2001:db8::1");
+});
+
+test("forged leading entries do not give a client a fresh bucket on Cloud Run", async () => {
+  const app = new Hono();
+  app.use("*", createPerIpRateLimitMiddleware({
+    limit: 2,
+    getClientIp: createClientKeyResolver({ K_SERVICE: "momentum" }),
+  }));
+  app.get("/", (c) => c.text("ok"));
+  const env = { incoming: { socket: { remoteAddress: "169.254.1.1" } } };
+  const request = (forwardedFor) => app.request("/", { headers: { "x-forwarded-for": forwardedFor } }, env);
+
+  assert.equal((await request("192.0.2.1, 203.0.113.9")).status, 200);
+  assert.equal((await request("192.0.2.2, 203.0.113.9")).status, 200);
+  const limited = await request("192.0.2.3, 198.51.100.4, 203.0.113.9");
+  assert.equal(limited.status, 429);
+  assert.equal((await limited.json()).error.code, "RATE_LIMIT_EXCEEDED");
+  assert.equal((await request("192.0.2.1, 203.0.113.10")).status, 200);
+});
+
+test("RATE_LIMIT_TRUSTED_HOPS picks the entry that many places from the right", () => {
+  const header = "192.0.2.50, 203.0.113.9, 198.51.100.200";
+  const oneHop = createClientKeyResolver({ K_SERVICE: "momentum", RATE_LIMIT_TRUSTED_HOPS: "1" });
+  const twoHops = createClientKeyResolver({ K_SERVICE: "momentum", RATE_LIMIT_TRUSTED_HOPS: "2" });
+  assert.equal(oneHop(contextFor({ forwardedFor: header })), "198.51.100.200");
+  assert.equal(twoHops(contextFor({ forwardedFor: header })), "203.0.113.9");
+  assert.equal(twoHops(contextFor({ forwardedFor: "10.9.9.9, 192.0.2.50, 203.0.113.9, 198.51.100.200" })), "203.0.113.9");
+});
+
+test("a load balancer in front with one trusted hop collapses every client into its own address", () => {
+  // Documents why RATE_LIMIT_TRUSTED_HOPS must be raised when a balancer or Cloud Armor is added (M11).
+  const resolve = createClientKeyResolver({ K_SERVICE: "momentum", RATE_LIMIT_TRUSTED_HOPS: "1" });
+  assert.equal(resolve(contextFor({ forwardedFor: "203.0.113.9, 198.51.100.200" })), "198.51.100.200");
+  assert.equal(resolve(contextFor({ forwardedFor: "203.0.113.10, 198.51.100.200" })), "198.51.100.200");
+});
+
+test("a missing, empty, short or malformed forwarded header on Cloud Run falls back to one shared bucket", async () => {
+  const twoHops = createClientKeyResolver({ K_SERVICE: "momentum", RATE_LIMIT_TRUSTED_HOPS: "2" });
+  const oneHop = createClientKeyResolver({ K_SERVICE: "momentum" });
+  assert.equal(UNKNOWN_CLIENT_KEY, "unknown");
+  assert.equal(oneHop(contextFor({ forwardedFor: undefined })), UNKNOWN_CLIENT_KEY);
+  assert.equal(oneHop(contextFor({ forwardedFor: "" })), UNKNOWN_CLIENT_KEY);
+  assert.equal(oneHop(contextFor({ forwardedFor: " , " })), UNKNOWN_CLIENT_KEY);
+  assert.equal(oneHop(contextFor({ forwardedFor: "192.0.2.1, not-an-address" })), UNKNOWN_CLIENT_KEY);
+  assert.equal(twoHops(contextFor({ forwardedFor: "203.0.113.9" })), UNKNOWN_CLIENT_KEY);
+
+  const app = new Hono();
+  app.use("*", createPerIpRateLimitMiddleware({ limit: 2, getClientIp: oneHop }));
+  app.get("/", (c) => c.text("ok"));
+  const env = { incoming: { socket: { remoteAddress: "169.254.1.1" } } };
+  assert.equal((await app.request("/", {}, env)).status, 200);
+  assert.equal((await app.request("/", { headers: { "x-forwarded-for": "" } }, env)).status, 200);
+  const limited = await app.request("/", { headers: { "x-forwarded-for": "garbage" } }, env);
+  assert.equal(limited.status, 429);
+  assert.equal((await limited.json()).error.code, "RATE_LIMIT_EXCEEDED");
+});
+
+test("off Cloud Run the key stays the socket address and forwarded headers are ignored", () => {
+  const resolve = createClientKeyResolver({ RATE_LIMIT_TRUSTED_HOPS: "2" });
+  assert.equal(resolve(contextFor({ forwardedFor: "203.0.113.9, 198.51.100.200", socketAddress: "::ffff:192.0.2.10" })), "192.0.2.10");
+  assert.equal(resolve({ env: { incoming: { socket: {} } }, req: { header: () => "203.0.113.9" } }), undefined);
+  assert.equal(createClientKeyResolver({ K_SERVICE: "" })(contextFor({ forwardedFor: "203.0.113.9" })), "169.254.1.1");
+});
+
+test("an invalid RATE_LIMIT_TRUSTED_HOPS is rejected at startup", () => {
+  for (const value of ["0", "-1", "1.5", "two", " 1", "11"]) {
+    assert.throws(
+      () => createClientKeyResolver({ K_SERVICE: "momentum", RATE_LIMIT_TRUSTED_HOPS: value }),
+      RangeError,
+      `RATE_LIMIT_TRUSTED_HOPS=${JSON.stringify(value)}`
+    );
+  }
+  assert.doesNotThrow(() => createClientKeyResolver({ K_SERVICE: "momentum", RATE_LIMIT_TRUSTED_HOPS: "" }));
 });
 
 test("per-IP limiter returns structured 429 and keeps separate clients independent", async () => {

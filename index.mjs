@@ -53,6 +53,7 @@ import {
   initializeFirebaseSupervisorAuthenticator,
 } from "./src/firebase-supervisor-auth.js";
 import {
+  createClientKeyResolver,
   createPerIpRateLimitMiddleware,
   createRequestTimeoutMiddleware,
   REQUEST_SIGNAL_CONTEXT_KEY,
@@ -137,7 +138,7 @@ const lookupStoredJobSheet = createStoredJobSheetLookup({
   testOnly: executionMode !== "demo",
 });
 const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
-const perIpRateLimit = createPerIpRateLimitMiddleware();
+const perIpRateLimit = createPerIpRateLimitMiddleware({ getClientIp: createClientKeyResolver(process.env) });
 
 const requestTimeout = createRequestTimeoutMiddleware();
 app.use("*", (c, next) => {

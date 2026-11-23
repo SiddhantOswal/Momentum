@@ -1,7 +1,13 @@
+import { isIP } from "node:net";
+
 const REQUEST_TIMEOUT_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
 const MAX_TRACKED_CLIENTS = 10_000;
+const DEFAULT_TRUSTED_HOPS = 1;
+const MAX_TRUSTED_HOPS = 10;
+
+export const UNKNOWN_CLIENT_KEY = "unknown";
 
 export const REQUEST_SIGNAL_CONTEXT_KEY = "requestSignal";
 
@@ -51,6 +57,41 @@ export function getSocketClientIp(c) {
   }
 
   return address.startsWith("::ffff:") ? address.slice(7) : address;
+}
+
+function readTrustedHops(value) {
+  if (value === undefined || value === "") {
+    return DEFAULT_TRUSTED_HOPS;
+  }
+  const hops = /^[1-9][0-9]*$/.test(value) ? Number(value) : NaN;
+  if (!Number.isInteger(hops) || hops > MAX_TRUSTED_HOPS) {
+    throw new RangeError(`RATE_LIMIT_TRUSTED_HOPS must be an integer from 1 to ${MAX_TRUSTED_HOPS}.`);
+  }
+  return hops;
+}
+
+function forwardedClientIp(header, trustedHops) {
+  if (typeof header !== "string") {
+    return undefined;
+  }
+  const entries = header.split(",").map((entry) => entry.trim());
+  const entry = entries[entries.length - trustedHops];
+  if (!entry) {
+    return undefined;
+  }
+  const address = entry.startsWith("::ffff:") ? entry.slice(7) : entry;
+  return isIP(address) ? address : undefined;
+}
+
+// On Cloud Run the socket peer is Google's front end, so the client address is the
+// X-Forwarded-For entry appended by the last trusted proxy. Entries to its left are
+// client-controlled. A missing or unusable entry shares one bucket instead of going unlimited.
+export function createClientKeyResolver(env = process.env) {
+  if (!env.K_SERVICE) {
+    return getSocketClientIp;
+  }
+  const trustedHops = readTrustedHops(env.RATE_LIMIT_TRUSTED_HOPS);
+  return (c) => forwardedClientIp(c.req.header("x-forwarded-for"), trustedHops) ?? UNKNOWN_CLIENT_KEY;
 }
 
 export function createPerIpRateLimitMiddleware({
