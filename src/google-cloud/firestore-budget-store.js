@@ -120,6 +120,7 @@ export function createFirestoreBudgetStore({
     const { caps, sessionId, reserveWindowActive, pitch, counters } = planned;
     const used = (key) => current[key] ?? 0;
     const has = (key) => counters.some((counter) => counter.key === key);
+    // Spend is recorded after each response, so calls in flight can pass the cap by up to minuteLimit calls (test/gemini-cost-cap-overshoot.test.js).
     if (used("cost") >= costCapMicroInr) return { code: "BUDGET_COST_EXHAUSTED" };
     if (used("day") + units > caps.day) {
       return reserveWindowActive && !pitch && used("day") + units <= limits.dayLimit
