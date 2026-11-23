@@ -3,8 +3,10 @@ import { setTimeout as delay } from "node:timers/promises";
 import { Hono } from "hono";
 import test from "node:test";
 import {
+  createApiRateLimitMiddleware,
   createClientKeyResolver,
   createPerIpRateLimitMiddleware,
+  createPerSessionRateLimitMiddleware,
   createRequestTimeoutMiddleware,
   getSocketClientIp,
   REQUEST_SIGNAL_CONTEXT_KEY,
@@ -238,6 +240,85 @@ test("downstream errors consume the request allowance", async () => {
   const limited = await app.request("/");
   assert.equal(limited.status, 429);
   assert.equal((await limited.json()).error.code, "RATE_LIMIT_EXCEEDED");
+});
+
+test("per-session limiter caps one signed session and leaves other sessions and anonymous requests alone", async () => {
+  let currentTime = 1_000;
+  const app = new Hono();
+  app.use("*", createPerSessionRateLimitMiddleware({
+    limit: 2,
+    windowMs: 1_000,
+    now: () => currentTime,
+    getSessionId: (c) => c.req.header("test-session"),
+  }));
+  app.get("/", (c) => c.text("ok"));
+  const request = (session) => app.request("/", session ? { headers: { "test-session": session } } : {});
+
+  assert.equal((await request("a".repeat(32))).status, 200);
+  assert.equal((await request("a".repeat(32))).status, 200);
+  const limited = await request("a".repeat(32));
+  assert.equal(limited.status, 429);
+  assert.equal((await limited.json()).error.code, "RATE_LIMIT_EXCEEDED");
+  assert.ok(Number(limited.headers.get("retry-after")) > 0);
+  assert.equal((await request("b".repeat(32))).status, 200);
+  for (let requestNumber = 0; requestNumber < 5; requestNumber += 1) {
+    assert.equal((await request()).status, 200);
+  }
+
+  currentTime += 1_000;
+  assert.equal((await request("a".repeat(32))).status, 200);
+});
+
+test("API limiter allows 60 per minute per session and still applies the per-IP limit", async () => {
+  let currentTime = 1_000;
+  let clientIp = "203.0.113.9";
+  const app = new Hono();
+  app.use("*", createApiRateLimitMiddleware({
+    now: () => currentTime,
+    getClientIp: () => clientIp,
+    getSessionId: (c) => c.req.header("test-session"),
+  }));
+  app.get("/", (c) => c.text("ok"));
+  const request = (session) => app.request("/", session ? { headers: { "test-session": session } } : {});
+
+  for (let requestNumber = 0; requestNumber < 60; requestNumber += 1) {
+    clientIp = `203.0.113.${requestNumber}`;
+    assert.equal((await request("s0")).status, 200, `session request ${requestNumber + 1}`);
+  }
+  clientIp = "198.51.100.1";
+  const sessionLimited = await request("s0");
+  assert.equal(sessionLimited.status, 429);
+  assert.equal((await sessionLimited.json()).error.code, "RATE_LIMIT_EXCEEDED");
+  assert.equal((await request("s1")).status, 200);
+  assert.equal((await request()).status, 200);
+
+  clientIp = "192.0.2.1";
+  for (let requestNumber = 0; requestNumber < 60; requestNumber += 1) {
+    assert.equal((await request(`fresh-${requestNumber}`)).status, 200, `address request ${requestNumber + 1}`);
+  }
+  assert.equal((await request("fresh-60")).status, 429);
+
+  currentTime += 60_000;
+  clientIp = "198.51.100.1";
+  assert.equal((await request("s0")).status, 200);
+});
+
+test("API limiter reports the tighter of the two allowances", async () => {
+  const app = new Hono();
+  app.use("*", createApiRateLimitMiddleware({
+    ipLimit: 300,
+    sessionLimit: 60,
+    getClientIp: () => "203.0.113.9",
+    getSessionId: (c) => c.req.header("test-session"),
+  }));
+  app.get("/", (c) => c.text("ok"));
+
+  const withSession = await app.request("/", { headers: { "test-session": "s0" } });
+  assert.equal(withSession.headers.get("ratelimit-limit"), "60");
+  assert.equal(withSession.headers.get("ratelimit-remaining"), "59");
+  const anonymous = await app.request("/");
+  assert.equal(anonymous.headers.get("ratelimit-limit"), "300");
+  assert.equal(anonymous.headers.get("ratelimit-remaining"), "298");
 });
 
 test("request timeout returns structured 504 and aborts cooperative handlers", async () => {

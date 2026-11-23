@@ -53,8 +53,8 @@ import {
   initializeFirebaseSupervisorAuthenticator,
 } from "./src/firebase-supervisor-auth.js";
 import {
+  createApiRateLimitMiddleware,
   createClientKeyResolver,
-  createPerIpRateLimitMiddleware,
   createRequestTimeoutMiddleware,
   REQUEST_SIGNAL_CONTEXT_KEY,
 } from "./src/request-guardrails.js";
@@ -138,7 +138,14 @@ const lookupStoredJobSheet = createStoredJobSheetLookup({
   testOnly: executionMode !== "demo",
 });
 const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
-const perIpRateLimit = createPerIpRateLimitMiddleware({ getClientIp: createClientKeyResolver(process.env) });
+const apiRateLimit = createApiRateLimitMiddleware({
+  getClientIp: createClientKeyResolver(process.env),
+  getSessionId: (c) => {
+    if (!hackathonAuth.configured) return undefined;
+    const session = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
+    return session.ok ? session.principal.sessionId : undefined;
+  },
+});
 
 const requestTimeout = createRequestTimeoutMiddleware();
 app.use("*", (c, next) => {
@@ -148,17 +155,17 @@ app.use("*", (c, next) => {
   return requestTimeout(c, next);
 });
 
-app.use("/api/*", perIpRateLimit);
-app.use("/orders/*", perIpRateLimit);
-app.use("/conditions/*", perIpRateLimit);
-app.use("/fx", perIpRateLimit);
-app.use("/risk/*", perIpRateLimit);
-app.use("/jobs", perIpRateLimit);
-app.use("/jobs/*", perIpRateLimit);
-app.use("/job-sheets/*", perIpRateLimit);
-app.use("/insights/*", perIpRateLimit);
-app.use("/impact/*", perIpRateLimit);
-app.use("/evidence/*", perIpRateLimit);
+app.use("/api/*", apiRateLimit);
+app.use("/orders/*", apiRateLimit);
+app.use("/conditions/*", apiRateLimit);
+app.use("/fx", apiRateLimit);
+app.use("/risk/*", apiRateLimit);
+app.use("/jobs", apiRateLimit);
+app.use("/jobs/*", apiRateLimit);
+app.use("/job-sheets/*", apiRateLimit);
+app.use("/insights/*", apiRateLimit);
+app.use("/impact/*", apiRateLimit);
+app.use("/evidence/*", apiRateLimit);
 
 app.use("*", bodyLimit({
   maxSize: MAX_REQUEST_BODY_BYTES,

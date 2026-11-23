@@ -4,6 +4,8 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 60;
 const MAX_TRACKED_CLIENTS = 10_000;
+const PER_SESSION_RATE_LIMIT = 60;
+const RATE_LIMIT_REMAINING_CONTEXT_KEY = "rateLimitRemaining";
 const DEFAULT_TRUSTED_HOPS = 1;
 const MAX_TRUSTED_HOPS = 10;
 
@@ -101,6 +103,56 @@ export function createPerIpRateLimitMiddleware({
   now = () => Date.now(),
   getClientIp = getSocketClientIp,
 } = {}) {
+  return createFixedWindowMiddleware({
+    limit,
+    windowMs,
+    maxTrackedClients,
+    now,
+    getKey: getClientIp,
+    onMissingKey: (c) => c.json({
+      ok: false,
+      error: {
+        code: "CLIENT_IP_UNAVAILABLE",
+        message: "The server could not safely identify the request client.",
+      },
+    }, 503),
+  });
+}
+
+// Requests without a verified demo session are left to the per-IP limit.
+export function createPerSessionRateLimitMiddleware({
+  limit = PER_SESSION_RATE_LIMIT,
+  windowMs = RATE_LIMIT_WINDOW_MS,
+  maxTrackedClients = MAX_TRACKED_CLIENTS,
+  now = () => Date.now(),
+  getSessionId,
+} = {}) {
+  if (typeof getSessionId !== "function") {
+    throw new TypeError("A session ID reader is required.");
+  }
+  return createFixedWindowMiddleware({
+    limit,
+    windowMs,
+    maxTrackedClients,
+    now,
+    getKey: getSessionId,
+    onMissingKey: (_c, next) => next(),
+  });
+}
+
+export function createApiRateLimitMiddleware({
+  ipLimit = RATE_LIMIT_MAX_REQUESTS,
+  sessionLimit = PER_SESSION_RATE_LIMIT,
+  now = () => Date.now(),
+  getClientIp,
+  getSessionId,
+} = {}) {
+  const perIp = createPerIpRateLimitMiddleware({ limit: ipLimit, now, getClientIp });
+  const perSession = createPerSessionRateLimitMiddleware({ limit: sessionLimit, now, getSessionId });
+  return (c, next) => perIp(c, () => perSession(c, next));
+}
+
+function createFixedWindowMiddleware({ limit, windowMs, maxTrackedClients, now, getKey, onMissingKey }) {
   if (!Number.isInteger(limit) || limit < 1) {
     throw new RangeError("Rate limit must be a positive integer.");
   }
@@ -114,29 +166,23 @@ export function createPerIpRateLimitMiddleware({
   const clients = new Map();
 
   return async (c, next) => {
-    const clientIp = getClientIp(c);
-    if (!clientIp) {
-      return c.json({
-        ok: false,
-        error: {
-          code: "CLIENT_IP_UNAVAILABLE",
-          message: "The server could not safely identify the request client.",
-        },
-      }, 503);
+    const key = getKey(c);
+    if (!key) {
+      return onMissingKey(c, next);
     }
 
     const currentTime = now();
-    let client = clients.get(clientIp);
+    let client = clients.get(key);
     if (!client || currentTime - client.windowStartedAt >= windowMs) {
       if (clients.size >= maxTrackedClients) {
-        for (const [ip, entry] of clients) {
+        for (const [trackedKey, entry] of clients) {
           if (currentTime - entry.windowStartedAt >= windowMs) {
-            clients.delete(ip);
+            clients.delete(trackedKey);
           }
         }
       }
 
-      if (!clients.has(clientIp) && clients.size >= maxTrackedClients) {
+      if (!clients.has(key) && clients.size >= maxTrackedClients) {
         return c.json({
           ok: false,
           error: {
@@ -147,15 +193,23 @@ export function createPerIpRateLimitMiddleware({
       }
 
       client = { windowStartedAt: currentTime, requestCount: 0 };
-      clients.set(clientIp, client);
+      clients.set(key, client);
     }
 
     const resetSeconds = Math.ceil((client.windowStartedAt + windowMs - currentTime) / 1000);
-    c.header("RateLimit-Limit", String(limit));
-    c.header("RateLimit-Remaining", String(Math.max(0, limit - client.requestCount - 1)));
-    c.header("RateLimit-Reset", String(resetSeconds));
+    const remaining = Math.max(0, limit - client.requestCount - 1);
+    const reported = c.get(RATE_LIMIT_REMAINING_CONTEXT_KEY);
+    if (reported === undefined || remaining <= reported) {
+      c.set(RATE_LIMIT_REMAINING_CONTEXT_KEY, remaining);
+      c.header("RateLimit-Limit", String(limit));
+      c.header("RateLimit-Remaining", String(remaining));
+      c.header("RateLimit-Reset", String(resetSeconds));
+    }
 
     if (client.requestCount >= limit) {
+      c.header("RateLimit-Limit", String(limit));
+      c.header("RateLimit-Remaining", "0");
+      c.header("RateLimit-Reset", String(resetSeconds));
       c.header("Retry-After", String(Math.max(1, resetSeconds)));
       return c.json({
         ok: false,
