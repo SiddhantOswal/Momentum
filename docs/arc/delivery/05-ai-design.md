@@ -1,6 +1,6 @@
 # 05. AI design: Arc by Momentum
 
-Status: Proposed, 2026-11-23. Amended 2026-11-23 for founder decision A3 (Gemini writes chat answers to typed data questions), and again for the M0 gate repair round (`reviews/M0-review.md`). Author role: AI architect.
+Status: Approved with the plan on 2026-11-23. Amended 2026-11-23 for founder decision A3 (Gemini writes chat answers to typed data questions), and again for the M0 gate repair round (`reviews/M0-review.md`). Author role: AI architect.
 No code, tests or evals exist for anything below; every eval reads NOT RUN, and every token, cost and latency figure is an estimate unless it cites a measurement.
 
 Decisions are recorded in ADR-0007 to ADR-0011. This document refers to the solutions architect's ADRs by number and does not repeat them: ADR-0002 (Firestore durable state), ADR-0003 (lot revisions and approve guard), ADR-0004 (Gemini budget and rate limits), ADR-0005 (conditions source), ADR-0006 (deploy). Interfaces shared with the backend (routes, session and task-run records, step states, effect keys) are defined in `04-technical-design.md` section 3.0 (interface decisions I1 to I9) and sections 2, 3 and 5.2; where this document names them, `04` is the source.
