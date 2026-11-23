@@ -49,6 +49,10 @@ class BudgetUnavailable extends Error {}
 
 const microInr = (rupees) => Math.round(rupees * 1e6);
 const secondsToNextMinute = (instant) => 60 - (Math.floor(instant / 1000) % 60);
+// IST is UTC+5:30, so its hours start at :30 past the UTC hour.
+const secondsToNextIstHour = (instant) => 3600 - ((Math.floor(instant / 1000) + 19800) % 3600);
+const DEFAULT_MINT_PER_IP_PER_HOUR = 30;
+const DEFAULT_CLAIM_PER_IP_PER_HOUR = 5;
 
 export function createFirestoreBudgetStore({
   projectId, database = "(default)", fetchImpl = fetch, tokenProvider, limits,
@@ -241,9 +245,49 @@ export function createFirestoreBudgetStore({
     return Object.freeze({ ok: false, code: "BUDGET_UNAVAILABLE" });
   }
 
+  /** Counts one attempt on an hourly per-address counter and refuses once `max` is reached. The attempt counts even when later work fails. */
+  async function admit({ scope, ipKey, max, refusedCode, signal }) {
+    if (!IpKeySchema.safeParse(ipKey).success) throw new TypeError("A valid IP key is required.");
+    const instant = now();
+    if (!Number.isFinite(instant)) return unavailable(signal);
+    const { hour } = istWindows(instant);
+    const entry = {
+      key: scope, kind: "minute", limit: max, scope, subject: ipKey, window: hour,
+      id: budgetCounterId({ pool, scope, subject: ipKey, window: hour }),
+    };
+    const nowIso = new Date(instant).toISOString();
+    try {
+      return await withToken(signal, (context) => transact(context, async (transaction) => {
+        const [current] = await readCounters([entry], { ...context, transaction });
+        const used = current.read?.doc.units ?? 0;
+        if (used >= max) {
+          return { result: Object.freeze({ ok: false, code: refusedCode, retryAfterSeconds: secondsToNextIstHour(instant) }) };
+        }
+        return {
+          writes: [counterWrite(current, 1, nowIso, instant)],
+          result: Object.freeze({ ok: true, remaining: max - used - 1 }),
+        };
+      }));
+    } catch {
+      return unavailable(signal);
+    }
+  }
+
   return Object.freeze({
     pool,
     policyVersion: BUDGET_POLICY_VERSION,
+
+    /** Called before a new demo session is issued (ADR-0004 decision 4). */
+    admitSession: ({ ipKey, signal } = {}) => admit({
+      scope: "mint_ip_hour", ipKey, signal, refusedCode: "DEMO_SESSION_RATE_LIMITED",
+      max: limits.demoSessionMint?.perIpPerHour ?? DEFAULT_MINT_PER_IP_PER_HOUR,
+    }),
+
+    /** Called before the pitch code is compared (ADR-0004 decision 5). */
+    admitPitchClaim: ({ ipKey, signal } = {}) => admit({
+      scope: "claim_ip_hour", ipKey, signal, refusedCode: "PITCH_CLAIM_RATE_LIMITED",
+      max: limits.pitchClaim?.attemptsPerIpPerHour ?? DEFAULT_CLAIM_PER_IP_PER_HOUR,
+    }),
 
     async reserve({ principal, ipKey = null, purpose, units = 1, reservationKey, evalSuite = null, signal } = {}) {
       validateReserve({ ipKey, purpose, units, reservationKey, evalSuite });
@@ -388,6 +432,8 @@ export function budgetCapStore(store, { costOf = attemptCostMicroInr, log = cons
     scope: "shared-firestore-transaction",
     policyVersion: BUDGET_POLICY_VERSION,
     peek: (args) => store.peek(args),
+    admitSession: (args) => store.admitSession(args),
+    admitPitchClaim: (args) => store.admitPitchClaim(args),
 
     async reserveAttempt({ role, budget = {}, signal } = {}) {
       const purpose = budget.purpose ?? ROLE_PURPOSE[role];
