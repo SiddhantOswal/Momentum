@@ -13,6 +13,10 @@ export function demoOwnsJob(principal, jobId) {
   return isDemoPrincipal(principal) && typeof jobId === "string" &&
     new RegExp(`^JOB-HACK-${principal.sessionId}-[a-f0-9]{40}$`).test(jobId);
 }
+export function demoOwnsLot(principal, lotId) {
+  return isDemoPrincipal(principal) && typeof lotId === "string" &&
+    new RegExp(`^LOT-HACK-${principal.sessionId}-[a-f0-9]{12}$`).test(lotId);
+}
 export function demoJobIdentity(principal, identity) {
   if (!isDemoPrincipal(principal)) throw new TypeError("Verified demo session required.");
   const keyHash = createHmac("sha256", principal.sessionId).update(identity.keyHash).digest("hex");
