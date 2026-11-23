@@ -28,10 +28,12 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - ARC-M1-01 merged: route logic moved into `src/commands/` (10 commands, 3 helpers, 9 commits). QA PASS. `npm test` 611, 610 pass, 1 known fail (ARC-M1-11); acceptance 317, 316 pass. Base and branch gave identical status, headers and bodies on 24 requests in both demo modes. Follow-up: the parity test missed a dropped `currency` query and checks only the PDF header.
 - ARC-M1-01 parity follow-up merged (`39b55fc`). QA PASS: a dropped `currency` query and a truncated PDF now both fail the test.
 - ARC-M1-11 merged (`661e664`). The replay loader rejected approved records without `evidence`; missing `evidence` is now read as `[]`. QA PASS on all five checks; status and audit checks are not loosened. `npm test` on `arc/main`: 612 tests, 612 pass, 0 fail, 0 cancelled.
+- ARC-M1-11 test follow-up merged (`3c5ee85`): the new replay test now fails without the fix. QA PASS.
+- ARC-M1-02 merged: `src/google-cloud/firestore-rest.js` (shared codecs, transactions, preconditions) and `src/state-schemas.js` (all `04` section 2 documents). Both existing adapters use the helper, and their tests are unchanged. QA PASS on all six checks; 7 of 8 helper mutations caught. `npm test` 643 of 643. Tech-lead decision: `ArcEventDocSchema` requires `waitingFor` exactly on `step.waiting_for_user`, following `04` section 2.6 and I6.
 
 ## In progress
 
-- Running in parallel: ARC-M1-02 (Firestore REST helper and state schemas), ARC-M1-03 (job fingerprint covers conditions; optimizer default 100 MiB), ARC-M1-11 test follow-up.
+- Running: ARC-M1-03 (job fingerprint covers conditions; optimizer default 100 MiB), the ARC-M1-02 timestamp test follow-up.
 - CI "Unit tests" is expected to fail on `arc/main` until ARC-M1-11 lands (`test/job-draft-persistence.test.js:508`). No CI run exists yet; nothing has been pushed.
 
 ## Blocked
@@ -93,3 +95,4 @@ Asked only when a ticket needs them.
 | 2026-11-23 | Plan approved, Phases A and B. RAI thresholds signed off (A5). The plan's recommendations are accepted for Q8, Q9, Q11 (with Om's review), A1, A2, A4, A6, F5, D4 and D6 | Founder approval | Founders |
 | 2026-11-23 | `arc/main` cut from `origin/v2` (`eb6eab9`), no upstream, fast-forwarded to `arc/setup` (`8bc30fd`) | ARC-M0-02 | Delivery lead |
 | 2026-11-23 | M0 closed with GO from all eight reviewers | `reviews/M0-review.md` | Delivery lead |
+| 2026-11-23 | `ArcEventDocSchema` requires `waitingFor` exactly on `step.waiting_for_user` events | `04` section 2.6 and I6 say the event carries the same `waitingFor` | Tech lead |

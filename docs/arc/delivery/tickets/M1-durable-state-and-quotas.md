@@ -29,6 +29,7 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 ### ARC-M1-05 Durable idempotency for `/jobs` (P0)
 - Goal: wire `firestore-idempotency-store.js` behind `USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY` (design 3.2).
 - AC: `/api/status` reports `durableIdempotencyConfigured: true` when the flag is on. A retry after a simulated restart returns the stored job and spends no Gemini attempt. Two concurrent submissions with the same key produce one BigQuery row, so no `JOB_SHEET_NOT_UNIQUE`. A lease that expires mid-run is fenced.
+- QA carry-over from ARC-M1-02: the adapter calls the shared `fromFirestoreFields` without wrapping it, so an invalid stored Timestamp surfaces as `FirestoreRestError SERVICE_UNAVAILABLE`. Before wiring, map it to `FirestoreIdempotencyError`, and add a test.
 - Depends on: M1-02, M1-03, M1-04. Owner: backend engineer.
 - Test plan: unit tests with a fake Firestore and the concurrency case; an integration run against the Firestore emulator or a test collection prefix on a tagged no-traffic revision.
 
