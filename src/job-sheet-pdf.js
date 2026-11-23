@@ -243,10 +243,15 @@ function textRuns(text, locale, configuredFonts) {
   return runs;
 }
 
+function isDemoSessionApproval(approval) {
+  return approval?.authenticatedHuman === false || approval?.authorizationMode === "HACKATHON_DEMO";
+}
+
 export async function renderJobSheetPdf(input, {
   locale = "en",
   fontPaths = {},
   localSyntheticDemo = false,
+  approval,
 } = {}) {
   const jobSheet = JobSheetSchema.parse(input);
   const configuredFonts = {
@@ -259,7 +264,12 @@ export async function renderJobSheetPdf(input, {
   };
   const lines = collectText(jobSheet);
   if (localSyntheticDemo) lines.splice(1, 0, ["line", "LOCAL MOCK BACKUP - mock outputs and simulated approval; not cloud persisted."]);
-  if (/^JOB-HACK-[a-f0-9]{32}-[a-f0-9]{40}$/.test(jobSheet.jobId)) lines.splice(3, 0, ["line", HACKATHON_APPROVAL_NOTE]);
+  if (isDemoSessionApproval(approval)) {
+    lines.splice(3, 0,
+      ["line", "Demo session, simulated"],
+      ["line", "This approval came from a demo session. It is simulated."],
+      ["line", HACKATHON_APPROVAL_NOTE]);
+  }
   const resolvedTextRuns = lines.map(([kind, text]) => ({
     kind,
     text,

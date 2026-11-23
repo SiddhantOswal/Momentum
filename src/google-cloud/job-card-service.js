@@ -4,7 +4,7 @@ import { StoredJobSheetSchema, JobSheetSchema } from "../schemas.js";
 import { BigQueryWriteError } from "./bigquery-write-client.js";
 import { CloudStorageError } from "./storage-client.js";
 import { validStoredApprovalAudit } from "./job-sheet-repository.js";
-import { canAccessApprovalJob } from "../approval-authorization.js";
+import { approvalActorProvenance, canAccessApprovalJob } from "../approval-authorization.js";
 import { isDemoPrincipal } from "../hackathon-demo-auth.js";
 
 function unavailable(message = "Job-card storage is temporarily unavailable.") {
@@ -135,7 +135,8 @@ export function createJobCardService({ repository, storage, renderPdf, bucket, r
         }
 
         const printable = asPrintableJobSheet(stored, "APPROVED");
-        const bytes = await renderPdf(printable, { locale: "en" });
+        // Same provenance the repository writes to the approval audit, so the card and the record agree.
+        const bytes = await renderPdf(printable, { locale: "en", approval: approvalActorProvenance(supervisorPrincipal) });
         const objectName = `jobcards/${encodeURIComponent(stored.jobId)}-${randomUUID()}.pdf`;
         uploaded = await storage.upload({
           name: objectName,

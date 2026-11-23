@@ -5,13 +5,14 @@ import { mapJobSheetToBigQuery } from "../src/bigquery-mapper.js";
 import { createJobSheetRepository, JOB_SHEET_COLUMNS } from "../src/google-cloud/job-sheet-repository.js";
 import { createJobCardService } from "../src/google-cloud/job-card-service.js";
 import { createBigQueryWriteClient } from "../src/google-cloud/bigquery-write-client.js";
+import { renderJobSheetPdf } from "../src/job-sheet-pdf.js";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
 import { testSupervisor } from "./fixtures/verified-supervisor.js";
 
 const fixedTime = "2026-10-15T10:00:00.000Z";
 const job = { ...jobSheetFixture, order: { ...jobSheetFixture.order, orderId: "TEST-AUDIT-1" } };
 
-function environment({ dropAudit = false, storageFails = false, scopedJob = job } = {}) {
+function environment({ dropAudit = false, storageFails = false, scopedJob = job, renderPdf = async () => Buffer.from("%PDF-local-approval-test-double") } = {}) {
   let row = { ...mapJobSheetToBigQuery(scopedJob, { plantId: "PLANT-01", createdAt: fixedTime, savingsCost: 0, currency: "INR" }), approval_audit_json: null };
   let writes = 0;
   const files = new Map();
@@ -44,7 +45,7 @@ function environment({ dropAudit = false, storageFails = false, scopedJob = job 
   };
   const cards = () => createJobCardService({
     repository: repository(), storage, bucket: "prepagent-hack-data", requireApprovalAudit: true,
-    renderPdf: async () => Buffer.from("%PDF-local-approval-test-double"),
+    renderPdf,
   });
   return { repository, cards, files, get row() { return row; }, get writes() { return writes; } };
 }
@@ -148,5 +149,32 @@ test("hackathon approval persists honest actor provenance, replays and retrieves
     const broken = environment({ ...options, scopedJob: { ...job, jobId } });
     assert.equal((await broken.cards().approveJob({ jobId, supervisorPrincipal: actor })).ok, false);
     assert.equal((await broken.cards().getJobCard({ jobId, supervisorPrincipal: actor })).ok, false);
+  }
+});
+
+function pdfText(bytes) {
+  return [...Buffer.from(bytes).toString("latin1").matchAll(/<([0-9a-f]{2,})>/gi)]
+    .map((match) => Buffer.from(match[1], "hex").toString("latin1"))
+    .join("");
+}
+
+test("the issued card carries the demo labels exactly when the approval audit records a demo session (AC1.24)", async () => {
+  const { createHackathonDemoAuthenticator, demoJobIdentity } = await import("../src/hackathon-demo-auth.js");
+  const auth = createHackathonDemoAuthenticator({ mode: "HACKATHON_DEMO", signingKey: "a".repeat(64), syntheticOnly: true, auditEnabled: true });
+  const actor = auth.authenticate(auth.issue()).principal;
+  const demoJobId = demoJobIdentity(actor, { keyHash: "c".repeat(64), fingerprint: "d".repeat(64) }).jobId;
+  const cases = [
+    { supervisorPrincipal: actor, jobId: demoJobId, demo: true },
+    { supervisorPrincipal: await testSupervisor(), jobId: job.jobId, demo: false },
+  ];
+  for (const { supervisorPrincipal, jobId, demo } of cases) {
+    const context = environment({ scopedJob: { ...job, jobId }, renderPdf: renderJobSheetPdf });
+    const approved = await context.cards().approveJob({ jobId, supervisorPrincipal });
+    assert.equal(approved.ok, true);
+    assert.equal(approved.jobSheet.approvalAudit.authenticatedHuman === false, demo);
+    const card = await context.cards().getJobCard({ jobId, supervisorPrincipal });
+    const text = pdfText(card.bytes);
+    assert.equal(text.includes("Demo session, simulated"), demo, jobId);
+    assert.equal(text.includes("This approval came from a demo session. It is simulated."), demo, jobId);
   }
 });
