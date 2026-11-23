@@ -45,14 +45,14 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - Test plan: extend `test/trace-*.test.js`.
 
 ### ARC-M1-08 Configurable Gemini budget (P0)
-- Goal: `firestore-budget-store.js` with `reserve` and `peek` (design 5.2), behind `USTAAD_GEMINI_BUDGET_POLICY=budget-v2`, with day, session, minute and session-minute limits and the pitch reserve read from `GEMINI_BUDGET_POLICY`.
+- Goal: `firestore-budget-store.js` with `reserve` and `peek` (design 5.2), behind `USTAAD_GEMINI_BUDGET_POLICY=budget-v2`, with day, session, minute and session-minute limits and the pitch reserve read from `GEMINI_BUDGET_LIMITS`.
 - AC: every Gemini call still passes through `withDailyGeminiCallCap`. The same idempotency key is charged once. Each limit returns its own code. Different limits on two callers no longer lock each other out (E7). An invalid policy blocks Gemini. `/api/status` shows what remains.
 - Depends on: M1-02, M1-04, founder decision F1 and F2. Owner: backend engineer.
 - Test plan: unit tests for each limit, the reserve window, the pitch-session allowlist, replay, and a concurrent reserve on the last unit.
 
 ### ARC-M1-09 Rate-limit key behind Cloud Run (P1)
 - Goal: on Cloud Run, key on the last `X-Forwarded-For` entry, and add a per-session limit (design 5.4).
-- AC: earlier header entries set by a client are ignored. The limits are 300 per minute per IP and 60 per minute per session. A verification run on a tagged revision logs only hashes and passes the two-network check. The temporary log line is removed afterwards.
+- AC: earlier header entries set by a client are ignored. The limits are 300 per minute per IP and 60 per minute per session. A verification run on a tagged revision logs only hashes and passes the two-network check. The temporary log line is removed afterwards. A unit test checks the key with `RATE_LIMIT_TRUSTED_HOPS` set to 1 and to 2.
 - Depends on: M1-01. Owner: backend engineer; security reviewer checks.
 - Test plan: unit tests with forged headers; the two-network check recorded in the PR.
 - M0 gate additions: the two-network check means two requests from two networks (laptop Wi-Fi and a phone hotspot) to a tagged no-traffic revision, logging only SHA-256 hashes of the socket address and of the last `X-Forwarded-For` entry. Pass: the socket hashes are equal and the header hashes differ. A unit test documents that the key must be worked out again if a load balancer or Cloud Armor is put in front (M11).
@@ -85,7 +85,7 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 
 ### ARC-M1-14 Explicit Vertex `safetySettings` on every Gemini call (P0)
 - Goal: `src/google-cloud/vertex-gemini-client.js` sends no `safetySettings` today, so every call runs on the platform defaults. Every request (extraction, explanation, photo, router, answer writer) sends explicit settings from `config/arc-models.json`, and the result records which settings version was used (RAI-5).
-- AC: a request-shape test fails if any call is sent without `safetySettings`. A blocked response maps to a defined error code and a designed UI state, never to an empty answer.
+- AC: a request-shape test fails if any call is sent without `safetySettings`. A blocked response maps to a defined error code and a designed UI state, never to an empty answer. It also reads the Vertex AI per-minute request quota for `gemini-3.5-flash` and `gemini-3.5-flash-lite` in `asia-south1` (read-only `gcloud` quota describe or the console) and records it in `data/vertex-safety-reference.md`, before the founders sign F2 (ADR-0008).
 - Depends on: M1-15. Owner: AI engineer; the responsible-AI reviewer checks.
 - Test plan: unit tests on the request body and on blocked-response handling; one live call per role on a tagged revision.
 
@@ -102,13 +102,13 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - Test plan: run the tool and record its output in the PR.
 
 ### ARC-M1-17 Limit demo session issuance and protect the pitch reserve (P0)
-- Goal: close M0 gate finding BL-SE-1. Anyone can mint demo sessions with `POST /api/auth/demo-session` (`index.mjs:563-567`), which gets around the per-session Gemini budget and, on 4 Dec, the pitch reserve. Session issuance is rate-limited per client IP (ARC-M1-09 key). The pitch reserve is usable only with a server-held credential: a Secret Manager value exchanged for a signed cookie claim. Session IDs no longer play any part in it (ADR-0004 as amended at the M0 gate).
-- AC: 20 sessions minted from one IP cannot spend more than the day limit minus the reserve. Reserve units cannot be spent without the pitch claim. The claim cannot be forged or replayed after it expires, and the secret is never logged.
+- Goal: close M0 gate finding BL-SE-1. Anyone can mint demo sessions with `POST /api/auth/demo-session` (`index.mjs:563-567`), which gets around the per-session Gemini budget and, on 4 Dec, the pitch reserve. Session issuance is rate-limited per client IP (ARC-M1-09 key). The pitch reserve is usable only with a pitch claim: a Secret Manager value exchanged for a signed cookie claim. Session IDs no longer play any part in it (ADR-0004 as amended at the M0 gate).
+- AC: 20 sessions minted from one IP cannot spend more than the day limit minus the reserve. Reserve units cannot be spent without the pitch claim. The pitch claim cannot be forged or replayed after it expires, and the secret is never logged.
 - Depends on: M1-08, M1-09. Owner: backend engineer; the security reviewer checks.
 - Test plan: unit tests for issuance limits and the claim, plus a scripted run against a tagged no-traffic revision.
 
 ### ARC-M1-18 Job card PDF wording: estimate and demo labels (P0)
-- Goal: close M0 gate findings BL-RA-3 and SH-RA-S1. The PDF heading "Savings estimate (not observed)" (`src/job-sheet-pdf.js:169-170`) becomes "Model estimate: scrap reduction against the entered plan". The demo note says "Demo session, simulated" on every card approved through a demo session, whatever the job ID pattern (`src/job-sheet-pdf.js:262`, `src/hackathon-demo-auth.js:4`).
-- AC: a PDF test fails if the word "Savings" appears without "Model estimate", or if a demo-session approval's PDF lacks the demo label. The copy editor checks the text.
+- Goal: close M0 gate findings BL-RA-3 and SH-RA-S1. The PDF heading "Savings estimate (not observed)" (`src/job-sheet-pdf.js:169-170`) becomes "Model estimate: scrap reduction against the entered plan". The demo note says "Demo session, simulated" and "This approval came from a demo session. It is simulated." on every card approved through a demo session, whatever the job ID pattern (`src/job-sheet-pdf.js:262`, `src/hackathon-demo-auth.js:4`).
+- AC: a PDF test fails if the PDF contains "Savings estimate" (spec AC1.22). It also fails if a demo-session approval's PDF lacks either "Demo session, simulated" or "This approval came from a demo session. It is simulated." (spec AC1.24), including a job ID that does not match `JOB-HACK-`. The PDF "Explanation" heading carries "Generated by Gemini" (spec AC1.23). The copy editor checks the text.
 - Depends on: M1-01. Owner: backend engineer.
 - Test plan: PDF text extraction tests that fail before the change and pass after.

@@ -79,7 +79,7 @@ Asked only when a ticket needs them.
 | 2026-11-23 | A3: Gemini writes chat answers from the same turn's tool results; code checks every number and ID, and the template answer is the fallback. The AI architect had recommended templates only; that position stays recorded in ADR-0009 | Gen AI usage award; the checks keep numeric fidelity | Founders |
 | 2026-11-23 | F3: Cloud Run min 1 and max 6 to 2 Dec, min 2 on 3 and 4 Dec, min 0 and max 4 from 5 Dec. Applied in ARC-M8-02 with a change record, after the prices are checked | No cold start on stage; saturation at max 2 was seen on 20 Nov | Founders |
 | 2026-11-23 | Q10 superseded by Q7: Operator-Phone is built with its backend (ARC-M6-13), labelled as a simulated demo session | Follows Q7 | Delivery lead |
-| 2026-11-23 | Keep PKBX0041 as the reference lot with the honest m2 re-run figures, labelled as a model estimate; do not chase a bigger number | Credibility | Founders |
+| 2026-11-23 | Keep PKBX0041 as the reference lot with the m2 re-run figures, labelled as a model estimate; do not chase a bigger number | Credibility | Founders |
 | 2026-11-23 | Ambient temperature provisional at the December to February band (asked for about 19 °C; run at the modeled median 18.5 °C), awaiting Om | 24.5 °C matched only October and November | Founders (Om to confirm) |
 | 2026-11-23 | Delete `docs/Momentum_UI_Source.zip` | Duplicate of `docs/arc/design/source/` | Founders |
 | 2026-11-23 | README, `DEMO_LOT` and design files are not edited until the figures are final; the edits are ARC-M6-09 and ARC-M6-19 | Change claims only with final evidence | Founders |

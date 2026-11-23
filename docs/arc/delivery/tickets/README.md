@@ -16,4 +16,4 @@ One file per milestone. Each ticket has an ID, goal, acceptance criteria (AC), d
 | `M8-release.md` | M8 deployment, demo runbook and release gate | 30 Nov |
 | `M9-M14-production-readiness.md` | Phase B: M9 identity and named approvals, M10 environments and CI/CD, M11 security and privacy, M12 reliability and cost, M13 data and model operations, M14 plant pilot and launch | Proposed 8 Dec to 6 Mar 2027 |
 
-Priority marks: **P0** is needed for the pitch route J1 and the honesty rules; **P1** should ship; **P2** is cut first if the plan slips (see `00-plan.md` section 6).
+Priority marks: **P0** is needed for the pitch route J1 and the evidence rules; **P1** should ship; **P2** is cut first if the plan slips (see `00-plan.md` section 6).

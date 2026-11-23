@@ -17,7 +17,7 @@ Most M0 work is written (see `00-plan.md` section 1). These tickets are what rem
   - Security N5: reword public docs that map live exposure (sign-in off, public invoker, unused roles) until M11 closes it. Done in the M0 gate repair by each doc owner; re-checked by the security reviewer.
   - QA lead S3 and S4 (M0 gate): add a `+++` diff-header guard case, and one positive and one negative fixture for every phrase and secret rule, so that deleting any single rule fails a test.
   - Code reviewer nit (M0 gate): `check.mjs commits` rejects a RANGE that starts with `-`, and a test covers merge commits being checked.
-- AC: each finding is fixed or explicitly accepted in the M1 review file.
+- AC: QA S3 and S4 are fixed, not waived: deleting any single phrase or secret rule fails a test, shown by a recorded mutation run in the PR. Each other finding is fixed or explicitly accepted in the M1 review file.
 - Depends on: ARC-SETUP-01. Owner: backend engineer (scripts, CI); delivery lead (docs).
 - Test plan: `node --test test/quality-rules.test.js`; a CI run on the PR.
 
