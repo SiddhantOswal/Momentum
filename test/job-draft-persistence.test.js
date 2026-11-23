@@ -547,7 +547,10 @@ test("a replay after approval on a new instance keeps status, approvedAt, cardUr
   const approvalAudit = { jobId: identity.jobId, actorUid: "test-supervisor", action: "APPROVE",
     previousStatus: "DRAFT", newStatus: "APPROVED", decidedAt: approvedAt, cardUri,
     correlationId: "b7380926-8709-4cda-8395-27a742686de2", decisionId: "16d914b6-7315-43f2-8f6b-41063f909e24" };
-  rows.set(identity.jobId, { ...rows.get(identity.jobId), status: "APPROVED", approvedAt, cardUri, approvalAudit });
+  // The draft read-back compares evidence, so only the approved row omits it.
+  const { evidence, ...draftRow } = rows.get(identity.jobId);
+  assert.ok(Array.isArray(evidence));
+  rows.set(identity.jobId, { ...draftRow, status: "APPROVED", approvedAt, cardUri, approvalAudit });
 
   const calls = [];
   const replay = await durableSubmitHandler({
