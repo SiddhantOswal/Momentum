@@ -31,7 +31,7 @@ import {
   conditionalWriteUrl as restConditionalWriteUrl,
   createFirestoreRestClient,
   FirestoreRestError,
-  fromFirestoreFields,
+  fromFirestoreFields as restFromFirestoreFields,
   isPreconditionFailure as restIsPreconditionFailure,
   toFirestoreValue as restToFirestoreValue,
 } from "./firestore-rest.js";
@@ -54,6 +54,14 @@ function asIdempotencyError(error) {
 function toFirestoreValue(value) {
   try {
     return restToFirestoreValue(value);
+  } catch (error) {
+    throw asIdempotencyError(error);
+  }
+}
+
+function fromFirestoreFields(fields) {
+  try {
+    return restFromFirestoreFields(fields);
   } catch (error) {
     throw asIdempotencyError(error);
   }

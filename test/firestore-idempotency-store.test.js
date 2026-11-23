@@ -452,6 +452,23 @@ test("FirestoreIdempotencyStore: AbortError propagates from fetch", async () => 
   );
 });
 
+test("FirestoreIdempotencyStore: an invalid stored Timestamp is a FirestoreIdempotencyError on every read", async () => {
+  const corrupt = JSON.parse(inProgressDoc());
+  corrupt.fields.expiresAt = { timestampValue: "not-a-time" };
+  const isIdempotencyError = (err) => err instanceof FirestoreIdempotencyError &&
+    err.code === "FIRESTORE_UNAVAILABLE";
+  const reads = [
+    (store) => store.claim(claimArgs()),
+    (store) => store.complete({ keyHash: KEY_HASH, fingerprint: FINGERPRINT, jobId: JOB_ID,
+      ownerToken: OWNER_TOKEN, completedAt: NOW + 5_000 }),
+    (store) => store.release({ keyHash: KEY_HASH, ownerToken: OWNER_TOKEN }),
+  ];
+  for (const read of reads) {
+    const { fetchImpl } = fakeSequence([{ status: 200, body: corrupt }]);
+    await assert.rejects(() => read(makeStore(fetchImpl)), isIdempotencyError);
+  }
+});
+
 test("FirestoreIdempotencyStore: unexpected GET status throws FirestoreIdempotencyError", async () => {
   const { fetchImpl } = fakeSequence([
     { status: 500, body: { error: { code: 500 } } },
