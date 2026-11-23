@@ -186,6 +186,75 @@ test("two concurrent submissions on two instances produce one job and one job_sh
     "the stored job must stay unique");
 });
 
+test("a lease that expires mid-run is fenced: the late finisher writes nothing and cannot complete", async () => {
+  const fake = createFakeFirestore();
+  const sheets = fakeJobSheets();
+  const clock = clockAt(START);
+  const gemini = { attempts: 0 };
+  const slow = gate();
+  const a = startInstance({ fake, sheets, clock, gemini, holdPlanning: slow.wait });
+  const b = startInstance({ fake, sheets, clock, gemini });
+
+  const late = submit(a);
+  await slow.reached;
+  clock.advance(130_001);
+  const takeover = await submit(b);
+  assert.equal(takeover.ok, true);
+  const takeoverOwner = claimDocument(fake, identity.keyHash).ownerToken;
+
+  slow.open();
+  const lateResult = await late;
+  assert.equal(lateResult.ok, false);
+  assert.equal(lateResult.error.code, "IDEMPOTENCY_IN_PROGRESS");
+  assert.equal(sheets.rows.length, 1, "the fenced owner must not reach the job_sheets write");
+  const claim = claimDocument(fake, identity.keyHash);
+  assert.equal(claim.recordStatus, "complete");
+  assert.equal(claim.ownerToken, takeoverOwner);
+  assert.equal(gemini.attempts, 2, "a re-run after lease expiry is a counted attempt (design 3.2)");
+});
+
+test("an owner whose lease ran out is fenced even when nobody re-claimed, and the key can run again", async () => {
+  const fake = createFakeFirestore();
+  const sheets = fakeJobSheets();
+  const clock = clockAt(START);
+  const gemini = { attempts: 0 };
+  const slow = gate();
+  const a = startInstance({ fake, sheets, clock, gemini, holdPlanning: slow.wait });
+
+  const late = submit(a);
+  await slow.reached;
+  clock.advance(130_000);
+  slow.open();
+  const lateResult = await late;
+
+  assert.equal(lateResult.ok, false);
+  assert.equal(lateResult.error.code, "IDEMPOTENCY_IN_PROGRESS");
+  assert.equal(sheets.rows.length, 0);
+  assert.equal(claimDocument(fake, identity.keyHash), undefined, "the stale owner releases its own claim");
+
+  const retry = await submit(startInstance({ fake, sheets, clock, gemini }));
+  assert.equal(retry.ok, true);
+  assert.equal(sheets.rows.length, 1);
+});
+
+test("an owner check that cannot reach Firestore writes nothing", async () => {
+  const fake = createFakeFirestore();
+  let firestoreDown = false;
+  const flaky = { fetchImpl: async (url, options) => {
+    if (firestoreDown) throw new Error("ECONNRESET");
+    return fake.fetchImpl(url, options);
+  } };
+  const sheets = fakeJobSheets();
+  const instance = startInstance({ fake: flaky, sheets, clock: clockAt(START), gemini: { attempts: 0 },
+    holdPlanning: async () => { firestoreDown = true; } });
+
+  const result = await submit(instance);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+  assert.equal(sheets.rows.length, 0);
+});
+
 test("with the flag on and Firestore unreachable, job creation fails closed before planning", async () => {
   const sheets = fakeJobSheets();
   const gemini = { attempts: 0 };

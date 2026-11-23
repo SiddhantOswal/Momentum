@@ -302,8 +302,12 @@ export function createIdempotentJobService({
       return unavailable("The shared idempotency store returned an invalid claim result.");
     }
 
+    // Only a shared store can lose a claim to another instance, so only it fences the write.
+    const fence = typeof store.confirmOwner === "function"
+      ? () => store.confirmOwner({ keyHash: identity.keyHash, ownerToken, now: now() }, signal)
+      : undefined;
     try {
-      const result = await createJob({ jobId: identity.jobId, request, signal });
+      const result = await createJob({ jobId: identity.jobId, request, signal, ...(fence ? { fence } : {}) });
       const resultJobId = result?.jobSheet?.jobId ?? result?.jobId;
       if (!result || result.ok !== true || resultJobId !== identity.jobId || result.durable !== true) {
         await store.release({ keyHash: identity.keyHash, ownerToken });
