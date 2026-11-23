@@ -69,3 +69,10 @@ test('explicit hackathon display policy permits labeled synthetic inputs but sti
   }
   for (const source of ['mock-demo','offline-test-adapter','preview']) assert.throws(()=>assertProductionResponse({ok:true,source}, 'HACKATHON_DEMO'));
 });
+test('the local mock demo never tells the user Gemini read the sample order', async () => {
+  const workflow=await readFile(new URL('../src/ui/workflow.js',import.meta.url),'utf8');
+  const fill=workflow.slice(workflow.indexOf('async function fillDemoLot()'));
+  assert.match(fill,/demoStatus\(localSyntheticUI \? "Reading the sample order · Sample output, no model call…" : "Reading the order with Gemini…"\)/);
+  const local=workflow.slice(workflow.indexOf('if (localSyntheticUI) {'),workflow.indexOf('// The authentication adapter'));
+  assert.match(local,/"#evaluator-step-fill span"\)\.textContent = "Loads a sample order and fills the conditions and settings\. Sample output, no model call\."/);
+});

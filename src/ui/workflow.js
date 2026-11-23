@@ -81,6 +81,7 @@ async function configureSupervisorSession(status) {
       note.className = "provenance-pill"; note.textContent = "Local mock · not live Gemini or models · records reset on restart";
       document.getElementById("main-content").prepend(note);
     }
+    document.querySelector("#evaluator-step-fill span").textContent = "Loads a sample order and fills the conditions and settings. Sample output, no model call.";
     document.getElementById("supervisor-auth-status").textContent = "Local simulated approval only — no authenticated human or cloud persistence.";
     for (const id of ["supervisor-sign-in", "supervisor-sign-out", "supervisor-refresh-session"]) { const control = document.getElementById(id); if (control) control.hidden = true; }
     return;
@@ -1960,7 +1961,7 @@ async function fillDemoLot() {
   if (document.getElementById("review-order").disabled) throw new Error("Order reading is unavailable right now. Try again in a moment.");
   demoStatus("Loading the sample order…");
   await loadSampleOrder();
-  demoStatus("Reading the order with Gemini…");
+  demoStatus(localSyntheticUI ? "Reading the sample order · Sample output, no model call…" : "Reading the order with Gemini…");
   if (!(await extractAndReviewOrder(document.getElementById("review-order")))) throw new Error("The sample order could not be read. See the message under the order.");
   demoFilling = true;
   try {
