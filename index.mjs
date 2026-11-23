@@ -38,7 +38,7 @@ import { InMemoryIdempotencyStore } from "./src/job-idempotency.js";
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
 import { authorizeSupervisor } from "./src/commands/authorize.js";
 import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
-import { getStatus, impactSummary } from "./src/commands/status.js";
+import { getStatusWithBudget, impactSummary } from "./src/commands/status.js";
 import { liveActor } from "./src/commands/live-events.js";
 import { readOrder } from "./src/commands/read-order.js";
 import { planLot } from "./src/commands/plan-lot.js";
@@ -595,7 +595,13 @@ app.get("/api/auth/config", (c) => {
   }, 200, { "Cache-Control": "no-store" });
 });
 
-app.get("/api/status", (c) => c.json(getStatus({}, commandDeps)));
+app.get("/api/status", async (c) => {
+  // The session comes only from a verified demo cookie, never from the request body or query.
+  const session = hackathonAuth.configured ? hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo")) : undefined;
+  return c.json(await getStatusWithBudget({}, {
+    ...commandDeps, principal: session?.ok ? session.principal : undefined, signal: c.req.raw.signal,
+  }));
+});
 
 app.post("/orders/extract", async (c) => {
   const authorizationFailure = await requireSupervisor(c);

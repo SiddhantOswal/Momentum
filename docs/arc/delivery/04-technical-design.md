@@ -229,6 +229,7 @@ const BUDGET_COUNTER_SHAPE = {              // scope: [subject kind, window digi
   day: ["all", 8], session_day: ["session", 8], ip_day: ["ip", 8],
   minute: ["all", 12], session_minute: ["session", 12],
   mint_ip_hour: ["ip", 10], claim_ip_hour: ["ip", 10],
+  cost_day: ["all", 8],                     // ARC-M1-08: rupee spend, units in micro-rupees
 };
 const SUBJECT = { all: /^all$/, session: /^[a-f0-9]{32}$/, ip: /^[a-f0-9]{16}$/ };
 
@@ -613,7 +614,8 @@ reserve({ principal, ipKey, purpose, units = 1, reservationKey, evalSuite = null
     | { ok: true, reservationId, replayed: boolean, usedPitchReserve: boolean,
         remaining: { day, session, ip, minute }, reserveWindowActive: boolean }
     | { ok: false, code: "BUDGET_DAY_EXHAUSTED" | "BUDGET_SESSION_EXHAUSTED" | "BUDGET_IP_EXHAUSTED"
-          | "BUDGET_RATE_LIMITED" | "BUDGET_RESERVED_FOR_PITCH" | "BUDGET_UNAVAILABLE",
+          | "BUDGET_RATE_LIMITED" | "BUDGET_SESSION_RATE_LIMITED" | "BUDGET_RESERVED_FOR_PITCH"
+          | "BUDGET_COST_EXHAUSTED" | "BUDGET_WINDOW_BLOCKED" | "BUDGET_UNAVAILABLE",
         retryAfterSeconds?: number, remaining?: { day, session, ip, minute } }>
 
 /** peek: read-only, no write; for /api/status and the Arc cap-reached state (G2). */
@@ -624,7 +626,9 @@ peek({ principal, ipKey, signal }) => Promise<{ day, session, ip, minute, reserv
 - `reservationKey` is built as in 3.3. The same key returns `replayed: true` and counts nothing. A provider call that actually happens is always counted, because a re-run after a lease expiry has a new key.
 - One reservation is one transaction over the day, session-day, IP-day, minute and session-minute counters plus the reservation document: 6 writes.
 - `withDailyGeminiCallCap` keeps its role as the one wrapper around every Gemini call. Its `store` becomes an adapter whose `reserveAttempt` calls `reserve` with the `budget` context passed in the Gemini call arguments. Callers with no session (none today) are charged to the day and minute counters only.
-- Error mapping: `BUDGET_*_EXHAUSTED` and `BUDGET_RESERVED_FOR_PITCH` → 429 with the existing `GEMINI_DAILY_CAP_EXCEEDED` shape plus the new code, so current clients keep working. `BUDGET_UNAVAILABLE` → 503, no provider call.
+- Codes added in ARC-M1-08: `BUDGET_SESSION_RATE_LIMITED` is the session-minute limit, so each limit has its own code (`BUDGET_RATE_LIMITED` stays the global minute limit). `BUDGET_COST_EXHAUSTED` means the day's rupee spend has reached `dayCostCapInr` (founder decision F2: ₹600 for `live`, ₹200 for `eval`). `BUDGET_WINDOW_BLOCKED` means an eval reservation fell inside one of the pool's `blockedWindows`.
+- Rupee spend is kept on a `cost_day` counter (`<pool>_cost_day_all_<YYYYMMDD>`, units in micro-rupees). `reserve` reads it but does not write it. After each response, the wrapper prices `usageMetadata` with `config/gemini-prices.json` (ADR-0008 prices) and adds the cost to that counter. Calls still in flight when the cap is reached can take spend past it.
+- Error mapping: `BUDGET_*_EXHAUSTED`, `BUDGET_*RATE_LIMITED`, `BUDGET_RESERVED_FOR_PITCH` and `BUDGET_WINDOW_BLOCKED` → 429 with the existing `GEMINI_DAILY_CAP_EXCEEDED` shape plus the new code, so current clients keep working. `BUDGET_UNAVAILABLE` → 503, no provider call.
 - Limits come from one env var, `GEMINI_BUDGET_LIMITS` (JSON, validated with zod at start; invalid config blocks Gemini, as the current cap does). The flag `USTAAD_GEMINI_BUDGET_POLICY=budget-v2` only selects the store, so the two names stay distinct:
 
 ```json
