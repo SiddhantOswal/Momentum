@@ -467,7 +467,7 @@ export const WeatherObservationDocSchema = z.object({   // weather_observations/
 
 These settle SH-CR-1 to 6 in `reviews/M0-review.md`. This document is the source for the state contracts; `05-ai-design.md` and ADR-0007 are aligned to it by the AI architect.
 
-| # | Decision | Detail |
+| # | Decision | Sections |
 |---|---|---|
 | I1 | Every Arc route is under `/api/arc/*`: `POST /api/arc/turns`, `GET /api/arc/session`, `GET /api/arc/runs/:taskRunId`, `GET /api/arc/runs/:taskRunId/events` (server-sent events, resumed with `Last-Event-ID`) and `POST /api/arc/runs/:taskRunId/resume` | 1.3 |
 | I2 | The session ID comes only from the signed demo cookie. No Arc request body or query string carries `sessionId`; the strict request schemas reject one with 400 `VALIDATION_ERROR`. The turn body is `{ clientTurnId, input }` | 1.3, 2.5 |
@@ -652,13 +652,13 @@ Outside the reserve window, usable day units are `dayLimit - reserve.units`. Ins
 
 ```json
 { "pool": "eval",
-  "dayLimit": 350, "sessionDayLimit": 350, "ipDayLimit": 350, "minuteLimit": 10, "sessionMinuteLimit": 10,
+  "dayLimit": 900, "sessionDayLimit": 900, "ipDayLimit": 900, "minuteLimit": 10, "sessionMinuteLimit": 10,
   "blockedWindows": [{ "start": "2026-12-04T00:00:00+08:00", "end": "2026-12-04T23:59:59+08:00" }] }
 ```
 
-- One live gate run is about 283 attempts (`05-ai-design.md` section 7), so 350 leaves room for one rerun of a failed suite. `minuteLimit` 10 keeps eval traffic to half of the live per-minute limit, because both draw on the same Vertex AI per-minute quota (to be confirmed at 30 or more per minute in ADR-0008). `blockedWindows` copies the pitch reserve window, so no eval run calls Gemini during it.
+- The eval day limit is 900: one full live gate run (353 attempts, `05-ai-design.md` section 7.5), one full retry run (353), and the one-off M1 router comparison (about 130 router calls), 836 in total, plus a margin of 64 (about 8%) for estimate error. A day that needs more stops at the limit, and the remaining suites run on the next IST day. `minuteLimit` 10 keeps eval traffic to half of the live per-minute limit, because both draw on the same Vertex AI per-minute quota (to be confirmed at 30 or more per minute in ADR-0008). `blockedWindows` copies the pitch reserve window, so no eval run calls Gemini during it.
 - Every eval reservation must carry `evalSuite` (schema in 2.4), and is logged as `arc_budget_reserve` with pool, suite, purpose, units and remaining day units. The gate report lists attempts per suite from a read-only query on `budget_reservations` (`pool == "eval"` and `dayWindow == <date>`, equality filters only, so no composite index).
-- Cost: about $1.09 for a typical gate run, and at most about $29 a day at the worst single-call cost of $0.084 (estimates, `05-ai-design.md` sections 3 and 7).
+- Cost: about $1.38 for a typical gate run, about $3.80 for a full eval day with typical calls, and at most about $76 a day at the worst single-call cost of $0.084 (estimates, `05-ai-design.md` sections 3 and 7.5).
 
 ### 5.3 Caching
 
@@ -709,7 +709,7 @@ The Cloud Run, Firestore, BigQuery and Secret Manager prices below are NOT VERIF
 | BigQuery | at most about 300 MiB billed per lot (predict, optimize at 90 MiB, similar runs, explanation) × 40 = about 12 GiB | about $0.07 (₹7) at $6.25 per TiB; inside the 1 TiB monthly free tier (both NOT VERIFIED) |
 | Weather API | at most 144 calls (10-minute shared cache) | to confirm in Maps Platform pricing; small |
 | Gemini, live pool | (2 or 3 per lot) + (1 or 2 per typed turn) attempts | about $0.035 to $0.07 per J1 lot (`05-ai-design.md` section 3, estimate); capped by `dayLimit` |
-| Gemini, eval pool, gate days only | about 283 attempts per gate run | about $1.09 per run (estimate); capped at 350 attempts |
+| Gemini, eval pool, gate days only | about 353 attempts per gate run | about $1.38 per run (estimate); capped at 900 attempts |
 
 Total for the period excluding Gemini: 9 rehearsal days × (₹42 + ₹7) + 2 demo days × (₹84 + ₹7) ≈ ₹441 + ₹182 = **about ₹620**. The ₹5,000 budget alert is not a cap (C11).
 
@@ -786,7 +786,7 @@ Proposed:
 ## 9. Founder decisions this design needs
 
 - **F1. `prepagent` and the shared counter (E7).** Options: (a) move `momentum` to `budget-v2` and leave `prepagent` on its own 100-attempt day counter, no longer shared; (b) turn Gemini off on `prepagent` until after 4 December; (c) set both to the same cap now. Recommendation: (b) if nobody needs `prepagent` for the finals, otherwise (a). Until one of these is done, using `prepagent` first on a day blocks `momentum`'s Gemini calls for that day.
-- **F2. Budget numbers and the pitch reserve.** Proposed: day 300, session 40 per day, 120 per IP address per day (shared by everyone behind one venue address), 20 per minute global, 6 per minute per session, 30 new demo sessions per IP address per hour (judges at the venue may share one address, so this is set above the expected booth traffic), and 80 reserved on 4 December for sessions holding the pitch grant (120 per day for such a session). Eval pool: 350 a day, 10 per minute, blocked on 4 December. Confirm the numbers and the pitch slot time.
+- **F2. Budget numbers and the pitch reserve.** Proposed: day 300, session 40 per day, 120 per IP address per day (shared by everyone behind one venue address), 20 per minute global, 6 per minute per session, 30 new demo sessions per IP address per hour (judges at the venue may share one address, so this is set above the expected booth traffic), and 80 reserved on 4 December for sessions holding the pitch claim (120 per day for such a session). Eval pool: 900 a day, 10 per minute, blocked on 4 December. Confirm the numbers and the pitch slot time.
 - **F3. Demo-day scaling and cost.** Min 1 from now to 2 December, min 2 on 3 and 4 December, max 6; about ₹620 for the period before Gemini. Approve?
 - **F4. Billing credits.** A founder checks in the console that credits cover Vertex AI and Cloud Run.
 - **F5. Old drafts.** With the approve guard on, the 4 existing DRAFT rows become read-only. Acceptable?

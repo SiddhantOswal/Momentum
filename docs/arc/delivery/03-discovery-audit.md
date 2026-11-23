@@ -29,7 +29,7 @@ NOT RUN: Playwright (`npm run test:ui`), `web` build (`npm run build` in `web/`)
 | Item | Value | Evidence |
 |---|---|---|
 | Server | Node, Hono 4 on `@hono/node-server`, zod 4, pdfkit, firebase-admin | `package.json` dependencies |
-| Node version | `engines >=20.10.0`; container is `node:22-slim`; the test baseline was measured on Node 26.13.1, and Node 22 is not installed on the audit machine | `package.json`, `Dockerfile:1` |
+| Node version | `engines >=20.10.0`; container is `node:22-slim`; the original audit ran on Node 22.17.1; the gate baseline was measured on Node 26.13.1, the only version on the gate reviewer's machine | `package.json`, `Dockerfile:1` |
 | Entry | `index.mjs` (1,628 lines), `npm start` | `package.json` `start` |
 | Adapters | `src/service-ports.js` builds every Google Cloud adapter from env flags at import time (`servicePorts`, line 576) | `src/service-ports.js:427-576` |
 | Old UI | Server-rendered HTML at `/` (`src/operator-ui.js`, modules in `src/ui/*.js` served from `/ui/:filename`) | `index.mjs:416-422, 556` |
@@ -124,7 +124,7 @@ Five routes can spend Gemini attempts: `/orders/extract`, `/jobs`, `/risk/explan
 | `npm run test:ui` (Playwright) | `test/browser/{dashboard,frontend,local-backup}.spec.js` | NOT RUN |
 
 - Failing test in both runs: `test/job-draft-persistence.test.js:508` "completed request replay retains the durable APPROVED lifecycle and audit". The v2 PDF lists it as a known failure that also fails on `main`.
-- An earlier run on Node 22.17.1 reported 599 tests, 597 pass, 1 fail and 1 cancelled (`test/weather-service.test.js`, "weather provider times out to unavailable instead of hanging"). That figure is NOT VERIFIED: Node 22 is not installed on the audit machine, and on Node 26.13.1 no test was cancelled. ARC-M1-13 pins Node 22 and must reproduce the cancellation before any fix.
+- An earlier run on Node 22.17.1 reported 599 tests, 597 pass, 1 fail and 1 cancelled (`test/weather-service.test.js`, "weather provider times out to unavailable instead of hanging"). The original audit did run on Node 22.17.1, but the gate reviewer's machine has only Node 26.13.1, so that figure is NOT VERIFIED; on Node 26.13.1 no test was cancelled. The v2 figure of 588 was measured on `arc/main` with `test/quality-rules.test.js` excluded. That is equivalent to v2 only because M0 changed no app or test code. ARC-M1-13 pins Node 22 and must reproduce the cancellation before any fix.
 - On `origin/v2`, 43 test files are outside `test:acceptance`, including `firestore-idempotency-store`, `trace-registry`, `trace-routes`, `request-guardrails`, `live-store`, `condition-guard`, `defect-diagnosis-service`, `gemini-function-runner` and `schemas`. `arc/main` adds `quality-rules`, also outside it.
 - All three Playwright specs target the old UI at `/` (`frontend.spec.js:421,435`, `dashboard.spec.js:26,155-160`). No browser test covers `/app`. The Playwright server runs with every cloud flag off (`playwright.config.js:8`).
 - `test/quality-rules.test.js` was untracked on `arc/m0-discovery` when this audit ran; it is committed on `arc/main`.

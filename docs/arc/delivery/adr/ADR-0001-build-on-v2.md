@@ -3,7 +3,7 @@
 Status: Proposed
 Date: 2026-11-22
 Author role: solutions architect
-Branch: `arc/m0-discovery`
+Original branch: `arc/m0-discovery` (now on `arc/main`)
 
 ## Context
 
@@ -54,7 +54,7 @@ Build Arc on v2. Do not add a Python service, and do not run the Codex backend. 
 | 6 | Eval case content (12 maintenance-safety cases) and `benchmark_catalog.py` | DROP | Wrong domain; the catalog is a written spec with no executable cases |
 | 7 | CI job that runs the offline evals on every push (`ai-benchmark.yml`) | REWORK | Add an offline eval step to v2's existing `quality.yml`; no second workflow |
 | 8 | Mock provider that walks the same tool list as the live model | KEEP | v2 already follows this in `src/mock-agents.js`; extend it to Arc's tools so the evals need no Gemini attempts |
-| 9 | Regex prompt-injection tripwire and NFKC text normalization | REWORK | Useful only as a logged signal on PO text; the real control is structural (no approve tool, PO text treated as data; spec 3.3, 3.4) |
+| 9 | Regex prompt-injection tripwire and NFKC text normalisation | REWORK | Useful only as a logged signal on PO text; the real control is structural (no approve tool, PO text treated as data; spec 3.3, 3.4) |
 | 10 | Multilingual prohibited-phrase list (`safety_gate.py`) | DROP | Machine-safety phrases for maintenance work; Arc's scope rule is enforced by intent routing and tool absence |
 | 11 | Per-turn tool trace with status, summary and source IDs | REWORK | v2 has `trace-registry.js` in memory; move it to Firestore under the state ADR, keeping v2's record shape |
 | 12 | Metric carries a label and its formula (`impact_model.py`) | REWORK | Same idea as provenance labels in spec section 5; add a label field to Arc-facing responses. The maintenance savings model itself is dropped |
