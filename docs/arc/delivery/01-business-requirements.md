@@ -1,10 +1,12 @@
 # 01. Business requirements: Arc by Momentum
 
-Status: draft for founder review. Author role: business analyst. Date: 2026-11-22. Branch: `arc/m0-discovery`.
+Status: approved by the founders with the plan on 2026-11-23. Still open: every baseline in section 4 is NOT MEASURED, and the O2 time target is set after the first measured run; Om's sign-offs on the PKBX0041 re-run, the 7.3% example and the weather stand-in (`00-plan.md` D1); and the disagreements in section 8, each with its owner. Author role: business analyst. Date: 2026-11-22. Branch: `arc/m0-discovery`.
 
 Each statement names its source. "Assumption" marks anything not yet backed by evidence, and each one needs a founder decision (section 7). No targets in this document have been measured yet.
 
 Amended 2026-11-23 for ticket ARC-M0-06 (product manager): O10 and constraint C8 follow founder decisions A3 and A6 and the raised cap on `momentum`. Q1 to Q6 in section 7 were answered on 2026-11-22; the answers are in `02-product-spec.md` section 9.
+
+Amended 2026-11-23 for the M0 gate repair (`reviews/M0-review.md`): C9 and R2 follow the live `momentum-00023-yaz` limits; section 4 records the signed thresholds (A5) and labels the holdout figure as a model estimate; section 2 no longer describes the live auth settings.
 
 ## 1. Business need
 
