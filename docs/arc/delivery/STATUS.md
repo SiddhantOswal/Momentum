@@ -50,7 +50,7 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 ## Open founder questions
 
 Asked only when a ticket needs them.
-- F2: confirm that the ₹10,000 budget is in rupees, and the time of the pitch slot. The proposed rupee caps (about ₹600 a day for Momentum, ₹200 a day for evals) await confirmation.
+- F2 remaining: the pitch slot time. Until it is known, the 80-attempt pitch reserve covers all of 4 December (SGT).
 - F4: whether Billing credits cover Vertex AI and Cloud Run (console check). Blocks the first cost-bearing cloud change.
 - D1: Om's sign-offs (ARC-M0-04). D2: where `sid_pack.zip` is. D5: Phase B dates and plant profile.
 
@@ -99,3 +99,4 @@ Asked only when a ticket needs them.
 | 2026-11-23 | `ArcEventDocSchema` requires `waitingFor` exactly on `step.waiting_for_user` events | `04` section 2.6 and I6 say the event carries the same `waitingFor` | Tech lead |
 | 2026-11-23 | F1: the old `prepagent` Cloud Run service stays on, unchanged. ARC-M1-08 moves `momentum` to its own budget counters (`budget_counters`), so the shared `gemini_daily_usage` document can no longer lock Momentum out. No interim change to `prepagent` unless the founders ask | People may still open the older service; the submitted product is Momentum on the `momentum` service | Founders |
 | 2026-11-23 | F2 (partial): Google Cloud credits total 25,000; the founders set aside 10,000 for this build. Currency to confirm; read as INR, matching the existing ₹5,000 alert | The worst-case cost on call-count limits (about ₹1.2 lakh over 13 days) is above 10,000, so ARC-M1-08 adds rupee caps from Gemini `usageMetadata`, and ARC-M8-02 adds a ₹10,000 billing budget with alerts at 50%, 90% and 100% | Founders; delivery lead proposal |
+| 2026-11-23 | F2: the budget is ₹10,000 (INR) out of 25,000 in credits. Gemini stops for the day at about ₹600 on `momentum` and about ₹200 on the eval counter, alongside the attempt limits. The project gets a ₹10,000 billing budget with alerts at 50%, 90% and 100% (ARC-M8-02). The pitch reserve of 80 attempts covers all of 4 Dec SGT until the slot time is known | Typical spend about ₹9,000 to 5 Dec; rupee caps keep the worst case under ₹10,000 | Founders |
