@@ -228,6 +228,7 @@ test("a run whose event write failed before the owner was known gets an incomple
   const tool = durable.registry.startTool(runId, "extractOrder");
   durable.registry.finishTool(runId, tool.toolCallId, "succeeded");
   durable.registry.finishRun(runId, "completed");
+  await durable.flush(runId);
   await durable.claimOwner(runId, OWNER);
 
   assert.deepEqual(store.heads, [{
