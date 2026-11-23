@@ -108,6 +108,15 @@ test("a stored document that fails its schema is SERVICE_UNAVAILABLE, not absent
   );
 });
 
+test("an invalid stored timestamp is SERVICE_UNAVAILABLE even when the schema accepts any string", () => {
+  // A loose schema, so only the timestamp codec can catch the bad value.
+  const schema = z.object({ expiresAt: z.string() }).strict();
+  for (const timestampValue of ["soon", "2026-12-04", ""]) {
+    assert.throws(() => parseDocument(schema, { fields: { expiresAt: { timestampValue } } }), (error) =>
+      error instanceof FirestoreRestError && error.code === "SERVICE_UNAVAILABLE");
+  }
+});
+
 test("preconditions pin the read version or require absence", () => {
   assert.deepEqual(currentDocumentPrecondition(null), { exists: false });
   assert.deepEqual(currentDocumentPrecondition("2026-10-15T00:00:01.000000Z"), { updateTime: "2026-10-15T00:00:01.000000Z" });
