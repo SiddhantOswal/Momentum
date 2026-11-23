@@ -36,11 +36,15 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - ARC-M1-06 merged (`6f2255c`): PO reviews in Firestore behind `USTAAD_ENABLE_DURABLE_PO_REVIEWS` (exact "true"). QA PASS: 8 of 8 mutations caught, fails closed to `SERVICE_UNAVAILABLE`, `po_reviews` TTL ACTIVE. Deviation noted: `createdAt` uses the app clock, not server time (`04` 2.1); harmless because expiry is checked in code. Live Firestore NOT RUN.
 - TTL policies: all 13 now ACTIVE (QA read-back).
 - Test runs: test processes left over from the usage-limit pause hung later `npm test` runs. After they were stopped, `npm test` on `arc/main` gives 650 of 650 in about 10 s. Practice from now on: stop stale `node --test` processes before a run.
+- ARC-M1-09 merged (`98b8ca1`): on Cloud Run the rate limit keys on the trusted `X-Forwarded-For` hop; the per-IP limit is 300 a minute (planned assertion change under `04` 5.4) plus 60 a minute per signed demo session; a forged cookie gets no session bucket. QA PASS (6 of 6 key mutations caught). The two-network live check is NOT RUN; it needs a deployed revision.
+- ARC-M1-12 and ARC-M1-14 merged (`723ce7a`): every Gemini call sends explicit `safetySettings` (four categories, `BLOCK_MEDIUM_AND_ABOVE`, `method: PROBABILITY`), `thinkingConfig` and a configured `toolConfig`; blocked results map to `GEMINI_SAFETY_BLOCKED`. Settings are in `config/arc-models.json`; prompts are in `prompts/` with versions. QA PASS: 12 of 12 mutations caught, prompts byte-identical, and the 3 live calls confirmed in Cloud Monitoring.
+- `npm test` on `arc/main` `723ce7a`: 694 tests, 694 pass, 0 fail.
 
 ## In progress
 
-- Running in parallel: ARC-M1-03 (fingerprint and optimizer default), ARC-M1-06 (durable PO reviews), ARC-M1-07 (durable traces), ARC-M1-09 (rate-limit key), ARC-M1-18 (PDF labels), ARC-M1-12 and ARC-M1-14 (Gemini request and safety settings, with 2 to 4 live smoke calls under $0.01).
-- CI "Unit tests" is expected to fail on `arc/main` until ARC-M1-11 lands (`test/job-draft-persistence.test.js:508`). No CI run exists yet; nothing has been pushed.
+- Building: ARC-M1-05 (durable idempotency for `/jobs`), ARC-M1-08 (Gemini budget with ₹600 and ₹200 daily caps), ARC-M1-19 (mock output labelled as Gemini), ARC-M1-20 (unknown currency on approve).
+- In QA: ARC-M1-18 (PDF labels). Rebasing: ARC-M1-07 (durable traces, shared Firestore fake with M1-06).
+- After these: ARC-M1-17 (session issuance and pitch claim), ARC-M1-10 (lot revisions and approve guard), ARC-M1-16, ARC-M1-21, ARC-SETUP-02 (asks the founders before editing `scripts/quality/`), ARC-M1-13 (needs Node 22), then the M1 gate.
 
 ## Blocked
 
