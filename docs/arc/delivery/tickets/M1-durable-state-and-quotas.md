@@ -155,3 +155,9 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - Depends on: M1-21 for the explanation source. Owner: backend engineer; frontend engineer for the web labels.
 - Test plan: the four tests above, each shown failing first.
 
+### ARC-M1-24 Trace head write failure leaves a silent gap (P1, before Arc task runs use durable traces)
+- Goal: ARC-M1-07 marks a trace head `incomplete` when an event write fails. If the head write fails as well, a second instance still sees 404 TRACE_NOT_FOUND (owner claimed after the run) or a stream that ends silently at `maxStreamMs` (owner claimed mid-run).
+- AC: a reader on another instance always gets an explicit state for a run whose head write failed. Options: retry the head write with a bound, or derive the state from the last stored event and the head's age. Pick one in the design and cover it with a test that fails without it.
+- Depends on: M1-07. Owner: backend engineer.
+- Test plan: fail both the event write and the head write, and read from a second instance.
+
