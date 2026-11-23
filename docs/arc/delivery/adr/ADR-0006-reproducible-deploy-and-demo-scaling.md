@@ -1,7 +1,7 @@
 # ADR-0006: Reproducible deploy and demo-day scaling
 
 Status: Proposed
-Date: 2026-11-23
+Date: 2026-11-23 (amended the same day for the M0 gate, round 1)
 Author role: solutions architect
 Branch: `arc/m0-discovery`
 Design: `04-technical-design.md` sections 5.6, 5.7 and 7
@@ -21,16 +21,16 @@ Design: `04-technical-design.md` sections 5.6, 5.7 and 7
 3. **`ops/deploy/deploy.sh <tag>`.** It refuses a dirty tree and builds with Cloud Build, tagging the image with the commit SHA in the existing Artifact Registry repository. It then runs `gcloud run deploy momentum --no-traffic --tag <tag>` with the checked-in config, runs the preflight on the tagged URL and writes the output to `docs/arc/delivery/changes/`. It stops there. It never moves traffic.
 4. **Preflight additions.** `/app/` returns 200, idempotency scope is `shared-firestore`, the budget policy parses and `peek` works, the guard and flag state are printed, the optimizer byte setting is printed, the duplicate `job_id` check passes, and today's budget counters are shown.
 5. **Traffic.** After the release gate, move traffic manually with `gcloud run services update-traffic momentum --to-revisions <new>=100`. The previous revision keeps a `prev-<date>` tag and is not deleted. Rollback: `update-traffic --to-revisions <previous>=100`.
-6. **Demo scaling.** Now to 2 December: min 1, max 6. 3 and 4 December: min 2, max 6. From 5 December: min 0, max 4. Turn on startup CPU boost and lower the service-level max from 12 to 6. Each change is one deploy through the script, with a change record.
+6. **Demo scaling.** Now to 2 December: min 1, max 6. 3 and 4 December: min 2, max 6. From 5 December: min 0, max 4. Turn on startup CPU boost and set the service-level max to 6. Each change is one deploy through the script, with a change record.
 
 ## Consequences
 
 - Any commit can be rebuilt into the same image, including `/app`. The live config is reviewable in git, and drift is visible.
-- **Cost per day** (list prices to confirm in the pricing calculator, ₹96.7 per USD from `src/fx-fallback.json`): an idle min instance costs about ₹42 a day, and two cost about ₹84. Active request time at demo load stays under about ₹10 a day. About ₹620 for 24 November to 4 December, before Gemini. Startup CPU boost adds CPU cost only during start-up.
+- **Cost per day** (prices NOT VERIFIED: no pricing page or calculator was read; they must be checked in the Google Cloud pricing calculator before the release gate. ₹96.7 per USD from `src/fx-fallback.json`): an idle min instance costs about ₹42 a day, and two cost about ₹84. Active request time at demo load stays under about ₹10 a day. About ₹620 for 24 November to 4 December, before Gemini. Startup CPU boost adds CPU cost only during start-up.
 - **Billing credits:** a founder must confirm in the console that credits cover Cloud Run and Vertex AI. The CLI cannot show credit scope.
 - **Failure modes:** a failed build or preflight leaves the live revision untouched, because the new revision has no traffic. A bad config file is caught by the diff and the preflight. If Artifact Registry or Cloud Build is unavailable, nothing deploys and the live revision keeps serving.
 - The deploy script needs the deployer's gcloud identity with run and build permissions. It prints no secrets, and the env file contains none.
-- Cloud Build source archives (about 1.17 GB in `prepagent-hack_cloudbuild`, US) keep growing. A lifecycle rule is a separate change.
+- Cloud Build source archives (1,167,178,518 bytes, about 1.09 GiB, in `prepagent-hack_cloudbuild`, US; `gcloud storage du -s` on 2026-11-23) keep growing. A lifecycle rule is a separate change.
 - **Rollback:** traffic back to the tagged previous revision, which takes seconds. Scaling reverts by deploying the earlier flags file.
 
 ## Alternatives rejected

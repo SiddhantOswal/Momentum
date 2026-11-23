@@ -12,7 +12,7 @@ Design: `04-technical-design.md` sections 1.5, 2.7 and 4
 - `POST /jobs/:id/approve` takes only the job ID (`index.mjs:1228`). Any DRAFT in the demo session can be approved, including one made out of date by an input change (C16). The checkbox exists only in the React client (`Lots.tsx`); the old dashboard has none (C9, Q9).
 - "Next for you", J3 ("what is the moisture today") and conditions in progress have nowhere to live before `POST /jobs` (C17, data audit P2).
 - Arc must not be able to approve (CLAUDE.md section 4; O4). Approval stays a demo-session approval labelled simulated.
-- V5 asks for approval bound to an exact revision and for superseded cards to stay non-approvable. The founder brief keeps the checkbox plus Approve inside Arc and a demo session as identity. This ADR follows the brief.
+- V5 asks for approval bound to an exact revision and for superseded drafts to stay non-approvable. The founder brief keeps the checkbox plus Approve inside Arc and a demo session as identity. This ADR follows the brief.
 
 ## Decision
 
