@@ -63,7 +63,7 @@ No baselines have been measured. The founders signed the eval thresholds behind 
   - Inputs used: RH 86%, temperature 26 °C, paper moisture 10.8%.
   - Caveat: the figure was produced with the old `m_*` models. The app now uses the `m2_*` models (D4-2026-11-20-OM), and the case has not been re-run on them. It must be re-run before Arc shows it (see section 8).
 - **September 2026 holdout, 219 lots.**
-  - Net saving ₹7,934, board saved 149 kg, scrap rate 7.06% to 6.36%, 3 lots made worse.
+  - Model estimate: scrap cost reduction ₹7,934 net, 149 kg less board, scrap rate 7.06% to 6.36%, 3 lots made worse.
   - Source: `docs/evidence/impact-v2.json`.
   - Label: predicted on one held-out month, scored with the plant rules on modelled history. Not annualised and not measured.
 - **Model R² on the September holdout:** WARP 0.468, DELAM 0.519, STRENGTH 0.388, PRINT 0.640, CRACK 0.108.

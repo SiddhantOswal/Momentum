@@ -224,6 +224,7 @@ Acceptance criteria:
 - AC1.21 Given two Cloud Run instances and a test that sends `POST /orders/extract` and `POST /jobs` to different instances, then `POST /jobs` finds the review and completes without a second extraction attempt (S13).
 - AC1.12 Given step 13, when the PDF check fails, then the receipt shows "Card checked" as failed, not done.
 - AC1.13 Given the receipt, then it shows "This approval came from a demo session. It is simulated." and "Production has not started. No machine was changed."
+- AC1.22 (O8) Given an approved job card PDF from either route, then the heading of the estimate section reads "Model estimate: scrap reduction against the entered plan", and the PDF text does not contain "Savings estimate". Today `src/job-sheet-pdf.js` prints "Savings estimate (not observed)", so this criterion fails until the PDF is changed.
 
 ### J2. Data question answered with a chart: "How far can I trust the five models?"
 
@@ -277,7 +278,7 @@ Acceptance criteria:
 
 Replacement rows (the design's rows are stale, C1 and C3):
 
-- "September holdout, 219 lots: modeled net saving ₹7,934" from `docs/evidence/impact-v2.json`, label "Modeled, one held-out month". The architect confirms `GET /impact/summary` returns the same figure; if not, the row is not shown.
+- "Model estimate: scrap cost reduction across 219 September holdout lots, ₹7,934 net" from `docs/evidence/impact-v2.json`, chip "Model estimate", sentence "Modeled, one held-out month. Not a measured saving." The architect confirms `GET /impact/summary` returns the same figure; if not, the row is not shown.
 - "Model scores: 5 of 5 higher than the models they replaced" from `config/model-acceptance.json`, label "Held-out test".
 - The PKBX0041 row is not shown. It returns only when the data engineer's `m2_*` re-run (Q6, approved) has a stored result with its job ID, date and inputs, and the compliance reviewer has checked it.
 
@@ -519,7 +520,7 @@ Spelling: "modeled" (one l), as in the designs. The requirements document uses "
 |---|---|---|---|---|
 | Model R², September holdout | 0.468, 0.519, 0.388, 0.640, 0.108 | `config/model-acceptance.json` | Modeled, tested on 219 lots | Usable |
 | Replaced models' R² on the same lots | 0.402, 0.500, 0.297, 0.610, −0.014 | Same file, `replaces` | Held-out test | Usable only as "replaced model", never as current |
-| September holdout impact | ₹7,934 net, 149 kg board, 7.06% → 6.36% scrap, 3 lots worse | `docs/evidence/impact-v2.json` | Modeled, one held-out month | Usable; not annualised |
+| September holdout impact | Scrap cost reduction ₹7,934 net, 149 kg less board, 7.06% → 6.36% scrap, 3 lots worse | `docs/evidence/impact-v2.json` | Chip "Model estimate"; sentence "Modeled, one held-out month. Not a measured saving." | Usable; not annualised; never called a saving |
 | Photo check | 7 of 10 | README | Small check, not an inspection | Usable |
 | PKBX0041 reference case | 100.4 → 83.0 kg, ₹925 | README, `sql/optimize.sql` comment, 2026-10-15, `m_*` models | Model estimate | **Stale. Not shown anywhere.** The `m2_*` re-run is approved and in progress (Q6); the new result replaces this row only once it is stored and reviewed |
 | "8,640 combinations" | 8,640 | No source found in `src/` or `sql/` | None | **Not usable** until the optimizer returns the count (C12) |
@@ -656,7 +657,7 @@ Answered on 2026-11-23 (STATUS decision log; `00-plan.md` section 8). None is pe
 | O5 | AC4.3, AC5.1 |
 | O6 | AC4.1, AC4.2, AC10.7, AC11.6 |
 | O7 | AC1.7, AC1.14, AC1.19, AC2.1, AC2.6, AC3.3, AC6.2, AC7.2, AC8.3, AC10.1, AC11.2 |
-| O8 | AC1.8, AC1.18, AC1.19, AC6.3, AC2.2, AC3.1, AC3.2, AC4.4, AC6.1, AC7.1, AC8.4, AC9.2, AC10.3 |
+| O8 | AC1.8, AC1.18, AC1.19, AC1.22, AC6.3, AC2.2, AC3.1, AC3.2, AC4.4, AC6.1, AC7.1, AC8.4, AC9.2, AC10.3 |
 | O9 | AC1.9, AC1.20, AC6.7 |
 | O10 | AC1.10, AC2.5, AC6.4, AC6.5, AC6.8, AC7.4, AC10.2, AC11.2, AC11.3 |
 
