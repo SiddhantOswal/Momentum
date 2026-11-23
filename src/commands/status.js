@@ -1,4 +1,5 @@
 import { readDailyGeminiCallCapConfig } from "../daily-gemini-call-cap.js";
+import { readGeminiBudgetConfig } from "../gemini-budget-config.js";
 import { getModelAcceptanceSummary, isModelSetAccepted } from "../model-acceptance.js";
 import { SUPPORTED_CURRENCIES, SUPPORTED_LANGUAGES } from "../schemas.js";
 import { getJobLifecycleAvailability } from "../service-ports.js";
@@ -80,6 +81,9 @@ export function getStatus(_input, {
     (!env.K_SERVICE || servicePorts.geminiUsage.sharedCounterConfigured) &&
     (servicePorts.availability.extractOrder || servicePorts.availability.explainRisk);
   const globalGeminiCapEnforced = liveModelCallsEnabled && servicePorts.geminiUsage.sharedCounterConfigured;
+  const budgetPolicy = servicePorts.geminiUsage.policy;
+  // Under budget-v2 the enforced day limit comes from GEMINI_BUDGET_LIMITS, not GEMINI_DAILY_ATTEMPT_CAP.
+  const budgetLimits = budgetPolicy ? readGeminiBudgetConfig(env).limits : undefined;
   return {
     ok: true,
     app: "Momentum",
@@ -102,8 +106,9 @@ export function getStatus(_input, {
         scope: servicePorts.geminiUsage.sharedCounterConfigured ? "shared-firestore-transaction" : geminiCapConfig.scope,
         globalScopeEnforced: globalGeminiCapEnforced,
         ...(servicePorts.geminiUsage.sharedCounterConfigured ? { liveConnectivityVerified: false } : {}),
+        ...(budgetPolicy ? { policy: budgetPolicy } : {}),
         ...(geminiCapConfig.configured ? {
-          limit: geminiCapConfig.limit,
+          limit: budgetLimits?.dayLimit ?? geminiCapConfig.limit,
           timeZone: geminiCapConfig.timeZone,
           countingPolicy: geminiCapConfig.countingPolicy,
           reset: "midnight-in-configured-time-zone",
@@ -158,4 +163,29 @@ export function getStatus(_input, {
       "The local PDF renderer does not create job records or upload files.",
     ],
   };
+}
+
+/**
+ * The status command plus what remains of the Gemini budget for the caller,
+ * read without writing (design 5.2 `peek`). Without budget-v2 it returns the
+ * status command's result unchanged.
+ */
+export async function getStatusWithBudget(input, deps) {
+  const status = getStatus(input, deps);
+  const usage = deps.servicePorts.geminiUsage;
+  if (!usage.policy) return status;
+  let geminiBudget = {
+    policy: usage.policy,
+    configured: usage.sharedCounterConfigured === true,
+    status: usage.budgetStatus,
+    available: false,
+  };
+  if (typeof usage.peek === "function") {
+    const view = await usage.peek({ principal: deps.principal, signal: deps.signal });
+    if (view.ok) {
+      const { ok: _ok, pool, reserveWindowActive, limits, ...remaining } = view;
+      geminiBudget = { ...geminiBudget, available: true, pool, remaining, limits, reserveWindowActive };
+    }
+  }
+  return { ...status, runtimeAvailability: { ...status.runtimeAvailability, geminiBudget } };
 }
