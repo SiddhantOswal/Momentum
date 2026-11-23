@@ -47,6 +47,8 @@ import { liveActor } from "./src/commands/live-events.js";
 import { readOrder } from "./src/commands/read-order.js";
 import { planLot } from "./src/commands/plan-lot.js";
 import { getJob } from "./src/commands/get-job.js";
+import { getLot } from "./src/commands/get-lot.js";
+import { updateLotConditions } from "./src/commands/update-conditions.js";
 import { approveJob } from "./src/commands/approve-job.js";
 import { getCard } from "./src/commands/get-card.js";
 import { createWeatherCache, readWeather } from "./src/commands/read-weather.js";
@@ -191,6 +193,7 @@ app.use("/fx", apiRateLimit);
 app.use("/risk/*", apiRateLimit);
 app.use("/jobs", apiRateLimit);
 app.use("/jobs/*", apiRateLimit);
+app.use("/lots/*", apiRateLimit);
 app.use("/job-sheets/*", apiRateLimit);
 app.use("/insights/*", apiRateLimit);
 app.use("/impact/*", apiRateLimit);
@@ -272,6 +275,7 @@ const commandDeps = Object.freeze({
   isSameOrigin,
   env: process.env,
   servicePorts,
+  lotRevisions: servicePorts.lotRevisions,
   approvalAuthorizationConfigured,
   jobSheetPersistenceAvailable,
   jobCreationAvailable,
@@ -915,6 +919,20 @@ app.get("/jobs/:id", async (c) => {
   return commandResponse(c, await getJob({ jobId: c.req.param("id") }, commandContext(c)));
 });
 
+app.get("/lots/:lotId", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  return commandResponse(c, await getLot({ lotId: c.req.param("lotId") }, commandContext(c)));
+});
+
+app.put("/lots/:lotId/conditions", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  const request = await readJsonBody(c);
+  if (!request.ok) return request.response;
+  return commandResponse(c, await updateLotConditions({ lotId: c.req.param("lotId"), body: request.body }, commandContext(c)));
+});
+
 app.post("/jobs/:id/approve", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
@@ -922,6 +940,8 @@ app.post("/jobs/:id/approve", async (c) => {
     jobId: c.req.param("id"),
     lang: c.req.query("lang"),
     currency: c.req.query("currency"),
+    // Read only by the approve guard; with the guard off the body stays ignored, as before.
+    body: await c.req.json().catch(() => undefined),
   }, commandContext(c)));
 });
 

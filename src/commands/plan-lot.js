@@ -1,4 +1,4 @@
-import { demoJobIdentity } from "../hackathon-demo-auth.js";
+import { demoJobIdentity, demoOwnsLot, isDemoPrincipal } from "../hackathon-demo-auth.js";
 import { createJobRequestIdentity } from "../job-idempotency.js";
 import {
   LeversSchema,
@@ -6,9 +6,82 @@ import {
   OperatorItemConfirmationSchema,
   OrderOperatorFieldsSchema,
 } from "../schemas.js";
+import { revisionFingerprint } from "../revision-fingerprint.js";
+import { LotIdSchema } from "../state-schemas.js";
 import { liveActor, liveLot } from "./live-events.js";
+import { lotFailure, lotStoreFailure } from "./lot-access.js";
 import { readPurchaseOrderUpload } from "./purchase-order-upload.js";
-import { validationFailure } from "./validation.js";
+import { validateWith, validationFailure } from "./validation.js";
+
+const CONDITION_UNITS = [
+  ["runDate", "date"], ["shift", "shift"], ["ambientRhPct", "% RH"], ["ambientTempC", "°C"], ["paperMoisturePct", "%"],
+];
+
+// The request already carried these values and a supervisor confirmed them, so they are frozen as confirmed.
+function frozenConditions(manualConditions) {
+  return CONDITION_UNITS
+    .filter(([field]) => manualConditions[field] !== undefined && manualConditions[field] !== null)
+    .map(([field, unit]) => ({
+      field, value: manualConditions[field], unit, provenance: "operator_entry", sourceDetail: "confirmed",
+      label: "Confirmed by operator", confirmed: true, enteredByRole: "Supervisor session",
+    }));
+}
+
+/**
+ * Registers the PENDING revision before planning (design 3.2, step 4). Without
+ * an explicit lot ID the lot is derived from the request, so every plan has a
+ * revision for the approve guard to check.
+ */
+async function registerRevision({ lotId: requestedLotId, identity, conditions, principal, lotRevisions, signal }) {
+  const lotId = requestedLotId ?? `LOT-HACK-${principal.sessionId}-${identity.keyHash.slice(0, 12)}`;
+  if (!demoOwnsLot(principal, lotId)) {
+    return lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
+  }
+  try {
+    const registered = await lotRevisions.store.registerPending({
+      lotId, ownerSessionId: principal.sessionId, jobId: identity.jobId,
+      requestFingerprint: identity.fingerprint, conditions, signal,
+    });
+    if (registered.ok) return { ok: true, lotId, registered };
+    return registered.code === "REVISION_CONFLICT"
+      ? { ok: false, error: { code: "CONFLICT", message: "This idempotency key was used for a different request." } }
+      : lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
+  } catch (error) {
+    return lotStoreFailure(error);
+  }
+}
+
+/** Makes the revision CURRENT once its draft is stored, or marks it FAILED when planning failed. */
+async function finishRevision({ result, lot, identity, conditions, lotRevisions, signal }) {
+  const { store } = lotRevisions;
+  const { lotId, registered } = lot;
+  const done = (revision) => ({
+    ...result,
+    revision: { lotId, number: revision.number, fingerprint: revision.revisionFingerprint, status: revision.status },
+  });
+  if (!result.ok || !result.jobSheet) {
+    // Another request holding the same key still owns the pending revision.
+    if (result.error?.code !== "IDEMPOTENCY_IN_PROGRESS") {
+      await store.markFailed({ lotId, jobId: identity.jobId, signal }).catch(() => undefined);
+    }
+    return result;
+  }
+  // A replay of a draft that was already finished, approved or replaced reports the stored state.
+  if (registered.reused && registered.revision.status !== "PENDING") return done(registered.revision);
+  try {
+    const made = await store.makeCurrent({
+      lotId, jobId: identity.jobId, signal,
+      revisionFingerprint: revisionFingerprint({
+        jobSheet: result.jobSheet, lotId, number: registered.revision.number,
+        requestFingerprint: identity.fingerprint, conditions,
+      }),
+    });
+    if (!made.ok) return lotFailure(409, "REVISION_CONFLICT", "The lot changed while this draft was being prepared. Plan the lot again.");
+    return done(made.revision);
+  } catch (error) {
+    return lotStoreFailure(error);
+  }
+}
 
 /**
  * Plans one lot from a purchase order, confirmed item, shift, conditions and
@@ -25,7 +98,12 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   demoMode,
   executionMode,
   purchaseOrderPolicy,
+  lotRevisions,
 }) {
+  // A lot ID is part of the request identity, so two lots with the same inputs never share a job.
+  const lotField = typeof fields.lotId === "string" && fields.lotId.trim() !== "" ? validateWith(LotIdSchema, fields.lotId, "Lot ID failed validation.") : undefined;
+  if (lotField && !lotField.ok) return lotField.failure;
+  const lotId = lotField?.data;
   const upload = await readPurchaseOrderUpload(fields.file, {
     invalidMessage: "Job request is invalid.",
     executionMode,
@@ -150,6 +228,7 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   // handler returns SERVICE_UNAVAILABLE before running job preparation.
   const identity = createJobRequestIdentity({
     idempotencyKey,
+    ...(lotId === undefined ? {} : { lotId }),
     fileBytes,
     operatorFields: operatorFields.data,
     operatorItemConfirmation: operatorItemConfirmation.data,
@@ -163,8 +242,15 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
     return validationFailure(identity.error.issues ?? [], identity.error.message);
   }
 
-  const submissionResult = await submitJob({
-    identity: hackathonAuth.enabled ? demoJobIdentity(principal, identity.identity) : identity.identity,
+  const scopedIdentity = hackathonAuth.enabled ? demoJobIdentity(principal, identity.identity) : identity.identity;
+  const conditions = frozenConditions(manualConditions.data);
+  const lot = lotRevisions?.enabled === true && isDemoPrincipal(principal)
+    ? await registerRevision({ lotId, identity: scopedIdentity, conditions, principal, lotRevisions, signal })
+    : undefined;
+  if (lot && !lot.ok) return lot;
+
+  const planned = await submitJob({
+    identity: scopedIdentity,
     request: {
       file: { arrayBuffer: async () => fileBytes.buffer },
       operatorFields: operatorFields.data,
@@ -184,6 +270,9 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
     },
     signal,
   });
+  const submissionResult = lot
+    ? await finishRevision({ result: planned, lot, identity: scopedIdentity, conditions, lotRevisions, signal })
+    : planned;
   if (submissionResult.ok && submissionResult.jobSheet) {
     const sheet = submissionResult.jobSheet;
     await liveStore.publish({

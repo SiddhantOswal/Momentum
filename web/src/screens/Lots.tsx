@@ -262,7 +262,11 @@ function JobView({ result, onApproved }: { result: JobResult; onApproved: (sheet
   const chart = DEFECTS.map((d) => ({ name: d.short, "Your plan": base.ratesPct[d.key], Recommended: best.ratesPct[d.key] }));
   const approve = async () => {
     setBusy(true); setError(undefined);
-    const r = await send<{ jobSheet: JobSheet }>(`/jobs/${encodeURIComponent(sheet.jobId)}/approve?lang=en&currency=INR`, { method: "POST" });
+    const r = await send<{ jobSheet: JobSheet }>(`/jobs/${encodeURIComponent(sheet.jobId)}/approve?lang=en&currency=INR`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewConfirmed: true, revisionFingerprint: result.revision?.fingerprint }),
+    });
     setBusy(false); setAsking(false);
     if (!r.ok) { setError(r.error); return; }
     onApproved(r.data.jobSheet);
@@ -363,10 +367,10 @@ export function Lots() {
     if (!selected || result?.jobSheet.jobId === selected) return;
     let cancelled = false;
     setLoading(true); setLoadError(undefined);
-    send<{ jobSheet: JobSheet }>(`/jobs/${encodeURIComponent(selected)}`, { method: "GET" }).then((r) => {
+    send<JobResult>(`/jobs/${encodeURIComponent(selected)}`, { method: "GET" }).then((r) => {
       if (cancelled) return;
       setLoading(false);
-      if (r.ok) setResult({ jobSheet: r.data.jobSheet }); else setLoadError(r.error);
+      if (r.ok) setResult({ jobSheet: r.data.jobSheet, revision: r.data.revision }); else setLoadError(r.error);
     });
     return () => { cancelled = true; };
   }, [selected, result]);

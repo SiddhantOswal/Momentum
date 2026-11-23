@@ -134,6 +134,7 @@ export function createJobRequestIdentity({
   shift,
   levers,
   conditions,
+  lotId,
 } = {}) {
   if (idempotencyKey !== undefined &&
       (typeof idempotencyKey !== "string" || !visibleKey.test(idempotencyKey))) {
@@ -165,6 +166,10 @@ export function createJobRequestIdentity({
     return validationError("conditions", "Validated run date and run conditions are required.");
   }
 
+  if (lotId !== undefined && (typeof lotId !== "string" || !/^LOT-[A-Za-z0-9-]{1,100}$/.test(lotId))) {
+    return validationError("lotId", "A lot ID must start with LOT- and use letters, digits and hyphens.");
+  }
+
   const fileFingerprint = sha256(fileBytes);
   const canonicalRequest = JSON.stringify({
     fileFingerprint,
@@ -179,6 +184,8 @@ export function createJobRequestIdentity({
       lineIndex: operatorItemConfirmation.lineIndex,
     },
     purchaseOrderReviewFingerprint,
+    // Absent for a plan with no lot, so that case keeps one canonical form.
+    lotId,
     shift,
     levers: {
       sfSpeedMpm: levers.sfSpeedMpm,
@@ -198,10 +205,11 @@ export function createJobRequestIdentity({
     },
   });
   const fingerprint = sha256(canonicalRequest);
-  // v2 since the fingerprint gained conditions; a v1 record must never match a v2 request.
+  // v3 since the fingerprint gained the lot ID. v2 claims are already persisted (ARC-M1-05),
+  // so a v2 record must never meet a v3 fingerprint for the same client key.
   const keyHash = sha256(idempotencyKey === undefined
-    ? `ustaad-jobs:v2:request:${fingerprint}`
-    : `ustaad-jobs:v2:client:${idempotencyKey}`);
+    ? `ustaad-jobs:v3:request:${fingerprint}`
+    : `ustaad-jobs:v3:client:${idempotencyKey}`);
   return {
     ok: true,
     identity: {
