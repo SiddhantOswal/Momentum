@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test, { afterEach } from "node:test";
 import { freePort, startIndexServer, stopAllStarted } from "./helpers/server.js";
 
@@ -52,4 +55,20 @@ test("a server that never prints fails at the startup timeout", { timeout: TEST_
     startIndexServer({ PATH: process.env.PATH }, { entry: "test/helpers/silent-entry.mjs", timeoutMs: 300 }),
     /no startup output within 300 ms/,
   );
+});
+
+test("a failed first start is retried once on a different port", { timeout: TEST_TIMEOUT_MS }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), "flaky-entry-"));
+  const marker = join(dir, "first-port");
+  try {
+    const { port, attempts } = await startIndexServer(
+      { PATH: process.env.PATH, FLAKY_MARKER: marker },
+      { entry: "test/helpers/flaky-entry.mjs" },
+    );
+    assert.equal(attempts, 2);
+    assert.notEqual(port, Number(await readFile(marker, "utf8")));
+    assert.equal((await fetch(`http://127.0.0.1:${port}/health`)).status, 200);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

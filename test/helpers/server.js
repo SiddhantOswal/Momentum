@@ -68,7 +68,7 @@ export async function startIndexServer(env, { timeoutMs = STARTUP_TIMEOUT_MS, en
   for (let i = 0; i < MAX_ATTEMPTS; i += 1) {
     if (generation !== startGeneration) throw new Error("Backend start abandoned: helper was stopped");
     const result = await attempt(env, timeoutMs, entry);
-    if (result.child) return result;
+    if (result.child) return { ...result, attempts: i + 1 };
     failures.push(result.failure);
   }
   throw new Error(`Backend failed to start after ${MAX_ATTEMPTS} attempts: ${failures.join("; ")}`);
