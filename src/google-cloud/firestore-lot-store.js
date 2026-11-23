@@ -256,9 +256,12 @@ export function createFirestoreLotStore({
         const [head, existing] = await Promise.all([readHead(lotId, context), readRevision(jobId, context)]);
         if (head && head.doc.ownerSessionId !== ownerSessionId) return { result: refuse("LOT_OWNER_MISMATCH") };
         if (existing) {
-          return existing.doc.lotId === lotId && existing.doc.requestFingerprint === requestFingerprint
-            ? { result: { ok: true, revision: existing.doc, reused: true } }
-            : { result: refuse("REVISION_CONFLICT") };
+          if (existing.doc.lotId !== lotId || existing.doc.requestFingerprint !== requestFingerprint) {
+            return { result: refuse("REVISION_CONFLICT") };
+          }
+          if (existing.doc.status !== "FAILED") return { result: { ok: true, revision: existing.doc, reused: true } };
+          const retried = { ...existing.doc, status: "PENDING" };
+          return { writes: [revisionWrite(retried, existing, instant)], result: { ok: true, revision: retried, reused: true } };
         }
         const number = (head?.doc.currentRevision ?? 0) + 1;
         const base = head?.doc ?? newHead(lotId, ownerSessionId, instant, { draftConditions: conditions });

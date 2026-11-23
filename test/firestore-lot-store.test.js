@@ -106,6 +106,18 @@ test("registering a revision numbers it from the head and a retry reuses the pen
   assert.equal(Date.parse(stored.expiresAt) - Date.parse(stored.createdAt), 180 * 24 * 60 * 60 * 1000);
 });
 
+test("a retry of a failed plan makes the same revision PENDING again", async () => {
+  const context = setup();
+  const args = { lotId, ownerSessionId: sessionId, jobId: jobOne, requestFingerprint, conditions: [moisture(8.5)] };
+  await context.store.registerPending(args);
+  await context.store.markFailed({ lotId, jobId: jobOne });
+  const retry = await context.store.registerPending(args);
+  assert.equal(retry.reused, true);
+  assert.equal(retry.revision.status, "PENDING");
+  assert.equal(retry.revision.number, 1);
+  assert.equal(context.read("lot_revisions", jobOne).status, "PENDING");
+});
+
 test("a retry with another request fingerprint for the same job is refused", async () => {
   const context = setup();
   await context.store.registerPending({ lotId, ownerSessionId: sessionId, jobId: jobOne, requestFingerprint, conditions: [moisture(8.5)] });
