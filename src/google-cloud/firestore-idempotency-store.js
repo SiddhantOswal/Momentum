@@ -30,12 +30,12 @@ import { createCloudRunAccessTokenProvider } from "./bigquery-read-client.js";
 import {
   conditionalWriteUrl as restConditionalWriteUrl,
   createFirestoreRestClient,
+  encodeDocument,
   FirestoreRestError,
-  fromFirestoreFields as restFromFirestoreFields,
   isPreconditionFailure as restIsPreconditionFailure,
-  toFirestoreValue as restToFirestoreValue,
+  parseDocument,
 } from "./firestore-rest.js";
-import { STATE_SCHEMA_VERSION } from "../state-schemas.js";
+import { BASE_TIMESTAMP_FIELDS, IdempotencyDocSchema, STATE_SCHEMA_VERSION } from "../state-schemas.js";
 
 const JOBS_SCOPE = "jobs";
 // Design 2.0: the TTL policy deletes a record 7 days after its claim; the lease is checked in code.
@@ -56,20 +56,26 @@ function asIdempotencyError(error) {
   return new FirestoreIdempotencyError(code, error.message);
 }
 
-function toFirestoreValue(value) {
+// Design 2: a record is checked against IdempotencyDocSchema on every read and
+// write; a record that fails it is a Firestore fault, never an absent claim.
+function parseRecord(document) {
   try {
-    return restToFirestoreValue(value);
+    return parseDocument(IdempotencyDocSchema, document);
   } catch (error) {
     throw asIdempotencyError(error);
   }
 }
 
-function fromFirestoreFields(fields) {
+function encodeRecord(record) {
   try {
-    return restFromFirestoreFields(fields);
+    return encodeDocument(IdempotencyDocSchema, record, { timestamps: BASE_TIMESTAMP_FIELDS });
   } catch (error) {
     throw asIdempotencyError(error);
   }
+}
+
+function isoAt(epochMs) {
+  return Number.isFinite(epochMs) ? new Date(epochMs).toISOString() : undefined;
 }
 
 function conditionalWriteUrl(url, updateTime, updateMask = []) {
@@ -162,7 +168,7 @@ export function createFirestoreIdempotencyStore({
 
       if (getResponse.status === 200) {
         const document = await getResponse.json();
-        const existing = fromFirestoreFields(document.fields ?? {});
+        const existing = parseRecord(document);
         if (existing.fingerprint !== fingerprint) {
           return { status: "conflict" };
         }
@@ -180,7 +186,7 @@ export function createFirestoreIdempotencyStore({
           const racedGet = await authorizedRequest(getUrl, { method: "GET" }, signal);
           if (racedGet.status === 200) {
             const racedDocument = await racedGet.json();
-            const raced = fromFirestoreFields(racedDocument.fields ?? {});
+            const raced = parseRecord(racedDocument);
             if (raced.fingerprint !== fingerprint) return { status: "conflict" };
             if (raced.recordStatus === "complete") return { status: "complete" };
             if (raced.recordStatus === "in_progress" && raced.leaseExpiresAt > claimedAt) {
@@ -199,20 +205,20 @@ export function createFirestoreIdempotencyStore({
       // Attempt atomic create-if-absent.
       const createUrl = `${basePath}?documentId=${encodeURIComponent(documentId)}`;
       const body = JSON.stringify({
-        fields: {
-          schemaVersion: toFirestoreValue(STATE_SCHEMA_VERSION),
-          scope: toFirestoreValue(JOBS_SCOPE),
-          createdAt: toFirestoreValue(new Date(claimedAt)),
-          updatedAt: toFirestoreValue(new Date(claimedAt)),
-          expiresAt: toFirestoreValue(new Date(claimedAt + RECORD_RETENTION_MS)),
-          keyHash: toFirestoreValue(keyHash),
-          fingerprint: toFirestoreValue(fingerprint),
-          jobId: toFirestoreValue(jobId),
-          ownerToken: toFirestoreValue(ownerToken),
-          recordStatus: toFirestoreValue("in_progress"),
-          claimedAt: toFirestoreValue(claimedAt),
-          leaseExpiresAt: toFirestoreValue(leaseExpiresAt),
-        },
+        fields: encodeRecord({
+          schemaVersion: STATE_SCHEMA_VERSION,
+          createdAt: isoAt(claimedAt),
+          updatedAt: isoAt(claimedAt),
+          expiresAt: isoAt(claimedAt + RECORD_RETENTION_MS),
+          keyHash,
+          scope: JOBS_SCOPE,
+          fingerprint,
+          jobId,
+          ownerToken,
+          recordStatus: "in_progress",
+          claimedAt,
+          leaseExpiresAt,
+        }),
       });
 
       const createResponse = await authorizedRequest(createUrl, { method: "POST", body }, signal);
@@ -225,7 +231,7 @@ export function createFirestoreIdempotencyStore({
         // Re-read to determine the actual state.
         const raceGet = await authorizedRequest(getUrl, { method: "GET" }, signal);
         if (raceGet.status === 200) {
-          const raceDoc = fromFirestoreFields((await raceGet.json()).fields ?? {});
+          const raceDoc = parseRecord(await raceGet.json());
           if (raceDoc.fingerprint !== fingerprint) return { status: "conflict" };
           if (raceDoc.recordStatus === "complete") return { status: "complete" };
           return { status: "in_progress" };
@@ -246,7 +252,7 @@ export function createFirestoreIdempotencyStore({
       if (getResponse.status === 404) return false;
       if (getResponse.status !== 200) throw firestoreUnavailable("Firestore could not read the claim before completion.");
       const document = await getResponse.json();
-      const existing = fromFirestoreFields(document.fields ?? {});
+      const existing = parseRecord(document);
       if (existing.ownerToken !== ownerToken || existing.fingerprint !== fingerprint || existing.jobId !== jobId) {
         return false;
       }
@@ -258,10 +264,11 @@ export function createFirestoreIdempotencyStore({
         document.updateTime,
         ["recordStatus", "completedAt"],
       );
+      const completed = encodeRecord({ ...existing, recordStatus: "complete", completedAt });
       const body = JSON.stringify({
         fields: {
-          recordStatus: toFirestoreValue("complete"),
-          completedAt: toFirestoreValue(completedAt),
+          recordStatus: completed.recordStatus,
+          completedAt: completed.completedAt,
         },
       });
       const updateResponse = await authorizedRequest(updateUrl, { method: "PATCH", body }, signal);
@@ -269,7 +276,7 @@ export function createFirestoreIdempotencyStore({
       if (await isPreconditionFailure(updateResponse) || updateResponse.status === 404) {
         const latestResponse = await authorizedRequest(getUrl, { method: "GET" }, signal);
         if (latestResponse.status === 200) {
-          const latest = fromFirestoreFields((await latestResponse.json()).fields ?? {});
+          const latest = parseRecord(await latestResponse.json());
           if (latest.ownerToken === ownerToken &&
               latest.fingerprint === fingerprint &&
               latest.jobId === jobId &&
@@ -290,7 +297,7 @@ export function createFirestoreIdempotencyStore({
       const getResponse = await authorizedRequest(getUrl, { method: "GET" }, signal);
       if (getResponse.status === 404) return false;
       if (getResponse.status !== 200) throw firestoreUnavailable("Firestore could not read the claim before the job write.");
-      const existing = fromFirestoreFields((await getResponse.json()).fields ?? {});
+      const existing = parseRecord(await getResponse.json());
       return existing.recordStatus === "in_progress" &&
         existing.ownerToken === ownerToken &&
         Number.isFinite(existing.leaseExpiresAt) &&
@@ -309,7 +316,7 @@ export function createFirestoreIdempotencyStore({
       if (getResponse.status === 404) return false;
       if (getResponse.status !== 200) throw firestoreUnavailable("Firestore could not read the claim before release.");
       const document = await getResponse.json();
-      const existing = fromFirestoreFields(document.fields ?? {});
+      const existing = parseRecord(document);
       if (existing.ownerToken !== ownerToken) return false;
       if (existing.recordStatus === "complete") return false;
       const deleteUrl = conditionalWriteUrl(getUrl, document.updateTime);
