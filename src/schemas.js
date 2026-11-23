@@ -584,7 +584,7 @@ export const DisplayPrefsSchema = z.object({
 
 export const DisplayPrefsQuerySchema = z.object({
   lang: LocaleSchema.optional(),
-  currency: CurrencySchema.optional(),
+  currency: z.enum(SUPPORTED_CURRENCIES, { error: `Currency must be one of ${SUPPORTED_CURRENCIES.join(", ")}.` }).optional(),
 }).strict();
 
 export const InsightsQuerySchema = z.object({
