@@ -1,4 +1,5 @@
 import { createCloudRunAccessTokenProvider } from "./bigquery-read-client.js";
+import { createFirestoreRestClient, currentDocumentPrecondition } from "./firestore-rest.js";
 
 export const GEMINI_COUNTER_POLICY_VERSION = "ist-attempts-v1";
 
@@ -45,23 +46,8 @@ export function createFirestoreGeminiAttemptStore({
     throw new TypeError("The existing default Firestore database and bounded reservation settings are required.");
   }
   const provideToken = tokenProvider ?? createCloudRunAccessTokenProvider({ fetchImpl });
-  const databaseName = `projects/${projectId}/databases/${database}`;
-  const root = `https://firestore.googleapis.com/v1/${databaseName}/documents`;
-
-  async function request(url, { method = "GET", body, signal, token } = {}) {
-    let response;
-    try {
-      response = await fetchImpl(url, {
-        method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal,
-      });
-    } catch {
-      throw new GeminiReservationError();
-    }
-    let payload;
-    try { payload = await response.json(); } catch { throw new GeminiReservationError(); }
-    return { status: response.status, ok: response.ok, payload };
-  }
+  const firestore = createFirestoreRestClient({ projectId, database, fetchImpl });
+  const { databaseName, documentsUrl: root } = firestore;
 
   return Object.freeze({
     scope: "shared-firestore-transaction",
@@ -79,12 +65,8 @@ export function createFirestoreGeminiAttemptStore({
         let transaction;
         let commitIssued = false;
         try {
-          const begun = await request(`${root}:beginTransaction`, {
-            method: "POST", body: { options: { readWrite: {} } }, token, signal: boundedSignal,
-          });
-          transaction = begun.payload?.transaction;
-          if (!begun.ok || typeof transaction !== "string" || !transaction) throw new GeminiReservationError();
-          const read = await request(`${root}/gemini_daily_usage/${dayKey}?transaction=${encodeURIComponent(transaction)}`, { token, signal: boundedSignal });
+          transaction = await firestore.beginTransaction({ token, signal: boundedSignal });
+          const read = await firestore.request(`${root}/gemini_daily_usage/${dayKey}?transaction=${encodeURIComponent(transaction)}`, { token, signal: boundedSignal });
           if (!read.ok && read.status !== 404) throw new GeminiReservationError();
           if (read.ok && read.payload?.name !== name) throw new GeminiReservationError();
           const count = read.status === 404 ? 0 : decodeCount(read.payload, policy);
@@ -95,17 +77,17 @@ export function createFirestoreGeminiAttemptStore({
             policyVersion: { stringValue: GEMINI_COUNTER_POLICY_VERSION },
           };
           commitIssued = true;
-          const committed = await request(`${root}:commit`, {
-            method: "POST", token, signal: boundedSignal,
-            body: { transaction, writes: [{
+          const committed = await firestore.commit({
+            transaction, token, signal: boundedSignal,
+            writes: [{
               update: { name, fields },
-              currentDocument: read.status === 404 ? { exists: false } : { updateTime: read.payload.updateTime },
+              currentDocument: currentDocumentPrecondition(read.status === 404 ? null : read.payload.updateTime),
               updateTransforms: [{ fieldPath: "updatedAt", setToServerValue: "REQUEST_TIME" }],
-            }] },
+            }],
           });
           // ABORTED is a definite non-commit. Ambiguous timeout/5xx responses
           // are never retried or refunded; they may already have consumed a slot.
-          if (committed.status === 409 && committed.payload?.error?.status === "ABORTED") continue;
+          if (committed.aborted) continue;
           if (!committed.ok || !Array.isArray(committed.payload?.writeResults) ||
               committed.payload.writeResults.length !== 1 || typeof committed.payload.commitTime !== "string" ||
               boundedSignal.aborted) throw new GeminiReservationError();
@@ -113,7 +95,7 @@ export function createFirestoreGeminiAttemptStore({
         } catch (error) {
           if (transaction && !commitIssued && !boundedSignal.aborted) {
             try {
-              await request(`${root}:rollback`, { method: "POST", body: { transaction }, token, signal: boundedSignal });
+              await firestore.rollback({ transaction, token, signal: boundedSignal });
             } catch { /* A failed rollback grants no provider permission. */ }
           }
           if (error instanceof GeminiReservationError) throw error;

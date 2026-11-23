@@ -27,8 +27,14 @@
  */
 
 import { createCloudRunAccessTokenProvider } from "./bigquery-read-client.js";
-
-const FIRESTORE_API = "https://firestore.googleapis.com/v1";
+import {
+  conditionalWriteUrl as restConditionalWriteUrl,
+  createFirestoreRestClient,
+  FirestoreRestError,
+  fromFirestoreFields,
+  isPreconditionFailure as restIsPreconditionFailure,
+  toFirestoreValue as restToFirestoreValue,
+} from "./firestore-rest.js";
 
 export class FirestoreIdempotencyError extends Error {
   constructor(code, message) {
@@ -38,51 +44,27 @@ export class FirestoreIdempotencyError extends Error {
   }
 }
 
-/**
- * Map a plain JS value to a Firestore REST API Value field.
- * Only the scalar types needed for idempotency records are supported.
- */
-function toFirestoreValue(value) {
-  if (typeof value === "string") return { stringValue: value };
-  if (typeof value === "boolean") return { booleanValue: value };
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return Number.isInteger(value)
-      ? { integerValue: String(value) }
-      : { doubleValue: value };
-  }
-  if (value === null) return { nullValue: null };
-  throw new FirestoreIdempotencyError(
-    "UNSUPPORTED_VALUE_TYPE",
-    `Cannot serialize value of type ${typeof value} to Firestore.`
-  );
+// Callers of this store match on FirestoreIdempotencyError and its codes.
+function asIdempotencyError(error) {
+  if (!(error instanceof FirestoreRestError)) return error;
+  const code = error.code === "SERVICE_UNAVAILABLE" ? "FIRESTORE_UNAVAILABLE" : error.code;
+  return new FirestoreIdempotencyError(code, error.message);
 }
 
-/** Map a Firestore REST fields object back to a plain JS object. */
-function fromFirestoreFields(fields) {
-  if (!fields || typeof fields !== "object" || Array.isArray(fields)) return {};
-  return Object.fromEntries(
-    Object.entries(fields).map(([key, v]) => {
-      if (v.stringValue !== undefined) return [key, v.stringValue];
-      if (v.integerValue !== undefined) return [key, Number(v.integerValue)];
-      if (v.doubleValue !== undefined) return [key, v.doubleValue];
-      if (v.booleanValue !== undefined) return [key, v.booleanValue];
-      if (v.nullValue !== undefined) return [key, null];
-      return [key, undefined];
-    })
-  );
+function toFirestoreValue(value) {
+  try {
+    return restToFirestoreValue(value);
+  } catch (error) {
+    throw asIdempotencyError(error);
+  }
 }
 
 function conditionalWriteUrl(url, updateTime, updateMask = []) {
-  if (typeof updateTime !== "string" || updateTime.length === 0) {
-    throw new FirestoreIdempotencyError(
-      "FIRESTORE_INVALID_RESPONSE",
-      "Firestore omitted the document version required for a conditional write."
-    );
+  try {
+    return restConditionalWriteUrl(url, updateTime, updateMask);
+  } catch (error) {
+    throw asIdempotencyError(error);
   }
-  const parsed = new URL(url);
-  parsed.searchParams.set("currentDocument.updateTime", updateTime);
-  for (const field of updateMask) parsed.searchParams.append("updateMask.fieldPaths", field);
-  return parsed.toString();
 }
 
 function firestoreUnavailable(message = "Firestore rejected the idempotency operation.") {
@@ -90,10 +72,11 @@ function firestoreUnavailable(message = "Firestore rejected the idempotency oper
 }
 
 async function isPreconditionFailure(response) {
-  if (response.status === 409) return true;
-  if (response.status !== 400) return false;
-  const payload = await response.json();
-  return payload?.error?.status === "FAILED_PRECONDITION";
+  try {
+    return await restIsPreconditionFailure(response);
+  } catch (error) {
+    throw asIdempotencyError(error);
+  }
 }
 
 /**
@@ -125,7 +108,8 @@ export function createFirestoreIdempotencyStore({
   }
 
   const provideToken = tokenProvider ?? createCloudRunAccessTokenProvider({ fetchImpl });
-  const basePath = `${FIRESTORE_API}/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(database)}/documents/${encodeURIComponent(collection)}`;
+  const firestore = createFirestoreRestClient({ projectId, database, fetchImpl });
+  const basePath = `${firestore.documentsUrl}/${encodeURIComponent(collection)}`;
 
   async function authorizedRequest(url, options, signal) {
     const token = await provideToken({ signal });
@@ -135,25 +119,11 @@ export function createFirestoreIdempotencyStore({
         "Cloud Run workload identity is unavailable."
       );
     }
-    let response;
     try {
-      response = await fetchImpl(url, {
-        ...options,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          ...options?.headers,
-        },
-        signal,
-      });
+      return await firestore.send(url, { ...options, token, signal });
     } catch (error) {
-      if (error?.name === "AbortError") throw error;
-      throw new FirestoreIdempotencyError(
-        "FIRESTORE_UNAVAILABLE",
-        "Cloud Firestore could not be reached."
-      );
+      throw asIdempotencyError(error);
     }
-    return response;
   }
 
   return Object.freeze({
