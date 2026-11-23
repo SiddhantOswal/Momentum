@@ -5,6 +5,7 @@ ADR-0006; design sections 5.6, 5.7 and 7.
 ### ARC-M8-01 Scripted deploy (P0)
 - Goal: `ops/deploy.sh` (or the repo's existing ops convention) that builds from git, deploys a tagged revision with no traffic, runs `tools/release-preflight.mjs`, and shifts traffic only on a pass. Flags come from a checked-in env file with no secret values.
 - AC: the current live revision keeps its traffic until the release gate passes, and the rollback is one recorded command.
+- The preflight includes one `generateContent` call per role from the tagged revision, using the shipped `config/arc-models.json`, and confirms `safetySettings` and `toolConfig` are accepted (carried from ARC-M1-14).
 - Depends on: M6-08. Owner: release manager.
 - Test plan: a dry run to a tagged revision; a rollback drill.
 
