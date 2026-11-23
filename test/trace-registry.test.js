@@ -176,7 +176,8 @@ test("a Firestore failure during write-through leaves the run working and logs n
   assert.equal(finished.sequence, 3);
   assert.equal(durable.registry.getRun(runId).status, "completed");
   assert.deepEqual(store.events.map(({ sequence }) => sequence), [1], "later events are not written past a gap");
-  assert.equal(store.heads.length, 0);
+  assert.deepEqual(store.heads.map(({ status, lastSequence }) => [status, lastSequence]), [["incomplete", 1]],
+    "the only head written says the stored copy ends at the gap");
   assert.deepEqual(logged, [{ event: "trace_store_write_failed", operation: "event", code: "SERVICE_UNAVAILABLE" }]);
   assert.doesNotMatch(JSON.stringify(logged), new RegExp(runId));
   assert.equal(await durable.ownerOf(runId), OWNER, "the instance that ran the trace still knows its owner");
