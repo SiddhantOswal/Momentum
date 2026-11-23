@@ -60,7 +60,21 @@ body {
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--arc-radius-card); }
 .label { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.figure { font-family: var(--arc-font-display); font-weight: var(--arc-font-semibold); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1; }
+.arc-page-title {
+  font: var(--arc-font-semibold) var(--arc-text-page-title)/var(--arc-leading-page-title) var(--arc-font-display);
+  letter-spacing: var(--arc-tracking-page-title);
+}
+.arc-card-title {
+  font: var(--arc-font-semibold) var(--arc-text-card-title)/var(--arc-leading-card-title) var(--arc-font-display);
+  letter-spacing: var(--arc-tracking-card-title);
+}
+.figure {
+  font-family: var(--arc-font-display);
+  font-weight: var(--arc-font-semibold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  line-height: 1;
+}
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .hairline { border-color: var(--line); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

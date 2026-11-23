@@ -1,12 +1,11 @@
 import type { ReactNode } from "react";
 
-// Instrument-panel primitives: hairline frames, mono micro labels, condensed figures.
 export function Panel({ title, index, action, children, className = "", pad = true }: { title?: ReactNode; index?: string; action?: ReactNode; children: ReactNode; className?: string; pad?: boolean }) {
   return (
     <section className={`panel flex flex-col ${className}`}>
       {(title || action) && (
         <header className="flex min-h-11 items-center justify-between gap-3 border-b border-line px-4">
-          <h2 className="label flex items-center gap-2">{index && <span className="text-faint">{index}</span>}{title}</h2>
+          <h2 className="arc-card-title flex items-center gap-2">{index && <span className="text-faint">{index}</span>}{title}</h2>
           {action}
         </header>
       )}

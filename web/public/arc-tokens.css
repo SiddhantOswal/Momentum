@@ -9,8 +9,13 @@
   --arc-font-bold: 700;
   --arc-text-page-title: 28px;
   --arc-leading-page-title: 34px;
+  --arc-tracking-page-title: -0.4px;
   --arc-text-card-title: 17px;
   --arc-leading-card-title: 24px;
+  --arc-tracking-card-title: -0.1px;
+  --arc-text-hero-title: 36px;
+  --arc-leading-hero-title: 42px;
+  --arc-tracking-hero-title: -0.8px;
   --arc-text-key-value: 24px;
   --arc-leading-key-value: 28px;
   --arc-text-action: 16px;

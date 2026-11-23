@@ -50,7 +50,7 @@ export function Shell({ screen, go, theme, toggleTheme, title, subtitle, status,
         <header className="sticky top-0 z-10 border-b border-line bg-bg/90 backdrop-blur">
           <div className="flex h-[var(--arc-topbar-height)] items-center justify-between gap-6 px-[var(--arc-content-padding)]">
             <div className="flex min-w-0 items-baseline gap-4">
-              <h1 className="figure truncate text-[24px] font-semibold">{title}</h1>
+              <h1 className="arc-page-title truncate">{title}</h1>
               {subtitle && <p className="hidden truncate text-[13px] text-muted md:block">{subtitle}</p>}
             </div>
             <span className="mono hidden text-[11px] tracking-[0.2em] text-faint sm:block">MOMENTUM</span>

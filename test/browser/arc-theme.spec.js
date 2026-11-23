@@ -104,3 +104,62 @@ test('/app follows system changes until a choice, then switches in place and rem
   await page.reload();
   await expect(root).toHaveCSS('color-scheme', 'light');
 });
+
+test('/app matches the approved title styles and numeric arrow font', async ({ page }) => {
+  await page.goto('/app/#/floor');
+
+  const pageTitle = page.getByRole('heading', { level: 1, name: 'Floor' });
+  const cardTitle = page.getByRole('heading', { level: 2, name: /Scrap rate by month/ });
+  const displayFont = '"Inter Tight", Inter, sans-serif';
+  const titleStyles = {
+    fontFamily: displayFont,
+    fontWeight: '600',
+    fontFeatureSettings: 'normal',
+    fontVariationSettings: 'normal',
+    fontOpticalSizing: 'auto',
+    fontVariantNumeric: 'normal',
+  };
+  const readStyles = (locator, keys) => locator.evaluate((node, properties) => {
+    const style = getComputedStyle(node);
+    return Object.fromEntries(properties.map(key => [key, style[key]]));
+  }, keys);
+
+  await page.locator('main').evaluate(main => {
+    for (const id of ['app-arrow', 'reference-arrow']) {
+      const arrow = document.createElement('span');
+      arrow.id = id;
+      arrow.textContent = '→';
+      if (id === 'app-arrow') arrow.className = 'figure';
+      else arrow.style.cssText = `font:600 22px/28px 'Inter Tight', 'Inter', sans-serif;
+        font-variant-numeric:tabular-nums;font-feature-settings:'tnum'`;
+      main.append(arrow);
+    }
+    return document.fonts.ready;
+  });
+
+  const arrow = page.locator('#app-arrow');
+  const arrowKeys = [...Object.keys(titleStyles), 'letterSpacing'];
+  const referenceArrow = page.locator('#reference-arrow');
+  await expect.soft(await readStyles(arrow, arrowKeys)).toEqual(await readStyles(referenceArrow, arrowKeys));
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('DOM.enable');
+  await cdp.send('CSS.enable');
+  const { root } = await cdp.send('DOM.getDocument');
+  async function glyphFont(selector) {
+    const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector });
+    const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId });
+    return fonts;
+  }
+  const referenceGlyph = await glyphFont('#reference-arrow');
+  expect(referenceGlyph).toEqual([expect.objectContaining({ glyphCount: 1, isCustomFont: false })]);
+  expect(await glyphFont('#app-arrow')).toEqual(referenceGlyph);
+
+  const headingKeys = [...Object.keys(titleStyles), 'fontSize', 'lineHeight', 'letterSpacing'];
+  expect.soft(await readStyles(pageTitle, headingKeys)).toEqual({
+    ...titleStyles, fontSize: '28px', lineHeight: '34px', letterSpacing: '-0.4px',
+  });
+  expect(await readStyles(cardTitle, headingKeys)).toEqual({
+    ...titleStyles, fontSize: '17px', lineHeight: '24px', letterSpacing: '-0.1px',
+  });
+});
