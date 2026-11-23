@@ -32,6 +32,10 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - ARC-M1-02 merged: `src/google-cloud/firestore-rest.js` (shared codecs, transactions, preconditions) and `src/state-schemas.js` (all `04` section 2 documents). Both existing adapters use the helper, and their tests are unchanged. QA PASS on all six checks; 7 of 8 helper mutations caught. `npm test` 643 of 643. Tech-lead decision: `ArcEventDocSchema` requires `waitingFor` exactly on `step.waiting_for_user`, following `04` section 2.6 and I6.
 - ARC-M1-02 timestamp test merged (`5891192`), checked by the delivery lead: the mutation fails the test.
 - ARC-M1-04 done (cloud change): 13 Firestore TTL policies on `expiresAt` created on 2026-11-23, state CREATING at read-back. Record: `changes/2026-11-23-firestore-ttl-policies.md`. Cost: no charge for the policies; deletes are inside the free tier at demo load.
+- ARC-M1-03 merged (`0dc022f`): the job fingerprint covers run date, shift, RH, temperature and moisture (key prefix v2); the optimizer default is 100 MiB, above the 94,371,840 bytes one run bills. QA PASS on all six checks. One planned assertion change (metering default 80 to 100 MiB), approved under `04` E8; test title fixed. Provenance and `lotId` in the identity are carried into ARC-M3-02 and ARC-M1-10.
+- ARC-M1-06 merged (`6f2255c`): PO reviews in Firestore behind `USTAAD_ENABLE_DURABLE_PO_REVIEWS` (exact "true"). QA PASS: 8 of 8 mutations caught, fails closed to `SERVICE_UNAVAILABLE`, `po_reviews` TTL ACTIVE. Deviation noted: `createdAt` uses the app clock, not server time (`04` 2.1); harmless because expiry is checked in code. Live Firestore NOT RUN.
+- TTL policies: all 13 now ACTIVE (QA read-back).
+- Test runs: test processes left over from the usage-limit pause hung later `npm test` runs. After they were stopped, `npm test` on `arc/main` gives 650 of 650 in about 10 s. Practice from now on: stop stale `node --test` processes before a run.
 
 ## In progress
 

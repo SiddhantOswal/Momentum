@@ -11,6 +11,7 @@ Spec J1 and J8; design 1.4, 1.5 and section 6; ADR-0005.
 ### ARC-M3-02 Conditions with provenance (P0)
 - Goal: `ConditionsSource` (ADR-0005) for operator entry, the Pune weather record (shared cache and stored observation, data proposal P1) and the dataset seasonal value, plus `conditionSources` on `/jobs` (spec C20), behind `USTAAD_ENABLE_CONDITION_PROVENANCE`.
 - AC: every stored condition has one provenance from the fixed list. A weather value is checked against the server's own observation before it is stored as `public_weather_record`. Paper moisture is pre-filled at 7.3% as an example, and the value the user enters is the one used end to end. The on-screen note says no sensor is connected.
+- Carry-over from ARC-M1-03 QA: `04` section 3.2 puts the per-field provenance in the job request identity. Add it to `createJobRequestIdentity`, so the same value from a different source makes a new job, and add a test.
 - Depends on: M1-10, M0-04 (Om, weather fairness). Owner: backend engineer; data engineer for the observation record.
 - Test plan: unit tests per source; a forged weather source is rejected.
 

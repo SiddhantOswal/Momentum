@@ -65,6 +65,7 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 ### ARC-M1-10 Lot heads, revisions and the approve guard (P0)
 - Goal: `lot_heads` and `lot_revisions` (design 2.7), `PUT /lots/:lotId/conditions` and `GET /lots/:lotId`. Approve requires `{ reviewConfirmed: true, revisionFingerprint }` and rejects a superseded revision (ADR-0003). It ships in two steps: 7a is `USTAAD_ENABLE_LOT_REVISIONS`, 7b is `USTAAD_ENFORCE_APPROVE_GUARD`.
 - AC: a changed condition supersedes the current draft in one transaction. Approving a superseded revision returns 409 `REVISION_SUPERSEDED`. A missing flag or a stale fingerprint returns 4xx. Both clients send the body before 7b is turned on.
+- Carry-over from ARC-M1-03 QA: `04` section 3.2 puts `lotId` in the job request identity. Add it to `createJobRequestIdentity` once lots exist, bumping the key prefix if v2 keys are already persisted by then (ARC-M1-05), and add a test that two lots with the same inputs do not share a job.
 - Depends on: M1-02, M1-05, founder Q8, Q9 and F5. Owner: backend engineer; frontend engineer for the client body.
 - Test plan: unit tests for every guard branch, and an API test that the J8 sequence cannot approve Rev 1.
 - M0 gate additions: a client test for each UI (`web/` and `src/ui/workflow.js`) asserts that the approve request body carries `reviewConfirmed: true` and `revisionFingerprint`. The guard flag 7b is switched on only after those tests pass on the live revision (see ARC-M8-05).
