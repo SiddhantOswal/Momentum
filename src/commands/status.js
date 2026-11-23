@@ -59,8 +59,10 @@ export function getStatus(_input, {
   jobSheetPersistenceAvailable,
   jobCreationAvailable,
   idempotencyStore,
+  idempotencyScope = idempotencyStore ? "process-local" : "unavailable",
   modelAcceptanceConfig,
 }) {
+  const durableIdempotencyConfigured = idempotencyScope === "shared-firestore";
   const mode = env.K_SERVICE ? "cloud-run" : "local-development";
   const unconfiguredIntegrations = Object.entries(servicePorts.availability)
     .filter(([key, configured]) => key === "prepareJob"
@@ -127,8 +129,8 @@ export function getStatus(_input, {
       integrationsVerified: false,
       supervisorAuthorizationAvailable: executionMode === "demo" || approvalAuthorizationConfigured,
       jobSheetPersistenceAvailable,
-      durableIdempotencyConfigured: false,
-      idempotencyScope: idempotencyStore ? "process-local" : "unavailable",
+      durableIdempotencyConfigured,
+      idempotencyScope,
       jobCreationAvailable,
     },
     integrations: {
@@ -139,8 +141,8 @@ export function getStatus(_input, {
       prepareJob: jobCreationAvailable,
       supervisorAuthorizationAvailable: executionMode === "demo" || approvalAuthorizationConfigured,
       jobSheetPersistenceAvailable,
-      durableIdempotencyConfigured: false,
-      idempotencyScope: idempotencyStore ? "process-local" : "unavailable",
+      durableIdempotencyConfigured,
+      idempotencyScope,
       jobCreationAvailable,
     },
     isRealModelPrediction: false,

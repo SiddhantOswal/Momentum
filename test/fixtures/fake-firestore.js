@@ -1,5 +1,7 @@
 // An in-process stand-in for the Firestore REST document endpoints the
-// stores use: createDocument (POST ?documentId=) and get (GET). Several
+// stores use: createDocument (POST ?documentId=), get (GET), and patch
+// (PATCH) and delete (DELETE) with a currentDocument.updateTime precondition
+// and an optional update mask. Several
 // clients can share one instance, which is how the tests model two Cloud Run
 // instances reading the same database.
 const ROOT = "https://firestore.googleapis.com/v1/projects/prepagent-hack/databases/(default)/documents";
@@ -40,6 +42,31 @@ export function createFakeFirestore() {
       const stored = documents.get(`${NAME_ROOT}/${path}`);
       if (!stored) return respond(404, { error: { code: 404, status: "NOT_FOUND" } });
       return respond(200, structuredClone(stored));
+    }
+    if (method === "PATCH" || method === "DELETE") {
+      const name = `${NAME_ROOT}/${path}`;
+      const stored = documents.get(name);
+      if (!stored) return respond(404, { error: { code: 404, status: "NOT_FOUND" } });
+      const expectedVersion = parsed.searchParams.get("currentDocument.updateTime");
+      if (expectedVersion !== null && expectedVersion !== stored.updateTime) {
+        return respond(400, { error: { code: 400, status: "FAILED_PRECONDITION" } });
+      }
+      if (method === "DELETE") {
+        documents.delete(name);
+        return respond(200, {});
+      }
+      const patch = JSON.parse(options.body).fields;
+      const mask = parsed.searchParams.getAll("updateMask.fieldPaths");
+      // With a mask, only the masked fields change, and a masked field missing from the body is removed.
+      const fields = mask.length === 0 ? structuredClone(patch) : structuredClone(stored.fields);
+      for (const key of mask) {
+        if (key in patch) fields[key] = structuredClone(patch[key]);
+        else delete fields[key];
+      }
+      tick += 1;
+      const updated = { ...stored, fields, updateTime: new Date(Date.UTC(2026, 11, 4, 0, 0, tick)).toISOString() };
+      documents.set(name, updated);
+      return respond(200, structuredClone(updated));
     }
     throw new Error(`unexpected ${method} ${url}`);
   }

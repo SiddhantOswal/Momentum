@@ -212,6 +212,28 @@ export function createJobRequestIdentity({
   };
 }
 
+export const PROCESS_LOCAL_LEASE_MS = 30_000;
+// Design 3.2: longer than the 120 s Cloud Run request timeout, so a request
+// that is still running never loses its claim to a retry on another instance.
+export const SHARED_LEASE_MS = 130_000;
+
+/**
+ * Chooses the `/jobs` idempotency store. With USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY
+ * the Firestore store is used or nothing is: a missing store leaves job
+ * creation unavailable rather than falling back to one instance's memory.
+ */
+export function selectJobIdempotencyStore({ jobIdempotency, jobSheetPersistenceAvailable, demoMode } = {}) {
+  if (jobIdempotency?.durableRequested === true) {
+    const store = jobIdempotency.store;
+    return Object.freeze(typeof store?.claim === "function"
+      ? { store, leaseMs: SHARED_LEASE_MS, scope: "shared-firestore" }
+      : { store: undefined, leaseMs: SHARED_LEASE_MS, scope: "unavailable" });
+  }
+  return Object.freeze(jobSheetPersistenceAvailable || demoMode
+    ? { store: new InMemoryIdempotencyStore({ leaseMs: PROCESS_LOCAL_LEASE_MS }), leaseMs: PROCESS_LOCAL_LEASE_MS, scope: "process-local" }
+    : { store: undefined, leaseMs: PROCESS_LOCAL_LEASE_MS, scope: "unavailable" });
+}
+
 function unavailable(message = "The shared job-idempotency store is not configured.") {
   return { ok: false, error: { code: "SERVICE_UNAVAILABLE", message } };
 }
@@ -280,8 +302,12 @@ export function createIdempotentJobService({
       return unavailable("The shared idempotency store returned an invalid claim result.");
     }
 
+    // Only a shared store can lose a claim to another instance, so only it fences the write.
+    const fence = typeof store.confirmOwner === "function"
+      ? () => store.confirmOwner({ keyHash: identity.keyHash, ownerToken, now: now() }, signal)
+      : undefined;
     try {
-      const result = await createJob({ jobId: identity.jobId, request, signal });
+      const result = await createJob({ jobId: identity.jobId, request, signal, ...(fence ? { fence } : {}) });
       const resultJobId = result?.jobSheet?.jobId ?? result?.jobId;
       if (!result || result.ok !== true || resultJobId !== identity.jobId || result.durable !== true) {
         await store.release({ keyHash: identity.keyHash, ownerToken });
