@@ -5,8 +5,10 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
+import { startIndexServer } from "./helpers/server.js";
 
-const PORT = 4100;
+// Tests in this file run one at a time, so the port of the current server is shared state.
+let PORT;
 
 async function stopServer(child) {
   if (child.exitCode !== null || child.signalCode !== null) return;
@@ -17,16 +19,9 @@ async function stopServer(child) {
 
 
 async function startServer(extraEnv = {}) {
-  const child = spawn(process.execPath, ["index.mjs"], {
-    cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: { ...process.env, PORT: String(PORT), ...extraEnv },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  const [startupMessage] = await once(child.stdout, "data");
-  const message = startupMessage.toString();
-
-  return { child, startupMessage: message.trim() };
+  const { child, port, startupMessage } = await startIndexServer({ ...process.env, ...extraEnv });
+  PORT = port;
+  return { child, startupMessage };
 }
 
 test("health endpoint returns ok", async () => {
