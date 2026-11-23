@@ -40,9 +40,12 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - ARC-M1-12 and ARC-M1-14 merged (`723ce7a`): every Gemini call sends explicit `safetySettings` (four categories, `BLOCK_MEDIUM_AND_ABOVE`, `method: PROBABILITY`), `thinkingConfig` and a configured `toolConfig`; blocked results map to `GEMINI_SAFETY_BLOCKED`. Settings are in `config/arc-models.json`; prompts are in `prompts/` with versions. QA PASS: 12 of 12 mutations caught, prompts byte-identical, and the 3 live calls confirmed in Cloud Monitoring.
 - `npm test` on `arc/main` `723ce7a`: 694 tests, 694 pass, 0 fail.
 
+- ARC-M1-18 merged (`7ff9866`): CONDITIONAL GO. AC1.22 and AC1.24 met; AC1.23 stays open until ARC-M1-21 stores the explanation source. ARC-M1-19 merged (`2bf594c`): CONDITIONAL GO, follow-ups in ARC-M1-23. ARC-M1-20 merged (`11a9926`): GO. `npm test` on `arc/main`: 705 of 705.
+- New tickets: ARC-M1-22 (test suite uses a fixed port 4100 and hangs when suites run in parallel), ARC-M1-23 (wording and test gaps from the M1-18 to M1-20 QA).
+
 ## In progress
 
-- In QA: ARC-M1-05 (durable idempotency; schema check and `updatedAt` fixes in, 710/710), ARC-M1-08 (Gemini budget with ₹600 and ₹200 daily caps; 731/731 on local fakes; session and IP limits not wired to callers, proposed for ARC-M1-17), ARC-M1-18 (PDF labels), then ARC-M1-19 (mock label) and ARC-M1-20 (currency).
+- In QA: ARC-M1-05 (durable idempotency; schema check and `updatedAt` fixes in, 710/710), ARC-M1-08 (Gemini budget with ₹600 and ₹200 daily caps; 731/731 on local fakes; session and IP limits not wired to callers, proposed for ARC-M1-17).
 - Repairs after QA: ARC-M1-07 (durable traces). QA passed 4 of 5 checks, 710/710. To fix before merge: two test gaps (owner lookup failing open, query order) and a reader seeing a silently truncated stream after a failed event write (`TRACE_INCOMPLETE`).
 - External engineers (brief: `external-agents.md`): Codex builds the M6 frontend stream from ARC-M6-01; GitHub Copilot builds ARC-M1-16 (R² part only until Om signs off). Their branches go through the same QA, review gate and merge as the role agents.
 - After these: ARC-M1-17 (session issuance and pitch claim), ARC-M1-10 (lot revisions and approve guard), ARC-M1-16, ARC-M1-21, ARC-SETUP-02 (asks the founders before editing `scripts/quality/`), ARC-M1-13 (needs Node 22), then the M1 gate.

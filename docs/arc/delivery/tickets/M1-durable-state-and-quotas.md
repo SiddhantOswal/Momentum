@@ -137,3 +137,20 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - AC: a new nullable column or JSON field on `job_sheets`, added alongside the existing schema with a change record and no change to existing rows. The PDF reads the explanation source from it. Old rows render as before.
 - Depends on: M1-12, M1-18. Owner: data engineer and backend engineer.
 - Test plan: a mapper test round-tripping the new fields, plus a PDF test driven by the stored value.
+
+### ARC-M1-22 Give the test suite its own port (P1)
+- Goal: `test/app.test.js` binds the fixed port 4100, and a server that fails to bind never prints, so the test hangs. Parallel suites on one machine hang it (seen three times on 2026-11-24).
+- AC: `app.test.js` and any test that starts a server use port 0 or a per-run port. Two suites can run at the same time without a hang or a clash.
+- Depends on: nothing. Owner: backend engineer.
+- Test plan: run two `npm test` processes together and record the counts.
+
+### ARC-M1-23 Wording and test gaps from the M1-18 to M1-20 QA (P1)
+- Goal: close the gaps QA found.
+  - The mock PDF (`service-ports.js:404`) lacks the AC1.24 strings.
+  - Web wording that says "Gemini" in mock mode: `Lots.tsx:174` and `:324`, `Defects.tsx:82`, `operator-ui.js:73`, `ui/components.js:235`. The "Why these settings" label in `Lots.tsx:324` must show Gemini only when the explanation came from it.
+  - Dropping the `isRealModelPrediction === true` half of the M1-19 condition fails no test; add one.
+  - `card.pdf` with currency `ZZZ` has no HTTP test.
+- AC: each item has a test that fails without its fix.
+- Depends on: M1-21 for the explanation source. Owner: backend engineer; frontend engineer for the web labels.
+- Test plan: the four tests above, each shown failing first.
+
