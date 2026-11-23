@@ -174,6 +174,7 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
           reviewId,
           reviewFingerprint,
           confirmedSourceLine: fields.confirmedSourceLine === "true",
+          ...(typeof principal?.sessionId === "string" ? { ownerSessionId: principal.sessionId } : {}),
         },
       } : {}),
       shift,

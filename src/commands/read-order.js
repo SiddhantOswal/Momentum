@@ -57,6 +57,7 @@ export async function readOrder({ fields = {} } = {}, {
     file: upload.file,
     operatorFields: operatorFields.data,
     ...(selectedLineIndex === undefined ? {} : { selectedLineIndex }),
+    ...(typeof principal?.sessionId === "string" ? { ownerSessionId: principal.sessionId } : {}),
     signal,
   });
   if (extraction?.ok && Array.isArray(extraction.lines)) {

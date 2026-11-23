@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { planLot } from "../src/commands/plan-lot.js";
+import { readOrder } from "../src/commands/read-order.js";
 import { createFirestorePoReviewStore } from "../src/google-cloud/firestore-po-review-store.js";
 import { createPurchaseOrderReviewService } from "../src/purchase-order-review.js";
+import { createConfiguredServicePorts } from "../src/service-ports.js";
 import { createFakeFirestore } from "./fixtures/fake-firestore.js";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
 
@@ -225,4 +229,94 @@ test("without the durable store, reviews stay on the instance that read them, as
   assertStale(await confirm(b.service, reviewed));
   assert.equal((await confirm(a.service, reviewed, { ownerSessionId: undefined })).ok, true);
   assert.equal(fake.calls.length, 0);
+});
+
+const LIVE_EXTRACTION_ENV = {
+  PROJECT_ID: "prepagent-hack",
+  REGION: "asia-south1",
+  BUCKET: "prepagent-hack-data",
+  VERTEX_LOCATION: "asia-south1",
+  GEMINI_MODEL: "gemini-3.5-flash",
+  USTAAD_ENABLE_LIVE_MODEL_CALLS: "true",
+  GEMINI_DAILY_ATTEMPT_CAP: "10",
+  GEMINI_DAILY_ATTEMPT_TIMEZONE: "Asia/Kolkata",
+};
+
+function configuredPorts(env, fake) {
+  return createConfiguredServicePorts({
+    env: { ...LIVE_EXTRACTION_ENV, ...env },
+    modelConfig: { projectId: "prepagent-hack", location: "asia-south1", testModel: "gemini-3.5-flash", modelCallsEnabled: true },
+    bucketConfig: { bucket: { name: "prepagent-hack-data" } },
+    tokenProvider: async () => "test-token",
+    fetchImpl: fake.fetchImpl,
+  });
+}
+
+const unknownReview = { reviewId: "6f1c2b9e-3d4a-4f5b-8c7d-ffffffffffff", reviewFingerprint: "e".repeat(64) };
+
+test("USTAAD_ENABLE_DURABLE_PO_REVIEWS=true routes the configured review port to po_reviews", async () => {
+  const fake = createFakeFirestore();
+  const ports = configuredPorts({ USTAAD_ENABLE_DURABLE_PO_REVIEWS: "true" }, fake);
+
+  assertStale(await confirm({ confirmReview: ports.confirmPurchaseOrderReview }, unknownReview));
+  assert.deepEqual(fake.calls.map(({ method, url }) => [method, new URL(url).pathname]), [
+    ["GET", "/v1/projects/prepagent-hack/databases/(default)/documents/po_reviews/6f1c2b9e-3d4a-4f5b-8c7d-ffffffffffff"],
+  ]);
+});
+
+test("with the flag off or not exactly true, the configured review port never calls Firestore", async () => {
+  for (const flag of [undefined, "false", "TRUE", "1"]) {
+    const fake = createFakeFirestore();
+    const ports = configuredPorts(flag === undefined ? {} : { USTAAD_ENABLE_DURABLE_PO_REVIEWS: flag }, fake);
+
+    assertStale(await confirm({ confirmReview: ports.confirmPurchaseOrderReview }, unknownReview));
+    assert.equal(fake.calls.length, 0, `flag=${String(flag)}`);
+  }
+});
+
+const purchaseOrder = await readFile(new URL("./fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url));
+const offlineCommand = {
+  signal: new AbortController().signal,
+  liveStore: { publish: async () => {} },
+  executionMode: "offline",
+  purchaseOrderPolicy: { acceptRealOrders: false, extractionAdapterConfigured: false, syntheticOnly: false },
+};
+
+test("reading an order passes the caller's session to the review port", async () => {
+  const requests = [];
+  const servicePorts = { extractOrderForReview: async (request) => { requests.push(request); return { ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "stub" } }; } };
+  const file = () => new File([purchaseOrder], "order.pdf", { type: "application/pdf" });
+
+  await readOrder({ fields: { file: file() } }, { ...offlineCommand, servicePorts, principal: { sessionId: SESSION_A } });
+  await readOrder({ fields: { file: file() } }, { ...offlineCommand, servicePorts, principal: { uid: "supervisor" } });
+
+  assert.equal(requests[0].ownerSessionId, SESSION_A);
+  assert.equal("ownerSessionId" in requests[1], false);
+});
+
+test("planning a reviewed lot carries the caller's session with the review reference", async () => {
+  const submissions = [];
+  const fields = {
+    file: new File([purchaseOrder], "order.pdf", { type: "application/pdf" }),
+    orderId: "TEST-PO-1", paperType: "VIRGIN", paperSupplier: "SUPPLIER-TEST",
+    confirmedItemCode: "SKU-TEST-42", confirmedQuantity: "100", confirmedLineIndex: "1",
+    reviewId: unknownReview.reviewId, reviewFingerprint: unknownReview.reviewFingerprint, confirmedSourceLine: "true",
+    shift: "DAY", runDate: "2026-10-15", ambientRhPct: "64", ambientTempC: "26", paperMoisturePct: "8.5",
+    conditionsConfirmed: "true", sfSpeedMpm: "40", rollTempC: "165", gumApplication: "MED", gumViscositySec: "40",
+    pastingPressure: "MED", dryingHours: "6", printSpeedSpm: "50",
+  };
+  const deps = {
+    ...offlineCommand,
+    hackathonAuth: { enabled: false },
+    demoMode: false,
+    submitJob: async (submission) => { submissions.push(submission); return { ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "stub" } }; },
+  };
+
+  await planLot({ fields }, { ...deps, principal: { sessionId: SESSION_A } });
+  await planLot({ fields }, { ...deps, principal: { uid: "supervisor" } });
+
+  assert.deepEqual(submissions[0].request.purchaseOrderReview, {
+    ...unknownReview, confirmedSourceLine: true, ownerSessionId: SESSION_A,
+  });
+  assert.deepEqual(submissions[1].request.purchaseOrderReview, { ...unknownReview, confirmedSourceLine: true });
 });
