@@ -62,7 +62,11 @@ export async function readOrder({ fields = {} } = {}, {
   });
   if (extraction?.ok && Array.isArray(extraction.lines)) {
     const lines = extraction.lines.length;
-    await liveStore.publish({ event: { type: "order.read", text: `${operatorFields.data.orderId ? `Order ${operatorFields.data.orderId}` : "An order"} read by Gemini · ${lines} line${lines === 1 ? "" : "s"}`, actor: liveActor(principal) } });
+    const order = operatorFields.data.orderId ? `Order ${operatorFields.data.orderId}` : "An order";
+    const readBy = extraction.source === "vertex-gemini" && extraction.isRealModelPrediction === true
+      ? "read by Gemini"
+      : "read · Sample output, no model call";
+    await liveStore.publish({ event: { type: "order.read", text: `${order} ${readBy} · ${lines} line${lines === 1 ? "" : "s"}`, actor: liveActor(principal) } });
   }
   return extraction;
 }
