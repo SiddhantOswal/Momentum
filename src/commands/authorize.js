@@ -32,6 +32,7 @@ export async function authorizeSupervisor({
   executionMode,
   localPrivilegedAdapterConfigured,
   traceOwners,
+  traceOwnerLookup,
   isSameOrigin,
 }) {
   const crossOriginWrite = () => !READ_METHODS.includes(method) && !isSameOrigin({ origin, requestUrl });
@@ -50,7 +51,18 @@ export async function authorizeSupervisor({
     if (jobMatch && !demoOwnsJob(result.principal, jobId ?? jobMatch[1])) {
       return rejection(403, "DEMO_SCOPE_REQUIRED", "This record does not belong to this demo session.");
     }
-    if (path.startsWith("/api/runs/") && traceOwners.get(path.split("/")[3]) !== result.principal.sessionId) {
+    if (path.startsWith("/api/runs/") && traceOwnerLookup) {
+      let owner;
+      try {
+        owner = await traceOwnerLookup(path.split("/")[3]);
+      } catch {
+        return rejection(503, "SERVICE_UNAVAILABLE", "Trace ownership could not be checked.");
+      }
+      // Another session's run answers exactly like a run that does not exist.
+      if (owner !== result.principal.sessionId) {
+        return rejection(404, "TRACE_NOT_FOUND", "Trace run was not found or has expired.");
+      }
+    } else if (path.startsWith("/api/runs/") && traceOwners.get(path.split("/")[3]) !== result.principal.sessionId) {
       return rejection(403, "DEMO_SCOPE_REQUIRED", "This trace does not belong to this demo session.");
     }
     return { ok: true, principal: result.principal };

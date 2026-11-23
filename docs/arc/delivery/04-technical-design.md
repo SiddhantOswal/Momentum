@@ -200,7 +200,7 @@ export const TraceHeadDocSchema = z.object({
   runId: uuid,                              // for kind "arc_task_run": the taskRunId
   ownerSessionId: sessionId,
   kind: z.enum(["job_preparation", "arc_task_run"]),
-  status: z.enum(["running", "completed", "failed", "cancelled"]),
+  status: z.enum(["running", "completed", "failed", "cancelled", "incomplete"]),
   lastSequence: z.number().int().nonnegative(),
   jobId: JobIdSchema.optional(),
   geminiAttempts: z.number().int().nonnegative(),  // reservations made inside this run
@@ -221,6 +221,10 @@ export const ArcEventDocSchema = z.object({ // kind "arc_task_run"
   resultRef: ResultRefSchema.nullable(),    // an "answer" event points at its turn; the text is stored only there
 }).strict();
 ```
+
+`incomplete` is set when an event write-through fails. Later writes for that run stop, so the stored events stay a gap-free prefix, and the head is written once as `incomplete` with `lastSequence` at the last stored event. If the owner is not known yet, the head is written when the owner is claimed. A store-backed reader sends every stored event, then ends the stream with a terminal `stream.error` carrying `TRACE_INCOMPLETE`. The instance that ran the trace still serves it in full from memory.
+
+Residual case: if the `incomplete` head write also fails, it is logged and not retried. Another instance then returns 404 `TRACE_NOT_FOUND` when the owner was claimed after the run, or ends the stream without a terminal event when the owner was claimed mid-run.
 
 ### 2.4 Budget: `budget_counters/{counterId}` and `budget_reservations/{keyHash}`
 
@@ -375,6 +379,8 @@ export const ArcTaskRunDocSchema = z.object({
 ```
 
 When a step enters `WAITING_FOR_USER`, the run emits the `step.waiting_for_user` event (ADR-0011) with the same `waitingFor` value. The `approve` wait is terminal for Arc: only the approve command, called from the client button, moves the lot forward. The run then records the outcome by reading the revision, not by calling approve.
+
+`GET /api/arc/runs/:taskRunId/events` serves the run's trace (2.3). Read from the store, it ends at the run's terminal event, or with `stream.error` `TRACE_INCOMPLETE` when the head is `incomplete`.
 
 ### 2.7 Lots and revisions: `lot_heads/{lotId}` and `lot_revisions/{jobId}`
 
@@ -785,6 +791,7 @@ Proposed:
 | Pitch reserve secret unreadable at start | Pitch claim unavailable | `POST /api/auth/pitch-claim` returns 503; the reserve stays unused and the rest of the day limit works | Fix the secret reference and deploy a new revision |
 | Superseded draft approved by an old tab | Blocked | 409 `REVISION_SUPERSEDED` with the current revision | User reviews the new revision |
 | BigQuery MERGE slower than the lease | Two owners | Fencing check before the write; duplicate check in preflight | n/a |
+| Trace event write to Firestore fails | Stored trace stops short; other instances cannot show the rest | Head written once as `incomplete` (2.3); store-backed stream ends with `stream.error` `TRACE_INCOMPLETE`; the running instance serves the full trace from memory. If the head write also fails: 404 `TRACE_NOT_FOUND` or a stream that ends silently on other instances | None for the trace copy; the run itself is not affected |
 | TTL deletes an expired review before the user returns | Review gone | Same as logical expiry: "Read the order again" | User re-reads (one attempt) |
 
 ## 9. Founder decisions this design needs

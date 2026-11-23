@@ -70,7 +70,8 @@ export const TraceHeadDocSchema = z.object({
   runId: uuid,
   ownerSessionId: SessionIdSchema,
   kind: z.enum(["job_preparation", "arc_task_run"]),
-  status: z.enum(["running", "completed", "failed", "cancelled"]),
+  // "incomplete": the write-through stopped, so the stored events end at lastSequence and the run's end is unknown.
+  status: z.enum(["running", "completed", "failed", "cancelled", "incomplete"]),
   lastSequence: z.number().int().nonnegative(),
   jobId: JobIdSchema.optional(),
   geminiAttempts: z.number().int().nonnegative(),
