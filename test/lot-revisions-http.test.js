@@ -5,6 +5,8 @@ import { createServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { encodeDocument, fromFirestoreFields } from "../src/google-cloud/firestore-rest.js";
+import { BASE_TIMESTAMP_FIELDS, LotHeadDocSchema, LotRevisionDocSchema } from "../src/state-schemas.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
 
 const preload = fileURLToPath(new URL("./fixtures/redirect-google-apis.mjs", import.meta.url));
@@ -158,5 +160,116 @@ test("the lot routes share the API rate limiter", async () => {
     for (let index = 0; index < 70; index += 1) statuses.push((await call(`/lots/${lotId}`)).status);
     assert.ok(statuses.includes(429), "a session sending 70 requests in a minute must be limited");
     assert.equal(statuses[0], 404);
+  });
+});
+
+const GUARD = { USTAAD_ENABLE_LOT_REVISIONS: "true", USTAAD_ENFORCE_APPROVE_GUARD: "true" };
+const DOCS = "projects/prepagent-hack/databases/(default)/documents";
+const confirmationFor = (revisionFingerprint) => ({ reviewConfirmed: true, revisionFingerprint });
+
+function seedRevision(google, { sessionId, lotId, jobId, number, fingerprint, status = "CURRENT", head }) {
+  const now = "2026-12-04T00:00:00.000Z";
+  const base = { schemaVersion: 1, createdAt: now, updatedAt: now, expiresAt: "2027-01-04T00:00:00.000Z" };
+  const frozen = [{
+    field: "paperMoisturePct", value: 8.5, unit: "%", provenance: "operator_entry", sourceDetail: "typed",
+    label: "Entered by operator", confirmed: false,
+  }];
+  const revision = {
+    ...base, jobId, lotId, number, status, requestFingerprint: "e".repeat(64), revisionFingerprint: fingerprint,
+    conditions: frozen, supersededBy: null, supersededReason: null, approvingLeaseExpiresAt: null, approvedAt: null,
+  };
+  const put = (collection, id, schema, doc, timestamps) => {
+    const name = `${DOCS}/${collection}/${id}`;
+    google.firestore.docs.set(name, { name, fields: encodeDocument(schema, doc, { timestamps }), updateTime: "2026-12-04T00:00:00.000001Z" });
+  };
+  put("lot_revisions", jobId, LotRevisionDocSchema, revision, [...BASE_TIMESTAMP_FIELDS, "approvingLeaseExpiresAt", "approvedAt"]);
+  if (head) {
+    put("lot_heads", lotId, LotHeadDocSchema, {
+      ...base, lotId, ownerSessionId: sessionId, reviewId: null, orderRef: null, draftConditions: frozen,
+      conditionsFingerprint: null, currentRevision: number, currentJobId: jobId, stage: "draft_review", version: 0,
+    }, BASE_TIMESTAMP_FIELDS);
+  }
+}
+
+const readRevision = (google, jobId) => {
+  const stored = google.firestore.docs.get(`${DOCS}/lot_revisions/${jobId}`);
+  return stored && fromFirestoreFields(stored.fields);
+};
+
+test("J8 over HTTP: after the moisture is edited, Rev 1 cannot be approved", async () => {
+  await withApp(GUARD, async ({ call, sessionId, google }) => {
+    const lotId = `LOT-HACK-${sessionId}-${"b".repeat(12)}`;
+    const jobOne = `JOB-HACK-${sessionId}-${"1".repeat(40)}`;
+    const fingerprintOne = "c".repeat(64);
+    seedRevision(google, { sessionId, lotId, jobId: jobOne, number: 1, fingerprint: fingerprintOne, head: true });
+
+    const shown = await (await call(`/lots/${lotId}`)).json();
+    assert.equal(shown.revision.status, "CURRENT");
+    assert.equal(shown.revision.fingerprint, fingerprintOne);
+
+    const edit = await call(`/lots/${lotId}/conditions`, {
+      method: "PUT", body: { conditions: [{ field: "paperMoisturePct", value: 10.8, source: "typed" }] },
+    });
+    assert.equal(edit.status, 200);
+    assert.equal((await edit.json()).superseded.number, 1);
+    assert.equal(readRevision(google, jobOne).status, "SUPERSEDED");
+
+    const refused = await call(`/jobs/${jobOne}/approve?lang=en&currency=INR`, { method: "POST", body: confirmationFor(fingerprintOne) });
+    assert.equal(refused.status, 409);
+    assert.equal((await refused.json()).error.code, "REVISION_SUPERSEDED");
+    assert.equal(readRevision(google, jobOne).status, "SUPERSEDED");
+  });
+});
+
+test("the guard returns 4xx for a missing flag or a stale fingerprint and 409 for an unregistered draft", async () => {
+  await withApp(GUARD, async ({ call, sessionId, google }) => {
+    const lotId = `LOT-HACK-${sessionId}-${"b".repeat(12)}`;
+    const jobOne = `JOB-HACK-${sessionId}-${"1".repeat(40)}`;
+    const unregistered = `JOB-HACK-${sessionId}-${"9".repeat(40)}`;
+    seedRevision(google, { sessionId, lotId, jobId: jobOne, number: 1, fingerprint: "c".repeat(64), head: true });
+    const approve = (job, body) => call(`/jobs/${job}/approve`, { method: "POST", body });
+
+    const noBody = await approve(jobOne);
+    assert.equal(noBody.status, 400);
+    assert.equal((await noBody.json()).error.code, "REVIEW_CONFIRMATION_REQUIRED");
+    const unticked = await approve(jobOne, { reviewConfirmed: false, revisionFingerprint: "c".repeat(64) });
+    assert.equal(unticked.status, 400);
+    const stale = await approve(jobOne, confirmationFor("d".repeat(64)));
+    assert.equal(stale.status, 409);
+    assert.equal((await stale.json()).error.code, "REVISION_FINGERPRINT_MISMATCH");
+    const none = await approve(unregistered, confirmationFor("c".repeat(64)));
+    assert.equal(none.status, 409);
+    assert.equal((await none.json()).error.code, "REVISION_NOT_REGISTERED");
+    assert.equal(readRevision(google, jobOne).status, "CURRENT");
+
+    const crossOrigin = await call(`/jobs/${jobOne}/approve`, {
+      method: "POST", body: confirmationFor("c".repeat(64)), origin: "https://evil.example",
+    });
+    assert.equal(crossOrigin.status, 403);
+    assert.equal(readRevision(google, jobOne).status, "CURRENT");
+  });
+});
+
+test("a matching confirmation passes the guard, and a failed approval leaves the revision CURRENT", async () => {
+  await withApp(GUARD, async ({ call, sessionId, google }) => {
+    const lotId = `LOT-HACK-${sessionId}-${"b".repeat(12)}`;
+    const jobOne = `JOB-HACK-${sessionId}-${"1".repeat(40)}`;
+    seedRevision(google, { sessionId, lotId, jobId: jobOne, number: 1, fingerprint: "c".repeat(64), head: true });
+    // No approval adapter is configured in this process, so the unchanged approval answers 503.
+    const passed = await call(`/jobs/${jobOne}/approve`, { method: "POST", body: confirmationFor("c".repeat(64)) });
+    assert.equal(passed.status, 503);
+    assert.equal((await passed.json()).error.code, "SERVICE_UNAVAILABLE");
+    assert.equal(readRevision(google, jobOne).status, "CURRENT");
+    const commits = google.firestore.calls.filter((entry) => entry.path.endsWith(":commit")).length;
+    assert.equal(commits, 2, "one commit to start the approval and one to return it to CURRENT");
+  });
+});
+
+test("with the guard off, approve ignores the body and reads no lot records", async () => {
+  await withApp(ENABLED, async ({ call, sessionId, google }) => {
+    const jobOne = `JOB-HACK-${sessionId}-${"1".repeat(40)}`;
+    const result = await call(`/jobs/${jobOne}/approve`, { method: "POST" });
+    assert.equal((await result.json()).error.code, "SERVICE_UNAVAILABLE");
+    assert.equal(google.firestore.calls.length, 0);
   });
 });

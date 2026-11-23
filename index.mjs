@@ -940,6 +940,8 @@ app.post("/jobs/:id/approve", async (c) => {
     jobId: c.req.param("id"),
     lang: c.req.query("lang"),
     currency: c.req.query("currency"),
+    // Read only by the approve guard; with the guard off the body stays ignored, as before.
+    body: await c.req.json().catch(() => undefined),
   }, commandContext(c)));
 });
 
