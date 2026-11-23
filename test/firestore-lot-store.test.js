@@ -145,6 +145,34 @@ test("making a revision current supersedes the previous current one in the same 
   assert.equal(head.stage, "draft_review");
 });
 
+test("a condition edited while a plan is pending stops that plan becoming approvable", async () => {
+  const context = setup();
+  await context.store.registerPending({ lotId, ownerSessionId: sessionId, jobId: jobOne, requestFingerprint, conditions: [moisture(8.5)] });
+  context.clock.now = NOW + 5_000;
+  await context.store.saveConditions({ lotId, ownerSessionId: sessionId, conditions: [moisture(10.8)], byRole: "Supervisor session" });
+  context.clock.now = NOW + 60_000;
+  const made = await context.store.makeCurrent({ lotId, jobId: jobOne, revisionFingerprint: fingerprintOne });
+  assert.deepEqual(made, { ok: false, code: "REVISION_SUPERSEDED" });
+  const stored = context.read("lot_revisions", jobOne);
+  assert.equal(stored.status, "SUPERSEDED");
+  assert.deepEqual(stored.supersededReason, {
+    field: "paperMoisturePct", from: 8.5, to: 10.8, provenance: "operator_entry", byRole: "Supervisor session",
+  });
+  assert.equal(context.read("lot_heads", lotId).currentJobId, null);
+  const approval = await context.store.beginApproval({ jobId: jobOne, revisionFingerprint: fingerprintOne });
+  assert.equal(approval.ok, false);
+  assert.equal(approval.code, "REVISION_SUPERSEDED");
+});
+
+test("an earlier saved draft that differs from a later plan does not block that plan", async () => {
+  const context = setup();
+  await context.store.saveConditions({ lotId, ownerSessionId: sessionId, conditions: [moisture(9)], byRole: "Supervisor session" });
+  context.clock.now = NOW + 5_000;
+  await context.store.registerPending({ lotId, ownerSessionId: sessionId, jobId: jobOne, requestFingerprint, conditions: [moisture(8.5)] });
+  context.clock.now = NOW + 60_000;
+  assert.equal((await context.store.makeCurrent({ lotId, jobId: jobOne, revisionFingerprint: fingerprintOne })).ok, true);
+});
+
 test("making a revision current twice is a replay, and only a pending revision can become current", async () => {
   const context = setup();
   await planned(context);

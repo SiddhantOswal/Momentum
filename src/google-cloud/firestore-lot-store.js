@@ -292,6 +292,18 @@ export function createFirestoreLotStore({
           return { result: { ok: true, revision: doc } };
         }
         if (doc.status !== "PENDING") return { result: refuse("REVISION_CONFLICT") };
+        // The head is written at registration, so a later write that disagrees with the frozen
+        // conditions is an edit made while this plan ran. That draft must never become approvable.
+        const edit = Date.parse(head.doc.updatedAt) > Date.parse(doc.createdAt)
+          ? firstChange(doc.conditions, head.doc.draftConditions)
+          : undefined;
+        if (edit) {
+          const reason = { ...edit, byRole: "Supervisor session" };
+          return {
+            writes: [revisionWrite({ ...doc, status: "SUPERSEDED", supersededReason: reason }, revision, instant)],
+            result: refuse("REVISION_SUPERSEDED"),
+          };
+        }
         const previousId = head.doc.currentJobId;
         const previous = previousId && previousId !== jobId ? await readRevision(previousId, context) : null;
         const current = { ...doc, status: "CURRENT", revisionFingerprint };

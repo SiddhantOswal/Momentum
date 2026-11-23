@@ -106,6 +106,29 @@ test("a failed plan marks its revision FAILED and returns the original failure",
   assert.equal(fromFirestoreFields(context.firestore.docs.get(revisionName).fields).status, "FAILED");
 });
 
+test("a condition edited while the plan runs leaves the draft SUPERSEDED and the plan reports a conflict", async () => {
+  const context = setup({
+    submit: async (input) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await context.deps.lotRevisions.store.saveConditions({
+        lotId: `LOT-HACK-${context.principal.sessionId}-${input.identity.keyHash.slice(0, 12)}`,
+        ownerSessionId: context.principal.sessionId, byRole: "Supervisor session",
+        conditions: [{
+          field: "paperMoisturePct", value: 10.8, unit: "%", provenance: "operator_entry", sourceDetail: "typed",
+          label: "Entered by operator", confirmed: false,
+        }],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return { ok: true, durable: true, jobSheet: { ...structuredClone(jobSheetFixture), jobId: input.identity.jobId } };
+    },
+  });
+  const result = await context.plan();
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 409);
+  const [name] = [...context.firestore.docs.keys()].filter((key) => key.includes("/lot_revisions/"));
+  assert.equal(fromFirestoreFields(context.firestore.docs.get(name).fields).status, "SUPERSEDED");
+});
+
 test("a retry of the same request reuses the revision and returns the same fingerprint", async () => {
   const context = setup();
   const first = await context.plan();
