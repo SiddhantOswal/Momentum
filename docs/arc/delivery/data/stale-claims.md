@@ -122,7 +122,7 @@ Unchanged and still correct: "7 of 10" (photo check, README), "219 test lots, Se
 
 | Location | Old text | Correct current value | Source |
 |---|---|---|---|
-| `src/ui/workflow.js:1933` (`DEMO_LOT`) | RH "86", temperature "26", moisture "10.8" | Pending Om: RH "42", temperature "24.5", moisture "7.3". On m2_*, the current inputs give 23.2 kg / ₹1,035, not the README's 17.4 kg / ₹925 | `PKBX0041-m2-rerun.md` |
+| `src/ui/workflow.js:1933` (`DEMO_LOT`) | RH "86", temperature "26", moisture "10.8" | Pending Om: RH "42", temperature "24.5", moisture "7.3". On m2_*, the current inputs give 23.2 kg / ₹1,035, not the README's 17.4 kg, ₹925 | `PKBX0041-m2-rerun.md` |
 | `src/ui/workflow.js:1930` (comment) and `:1975` ("Demo values · monsoon day") | "a humid monsoon day's conditions" | Untrue once `DEMO_LOT` moves to 42% RH; reword then | Step 1 |
 | `src/operator-ui.js:73` (evaluator guide) | "The demo lot uses a sample order and a humid monsoon day." | Same dependency on `DEMO_LOT` | Same |
 | `src/ui/components.js:77` (comment) | "the crack model has the weakest fit (D4, R² 0.30)" | m2_crack R² 0.108 on the September holdout (0.30 was m_crack on the October internal split). The on-screen caveat "low confidence in monsoon" is still consistent | ML.EVALUATE job p2 |

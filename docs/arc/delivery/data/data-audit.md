@@ -28,6 +28,8 @@ One dataset, `prepagent` (asia-south1). It has 11 tables, 10 models, no views an
 
 ### Tables
 
+Sizes in this table use decimal units: `numBytes` from `bq show` divided by 1,000 (KB) or 1,000,000 (MB). For example, `lots` is 1,765,092 bytes, which is 1.77 MB or 1.68 MiB. Rechecked with `bq show` on 2026-11-23 (metadata only, no query). The Cloud Build bucket size in section 3 is also decimal. Bytes billed and query caps elsewhere in this file are binary (MiB).
+
 | Table | Rows | Size | Created / last modified (UTC) | Main date column and range | Provenance |
 |---|---|---|---|---|---|
 | `items` | 117 | 17.5 KB | 2026-10-11 / 2026-10-11 | none | **catalog**: the real 117-item plant catalog. 117 distinct item codes, 15 customer IDs, box styles RSC, DIECUT and TRAY, ply 3, 5 and 7, 67 printed items |
@@ -51,7 +53,7 @@ None of the existing tables has a provenance column. The label is implied by the
 - `baseline_json` and `recommended_json` hold levers and risk only. **No row records which model set (m_* or m2_*) produced it.** By date, every row before the switch (commit 312d120, 2026-11-20 09:10 IST) used m_*. That is an inference, not a stored field.
 - `evidence_json` is empty on every row.
 - Since Monday 16 November (IST): 2 created and 1 approved.
-- Approved savings sum: 132.1 kg and ₹7,020. Drafts: 75.4 kg and ₹3,810. Six rows repeat the old PKBX0041 17.4 kg / ₹925 figure. These are model estimates from repeated test runs, not savings.
+- Approved savings sum: 132.1 kg and ₹7,020. Drafts: 75.4 kg and ₹3,810. Six rows repeat the old PKBX0041 figure (17.4 kg, ₹925, 86% RH). These are model estimates from repeated test runs, not savings.
 
 ### Units and ranges in `lots` (all 5,350 rows, job bqjob_r7fc976aed500db1e_000001a204701af5_1)
 
@@ -102,8 +104,8 @@ The m2_* R² and MAE above were re-measured today with ML.EVALUATE (jobs `arc_m0
 
 | Bucket | Location | Contents (counts only) |
 |---|---|---|
-| `prepagent-hack-data` | ASIA-SOUTH1 | 73 objects, 2.88 MiB. `orders/`: 45 PDF and 4 JPEG (uploaded or sample POs, 2026-10-13 to 2026-11-20). `jobcards/`: 9 PDF, 11,378 to 17,126 bytes, 2026-10-15 to 2026-11-20, one per approved job sheet (`src/google-cloud/job-card-service.js`). `photos/photos/`: 10 JPEG, the approved reference photos (2026-10-11). `photos/video/`: 2 JPEG. `defects/2026-11-19/`: 3 JPEG uploaded through `POST /evidence/diagnose-photo` (`src/google-cloud/defect-diagnosis-service.js`). No retention policy and no lifecycle rule |
-| `prepagent-hack_cloudbuild` | US | 50 objects under `source/`, about 1.17 GB of Cloud Build source archives |
+| `prepagent-hack-data` | ASIA-SOUTH1 | 73 objects, 2.88 MiB. `orders/`: 45 PDF and 4 JPEG (uploaded or sample POs, 2026-10-13 to 2026-11-20). `jobcards/`: 9 PDF, 11,378 to 17,126 bytes, 2026-10-15 to 2026-11-20, one job card per approved `JobSheet` record (`src/google-cloud/job-card-service.js`). `photos/photos/`: 10 JPEG, the approved reference photos (2026-10-11). `photos/video/`: 2 JPEG. `defects/2026-11-19/`: 3 JPEG uploaded through `POST /evidence/diagnose-photo` (`src/google-cloud/defect-diagnosis-service.js`). No retention policy and no lifecycle rule |
+| `prepagent-hack_cloudbuild` | US | 50 objects under `source/`, about 1.17 GB (1,167,178,518 bytes on 2026-11-23 by `gcloud storage du -s`, decimal GB) of Cloud Build source archives |
 
 The three photos under `defects/` are user uploads. Their retention and the "no photos of people" rule are open under AC6.10.
 
@@ -146,7 +148,7 @@ Database `(default)`, FIRESTORE_NATIVE, asia-south1. Point-in-time recovery and 
 | 12 | What has Momentum saved to date? | No (measured). Partly (modeled) | `GET /impact/summary` KPIs from `impact_lots_v2`: ₹7,934 net, 148.9 kg, 7.06% → 6.36%, 3 lots worse | "Modeled, one held-out month"; do not annualise | No realised outcomes. The `job_sheets` savings sum (₹7,020 approved) mixes m_* and m2_* runs, repeats the same test case, and has no model-set field. It must not be shown as a saving |
 | 13 | Which items scrap the most? | Yes | `dash_top_items.sql` through `GET /impact/summary` (items shown as "Item n") | "Modeled records" | Nothing |
 | 14 | Is this item in the catalog, and what is its spec? | Yes | `items` through the catalog service | "From catalog" | Nothing |
-| 15 | What did Arc recommend for this lot, and why? | Yes | `POST /jobs`, `POST /risk/explanation` (`sql/explain.sql`), `job_sheets` | "Model estimate" | The stored job sheet does not say which model version produced it (backend ticket) |
+| 15 | What did Arc recommend for this lot, and why? | Yes | `POST /jobs`, `POST /risk/explanation` (`sql/explain.sql`), `job_sheets` | "Model estimate" | The stored `JobSheet` record does not say which model version produced it (backend ticket) |
 | 16 | What changed between Rev 1 and Rev 2? (J8) | No | None | "Replaced, read only" | No revision record (C8) |
 | 17 | How accurate is the photo check? | Yes | README "7 of 10" | "7 of 10 labels matched in testing. A small check, not an inspection." | No stored evaluation run in the repo or BigQuery. The figure has only a README source |
 | 18 | Show me the live sensor reading or line throughput | No | None | "Insufficient data" | No sensor feed: the Pub/Sub topic has no subscription, and the only row is simulated. No production log or throughput data |
@@ -205,7 +207,7 @@ Answers questions 10 and 11 without exposing order or customer fields.
 
 Columns: job_id, status, created_at, approved_at, card_stored (`card_uri IS NOT NULL`), savings_kg, savings_cost, currency, authorization_mode, authenticated_human, model_set_inferred (`m_*` if created before 2026-11-20T03:40:04Z, else `m2_*`), approval_provenance (constant "Demo session, simulated" while `authorizationMode` = HACKATHON_DEMO), savings_provenance (constant `model_estimate`). It excludes `order_json`, `approval_audit_json.actorUid` and `correlationId`.
 
-- No new data and no generator. `model_set_inferred` is a date rule, not a stored fact; the view must label it "inferred from date". The proper fix is a backend ticket to store the model resource and etag on each job sheet.
+- No new data and no generator. `model_set_inferred` is a date rule, not a stored fact; the view must label it "inferred from date". The proper fix is a backend ticket to store the model resource and etag on each `JobSheet` record.
 - No Om sign-off needed (no plant assumption). The compliance reviewer checks the excluded columns.
 
 ### P4. `prepagent.v_arc_lot_history` (view over `lots`)
@@ -231,11 +233,11 @@ Only if the founders want a moving "live" tile. It reuses the existing topic `se
 - Generator: `tools/` script, seed fixed and recorded (proposed 20261122). One reading every 5 minutes for PLANT-01. RH, temperature and paper moisture are drawn from the modeled history's monthly distribution (`config/condition-ranges.json` medians, with p01 to p99 bounds), and moisture is tied to RH (correlation 0.954 in `lots`). Each row carries `provenance` = `simulated_sensor` and the label "Simulated reading, not a plant sensor."
 - Cost: Pub/Sub and BigQuery streaming at this volume is under ₹1 a month. A subscription is a cloud change and needs the section 7 change record.
 - Assumptions: the plant's ambient and reel moisture behave like the modeled monthly distribution. **Needs Om sign-off.**
-- Recommendation: do not build. P1 (real weather) and P2 (operator entry) already answer "today" honestly, and a simulated stream adds a third label for the same field.
+- Recommendation: do not build. P1 (real weather) and P2 (operator entry) already answer "today" with a labelled source, and a simulated stream adds a third label for the same field.
 
 ### Not proposed: measured outcomes
 
-Questions 5, 12 and 18 need measured scrap, realised savings or throughput. No generator can supply these honestly. Arc answers "Insufficient data" and names what is missing (AC4.1). A future `arc_production_outcomes` table would hold operator-recorded outcomes only, provenance `operator_entry`, and starts empty.
+Questions 5, 12 and 18 need measured scrap, realised savings or throughput. No generator can supply these without inventing them. Arc answers "Insufficient data" and names what is missing (AC4.1). A future `arc_production_outcomes` table would hold operator-recorded outcomes only, provenance `operator_entry`, and starts empty.
 
 ## 8. Findings that need an owner
 
