@@ -35,4 +35,8 @@ For each group: `gcloud firestore fields ttls update expiresAt --collection-grou
 
 ## Verification
 
-Read back with `gcloud firestore fields ttls list`: 13 policies on `expiresAt`, in state CREATING or ACTIVE. The result is recorded below once the change has run.
+Read back with `gcloud firestore fields ttls list`: 13 policies on `expiresAt`, in state CREATING or ACTIVE.
+
+## Result (2026-11-23)
+
+The loop ran with one founder-approved prompt. All 13 operations were accepted. Read-back right after: 13 policies on `expiresAt`, each in state CREATING (arc_sessions, arc_task_runs, budget_counters, budget_reservations, idempotency, lot_heads, lot_revisions, po_reviews, trace_events, traces, turns, weather_cache, weather_observations). Policies move to ACTIVE on their own; check again with the same command before the first durable write is switched on (ARC-M1-05 and ARC-M1-06 flags).
