@@ -12,6 +12,9 @@ import {
 } from "../schemas.js";
 import { BigQueryReadError } from "./bigquery-read-client.js";
 import { geminiUsageFailure } from "../daily-gemini-call-cap.js";
+import { arcModelSettings } from "../arc-model-settings.js";
+
+const EXPLANATION_PROMPT = arcModelSettings.taskPrompt("explanation");
 
 const SIMILAR_COLUMNS = Object.freeze([
   "lot_id", "order_id", "run_date", "item_code", "description", "shift",
@@ -488,7 +491,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         explanationRows: rows,
         historicalEvidence: evidenceForPrompt,
       };
-      const instruction = `Write 3 to 5 concise plain-language sentences explaining the validated model attribution and, when relevant, the supplied historical observations. Distinguish model predictions and attribution from source-history records. Historical entries are source records, not independently verified factory measurements. Call them source-history records; do not describe them as actual or measured factory outcomes or infer causal links between their settings and defect labels. Describe attribution only as a model contribution or association, not as proof of cause and effect. Use only the provided drivers, percentages, attribution points, inputs, settings, and historical metrics. Do not mention lot or order identifiers, add unsupported facts, claim causality or guarantees, or use numeric values not present in the JSON. A positive attribution contributes upward to the model prediction and a negative attribution contributes downward; neither establishes a real-world causal effect. Describe settings using their supplied values without calculating differences, ratios, or combined rates. For total predicted rates and costs use the provided totals exactly; do not sum component rates or calculate new figures. Name drivers in plain words. When describing source-history records, do not use the words attribution, contribution, association or driver. Return only the explanation.\\n${JSON.stringify(promptData)}`;
+      const instruction = `${EXPLANATION_PROMPT}\\n${JSON.stringify(promptData)}`;
       // Ground against the exact validated JSON supplied to Gemini, including
       // original settings in changes.from. A separately maintained subset can
       // reject genuine supplied values when the prompt evolves.
@@ -517,6 +520,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         let text;
         try {
           const response = await gemini.generateContent({
+            role: "explanation",
             contents: [{ role: "user", parts: [{ text: instruction }] }],
             // Measured live: this prompt used 1,964 thinking tokens, exhausting the 2,048 default.
             maxOutputTokens: 8192,
@@ -550,6 +554,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         source,
         explanation,
         rows,
+        ...(source === "bigquery-ml-and-gemini" ? { generation: arcModelSettings.generation("explanation") } : {}),
         evidenceRefs: historicalEvidence.map(({ lotId, orderId, runDate }) => ({ lotId, orderId, runDate })),
       };
     } catch (error) {

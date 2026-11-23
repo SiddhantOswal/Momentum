@@ -11,6 +11,7 @@ import { CloudStorageError } from "./storage-client.js";
 import { VertexGeminiError } from "./vertex-gemini-client.js";
 import { identifyPurchaseOrderMimeType, MAX_PURCHASE_ORDER_BYTES } from "../purchase-order-file.js";
 import { geminiUsageFailure } from "../daily-gemini-call-cap.js";
+import { arcModelSettings } from "../arc-model-settings.js";
 
 const orderResponseSchema = Object.freeze({
   type: "OBJECT",
@@ -32,7 +33,7 @@ const orderResponseSchema = Object.freeze({
   },
 });
 
-const EXTRACTION_PROMPT = `Read this corrugated packaging purchase order as one document. Extract document-level purchase-order number (poNumber), buyer name (buyer), and delivery date as printed (deliveryDate). Extract every line item, in source order, into lines; each line may contain only itemCode, quantity, and sourcePage. sourcePage is the 1-based page number on which the line appears. Return exactly one JSON object with these keys. Do not split one PO into separate documents. Quantity must be an integer, sourcePage must be a positive integer, and deliveryDate must use DD-MM-YYYY. Do not extract or infer item specifications, loaded paper details, shift, or machine settings. Do not guess; omit any absent, ambiguous, or unlocatable value on its line. Preserve a line with an omitted itemCode, quantity, or sourcePage so it can be held for clarification.`;
+const EXTRACTION_PROMPT = arcModelSettings.taskPrompt("extraction");
 const DOCUMENT_FIELDS = ["poNumber", "buyer", "deliveryDate"];
 
 function normalizeExtraction(value) {
@@ -202,6 +203,7 @@ export function createPdfOrderExtractionService({ storage, gemini, itemCatalog, 
         throw new CloudStorageError("CLOUD_STORAGE_INVALID_UPLOAD", "Cloud Storage returned an invalid upload result.");
       }
       const extracted = await gemini.generateJson({
+        role: "extraction",
         fileUri: uploaded.gcsUri,
         mimeType,
         prompt: EXTRACTION_PROMPT,
@@ -367,6 +369,7 @@ export function createPdfOrderExtractionService({ storage, gemini, itemCatalog, 
         sourceDocumentUri: uploaded.gcsUri,
         operatorProvidedFields: Object.keys(parsedOperatorFields.data),
         ...(modelUsage === undefined ? {} : { modelUsage }),
+        generation: arcModelSettings.generation("extraction"),
       };
     } catch (error) {
       const cleanupFailure = await discardUpload();

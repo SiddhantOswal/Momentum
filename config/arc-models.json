@@ -1,0 +1,72 @@
+{
+  "version": "arc-models-v1",
+  "safetySettings": [
+    { "category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE", "method": "PROBABILITY" },
+    { "category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE", "method": "PROBABILITY" },
+    { "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE", "method": "PROBABILITY" },
+    { "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE", "method": "PROBABILITY" }
+  ],
+  "roles": {
+    "extraction": {
+      "model": "gemini-3.5-flash",
+      "location": "asia-south1",
+      "temperature": 0,
+      "maxOutputTokens": 2048,
+      "thinkingLevel": "MEDIUM",
+      "includeThoughts": false,
+      "functionCallingMode": null,
+      "prompt": "extraction/v1"
+    },
+    "explanation": {
+      "model": "gemini-3.5-flash",
+      "location": "asia-south1",
+      "temperature": 0,
+      "maxOutputTokens": 8192,
+      "thinkingLevel": "MEDIUM",
+      "includeThoughts": false,
+      "functionCallingMode": null,
+      "prompt": "explanation/v1"
+    },
+    "photo": {
+      "model": "gemini-3.5-flash",
+      "location": "asia-south1",
+      "temperature": 0,
+      "maxOutputTokens": 2048,
+      "thinkingLevel": "MEDIUM",
+      "includeThoughts": false,
+      "functionCallingMode": null,
+      "prompt": "photo/v1"
+    },
+    "router": {
+      "model": "gemini-3.5-flash-lite",
+      "fallbackModel": "gemini-3.5-flash",
+      "location": "asia-south1",
+      "temperature": null,
+      "maxOutputTokens": 1024,
+      "thinkingLevel": "MINIMAL",
+      "includeThoughts": false,
+      "functionCallingMode": "ANY",
+      "prompt": null
+    },
+    "writer": {
+      "model": "gemini-3.5-flash",
+      "location": "asia-south1",
+      "temperature": 0,
+      "maxOutputTokens": 2048,
+      "thinkingLevel": "LOW",
+      "includeThoughts": false,
+      "functionCallingMode": null,
+      "prompt": null
+    },
+    "agent": {
+      "model": "gemini-3.5-flash",
+      "location": "asia-south1",
+      "temperature": 0,
+      "maxOutputTokens": 2048,
+      "thinkingLevel": "MEDIUM",
+      "includeThoughts": false,
+      "functionCallingMode": "AUTO",
+      "prompt": null
+    }
+  }
+}

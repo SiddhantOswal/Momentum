@@ -181,6 +181,10 @@ export const OrderExtractionApiResponseSchema = z.object({
     cachedContentTokenCount: z.number().int().nonnegative().optional(),
     thoughtsTokenCount: z.number().int().nonnegative().optional(),
   }).strict().optional(),
+  generation: z.object({
+    settingsVersion: z.string().regex(/^arc-models-v[1-9]\d*$/),
+    promptVersion: z.string().regex(/^[a-z]+\/v[1-9]\d*$/),
+  }).strict().optional(),
 }).strict().refine(
   (result) => result.needsClarification === (
     result.missingFields.length > 0 || result.lineSelectionRequired === true ||

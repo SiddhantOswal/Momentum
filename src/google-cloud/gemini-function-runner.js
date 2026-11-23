@@ -65,7 +65,7 @@ export function createGeminiFunctionRunner({ gemini, traceRegistry, tools } = {}
 
     try {
       for (let round = 0; round < MAX_ROUNDS; round += 1) {
-        const modelContent = await gemini.generateContent({ contents: conversation, tools: declarations, signal });
+        const modelContent = await gemini.generateContent({ role: "agent", contents: conversation, tools: declarations, signal });
         const parts = modelContent?.parts;
         if (!Array.isArray(parts) || parts.length === 0) {
           throw new TypeError("Gemini returned an empty response.");
