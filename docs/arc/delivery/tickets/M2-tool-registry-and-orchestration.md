@@ -7,7 +7,7 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 - AC: routes follow `04` I1. Every route uses `authorizeSupervisor`, the same-origin check and the rate limiter. A replayed `clientTurnId` returns the stored events and spends nothing. Sessions are scoped to the demo session. `arc_sessions` keeps the list of job IDs the session created or opened (bounded, newest first), so J10 "open my last approved card" works across lots without a collection query.
 - Depends on: M1-02, M1-05. Owner: backend engineer.
 - Test plan: route tests for authentication, replay and cross-session access.
-- M0 gate additions: the route prefix is settled as `/api/arc/*` in ADR-0007, with `GET /api/arc/runs/:id/events`, so the AC tests behaviour: a request without the signed session cookie gets 401, and a `sessionId` field in the body is ignored. The transcript and turn-summary store follows `04` section 3 ("Interface decisions"), with a TTL and no raw PO text; a test asserts no PO free text is stored.
+- M0 gate additions: the route prefix is settled as `/api/arc/*` in ADR-0007, with `GET /api/arc/runs/:taskRunId/events`, so the AC tests behaviour: a request without the signed session cookie gets 401, and a `sessionId` field in the body is rejected with 400 `VALIDATION_ERROR` (`04` I2). The transcript and turn-summary store follows `04` section 3 ("Interface decisions"), with a TTL and no raw PO text; a test asserts no PO free text is stored.
 
 ### ARC-M2-02 Tool registry (P0)
 - Goal: the 15 tools in `src/arc/tools/` (05 section 1), each with a strict zod schema, a precondition, a key builder and `execute` calling a command from M1-01.
