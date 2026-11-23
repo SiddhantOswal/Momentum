@@ -94,7 +94,7 @@ UI work can start on 24 Nov against a typed API client and recorded responses, b
 - Depends on: M6-01. Owner: frontend engineer.
 - Test plan: a browser test in both themes.
 
-### ARC-M6-18 Missing states G1 to G14 (P0)
+### ARC-M6-18 Missing states G1 to G17 (P0)
 - Goal: draft each missing state from the approved tokens and patterns, get a founder's approval of a screenshot, then build it (D4).
 - AC: each state has an approved screenshot stored in `docs/arc/design/additions/` before its merge.
 - Depends on: M6-01, D4. Owner: frontend engineer; the copy editor checks the text.

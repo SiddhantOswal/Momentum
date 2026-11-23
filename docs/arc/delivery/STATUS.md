@@ -3,21 +3,17 @@
 Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## Done
-
 - Delivery folders created on branch `arc/m0-discovery`, cut from `v2` at `eb6eab9`. The work moved to `arc/setup` on 2026-11-23 for the first commit.
-- `01-business-requirements.md` written (business analyst). Not yet reviewed. No tests or evals run; every target is a proposal with baseline NOT MEASURED.
-
-- `02-product-spec.md` written (product manager). Not yet reviewed. Thresholds are PROPOSED, and baselines are NOT MEASURED. It raises founder questions Q7 to Q11.
-
-- PKBX0041 re-run on the m2_* models (data engineer, read-only). The published 17.4 kg / ₹925 does not reproduce. The m2_* models give 23.2 kg / ₹1,035 at 10.8% moisture and 16.5 kg / ₹879 at 7.3% moisture and 86% RH. Label: model estimate on m2_* models, not a measured saving. Record: `data/PKBX0041-m2-rerun.md`.
-- `03-discovery-audit.md` (solutions architect): v2 map, capability inventory, in-memory state. Read-only; the audit ran 599 local tests, with 597 passing, 1 failing (`job-draft-persistence.test.js:508`) and 1 cancelled.
+- `01-business-requirements.md` written (business analyst). Reviewed at the M0 gate. Baselines NOT MEASURED.
+- `02-product-spec.md` written (product manager). Reviewed at the M0 gate. Eval thresholds signed 2026-11-23; baselines NOT MEASURED. It raises founder questions Q7 to Q11.
+- PKBX0041 re-run on the m2_* models (data engineer, read-only). The published 17.4 kg, ₹925 does not reproduce. The m2_* models give 23.2 kg / ₹1,035 at 10.8% moisture and 16.5 kg / ₹879 at 7.3% moisture and 86% RH. Label: model estimate on m2_* models, not a measured saving. Record: `data/PKBX0041-m2-rerun.md`.
+- `03-discovery-audit.md` (solutions architect): v2 map, capability inventory, in-memory state. Read-only. Test baseline as re-run at the M0 gate on Node 26.13.1: `origin/v2` 75 files, 588 tests, 587 pass, 1 fail (`test/job-draft-persistence.test.js:508`), 0 cancelled; `arc/main` 605 tests, 604 pass, 1 fail. An earlier Node 22.17.1 figure (599 tests, 1 cancelled) could not be reproduced and is NOT VERIFIED.
 - `data/data-audit.md` and `data/stale-claims.md` (data engineer): 15 read-only BigQuery jobs, 230 MiB billed. m2 R² re-measured: 0.4682, 0.5194, 0.388, 0.6404, 0.1081, matching `config/model-acceptance.json`. The data engineer also ran the local test suite once by mistake, with output discarded; it is not used as evidence.
 - ADR-0001 (build on v2; read-only Codex audit, nothing in that repo touched).
 - `04-technical-design.md` with ADR-0002 to ADR-0006 (solutions architect) and `05-ai-design.md` with ADR-0007 to ADR-0011 (AI architect). All Proposed. No code or cloud changes.
 - Vertex AI model check (2026-11-22, free `countTokens` calls): `gemini-3.5-flash` and `gemini-3.5-flash-lite` are served in `asia-south1`; 3.6, 3.7 and 3.8 Flash and 3.1 Pro Preview are global only; the 2.5 family is not served. Prices read from the Vertex pricing page on the same day.
 - Tickets for M0 to M8 in `tickets/`, and `00-plan.md`.
-
-- ARC-SETUP-01 built on branch `arc/setup`, in review (cut from `origin/v2` at `eb6eab9`, with no upstream so it cannot push to `v2` by accident):
+- ARC-SETUP-01 on branch `arc/setup`: short gate CONDITIONAL GO, merged into `arc/main` (`8bc30fd`) (cut from `origin/v2` at `eb6eab9`, with no upstream so it cannot push to `v2` by accident):
   - The commit-message check covers only commits not in `origin/v2` (merge-base). `node --test test/quality-rules.test.js`: 15 of 15 pass. `check.mjs commits`: 0 commits checked from `eb6eab9`. An explicit range over Om's last 3 commits exits 1, which is why the default range now excludes them.
   - `.claude/settings.json` denies `git commit -n*`, `git commit *-n *`, `git -c core.hooksPath*` and `git config core.hooksPath*`.
   - `docs/Momentum_UI_Source.zip` deleted after `diff -rq` against `docs/arc/design/source/`. A SHA-256 list of all 126 files is in `changes/2026-11-23-ui-zip-deletion.md`.
@@ -40,8 +36,8 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## Next
 
-1. ARC-M0-06, then the ARC-M0-03 gate.
-2. M1, starting with ARC-M1-01 (move route logic into `src/commands/`).
+1. Finish the M0 gate: merge the round-2 repairs, then the reviewers re-check them.
+2. After M0 is GO: QA-verify and merge ARC-M1-15, resume and finish ARC-M1-01, then continue M1 in ticket order.
 
 ## Open founder questions
 
@@ -53,15 +49,12 @@ Asked only when a ticket needs them.
 
 ## Known risks
 
-- PKBX0041 (100.4 to 83.0 kg, ₹925) is a 15 October result from the old m_* models, but the README and 15 design screens show it as current (list in `data/PKBX0041-m2-rerun.md`).
-- Several designs show the old R² values.
+- Old PKBX0041 figures (100.4 to 83.0 kg, ₹925 from the 15 October m_* run; also 86% RH, 35 s viscosity and a strength trade-off) still appear in the README, `src/ui/workflow.js` `DEMO_LOT` and 15 design screens (list in `data/PKBX0041-m2-rerun.md`). The model-trust panels in the designs show the old R² values; the current values are 0.47, 0.52, 0.39, 0.64 and 0.11. Fixed by ARC-M6-09 and ARC-M6-19 after Om signs off.
 - Rehearsals and the pitch share one Gemini daily cap (300 on `momentum`, 100 on `prepagent`), which resets at midnight IST (02:30 Singapore). Both services count against the same Firestore day document.
 - PO review state is an in-memory Map with a 30-minute TTL. `momentum` now runs up to 4 instances. Session affinity is on, but it is best-effort, so a review can still be lost. Durable review state is needed.
 - The optimizer's code default byte limit (80 MiB, `readOptimizerQueryBudget` in `src/service-ports.js`) is below the 90 MiB each run is billed. Production works only because `USTAAD_OPTIMIZER_MAX_BYTES_BILLED` is set to 100 MiB. Needs a ticket.
 - `tools/validate-optimizer-acceptance.mjs` still checks against the October m_* values.
 - Superseded on 2026-11-23: the 24.5 °C reference (8.2 kg, ₹437) is replaced by the 18.5 °C run (7.8 kg, ₹421) in Done. The tables in `data/PKBX0041-m2-rerun.md` and `data/stale-claims.md` that list 24.5 °C values as the "new value" must move to the 18.5 °C figures after Om signs off.
-- The README, `src/ui/workflow.js` `DEMO_LOT` and 15 design screens (light and dark) still show the old case (17.4 kg / ₹925, 86% RH, 35 s viscosity, strength trade-off). They are listed in `data/PKBX0041-m2-rerun.md`. None are edited yet.
-- The "How far to trust this" panels in four designs show the old R² values. Current values: 0.47, 0.52, 0.39, 0.64, 0.11.
 - `getInsights` has no live adapter, and `durableIdempotencyConfigured` is hard-coded `false` (`index.mjs:711`, `723`); turning either on is a code change (ARC-M1-05, ARC-M4-01).
 - The shared Gemini counter can lock one service out for a day when `momentum` (300) and `prepagent` (100) disagree on the cap (`decodeCount`, design E7). Not yet seen live. Founder question F1.
 - The `/jobs` fingerprint ignores conditions (design E6); fix in ARC-M1-03 before Arc calls `/jobs`.
@@ -80,7 +73,7 @@ Asked only when a ticket needs them.
 | 2026-11-22 | Photo diagnosis keeps the ten approved photos and adds user uploads in Arc and the dashboard | Real use needs own photos | Founders |
 | 2026-11-22 | PO prompt-injection evals run at significant milestone gates | Cost and cap control | Founders |
 | 2026-11-22 | Re-run PKBX0041 on the m2_* models with read-only queries | Old figure is from the m_* models | Founders |
-| 2026-11-22 | The on-screen PKBX0041 reference is the m2_* run at 7.3% moisture, replacing 17.4 kg / ₹925. Humidity is set to the value the modeled history pairs with 7.3% moisture, not 86% | The old figure does not reproduce on m2_*; 86% RH is unrealistic at 7.3% | Founders (Om to confirm realism) |
+| 2026-11-22 | The on-screen PKBX0041 reference is the m2_* run at 7.3% moisture, replacing 17.4 kg, ₹925. Humidity is set to the value the modeled history pairs with 7.3% moisture, not 86% | The old figure does not reproduce on m2_*; 86% RH is unrealistic at 7.3% | Founders (Om to confirm realism) |
 | 2026-11-22 | `momentum`: Gemini cap 100 to 300, max instances 2 to 4, session affinity on. Live on `momentum-00023-yaz`; rollback to `momentum-v2be-8`. Record: `changes/2026-11-22-momentum-limits.md` | Arc needs more calls; affinity reduces lost PO reviews | Founders |
 | 2026-11-23 | Q7: every approved page ships, dark and light, built by parallel agents. Gaps between UI and backend are listed in `00-plan.md` section 6, each with a ticket | Founders want the full UI built without cuts | Founders |
 | 2026-11-23 | A3: Gemini writes chat answers from the same turn's tool results; code checks every number and ID, and the template answer is the fallback. The AI architect had recommended templates only; that position stays recorded in ADR-0009 | Gen AI usage award; the checks keep numeric fidelity | Founders |

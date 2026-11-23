@@ -14,7 +14,9 @@ Most M0 work is written (see `00-plan.md` section 1). These tickets are what rem
   - Code reviewer 8: `install-hooks.sh` uses `set -e`, prints its result and is documented.
   - Code reviewer 9: diff paths with tabs or quotes are parsed correctly.
   - Security N4: pin the GitHub actions by commit SHA and set `persist-credentials: false`. Add CODEOWNERS review on `scripts/quality/**`.
-  - Security N5: reword public docs that map live exposure (sign-in off, public invoker, unused roles) until M11 closes it.
+  - Security N5: reword public docs that map live exposure (sign-in off, public invoker, unused roles) until M11 closes it. Done in the M0 gate repair by each doc owner; re-checked by the security reviewer.
+  - QA lead S3 and S4 (M0 gate): add a `+++` diff-header guard case, and one positive and one negative fixture for every phrase and secret rule, so that deleting any single rule fails a test.
+  - Code reviewer nit (M0 gate): `check.mjs commits` rejects a RANGE that starts with `-`, and a test covers merge commits being checked.
 - AC: each finding is fixed or explicitly accepted in the M1 review file.
 - Depends on: ARC-SETUP-01. Owner: backend engineer (scripts, CI); delivery lead (docs).
 - Test plan: `node --test test/quality-rules.test.js`; a CI run on the PR.

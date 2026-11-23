@@ -7,6 +7,7 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 - AC: this ticket settles the route prefix, because the two designs differ (`/arc/*` in 04 section 1.3, `/api/arc/*` in 05 section 2), and records the choice in ADR-0007. Every route uses `authorizeSupervisor`, the same-origin check and the rate limiter. A replayed `clientTurnId` returns the stored events and spends nothing. Sessions are scoped to the demo session. `arc_sessions` keeps the list of job IDs the session created or opened (bounded, newest first), so J10 "open my last approved card" works across lots without a collection query.
 - Depends on: M1-02, M1-05. Owner: backend engineer.
 - Test plan: route tests for authentication, replay and cross-session access.
+- M0 gate additions: the route prefix is settled as `/api/arc/*` in ADR-0007, with `GET /api/arc/runs/:id/events`, so the AC tests behaviour: a request without the signed session cookie gets 401, and a `sessionId` field in the body is ignored. The transcript and turn-summary store follows `04` section 3 ("Interface decisions"), with a TTL and no raw PO text; a test asserts no PO free text is stored.
 
 ### ARC-M2-02 Tool registry (P0)
 - Goal: the 15 tools in `src/arc/tools/` (05 section 1), each with a strict zod schema, a precondition, a key builder and `execute` calling a command from M1-01.
@@ -16,15 +17,16 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 
 ### ARC-M2-03 Turn runner (P0)
 - Goal: `src/arc/turn-runner.js`, with deterministic pre-routing, one router call for typed text, at most 3 function calls and 4 tool steps per turn, and limits in `config/arc.json`.
-- AC: buttons and suggestion chips cost 0 attempts. Typed text costs 1, reserved through `reserve`. A step resumes with the same idempotency key after a restart. A turn summary stores no prompt or document text.
+- AC: buttons and suggestion chips cost 0 attempts. Typed text costs 1 router attempt, plus 1 answer-writer attempt for a typed data question (decision A3); both are reserved through `reserve`. A step resumes with the same idempotency key after a restart. A turn summary stores no prompt or document text.
 - Depends on: M2-02, M1-08. Owner: AI engineer.
-- Test plan: offline tests over a fake router, plus attempt counting asserted from the budget store.
+- Test plan: offline tests over a fake router, plus attempt counting asserted from the budget store. A restart test kills the runner between two steps and resumes it, asserting the same effect key and no second attempt.
 
 ### ARC-M2-04 Router prompt and scope rules (P0)
 - Goal: the router system instruction and the deterministic scope and approval rules (05 section 5, steps 1 and 2), with `reply_out_of_scope`, `ask_clarification` and `explain_cannot_approve`.
 - AC: off-topic, approval and injection phrasings that match the rules never reach the model. The router model and region come from config.
 - Depends on: M2-03, M1-12, founder decision A1. Owner: AI engineer.
 - Test plan: the offline `scope-refusal` and `off-topic` rule cases; the live router comparison of flash-lite against flash is recorded with an "eval run" label.
+- M0 gate additions: the router sees only the extracted PO fields listed in `05` section 5 (enums, numbers and IDs; no free text such as customer or buyer name). A test asserts that the router request body contains none of the free-text fields of PO1 to PO5.
 
 ### ARC-M2-05 Answer rendering and output checks (P0)
 - Goal: Gemini writes the answer from the same turn's tool results (founder decision A3, 2026-11-23). Code runs the schema, numeric-fidelity and tool-IDs-only checks before anything is emitted, and the template rendering is the fallback.
@@ -37,6 +39,7 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 - AC: no percentage or time estimate is sent. Reconnecting replays the stored events. A resumed `plan_lot` returns the stored job without a second attempt when the first call finished.
 - Depends on: M2-01, M2-03, M1-07. Owner: backend engineer.
 - Test plan: stream tests with a dropped connection; a restart simulation.
+- M0 gate additions: covers spec AC11.8. Two tabs reconnect to the same run during a resume; one run continues, and both tabs show the same events. A test fails if a second run is created.
 
 ### ARC-M2-07 Offline eval harness and `npm run eval:offline` (P0)
 - Goal: `evals/` as `node --test` suites over an extended `src/mock-agents.js`, run with a new `eval:offline` script in `package.json`. The `quality.yml` step "Offline evals" already calls that script, and today it prints "NOT RUN" because the script does not exist (ADR-0001 item 7).
@@ -44,7 +47,7 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 - Depends on: M2-02. Owner: AI engineer; QA lead checks that the cases can fail.
 - Test plan: the CI run link in the PR.
 
-### ARC-M2-08 Measure tokens, latency and attempts (P0)
+### ARC-M2-08 Measure tokens, latency and attempts (P0, closes at the M3 gate)
 - Goal: measure the figures 05 section 3 marks NOT MEASURED, on a tagged no-traffic revision.
 - AC: `data/arc-m2-measurements.md` records input, output and thinking tokens per role, p50 and p95 latency per role and for `plan_lot`, and attempts per J1 run (O10). Each is labelled "eval run, not the live service".
 - Depends on: M3-01. Owner: AI engineer; the verification auditor checks the run logs.

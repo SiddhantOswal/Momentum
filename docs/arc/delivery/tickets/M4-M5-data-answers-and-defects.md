@@ -53,3 +53,9 @@ Spec J2 to J7; ADR-0009; data audit question table and proposals P1 to P5.
 - AC: the tech lead's sizing is recorded in this ticket before the build starts. A zero-result state is shown (G7).
 - Depends on: M4-02. Owner: data engineer and backend engineer.
 - Test plan: SQL dry-runs; offline grounding cases.
+
+### ARC-M5-04 Photo storage lifecycle and log redaction (P1)
+- Goal: close M0 gate finding SH-RA-S4 (spec AC6.10). The uploaded-photo bucket path gets a lifecycle rule (retention period to be confirmed by the founders), and photo bytes and PO text never appear in logs.
+- AC: a change record exists before the lifecycle rule is set. The `privacy-logging` suite fails if a photo byte or PO free-text string appears in a captured log.
+- Depends on: M5-02, M7-01. Owner: backend engineer; the compliance reviewer checks.
+- Test plan: a `gsutil lifecycle get` read-back in the change record, plus the `privacy-logging` suite.

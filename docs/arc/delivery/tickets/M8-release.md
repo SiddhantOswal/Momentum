@@ -28,6 +28,6 @@ ADR-0006; design sections 5.6, 5.7 and 7.
 
 ### ARC-M8-05 Release gate and go/no-go (P0)
 - Goal: the final review gate over the release candidate, `reviews/M8-review.md`, and a go/no-go recommendation.
-- AC: every gate item has a result. The founders make the call.
+- AC: every gate item has a result. The release candidate runs with `USTAAD_ENFORCE_APPROVE_GUARD` on, and an API test against it shows that a superseded draft cannot be approved (M0 gate BL-SE-2). The founders make the call.
 - Depends on: all P0 tickets. Owner: release manager.
 - Test plan: `/review-gate`.

@@ -3,7 +3,7 @@
 Suites and proposed thresholds: `05-ai-design.md` section 7 and `responsible-ai.md`. Thresholds need founder sign-off (A5). Offline suites are built alongside each M2 to M5 ticket; this milestone completes them, runs the live suites and hardens the system.
 
 ### ARC-M7-01 Complete the offline suites (P0)
-- Goal: `grounding`, `scope-refusal`, `off-topic`, `insufficient-data`, `po-injection`, `approval-bypass`, `numeric-fidelity`, `provenance-labels` and `tool-registry`, with the case counts in 05 section 7. V5 seeds are adapted into executable cases with their own oracles.
+- Goal: `grounding`, `scope-refusal`, `off-topic`, `insufficient-data`, `po-injection`, `approval-bypass`, `numeric-fidelity`, `provenance-labels`, `tool-registry`, `model-config`, `privacy-logging` and `failure-handling` (M0 gate BL-RA-2), with the case counts in 05 section 7. `model-config` is started with ARC-M1-14. V5 seeds are adapted into executable cases with their own oracles.
 - AC: every suite runs in CI. Each has at least one case shown to fail when the guard is removed.
 - Depends on: M2-07. Owner: AI engineer; QA lead checks that the cases can fail.
 - Test plan: the CI run, plus a mutation run (guard disabled) recorded in the PR.

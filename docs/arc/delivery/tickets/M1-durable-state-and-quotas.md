@@ -55,12 +55,14 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - AC: earlier header entries set by a client are ignored. The limits are 300 per minute per IP and 60 per minute per session. A verification run on a tagged revision logs only hashes and passes the two-network check. The temporary log line is removed afterwards.
 - Depends on: M1-01. Owner: backend engineer; security reviewer checks.
 - Test plan: unit tests with forged headers; the two-network check recorded in the PR.
+- M0 gate additions: the two-network check means two requests from two networks (laptop Wi-Fi and a phone hotspot) to a tagged no-traffic revision, logging only SHA-256 hashes of the socket address and of the last `X-Forwarded-For` entry. Pass: the socket hashes are equal and the header hashes differ. A unit test documents that the key must be worked out again if a load balancer or Cloud Armor is put in front (M11).
 
 ### ARC-M1-10 Lot heads, revisions and the approve guard (P0)
 - Goal: `lot_heads` and `lot_revisions` (design 2.7), `PUT /lots/:lotId/conditions` and `GET /lots/:lotId`. Approve requires `{ reviewConfirmed: true, revisionFingerprint }` and rejects a superseded revision (ADR-0003). It ships in two steps: 7a is `USTAAD_ENABLE_LOT_REVISIONS`, 7b is `USTAAD_ENFORCE_APPROVE_GUARD`.
 - AC: a changed condition supersedes the current draft in one transaction. Approving a superseded revision returns 409 `REVISION_SUPERSEDED`. A missing flag or a stale fingerprint returns 4xx. Both clients send the body before 7b is turned on.
 - Depends on: M1-02, M1-05, founder Q8, Q9 and F5. Owner: backend engineer; frontend engineer for the client body.
 - Test plan: unit tests for every guard branch, and an API test that the J8 sequence cannot approve Rev 1.
+- M0 gate additions: a client test for each UI (`web/` and `src/ui/workflow.js`) asserts that the approve request body carries `reviewConfirmed: true` and `revisionFingerprint`. The guard flag 7b is switched on only after those tests pass on the live revision (see ARC-M8-05).
 
 ### ARC-M1-11 Replayed APPROVED job loses its approval status (P0)
 - Goal: fix the failure in `test/job-draft-persistence.test.js:508`, "completed request replay retains the durable APPROVED lifecycle and audit". `createStoredJobReplayLoader` returns a job sheet whose `status` is `undefined` instead of `APPROVED`. A replayed request after approval must return the stored approved state and audit. Otherwise a retry can make an approved card look like a draft, which is saved work lost.
@@ -73,12 +75,13 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - AC: extraction, explanation and photo calls keep their outputs. The settings are versioned in `config/arc-models.json`. Prompts move to `prompts/` with a version recorded on each stored result.
 - Depends on: M1-01, M1-15. Owner: AI engineer.
 - Test plan: request-shape unit tests; one live smoke call per role on a tagged revision, counted against the budget.
+- M0 gate additions: "keep their outputs" is tested with recorded model responses (fake client) asserting the same parsed fields and the same request body apart from the new settings, not by comparing live Gemini text.
 
 ### ARC-M1-13 Weather timeout test fails only in the full run (P1)
 - Goal: find why the weather timeout test was cancelled in the full `npm test` run but passes when run on its own (`03-discovery-audit.md`, tests). Likely causes are a shared timer, a real network call or a leaked handle from an earlier file.
 - AC: the test passes 10 full runs in a row, with no skip and no longer timeout used to hide the cause. The cause is written in the PR.
 - Depends on: nothing. Owner: backend engineer; the QA lead verifies.
-- Test plan: `for i in $(seq 10); do npm test; done` with the counts recorded, plus `node --test --test-concurrency=1` to separate an ordering cause from a timing cause.
+- Test plan: run on Node 22, as CI does (`.github/workflows/quality.yml`). The cancellation does not happen on Node 26.13.1 (M0 gate). First record a Node 22 run that reproduces it; if it cannot be reproduced in 10 full runs, record that and close the ticket as not reproducible. Then `for i in $(seq 10); do npm test; done` with the counts recorded, plus `node --test --test-concurrency=1` to separate an ordering cause from a timing cause.
 
 ### ARC-M1-14 Explicit Vertex `safetySettings` on every Gemini call (P0)
 - Goal: `src/google-cloud/vertex-gemini-client.js` sends no `safetySettings` today, so every call runs on the platform defaults. Every request (extraction, explanation, photo, router, answer writer) sends explicit settings from `config/arc-models.json`, and the result records which settings version was used (RAI-5).
@@ -97,3 +100,15 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - AC: the tool checks against the final PKBX0041 reference once Om signs it off (M0-04). Until then it checks only the m2 R² values.
 - Depends on: M1-01, M0-04. Owner: data engineer.
 - Test plan: run the tool and record its output in the PR.
+
+### ARC-M1-17 Limit demo session issuance and protect the pitch reserve (P0)
+- Goal: close M0 gate finding BL-SE-1. Anyone can mint demo sessions with `POST /api/auth/demo-session` (`index.mjs:563-567`), which gets around the per-session Gemini budget and, on 4 Dec, the pitch reserve. Session issuance is rate-limited per client IP (ARC-M1-09 key). The pitch reserve is usable only with a server-held credential: a Secret Manager value exchanged for a signed cookie claim. Session IDs no longer play any part in it (ADR-0004 as amended at the M0 gate).
+- AC: 20 sessions minted from one IP cannot spend more than the day limit minus the reserve. Reserve units cannot be spent without the pitch claim. The claim cannot be forged or replayed after it expires, and the secret is never logged.
+- Depends on: M1-08, M1-09. Owner: backend engineer; the security reviewer checks.
+- Test plan: unit tests for issuance limits and the claim, plus a scripted run against a tagged no-traffic revision.
+
+### ARC-M1-18 Job card PDF wording: estimate and demo labels (P0)
+- Goal: close M0 gate findings BL-RA-3 and SH-RA-S1. The PDF heading "Savings estimate (not observed)" (`src/job-sheet-pdf.js:169-170`) becomes "Model estimate: scrap reduction against the entered plan". The demo note says "Demo session, simulated" on every card approved through a demo session, whatever the job ID pattern (`src/job-sheet-pdf.js:262`, `src/hackathon-demo-auth.js:4`).
+- AC: a PDF test fails if the word "Savings" appears without "Model estimate", or if a demo-session approval's PDF lacks the demo label. The copy editor checks the text.
+- Depends on: M1-01. Owner: backend engineer.
+- Test plan: PDF text extraction tests that fail before the change and pass after.
