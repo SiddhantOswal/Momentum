@@ -25,7 +25,7 @@ Amended 2026-11-23 for ticket ARC-M0-06 (product manager): O10 and constraint C8
 | Supervisor | Real user | Review the draft, tick the check, approve; know that a changed input voids the revision | `Arc-Lot-Approve.png`, `Arc-Lot-Replaced.png`; only managers and supervisors may approve once Google sign-in is on (`index.mjs` `/jobs/:id/approve`) |
 | Competition judges | Pitch audience, not users | See the whole route in under the pitch time, with honest labels | Pitch on 4 December 2026 (CLAUDE.md) |
 
-Today no named plant user signs in. The live service runs in `HACKATHON_DEMO` mode with Firebase auth off (live Cloud Run env read on 2026-11-22). Any participant can approve, and the audit records `authenticatedHuman: false` (`src/hackathon-demo-auth.js`, `src/approval-authorization.js`). Demo results must not be presented as plant-user results.
+Approvals are demo-session approvals, labelled as simulated; no named plant user signs in yet. The audit record marks each one as a demo-session approval (`src/approval-authorization.js`). Demo results must not be presented as plant-user results.
 
 ## 3. Today, Arc, roadmap
 
