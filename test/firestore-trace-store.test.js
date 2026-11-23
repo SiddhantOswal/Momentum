@@ -64,6 +64,19 @@ test("trace store pages through events and keeps their sequence", async () => {
   assert.equal(fake.calls.filter((call) => call.path.endsWith(":runQuery")).length, 2);
 });
 
+test("trace store asks Firestore for ascending sequence, whatever order the events were written in", async () => {
+  const fake = createFakeFirestore();
+  const { runId, events } = finishedRun();
+  const store = storeOver(fake, { pageSize: 2 });
+  for (const event of [...events].reverse()) await store.appendEvent(event);
+  assert.deepEqual(await store.readEventsAfter(runId, 0), events);
+  const queries = fake.calls.filter((call) => call.path.endsWith(":runQuery"));
+  assert.equal(queries.length, 3);
+  for (const { body } of queries) {
+    assert.deepEqual(body.structuredQuery.orderBy, [{ field: { fieldPath: "sequence" }, direction: "ASCENDING" }]);
+  }
+});
+
 test("trace store treats a repeated event write as already stored and never overwrites it", async () => {
   const fake = createFakeFirestore();
   const { events } = finishedRun();

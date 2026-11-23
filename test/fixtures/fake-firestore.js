@@ -44,11 +44,14 @@ export function createFakeFirestore({ failWhen = () => false } = {}) {
     const { structuredQuery } = JSON.parse(body);
     const prefix = `${parent}/${structuredQuery.from[0].collectionId}/`;
     const after = Number(structuredQuery.where.fieldFilter.value.integerValue);
+    const [order] = structuredQuery.orderBy ?? [];
+    const orderField = order?.field.fieldPath ?? "sequence";
+    const direction = order?.direction === "DESCENDING" ? -1 : 1;
     const matches = [...documents.entries()]
       .filter(([path]) => path.startsWith(prefix) && !path.slice(prefix.length).includes("/"))
       .map(([, stored]) => stored)
       .filter((stored) => integerField(stored.fields, "sequence") > after)
-      .sort((a, b) => integerField(a.fields, "sequence") - integerField(b.fields, "sequence"))
+      .sort((a, b) => direction * (integerField(a.fields, orderField) - integerField(b.fields, orderField)))
       .slice(0, structuredQuery.limit);
     const readTime = nextTime();
     return respond(200, matches.length
