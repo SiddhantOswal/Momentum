@@ -3,7 +3,7 @@
 Status: Proposed
 Date: 2026-11-23 (amended the same day for the M0 gate, round 1)
 Author role: solutions architect
-Branch: `arc/m0-discovery`
+Original branch: `arc/m0-discovery` (now on `arc/main`)
 Design: `04-technical-design.md` section 6
 
 ## Context

@@ -3,7 +3,7 @@
 Status: Proposed
 Date: 2026-11-23
 Author role: solutions architect
-Branch: `arc/m0-discovery`
+Original branch: `arc/m0-discovery` (now on `arc/main`)
 Design: `04-technical-design.md` sections 1.5, 2.7 and 4
 
 ## Context
