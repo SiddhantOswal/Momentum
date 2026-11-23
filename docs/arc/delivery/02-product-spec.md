@@ -155,7 +155,7 @@ PROPOSED targets, to be confirmed by ARC-M2-08 measurements. Nothing below has b
 
 Rules:
 
-- `plan_lot` must finish under the 60-second route timeout (`src/request-guardrails.js`) on every run, not only at p95. The 50 s p95 target leaves 10 s of margin. A run that reaches 60 s ends in the failed state of J11 with `REQUEST_TIMEOUT`, and nothing is marked done.
+- `plan_lot` must finish under the 60 s route timeout (`src/request-guardrails.js`) on every run, not only at p95. The 50 s p95 target leaves 10 s of margin. A run that reaches 60 s ends in the failed state of J11 with `REQUEST_TIMEOUT`, and nothing is marked done.
 - Arc shows no percentage and no time estimate while a step runs (ADR-0011). Latency targets are for the team, not for the screen.
 - ARC-M2-08 records p50 and p95 per row, labelled "eval run, not the live service", with the run count beside each value (proposed minimum: 20 runs per step; a step with fewer runs is reported but not compared with its p95 target). ARC-M7-04 records p95 under the demo load profile.
 - A missed target is reported at the gate review with its measured value. It does not fail the gate on its own until the founders confirm the targets; a `plan_lot` run over 60 s always fails the gate.
@@ -416,7 +416,7 @@ Open item for the architects: `arc_sessions` holds one lot pointer (`05-ai-desig
 | 1 | User types "Show the card for PKBX0041" or "open my last approved card", or presses View job card on a receipt | NEW Arc turn command (typed: 1 router attempt; pressed: 0) | `Arc-Lot-Receipt.png` |
 | 2 | Code resolves the request against this session's cards: by item code, by job ID, or the APPROVED revision with the latest approval time. One match: continue. Several: Arc lists each with item, revision, status and date and asks which. None: the no-match branch | Router arguments are enums built from this session; `get_lot` (NEW lot record read, ADR-0003) | Several matches: no design (G15) |
 | 3 | Arc reads the stored card and its revision. Step label "Finding the card" | `get_job` → `GET /jobs/:id`; revision status from `get_lot` | G1 |
-| 4 | For an APPROVED card, Arc fetches the PDF and runs the content check. Step label "Checking the card" | `get_job_card` → `GET /jobs/:id/card.pdf` plus the NEW content check (C11) | G1 |
+| 4 | For an APPROVED card, Arc fetches the PDF and runs the content check. Step label "Checking the job card" | `get_job_card` → `GET /jobs/:id/card.pdf` plus the NEW content check (C11) | G1 |
 | 5 | Arc shows "PKBX0041, Rev n" with board and quantity, View job card and Open PDF, and the What happened rows read back from the stored record: Draft saved, Approval recorded (Demo session, simulated), PDF stored, Card checked; and the two receipt notes | Responses of steps 3 and 4 | `Arc-Lot-Receipt.png`; the heading and step bar for a card opened later are G15 |
 | 6 | User presses Open PDF, and the checked PDF opens in a new tab. This stays one press because browsers block a new tab that no press started | `GET /jobs/:id/card.pdf` | `Arc-Lot-Receipt.png` |
 
@@ -433,7 +433,7 @@ States:
 
 | State | J10 behaviour |
 |---|---|
-| Loading | "Finding the card", then "Checking the card" (G1) |
+| Loading | "Finding the card", then "Checking the job card" (G1) |
 | Empty | No card in this session: the no-match answer with Start a new lot |
 | Partial | Approved card whose PDF is missing or fails the check: the approval is shown as recorded, the PDF row as failed |
 | Failed | `GET /jobs/:id`, the lot record read or the PDF fetch fails or times out: J11. Never shown as "no match" |
@@ -656,7 +656,7 @@ Answered on 2026-11-23 (STATUS decision log; `00-plan.md` section 8). None is pe
 | Uploaded photos on stage | A judge uploads a photo with a person or with text in it | Upload checks (AC6.5 to AC6.7); privacy note on the control; uploads spend cap attempts | Security reviewer |
 | Explanation fails | Approval held mid-demo | Recovery path (J1 branches, G3); rehearse it | AI engineer |
 | Stale figures reach a screen | Credibility breach | Placeholders removed (C1, C3, C12); compliance review checks every number against section 6 | Compliance reviewer |
-| Venue network or shared IP | 60 requests per minute per IP; 60-second timeout | Phone hotspot backup; rehearse on a hotspot; avoid polling in Arc | Release manager |
+| Venue network or shared IP | 60 requests per minute per IP; 60 s timeout | Phone hotspot backup; rehearse on a hotspot; avoid polling in Arc | Release manager |
 | Weather API unavailable | Pre-fill missing | Field is asked instead; nothing blocks | Frontend |
 | Live demo fails outright | No working run on stage | A recorded run, labelled "Recording" on screen, ready as fallback | Founders |
 | Demo approval mistaken for a real sign-off | Honesty | Simulated labels on the card, receipt and PDF (`HACKATHON_APPROVAL_NOTE`) | Copy editor |

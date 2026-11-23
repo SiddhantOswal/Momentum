@@ -100,7 +100,7 @@ No baselines have been measured. The founders signed the eval thresholds behind 
 
 | Award | What Arc contributes | What must not weaken |
 |---|---|---|
-| Overall winner | One honest route from PO to checked PDF, matching the manual route (O1, O3, O7) | The manual dashboard keeps working unchanged |
+| Overall winner | One route from PO to checked PDF, matching the manual route (O1, O3, O7) | The manual dashboard keeps working unchanged |
 | UI/UX | Fewer actions and page changes (O1, O2); the approved Arc designs, including the phone layout | Labels stay visible; speed must not hide provenance |
 | Impact | Shorter preparation for small plants; modeled scrap and board reduction shown with labels | No measured-savings claims; modeled stays modeled |
 | Gen AI usage | Gemini reads orders, routes intent, explains and answers; evals cover grounding, refusals, injection and bypass (O4 to O9) | Gemini only; no model-made numbers |
