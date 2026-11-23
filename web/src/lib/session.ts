@@ -45,4 +45,4 @@ export type JobSheet = {
   savings: { kg: number; inr: number };
   explanation?: string;
 };
-export type JobResult = { jobSheet: JobSheet; runId?: string; confidence?: "normal" | "reduced"; conditionSources?: Record<string, string>; conditionNotes?: string[]; humidityBand?: Record<Defect, { low: number; high: number }> };
+export type JobResult = { jobSheet: JobSheet; revision?: { lotId: string; number: number; fingerprint: string | null; status: string }; runId?: string; confidence?: "normal" | "reduced"; conditionSources?: Record<string, string>; conditionNotes?: string[]; humidityBand?: Record<Defect, { low: number; high: number }> };
