@@ -2,7 +2,7 @@
 
 - Date: 2026-11-23
 - Asked by: founders, before deciding F1 (turn Gemini off on `prepagent`, or give it a separate counter)
-- Method: read-only. These were `gcloud run services list/describe/get-iam-policy`, list calls for domain mappings, Pub/Sub subscriptions, Scheduler, Eventarc and network endpoint groups, and Cloud Run request logs summarised by day, path and user-agent family. Client addresses were not printed. A `git grep` covered `origin/main`, `origin/dev` and `origin/v2`, plus a read-only grep of `/Users/siddhant/Singapore 2026` and the reference docs. Nothing was changed.
+- Method: read-only. These were `gcloud run services list/describe/get-iam-policy`, list calls for domain mappings, Pub/Sub subscriptions, Scheduler, Eventarc and network endpoint groups, and Cloud Run request logs summarised by day, path and user-agent family. Client addresses were not printed. A `git grep` covered `origin/main`, `origin/dev` and `origin/v2`, plus a read-only grep of the local planning folder and the reference docs. Nothing was changed.
 
 ## Why it matters
 
@@ -12,7 +12,7 @@ Both services write the same Firestore day document, `gemini_daily_usage/<IST da
 
 | Check | Result |
 |---|---|
-| Service | `prepagent`, `https://prepagent-26mwt2n7ba-el.a.run.app`, created 2026-10-13. 100% of traffic on `prepagent-demo-v1`; the latest ready revision is `prepagent-polish-v1` (2026-10-21). Ingress all; invoker `allUsers` |
+| Service | `prepagent`, served at the `prepagent` service URL, created 2026-10-13. 100% of traffic on `prepagent-demo-v1`; the latest ready revision is `prepagent-polish-v1` (2026-10-21). Reachable from a browser, like `momentum` |
 | Custom domain | Only `momentum-ai.cloud.run`, which maps to `momentum`. `prepagent` has none |
 | Machine callers | None found. Cloud Scheduler and Eventarc APIs are not enabled on the project, so no jobs or triggers can exist. No Pub/Sub subscriptions exist, and no network endpoint groups or load balancers |
 | Requests, last 30 days | 76 in total: 41 on 30 Oct, 26 on 10 Nov, then 3 a day on 18, 19 and 20 Nov. The 9 requests on 18 to 20 Nov are `/robots.txt`, which is crawler traffic |
@@ -20,7 +20,7 @@ Both services write the same Firestore day document, `gemini_daily_usage/<IST da
 | Gemini use, last 30 days | No requests to `/orders/extract`, `/jobs`, `/risk/explanation` or `/evidence/*` |
 | Last request | 2026-11-20 15:26 UTC (robots.txt). The last human use was on 10 Nov |
 | `momentum` code calling `prepagent` | None: there are no references to its URL on `origin/v2` or `origin/main` |
-| Docs linking to it | Only historical release records on `origin/dev`, dated 16 Oct (`docs/FINAL_PO_TO_CARD_ACCEPTANCE.md`, `docs/RELEASE_PROVENANCE.md`, `docs/evidence/REVIEWED_RELEASE_SUMMARY.json`, `docs/LOCAL_DEVELOPMENT.md`), and one review-package note saying the URL was not reachable. The `v2` README and every planning file in `Singapore 2026` (9 files) point to `https://momentum-ai.cloud.run/` |
+| Docs linking to it | Only historical release records on `origin/dev`, dated 16 Oct (`docs/FINAL_PO_TO_CARD_ACCEPTANCE.md`, `docs/RELEASE_PROVENANCE.md`, `docs/evidence/REVIEWED_RELEASE_SUMMARY.json`, `docs/LOCAL_DEVELOPMENT.md`), and one review-package note saying the URL was not reachable. The `v2` README and every file in the local planning folder (9 files) point to `https://momentum-ai.cloud.run/` |
 
 ## What could not be checked
 
