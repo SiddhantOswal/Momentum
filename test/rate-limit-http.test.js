@@ -35,9 +35,9 @@ test("HTTP API on Cloud Run limits each demo session to 60 a minute and keys the
 
     const anonymous = await fetch(origin + "/api/auth/config", { headers: { "X-Forwarded-For": "192.0.2.200, 203.0.113.9" } });
     assert.equal(anonymous.status, 200);
-    assert.equal(anonymous.headers.get("ratelimit-limit"), "60");
+    assert.equal(anonymous.headers.get("ratelimit-limit"), "300");
     // 203.0.113.9 has now been used by the session request, request 10 of the loop and this one.
-    assert.equal(anonymous.headers.get("ratelimit-remaining"), "57");
+    assert.equal(anonymous.headers.get("ratelimit-remaining"), "297");
   } finally {
     if (child.exitCode === null && child.signalCode === null) { const exited = once(child, "exit"); child.kill("SIGTERM"); await exited; }
   }

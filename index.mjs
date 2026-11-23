@@ -139,6 +139,7 @@ const lookupStoredJobSheet = createStoredJobSheetLookup({
 });
 const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
 const apiRateLimit = createApiRateLimitMiddleware({
+  ipLimit: 300,
   getClientIp: createClientKeyResolver(process.env),
   getSessionId: (c) => {
     if (!hackathonAuth.configured) return undefined;
