@@ -486,6 +486,8 @@ These settle SH-CR-1 to 6 in `reviews/M0-review.md`. This document is the source
 | I8 | Arc events are stored in `traces/{taskRunId}/trace_events/{sequence}` (trace kind `arc_task_run`). ADR-0011 owns the event types; an `answer` event stores the turn reference, not the text | 2.3 |
 | I9 | Arc tool names are the registry names in `05-ai-design.md` section 1 | 1.2 |
 
+The request and response bodies, the event schemas, the answer read path and the "not connected" behaviour for these routes are in `06-arc-wire-contract.md` (the wire contract). It adds two read routes, `GET /api/arc/turns` and `GET /api/arc/turns/:clientTurnId`, to I1, pending founder confirmation (06 section 9).
+
 ### 3.1 Rules
 
 - **External calls stay outside Firestore transactions.** Transactions only record intent or outcome. Gemini, BigQuery, Storage and Weather calls happen between transactions, and the next transaction reconciles. This is the same pattern `firestore-gemini-attempt-store.js` uses today.
