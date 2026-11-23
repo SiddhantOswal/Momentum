@@ -45,8 +45,9 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## In progress
 
-- QA PASS, one test each before merge: ARC-M1-05 (durable idempotency, 19 of 20 mutations caught; needs a test tying `index.mjs` to the selected store) and ARC-M1-08 (Gemini budget, 29 of 30 caught; needs a thinking-token cost test). Merge order: M1-05, then M1-08; M1-07 then rebases and combines the PATCH handler in `test/fixtures/fake-firestore.js`. Session and IP limits and the rupee overshoot are in the ARC-M1-17 AC.
-- Repairs after QA: ARC-M1-07 (durable traces). QA passed 4 of 5 checks, 710/710. To fix before merge: two test gaps (owner lookup failing open, query order) and a reader seeing a silently truncated stream after a failed event write (`TRACE_INCOMPLETE`).
+- ARC-M1-05 merged (`67602dc`; QA PASS, 19 of 20 mutations caught, the survivor closed by a test of `index.mjs` wiring) and ARC-M1-08 merged (`ea06073`; QA PASS, 29 of 30 caught, the survivor closed by a thinking-token cost test). `npm test` on `arc/main` after both: 760 of 760. Session and IP limits and the rupee overshoot are in the ARC-M1-17 AC.
+- ARC-M1-07 (durable traces): QA cleared after repairs; rebasing onto `arc/main` and combining the Firestore test fake with M1-05's version, then merge. Residual gap in ARC-M1-24.
+- Building in parallel on `arc/main` worktrees: ARC-M1-22 (test ports), ARC-M1-17 (session issuance, pitch claim, session and IP into Gemini calls), ARC-M1-10 (lot revisions and approve guard). Outside agents: Codex on ARC-M6-01, Copilot on ARC-M1-16 (prompts given 2026-11-24).
 - External engineers (brief: `external-agents.md`): Codex builds the M6 frontend stream from ARC-M6-01; GitHub Copilot builds ARC-M1-16 (R² part only until Om signs off). Their branches go through the same QA, review gate and merge as the role agents.
 - After these: ARC-M1-17 (session issuance and pitch claim), ARC-M1-10 (lot revisions and approve guard), ARC-M1-16, ARC-M1-21, ARC-SETUP-02 (asks the founders before editing `scripts/quality/`), ARC-M1-13 (needs Node 22), then the M1 gate.
 
