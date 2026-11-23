@@ -94,7 +94,7 @@ The model and region today are in `config/gcp-vertex-ai.json` (`gemini-3.5-flash
 
 ### RAI-6 Privacy
 
-A request sends the model only what its task needs: order text for extraction, the evidence bundle for explanations, the photo for diagnosis, enum, number and ID fields for the router, and the dictionary's writer fields for the answer writer. Personal data (names, phone numbers, email addresses, signatures) is not sent unless the task cannot be done without it. Prompts, raw model responses, typed messages, order contents and photos are not written to application logs or to the turn summary. Logs keep IDs, counts, versions and outcomes. Fixtures and screenshots use synthetic orders only.
+A request sends the model only what its task needs: order text for extraction, the evidence bundle for explanations, the photo for diagnosis, enum, number and ID fields for the router, and the dictionary's writer fields for the answer writer. Personal data (names, phone numbers, email addresses, signatures) is not sent unless the task cannot be done without it. Prompts, raw model responses, order contents and photos are not written to application logs or to the turn summary. Typed messages are kept only on the session's turn record (`arc_sessions/{sid}/turns/{clientTurnId}`, 7-day TTL, `04` section 3.0 I4), never in application logs or the turn summary. Logs keep IDs, counts, versions and outcomes. Fixtures and screenshots use synthetic orders only.
 
 - Suite `privacy-logging` (offline, 16 cases): runs eight paths with personal-data canaries and fails if a canary reaches a log line, a stored record or a model request that does not need it. The allowed list is written by hand from this rule.
 - Threshold: T13.

@@ -224,7 +224,7 @@ Events are emitted only when a real state changes, and each step event names the
 | `step.succeeded` | `SUCCEEDED`, sent only after the result is stored |
 | `step.failed` | `FAILED`, with a mapped code and whether Retry is safe |
 | `step.blocked` | `BLOCKED`, with the rule |
-| `awaiting_human` | `WAITING_FOR_USER`, with `waitingFor` (`confirm_order`, `confirm_conditions`, `choose_line`, `approve`; null otherwise) |
+| `step.waiting_for_user` | `WAITING_FOR_USER`, with `waitingFor` (`confirm_order`, `confirm_conditions`, `choose_line`, `approve`; null otherwise) |
 | `answer` | none; stores the turn reference, and the shown text is read from the turn record (`04` I8) |
 | `run.completed`, `run.failed` | run `COMPLETED`, `FAILED` |
 
@@ -256,7 +256,7 @@ Events are emitted only when a real state changes, and each step event names the
 
 The path rules in spec J11 still apply on top of this table: an explanation failure follows the J1 explanation-failed branch (G3), and an answer-writer failure shows the template answer with no error message (AC11.2). The `{retryAfterSeconds}` value comes from the budget response, never from model text.
 
-**Human step.** `awaiting_human` shows the matching card, and Arc waits.
+**Human step.** `step.waiting_for_user` shows the matching card, and Arc waits.
 
 ## 7. Eval suites
 
