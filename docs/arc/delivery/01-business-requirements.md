@@ -40,7 +40,7 @@ Today no named plant user signs in. The live service runs in `HACKATHON_DEMO` mo
 
 ## 4. Measurable outcomes
 
-No baselines have been measured. Every target below is a proposal (an assumption) until the founders approve it.
+No baselines have been measured. The founders signed the eval thresholds behind O4 to O9 on 2026-11-23 (A5, `00-plan.md` section 5.3). The O1, O2, O3 and O10 targets were approved with the plan on the same day. The pass lines are listed in `02-product-spec.md` section 9.1.
 
 | ID | Outcome | Proposed target | Baseline | How it is measured | Awards |
 |---|---|---|---|---|---|
@@ -48,7 +48,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 | O2 | Elapsed time to an approved job card | Arc no slower than the manual route; target to be set after the first measured run | Baseline NOT MEASURED | Same scripted runs, timed 5 times per route on the live service; report the median and range | UI/UX, Impact |
 | O3 | Same outcome on both routes | 100% match on item, quantity, conditions, proposed settings, scrap estimate and PDF content for PO1 to PO5 | NOT MEASURED | Parity test: run each fixture through both routes and compare the stored JobSheet field by field | Overall, Gen AI usage |
 | O4 | Approval bypass | 0 approvals without the user's checkbox and Approve press | NOT MEASURED | Eval suite of bypass prompts, plus an API test that Arc's tool list contains no approve command | Gen AI usage, Sustainability and social impact |
-| O5 | Off-topic refusal accuracy | Founders to set a threshold; analyst proposes 95% or higher | NOT MEASURED | Labelled eval set of in-scope and off-topic questions; report precision and recall | Gen AI usage |
+| O5 | Off-topic refusal accuracy | Precision and recall at least 95% each (signed, A5) | NOT MEASURED | Labelled eval set of in-scope and off-topic questions; report precision and recall | Gen AI usage |
 | O6 | Insufficient-data answers name what is missing | 100% of no-data cases name the missing data | NOT MEASURED | Eval set built from questions about data that does not exist (for example, measured scrap) | Gen AI usage, Impact |
 | O7 | Numeric fidelity | 100% of numbers Arc shows trace to a backend response or stored record | NOT MEASURED | Eval checks each number in Arc's output against the tool result of the same turn | Overall, Gen AI usage |
 | O8 | Provenance labels | 100% of shown values carry the correct label (model estimate, example, modelled, simulated, weather, operator-entered) | NOT MEASURED | Eval plus a copy review against the label list in CLAUDE.md section 3 | Sustainability and social impact, UI/UX |
@@ -107,7 +107,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 
 **Assumptions (each needs a decision)**
 
-- A1. The O1 to O10 targets above are the analyst's proposals.
+- A1. The O1 to O10 targets above started as the analyst's proposals. They are now approved (section 4); their baselines are still NOT MEASURED.
 - A2. PO1 (PKBX0041 × 1,300) is the measurement fixture for O1 and O2.
 - A3. Arc's added Gemini calls fit inside the daily cap. The cap on `momentum` was raised from 100 to 300 on 2026-11-22 because Arc needs more calls (C8). This assumption is separate from founder decision A3 on written answers.
 
@@ -121,7 +121,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 **Open questions for the founders**
 
 - Q1. Weather fallback: the code already uses the Maps Platform Weather API for "Pune plant" (`config/weather.json`), but CLAUDE.md section 6 requires Om to confirm the plant location first. Does Om confirm Pune? If not, should Arc turn the weather fallback off and use only the seasonal median? Recommendation: ask Om to confirm Pune and label weather values as above.
-- Q2. Who signs off the O1 to O10 thresholds, especially refusal accuracy (O5)? Recommendation: the founders, at the product-spec gate.
+- Q2. Who signs off the O1 to O10 thresholds, especially refusal accuracy (O5)? Recommendation: the founders, at the product-spec gate. Answered: the founders signed the eval thresholds on 2026-11-23 (A5).
 - Q3. Should the paper-moisture "example value" (7.3%) be pre-filled in Arc? The code treats moisture as a required, measured input. Recommendation: show it as a labelled example that the operator must confirm or replace, as the design does, and never confirm it automatically.
 - Q4. Defect photos: should Arc follow the design (ten approved photos only) or the v2 backend (any uploaded photo)? Recommendation: the ten approved photos for the pitch.
 - Q5. Where do prompt-injection evals for POs run, given that live intake rejects every non-allowlisted file? Recommendation: offline or local mode with mock extraction, labelled as such.
