@@ -252,6 +252,28 @@ test("the owner check fails closed when the shared store cannot answer", async (
   assert.match(await local.text(), /event: run\.completed/);
 });
 
+test("the owner check rejects on its own failure even when the route could read the run", async () => {
+  let headReadsToFail = 0;
+  const fake = createFakeFirestore({
+    failWhen: ({ method, path }) => method === "GET" && path.startsWith("traces/") && headReadsToFail-- > 0,
+  });
+  const first = createInstance(fake);
+  const second = createInstance(fake);
+  const owner = demoSession();
+  const runId = await finishedRunOn(first, owner.sessionId);
+  const callsBefore = fake.calls.length;
+  headReadsToFail = 1;
+
+  const remote = await second.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  assert.equal(remote.status, 503);
+  assert.deepEqual((await remote.json()).error, {
+    code: "SERVICE_UNAVAILABLE",
+    message: "Trace ownership could not be checked.",
+  });
+  assert.deepEqual(fake.calls.slice(callsBefore).map(({ method, path }) => [method, path]), [["GET", `traces/${runId}`]],
+    "the route never reads the run after the owner lookup fails");
+});
+
 test("a second instance follows a run that is still running until it ends", async () => {
   const fake = createFakeFirestore();
   const first = createInstance(fake);
