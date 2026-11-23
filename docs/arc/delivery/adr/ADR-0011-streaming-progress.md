@@ -25,7 +25,7 @@ Related: `05-ai-design.md` section 6; `04-technical-design.md` sections 2.6 and 
 
 ## Consequences
 
-- The loading copy is honest by construction, and the `failure-handling` suite can assert that no `step.succeeded` precedes a stored result.
+- The loading copy shows only steps that have started, and the `failure-handling` suite can assert that no `step.succeeded` precedes a stored result.
 - A dropped connection loses no state. A re-run after a step that died before storing anything may spend another Gemini attempt; the turn record shows it.
 - Firestore writes per J1 run: about 20 small event documents (estimate, measured in M2).
 - The SSE route needs a timeout above the 60 s default for long turns, kept under the Cloud Run request timeout of 120 s; the value is set in ADR-0006.
