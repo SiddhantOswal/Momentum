@@ -180,7 +180,7 @@ test("health remains available while operational requests are rate limited", asy
   const { child } = await startServer();
 
   try {
-    for (let requestNumber = 1; requestNumber <= 60; requestNumber += 1) {
+    for (let requestNumber = 1; requestNumber <= 300; requestNumber += 1) {
       const response = await fetch(`http://127.0.0.1:${PORT}/api/status`);
       assert.equal(response.status, 200, `request ${requestNumber}`);
     }
