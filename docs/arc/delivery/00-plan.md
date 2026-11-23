@@ -32,9 +32,9 @@ The plan has two phases, and every milestone in both ends with the review gate i
 | `02-product-spec.md` (journeys J1 to J11, contradictions C1 to C20, design gaps G1 to G17) | Product manager | Approved with the plan, 2026-11-23; latency targets PROPOSED |
 | `03-discovery-audit.md` (v2 map, capability inventory, in-memory state) | Solutions architect | Reviewed at the M0 gate |
 | `data/data-audit.md`, `data/stale-claims.md`, `data/PKBX0041-m2-rerun.md` | Data engineer | Reviewed at the M0 gate; PKBX0041 reference awaiting Om |
-| `04-technical-design.md`, ADR-0002 to ADR-0006 | Solutions architect | Approved with the plan, 2026-11-23 (ADR status Accepted when its ticket ships) |
-| `05-ai-design.md`, ADR-0007 to ADR-0011 | AI architect | Approved with the plan, 2026-11-23 (ADR status Accepted when its ticket ships) |
-| ADR-0001 (build on v2; audit of the Codex repo) | Solutions architect | Approved with the plan, 2026-11-23 |
+| `04-technical-design.md`, ADR-0002 to ADR-0006 | Solutions architect | `04` approved with the plan, 2026-11-23. The ADRs are approved in direction but stay Proposed until their ticket ships, then become Accepted |
+| `05-ai-design.md`, ADR-0007 to ADR-0011 | AI architect | `05` approved with the plan, 2026-11-23. The ADRs are approved in direction but stay Proposed until their ticket ships, then become Accepted |
+| ADR-0001 (build on v2; audit of the Codex repo) | Solutions architect | Approved in direction with the plan, 2026-11-23; stays Proposed until M1 builds on it |
 | `responsible-ai.md` | AI architect | In force; thresholds T1 to T14 signed (A5), with T2, T3, T8 and T10 wording awaiting founder confirmation |
 | `tickets/` (M0 to M14) | Tech lead | Approved with the plan, 2026-11-23 |
 
