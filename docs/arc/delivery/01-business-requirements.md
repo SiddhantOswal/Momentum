@@ -86,7 +86,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 | C6 | Live PO intake accepts only the five allowlisted fixtures, each up to 10 MiB. | `src/synthetic-po-allowlist.js`; `index.mjs`; live env `USTAAD_SYNTHETIC_ONLY=true` |
 | C7 | Voice is disabled in code until a voice backend exists. | CLAUDE.md section 4 |
 | C8 | The Gemini cap is a number of attempted calls per Asia/Kolkata day, shared through Firestore: 300 on `momentum` since 2026-11-22, 100 on `prepagent`. Failed attempts count, and the cap covers extraction, explanation, photo diagnosis, every typed Arc turn and the answer writer. | `src/daily-gemini-call-cap.js`; `changes/2026-11-22-momentum-limits.md`; STATUS decision log |
-| C9 | Cloud Run is limited to 2 instances at concurrency 20. PO review state lives in each instance's memory and expires after 30 minutes. | Live service read 2026-11-22; `src/purchase-order-review.js` |
+| C9 | The live `momentum` revision `momentum-00023-yaz` runs up to 4 instances at concurrency 20, with session affinity on. PO review state lives in each instance's memory and expires after 30 minutes. Affinity is best-effort, so a review can still land on another instance and be lost; durable review state is still needed (spec S13). | `changes/2026-11-22-momentum-limits.md`; `src/purchase-order-review.js` |
 | C10 | Per-IP rate limit of 60 requests per minute; 60-second request timeout. | `src/request-guardrails.js` |
 | C11 | The ₹5,000 budget alert is an alert, not a spending cap. | README; `ops/billing/` |
 | C12 | The repository is public. Nothing from `docs/arc/reference/` is read, quoted or committed; the folder is now in `.gitignore`. | CLAUDE.md section 7; founder decision 2026-11-22 |
@@ -114,7 +114,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 **Risks**
 
 - R1. **Gemini cap exhaustion on pitch day.** Rehearsals and the live pitch share one daily cap. The counter resets at midnight IST, which is 02:30 in Singapore.
-- R2. **Instance-local review state.** A PO review on one of the two instances can be lost if Arc's next call lands on the other instance (README, "Product boundaries").
+- R2. **Instance-local review state.** A PO review held on one instance can be lost if Arc's next call lands on another one. Session affinity on `momentum-00023-yaz` makes this less likely but does not prevent it (C9; README, "Product boundaries").
 - R3. **Stale figures in the designs** (section 8). Showing them would breach CLAUDE.md section 3.
 - R4. **No revision model in the backend.** The designs rely on "Rev 1" and "replaced revision", but the backend has no revision record (no revision field in `src/`).
 
