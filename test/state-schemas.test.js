@@ -263,6 +263,7 @@ const turn = {
     versions: { prompt: "router-v1", model: "gemini-3.5-flash" },
   },
   eventRange: { first: 4, last: 7 },
+  errorCode: null,
 };
 
 test("arc turn document", () => {
@@ -277,6 +278,10 @@ test("arc turn document", () => {
   rejects(ArcTurnDocSchema, { ...turn, summary: { ...turn.summary, attempts: 3 } }, ["summary", "attempts"]);
   rejects(ArcTurnDocSchema, { ...turn, prompt: "You are Arc" });
   rejects(ArcTurnDocSchema, { ...turn, answerText: "x".repeat(1201) }, ["answerText"]);
+  accepts(ArcTurnDocSchema, { ...turn, recordStatus: "failed", errorCode: "BUDGET_DAY_EXHAUSTED" });
+  rejects(ArcTurnDocSchema, { ...turn, errorCode: "x".repeat(65) }, ["errorCode"]);
+  const { errorCode, ...withoutErrorCode } = turn;
+  rejects(ArcTurnDocSchema, withoutErrorCode, ["errorCode"]);
 });
 
 const step = {
