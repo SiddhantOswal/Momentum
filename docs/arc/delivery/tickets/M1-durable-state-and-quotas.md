@@ -86,6 +86,7 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 ### ARC-M1-14 Explicit Vertex `safetySettings` on every Gemini call (P0)
 - Goal: `src/google-cloud/vertex-gemini-client.js` sends no `safetySettings` today, so every call runs on the platform defaults. Every request (extraction, explanation, photo, router, answer writer) sends explicit settings from `config/arc-models.json`, and the result records which settings version was used (RAI-5).
 - AC: a request-shape test fails if any call is sent without `safetySettings`. A blocked response maps to a defined error code and a designed UI state, never to an empty answer. It also reads the Vertex AI per-minute request quota for `gemini-3.5-flash` and `gemini-3.5-flash-lite` in `asia-south1` (read-only `gcloud` quota describe or the console) and records it in `data/vertex-safety-reference.md`, before the founders sign F2 (ADR-0008).
+- Merge condition (QA, ARC-M1-15): `safetySettings` and `toolConfig` with `ANY` and `allowedFunctionNames` are confirmed by the docs but NOT CONFIRMED live, because `countTokens` rejects both fields. This ticket does not merge until a `generateContent` smoke call on a tagged no-traffic revision returns 200 with these exact names, recorded in `data/vertex-safety-reference.md`.
 - Depends on: M1-15. Owner: AI engineer; the responsible-AI reviewer checks.
 - Test plan: unit tests on the request body and on blocked-response handling; one live call per role on a tagged revision.
 

@@ -24,10 +24,11 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - ARC-M0-06 merged (`5dd674f`): O10 now allows 2 attempts for a typed data question and 0 for a chip; J10 job-card retrieval (AC10.1 to AC10.11, design gap G15); J11 recovery (AC11.1 to AC11.11, design gap G16); PROPOSED latency targets (spec section 3.5; `plan_lot` p50 30 s, p95 50 s, over 60 s fails); Q7 to Q11 marked answered. Follow-ups placed in ARC-M2-01, ARC-M2-05 and ARC-M3-03.
 - ARC-M0-04 question list for Om: `data/om-signoff-request.md` (`00ff9c1`). Waiting for the founders to send it.
 - **M0 gate: GO** (2026-11-23, `reviews/M0-review.md`, `arc/main` at `b26b4f3`). All eight reviewers at GO after three repair rounds. Evals NOT RUN (no suites yet).
+- ARC-M1-15 merged: `data/vertex-safety-reference.md`. QA lead PASS on all three ACs. The free `countTokens` checks were re-run on 2026-11-23: `systemInstruction` and `thinkingLevel` accepted, unknown fields rejected. `safetySettings` and `toolConfig` are confirmed in the docs only; live confirmation is a merge condition of ARC-M1-14.
 
 ## In progress
 
-- M1 has started. First: QA verification and merge of ARC-M1-15 (`arc/ARC-M1-15-vertex-reference`, `3279481`), and resuming ARC-M1-01 (`arc/ARC-M1-01-commands`, paused partway with 4 commits).
+- ARC-M1-01 (route logic into `src/commands/`) resumed on `arc/ARC-M1-01-commands`, rebasing on `arc/main`.
 - CI "Unit tests" is expected to fail on `arc/main` until ARC-M1-11 lands (`test/job-draft-persistence.test.js:508`). No CI run exists yet; nothing has been pushed.
 
 ## Blocked
