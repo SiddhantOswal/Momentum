@@ -644,3 +644,46 @@ test("FirestoreIdempotencyStore: POST URL includes documentId query parameter eq
   await makeStore(fetchImpl).claim(claimArgs());
   assert.match(calls[1].url, new RegExp(`documentId=${encodeURIComponent(KEY_HASH)}`));
 });
+
+// ---------------------------------------------------------------------------
+// Section L: Design 2.2 base fields and the fencing read
+// ---------------------------------------------------------------------------
+
+test("FirestoreIdempotencyStore: a claim writes the jobs scope and the base fields the TTL policy needs", async () => {
+  const { fetchImpl, calls } = fakeSequence([
+    { status: 404, body: {} },
+    { status: 200, body: {} },
+  ]);
+  await makeStore(fetchImpl).claim(claimArgs());
+  const posted = JSON.parse(calls[1].body).fields;
+  assert.deepEqual(posted.schemaVersion, { integerValue: "1" });
+  assert.deepEqual(posted.scope, { stringValue: "jobs" });
+  assert.deepEqual(posted.createdAt, { timestampValue: new Date(NOW).toISOString() });
+  assert.deepEqual(posted.updatedAt, { timestampValue: new Date(NOW).toISOString() });
+  assert.deepEqual(posted.expiresAt, { timestampValue: new Date(NOW + 7 * 24 * 60 * 60 * 1000).toISOString() });
+  assert.deepEqual(posted.leaseExpiresAt, { integerValue: String(LEASE_EXPIRES) });
+});
+
+test("FirestoreIdempotencyStore: confirmOwner holds only for the current owner inside its lease", async () => {
+  const cases = [
+    [{ status: 200, body: JSON.parse(inProgressDoc()) }, NOW + 1_000, true],
+    [{ status: 200, body: JSON.parse(inProgressDoc()) }, LEASE_EXPIRES, false],
+    [{ status: 200, body: JSON.parse(inProgressDoc({ ownerToken: "new-owner" })) }, NOW + 1_000, false],
+    [{ status: 200, body: JSON.parse(completeDoc()) }, NOW + 1_000, false],
+    [{ status: 404, body: {} }, NOW + 1_000, false],
+  ];
+  for (const [response, now, expected] of cases) {
+    const { fetchImpl, calls } = fakeSequence([response]);
+    const held = await makeStore(fetchImpl).confirmOwner({ keyHash: KEY_HASH, ownerToken: OWNER_TOKEN, now });
+    assert.equal(held, expected);
+    assert.deepEqual(calls.map((call) => call.method), ["GET"]);
+  }
+});
+
+test("FirestoreIdempotencyStore: confirmOwner fails closed when Firestore does not answer", async () => {
+  const { fetchImpl } = fakeSequence([{ status: 503, body: {} }]);
+  await assert.rejects(
+    () => makeStore(fetchImpl).confirmOwner({ keyHash: KEY_HASH, ownerToken: OWNER_TOKEN, now: NOW }),
+    (err) => err instanceof FirestoreIdempotencyError && err.code === "FIRESTORE_UNAVAILABLE"
+  );
+});

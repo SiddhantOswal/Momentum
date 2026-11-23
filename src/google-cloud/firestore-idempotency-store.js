@@ -35,6 +35,11 @@ import {
   isPreconditionFailure as restIsPreconditionFailure,
   toFirestoreValue as restToFirestoreValue,
 } from "./firestore-rest.js";
+import { STATE_SCHEMA_VERSION } from "../state-schemas.js";
+
+const JOBS_SCOPE = "jobs";
+// Design 2.0: the TTL policy deletes a record 7 days after its claim; the lease is checked in code.
+const RECORD_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class FirestoreIdempotencyError extends Error {
   constructor(code, message) {
@@ -195,6 +200,11 @@ export function createFirestoreIdempotencyStore({
       const createUrl = `${basePath}?documentId=${encodeURIComponent(documentId)}`;
       const body = JSON.stringify({
         fields: {
+          schemaVersion: toFirestoreValue(STATE_SCHEMA_VERSION),
+          scope: toFirestoreValue(JOBS_SCOPE),
+          createdAt: toFirestoreValue(new Date(claimedAt)),
+          updatedAt: toFirestoreValue(new Date(claimedAt)),
+          expiresAt: toFirestoreValue(new Date(claimedAt + RECORD_RETENTION_MS)),
           keyHash: toFirestoreValue(keyHash),
           fingerprint: toFirestoreValue(fingerprint),
           jobId: toFirestoreValue(jobId),
@@ -268,6 +278,24 @@ export function createFirestoreIdempotencyStore({
         return false;
       }
       throw firestoreUnavailable("Firestore could not conditionally complete the claim.");
+    },
+
+    /**
+     * Fencing read for design 3.2 step 3: true only while this owner still
+     * holds a live in-progress claim. A caller whose lease ran out must not
+     * write, even if nobody has re-claimed yet.
+     */
+    async confirmOwner({ keyHash, ownerToken, now }, signal) {
+      const getUrl = `${basePath}/${encodeURIComponent(keyHash)}`;
+      const getResponse = await authorizedRequest(getUrl, { method: "GET" }, signal);
+      if (getResponse.status === 404) return false;
+      if (getResponse.status !== 200) throw firestoreUnavailable("Firestore could not read the claim before the job write.");
+      const existing = fromFirestoreFields((await getResponse.json()).fields ?? {});
+      return existing.recordStatus === "in_progress" &&
+        existing.ownerToken === ownerToken &&
+        Number.isFinite(existing.leaseExpiresAt) &&
+        Number.isFinite(now) &&
+        existing.leaseExpiresAt > now;
     },
 
     /**
