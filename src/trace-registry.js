@@ -271,7 +271,9 @@ function boundedSet(map, key, value, limit) {
  * Copies every event of the in-memory registry to a durable trace store, in
  * sequence order, without making the run wait for or fail on the store. A
  * failed write is logged with its error code only and stops later writes for
- * that run, so the stored copy is always a gap-free prefix of the run.
+ * that run, so the stored copy is always a gap-free prefix of the run. Once
+ * the owner is known, the head of such a run is marked "incomplete" so a
+ * reader on another instance is told the copy stops short.
  */
 export function createWriteThroughTraceRegistry({
   registry,
@@ -303,6 +305,20 @@ export function createWriteThroughTraceRegistry({
     };
   }
 
+  async function markIncomplete(run) {
+    if (!run.owner || run.markedIncomplete) return;
+    run.markedIncomplete = true;
+    try {
+      await store.writeHead(head(run.runId, run, {
+        owner: run.owner,
+        status: "incomplete",
+        lastSequence: run.storedSequence,
+      }));
+    } catch (error) {
+      report("head", error);
+    }
+  }
+
   function enqueue(run, operation, write) {
     run.chain = run.chain.then(async () => {
       if (run.failed) return;
@@ -311,6 +327,7 @@ export function createWriteThroughTraceRegistry({
       } catch (error) {
         run.failed = true;
         report(operation, error);
+        await markIncomplete(run);
       }
     });
     return run.chain;
@@ -325,6 +342,7 @@ export function createWriteThroughTraceRegistry({
     const snapshot = { owner: run.owner, status: run.status, lastSequence: run.lastSequence };
     enqueue(run, "event", async () => {
       await store.appendEvent(event);
+      run.storedSequence = event.sequence;
       if (snapshot.owner) await store.writeHead(head(event.runId, run, snapshot));
     });
   }
@@ -336,12 +354,15 @@ export function createWriteThroughTraceRegistry({
       const runId = registry.startRun();
       const [started] = registry.getEventsAfter(runId, 0);
       boundedSet(runs, runId, {
+        runId,
         createdAt: started.occurredAt,
         chain: Promise.resolve(),
         failed: false,
         owner: undefined,
         status: "running",
         lastSequence: 0,
+        storedSequence: 0,
+        markedIncomplete: false,
       }, maxTrackedRuns);
       persist(started);
       return runId;
@@ -379,6 +400,8 @@ export function createWriteThroughTraceRegistry({
       if (!run) return;
       run.owner = ownerSessionId;
       const snapshot = { owner: ownerSessionId, status: run.status, lastSequence: run.lastSequence };
+      // A write that failed before the owner was known could not mark the head; this does.
+      run.chain = run.chain.then(() => (run.failed ? markIncomplete(run) : undefined));
       await enqueue(run, "head", () => store.writeHead(head(runId, run, snapshot)));
     },
 

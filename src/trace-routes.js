@@ -78,6 +78,19 @@ function streamFailure(stream) {
   });
 }
 
+function streamIncomplete(stream) {
+  return stream.writeSSE({
+    event: "stream.error",
+    data: JSON.stringify({
+      ok: false,
+      error: {
+        code: "TRACE_INCOMPLETE",
+        message: "The stored trace stops before the run ended.",
+      },
+    }),
+  });
+}
+
 function pause(ms, signal) {
   return new Promise((resolve) => {
     if (signal.aborted) return resolve();
@@ -96,6 +109,8 @@ function pause(ms, signal) {
  * A run still going on another instance is followed by polling, because
  * instances share no event channel; the stream ends at the run's terminal
  * event or after maxStreamMs, and the client resumes with Last-Event-ID.
+ * A head marked "incomplete" ends the stream with TRACE_INCOMPLETE once every
+ * stored event is sent; the head is read before the events, so none is missed.
  */
 async function streamFromStore(c, { store, runId, sequence, pollIntervalMs, maxStreamMs }) {
   let head;
@@ -107,7 +122,7 @@ async function streamFromStore(c, { store, runId, sequence, pollIntervalMs, maxS
   if (!head) {
     return errorResponse(c, 404, "TRACE_NOT_FOUND", "Trace run was not found or has expired.");
   }
-  if (sequence > head.lastSequence) {
+  if (head.status !== "incomplete" && sequence > head.lastSequence) {
     return errorResponse(c, 400, "TRACE_INVALID_CURSOR", "Trace event cursor is invalid.");
   }
 
@@ -126,8 +141,14 @@ async function streamFromStore(c, { store, runId, sequence, pollIntervalMs, maxS
           lastSentSequence = event.sequence;
           if (isTerminal(event)) return;
         }
+        if (head.status === "incomplete") {
+          await streamIncomplete(stream);
+          return;
+        }
         if (Date.now() + pollIntervalMs > deadline) return;
         await pause(pollIntervalMs, signal);
+        head = await store.readHead(runId, { signal });
+        if (!head) throw new Error("The trace head disappeared while streaming.");
       }
     } catch {
       if (!signal.aborted) await streamFailure(stream);

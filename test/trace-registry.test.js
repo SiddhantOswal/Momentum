@@ -219,3 +219,59 @@ test("durable traces stay off unless the flag is exactly true", () => {
   assert.equal(typeof enabled.claimOwner, "function");
   assert.equal(typeof enabled.ownerOf, "function");
 });
+
+test("a run whose event write failed before the owner was known gets an incomplete head on claim", async () => {
+  const store = recordingStore({ failOn: (kind, value) => kind === "event" && value.sequence === 2 });
+  const durable = createWriteThroughTraceRegistry({ registry: createTraceRegistry(), store, log: () => {} });
+  const runId = durable.registry.startRun();
+  const tool = durable.registry.startTool(runId, "extractOrder");
+  durable.registry.finishTool(runId, tool.toolCallId, "succeeded");
+  durable.registry.finishRun(runId, "completed");
+  await durable.claimOwner(runId, OWNER);
+
+  assert.deepEqual(store.heads, [{
+    runId,
+    ownerSessionId: OWNER,
+    status: "incomplete",
+    lastSequence: 1,
+    createdAt: store.events[0].occurredAt,
+  }]);
+});
+
+test("a run whose event write fails after the owner is known has its head marked incomplete", async () => {
+  const store = recordingStore({ failOn: (kind, value) => kind === "event" && value.sequence === 3 });
+  const logged = [];
+  const durable = createWriteThroughTraceRegistry({ registry: createTraceRegistry(), store, log: (record) => logged.push(record) });
+  const runId = durable.registry.startRun();
+  await durable.claimOwner(runId, OWNER);
+  const tool = durable.registry.startTool(runId, "getConditions");
+  durable.registry.finishTool(runId, tool.toolCallId, "succeeded");
+  durable.registry.finishRun(runId, "completed");
+  await durable.flush(runId);
+
+  assert.deepEqual(store.heads.map(({ status, lastSequence }) => [status, lastSequence]), [
+    ["running", 1],
+    ["running", 2],
+    ["incomplete", 2],
+  ]);
+  assert.deepEqual(store.events.map(({ sequence }) => sequence), [1, 2]);
+  assert.deepEqual(logged, [{ event: "trace_store_write_failed", operation: "event", code: "SERVICE_UNAVAILABLE" }]);
+});
+
+test("when the incomplete head cannot be written either, both failures are logged and the run still works", async () => {
+  const store = recordingStore({ failOn: (kind, value) => (kind === "event" && value.sequence === 2) ||
+    (kind === "head" && value.status === "incomplete") });
+  const logged = [];
+  const durable = createWriteThroughTraceRegistry({ registry: createTraceRegistry(), store, log: (record) => logged.push(record) });
+  const runId = durable.registry.startRun();
+  await durable.claimOwner(runId, OWNER);
+  durable.registry.finishRun(runId, "failed");
+  await durable.flush(runId);
+
+  assert.equal(durable.registry.getRun(runId).status, "failed");
+  assert.deepEqual(store.heads.map(({ status }) => status), ["running"]);
+  assert.deepEqual(logged, [
+    { event: "trace_store_write_failed", operation: "event", code: "SERVICE_UNAVAILABLE" },
+    { event: "trace_store_write_failed", operation: "head", code: "SERVICE_UNAVAILABLE" },
+  ]);
+});

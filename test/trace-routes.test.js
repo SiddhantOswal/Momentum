@@ -296,6 +296,61 @@ test("a second instance follows a run that is still running until it ends", asyn
     ["run.started", "tool.started", "tool.unavailable", "run.failed"]);
 });
 
+function failEventWrite(sequence) {
+  const pattern = new RegExp(`^traces/[0-9a-f-]{36}/trace_events/${sequence}$`);
+  return ({ method, path }) => method === "PATCH" && pattern.test(path);
+}
+
+function streamErrorCodes(body) {
+  return [...body.matchAll(/^event: stream\.error\ndata: (.+)$/gm)].map((match) => JSON.parse(match[1]).error.code);
+}
+
+test("a run whose copy stopped short says so on another instance instead of 404", async () => {
+  const fake = createFakeFirestore({ failWhen: failEventWrite(2) });
+  const first = createInstance(fake);
+  const second = createInstance(fake);
+  const owner = demoSession();
+  const runId = await finishedRunOn(first, owner.sessionId);
+
+  const response = await second.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  assert.equal(response.status, 200);
+  const body = await response.text();
+  assert.deepEqual([...body.matchAll(/^id: (.+)$/gm)].map((match) => match[1]), [`${runId}:1`]);
+  assert.deepEqual(streamErrorCodes(body), ["TRACE_INCOMPLETE"]);
+  assert.doesNotMatch(body, /event: run\.completed/);
+
+  const resumed = await second.app.request(`/api/runs/${runId}/events`, {
+    headers: { Cookie: owner.cookie, "Last-Event-ID": `${runId}:3` },
+  });
+  assert.equal(resumed.status, 200, "a cursor from the first instance's memory gets the same answer");
+  assert.deepEqual(streamErrorCodes(await resumed.text()), ["TRACE_INCOMPLETE"]);
+});
+
+test("a second instance following a run ends with TRACE_INCOMPLETE when the copy stops mid-run", async () => {
+  const fake = createFakeFirestore({ failWhen: failEventWrite(3) });
+  const first = createInstance(fake);
+  const second = createInstance(fake, { routeOptions: { pollIntervalMs: 5, maxStreamMs: 2000 } });
+  const owner = demoSession();
+  const { registry } = first.traces;
+  const runId = registry.startRun();
+  await first.traces.claimOwner(runId, owner.sessionId);
+
+  const response = await second.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  assert.equal(response.status, 200);
+  const bodyPromise = response.text();
+  const tool = registry.startTool(runId, "getConditions");
+  registry.finishTool(runId, tool.toolCallId, "succeeded");
+  registry.finishRun(runId, "completed");
+  await first.traces.flush(runId);
+  const startedWaiting = Date.now();
+  const body = await bodyPromise;
+
+  assert.deepEqual([...body.matchAll(/^event: (.+)$/gm)].map((match) => match[1]),
+    ["run.started", "tool.started", "stream.error"]);
+  assert.deepEqual(streamErrorCodes(body), ["TRACE_INCOMPLETE"]);
+  assert.ok(Date.now() - startedWaiting < 1000, "the stream ends on the marker, not at maxStreamMs");
+});
+
 test("without the durable store a run from another instance stays unknown and unowned runs keep the 403", async () => {
   const fake = createFakeFirestore();
   const first = createInstance(fake);
