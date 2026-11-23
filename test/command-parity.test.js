@@ -315,3 +315,24 @@ test("authorize decides through HTTP what it decides in process", async () => {
     await stopServer(child);
   }
 });
+
+test("approve route rejects an unsupported currency before approving", async () => {
+  const { origin, child } = await startServer(DEMO_ENV);
+  try {
+    const plan = await fetch(`${origin}/jobs`, { method: "POST", body: multipart(jobFields()) });
+    assert.equal(plan.status, 200);
+    const { jobSheet } = await plan.json();
+
+    const rejected = await fetch(`${origin}/jobs/${jobSheet.jobId}/approve?lang=en&currency=ZZZ`, { method: "POST" });
+    assert.equal(rejected.status, 400);
+    const body = await rejected.json();
+    assert.equal(body.error.code, "VALIDATION_ERROR");
+    assert.match(body.error.issues[0].message, /INR, JPY, KRW, CNY, IDR, SGD, AUD, THB, PHP, MYR, USD/);
+    assert.equal((await (await fetch(`${origin}/jobs/${jobSheet.jobId}`)).json()).jobSheet.status, "DRAFT");
+
+    const approved = await fetch(`${origin}/jobs/${jobSheet.jobId}/approve?lang=en&currency=SGD`, { method: "POST" });
+    assert.equal(approved.status, 200);
+  } finally {
+    await stopServer(child);
+  }
+});
