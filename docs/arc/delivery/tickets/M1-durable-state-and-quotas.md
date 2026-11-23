@@ -160,4 +160,4 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - AC: a reader on another instance always gets an explicit state for a run whose head write failed. Options: retry the head write with a bound, or derive the state from the last stored event and the head's age. Pick one in the design and cover it with a test that fails without it.
 - Depends on: M1-07. Owner: backend engineer.
 - Test plan: fail both the event write and the head write, and read from a second instance.
-
+- From the ARC-M1-17 QA: pass the caller's `ipKey` to the `/api/status` peek so the budget view does not show units left when the address cap is spent; add a test in `gemini-session-limits-http.test.js` that fails when the IP mint limit is removed on the store-backed HTTP path.

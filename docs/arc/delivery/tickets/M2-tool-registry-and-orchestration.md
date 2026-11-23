@@ -18,6 +18,7 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 ### ARC-M2-03 Turn runner (P0)
 - Goal: `src/arc/turn-runner.js`, with deterministic pre-routing, one router call for typed text, at most 3 function calls and 4 tool steps per turn, and limits in `config/arc.json`.
 - AC: buttons and suggestion chips cost 0 attempts. Typed text costs 1 router attempt, plus 1 answer-writer attempt for a typed data question (decision A3); both are reserved through `reserve`. A step resumes with the same idempotency key after a restart. A turn summary stores no prompt or document text.
+- Carry-over from ARC-M1-17 QA: Gemini calls from Arc turns or background work must run inside `runAsGeminiCaller` (`src/gemini-caller-context.js`), or they skip the per-session and per-IP limits. Add a test that a turn-runner call reaches the store with the session and IP.
 - Depends on: M2-02, M1-08. Owner: AI engineer.
 - Test plan: offline tests over a fake router, plus attempt counting asserted from the budget store. A restart test kills the runner between two steps and resumes it, asserting the same effect key and no second attempt.
 
