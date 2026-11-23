@@ -3,7 +3,7 @@
 Status: Proposed, 2026-11-23. Amended 2026-11-23 for founder decision A3 (Gemini writes chat answers to typed data questions), and again for the M0 gate repair round (`reviews/M0-review.md`). Author role: AI architect.
 No code, tests or evals exist for anything below; every eval reads NOT RUN, and every token, cost and latency figure is an estimate unless it cites a measurement.
 
-Decisions are recorded in ADR-0007 to ADR-0011. This document refers to the solutions architect's ADRs by number and does not repeat them: ADR-0002 (Firestore durable state), ADR-0003 (lot revisions and approve guard), ADR-0004 (Gemini budget and rate limits), ADR-0005 (conditions source), ADR-0006 (deploy). Interfaces shared with the backend (routes, session and task-run records, step states, effect keys) are defined in `04-technical-design.md` sections 2, 3 and 5.2; where this document names them, `04` is the source.
+Decisions are recorded in ADR-0007 to ADR-0011. This document refers to the solutions architect's ADRs by number and does not repeat them: ADR-0002 (Firestore durable state), ADR-0003 (lot revisions and approve guard), ADR-0004 (Gemini budget and rate limits), ADR-0005 (conditions source), ADR-0006 (deploy). Interfaces shared with the backend (routes, session and task-run records, step states, effect keys) are defined in `04-technical-design.md` section 3.0 (interface decisions I1 to I9) and sections 2, 3 and 5.2; where this document names them, `04` is the source.
 
 Inputs: `01-business-requirements.md`, `02-product-spec.md` (J1 to J11, design gaps G1 to G16, sections 3, 5, 9.1), `responsible-ai.md`, `03-discovery-audit.md`, `04-technical-design.md`, `data/data-audit.md` section 6, `data/stale-claims.md`, ADR-0001, the code listed in each section, the V5 pack and the two 21 November source specs (Insights analytics, Action Cards). Where they differ, the founder brief wins, then the newest dated document.
 
@@ -32,7 +32,7 @@ Gemini function calling on Vertex AI over a registry in `src/arc/tools/`. Each f
 arc1.<taskRunId without dashes>.<stepId>.<attempt>.<argsHash first 16 hex>
 ```
 
-The key is derived from the step record, so a resumed step keeps its key and the command replays instead of repeating. `attempt` increases only when the user presses Retry on a FAILED step. Read tools take no effect key; their cache rules are in `04` section 5.3.
+The key is derived from the step record, so a resumed step keeps its key and the command replays instead of repeating. `attempt` increases only when the user presses Retry on a FAILED step. A read tool that spends a Gemini attempt (`diagnose_approved_photo`) takes the same key (`04` I7). Other read tools take no effect key; their cache rules are in `04` section 5.3. Budget reservations made outside a tool step (router, writer) use the turn key `arcturn1.<clientTurnId>` with a call index (`04` I7).
 
 **Tool list.** "Model" means Gemini may call it through the router. "Code" means only a fixed plan calls it (button path or a step after a human action). Spend columns are per call.
 
@@ -50,7 +50,7 @@ The key is derived from the step record, so a resumed step keeps its key and the
 | `get_job` | `src/commands/get-job.js:getJob` | R | model, code | none | 0 | one row |
 | `get_job_card` | `src/commands/get-card.js:getCard` plus the PDF content check (spec C11) | R | code (after approval), model | none | 0 | one row |
 | `list_approved_photos` | `src/commands/photos.js:listApprovedPhotos` | R | model, code | none | 0 | none |
-| `diagnose_approved_photo` | `src/commands/photos.js:classifyApprovedPhoto` | R (no state change); result cached by `photoId:photoPromptVersion:modelId` | model, code | none | 1 on cache miss | none |
+| `diagnose_approved_photo` | `src/commands/photos.js:classifyApprovedPhoto` | R (no state change); result cached by `photoId:photoPromptVersion:modelId` | model, code | effect key | 1 on cache miss | none |
 | `search_defect_history` | `src/commands/history.js:findSeenBefore` | R | model, code | none | 0 | `seen_before.sql` |
 | `query_metric` | grounded query layer (ADR-0009), including `src/commands/status.js:impactSummary` | R | model, code | none | 0 | allow-listed views, 50 MiB cap |
 
@@ -63,16 +63,16 @@ Not in the registry, by design:
 
 Three reply functions exist only in the router's declarations and have no side effects: `reply_out_of_scope(suggestionIds[])`, `ask_clarification(field)` and `explain_cannot_approve()`. Their text is fixed copy; the model chooses only enum values.
 
-**IDs.** Tool arguments never take a free-form ID. The current lot, review and job come from session state. Where the model must choose (sample `PO1` to `PO5`, photo `1` to `10`, a job from this session's history), the argument is an enum built per turn from IDs that tools returned in this session (ADR-0001 item 2). The job enum comes from the job-ID list on the session record (`04` section 3, interface decisions).
+**IDs.** Tool arguments never take a free-form ID. The current lot, review and job come from session state. Where the model must choose (sample `PO1` to `PO5`, photo `1` to `10`, a job from this session's history), the argument is an enum built per turn from IDs that tools returned in this session (ADR-0001 item 2). The job enum comes from `jobIds` on the session record (at most 20, this session's jobs only; `04` I5).
 
 ## 2. Turn loop
 
-Route: `POST /api/arc/turns`, behind `requireSupervisor`, the per-IP limit and a 1,000-character text limit. The session is taken from the signed demo-session cookie only; the body carries no session ID. The response is the event stream in section 6.
+Route: `POST /api/arc/turns`, behind `requireSupervisor`, the per-IP limit and a 1,000-character text limit. The session is taken from the signed demo-session cookie only; a body or query string that carries `sessionId` gets 400 `VALIDATION_ERROR` (`04` I2). The response is the event stream in section 6.
 
 ```
 1. Validate the body: { clientTurnId, input: { kind: "action", actionId, params } | { kind: "text", text } }
-2. Claim the turn key idempotency/{sha256("arc-turn:v1:" + sessionId + ":" + clientTurnId)}, scope arc_turn
-   (04 section 3.3). A replayed turn returns its stored events and spends nothing.
+2. Create the turn record arc_sessions/{sessionId}/turns/{clientTurnId} with an exists-false precondition
+   (04 I3). A replayed turn returns its stored result and spends nothing.
 3. Load the session record and the lot record (04 sections 2.5 and 2.7).
 4. Pre-route in code:
    a. action      -> fixed plan for actionId                                  (0 attempts)
@@ -89,26 +89,27 @@ Route: `POST /api/arc/turns`, behind `requireSupervisor`, the per-IP limit and a
    -> numeric-fidelity, tools-only-ID and wording checks (section 5, step 7)
    -> pass: show the written text, labelled "Generated by Gemini", above the code-rendered card;
       fail: show the template only
-9. Emit the answer. Store the turn summary (intent, tool names, IDs, labels, versions, attempt count,
-   writer outcome and fallback reason). No prompt, typed text or document text.
+9. Emit the answer. Store on the turn record (04 I4) the typed text (at most 1,000 characters), the shown
+   answer text and the summary (intent, tool names, IDs, labels, versions, attempt count, writer outcome
+   and fallback reason). No tool results, prompts, PO text or order-derived strings.
 ```
 
 A typed data question costs 2 attempts: the router call in step 4d and the writer call in step 8. A typed message that is not a data question, including job-card retrieval (J10) and every refusal, costs 1. Spec O10 already reads this way (ARC-M0-06).
 
-Limits, all in `config/arc.json`, versioned: model calls per turn 2 (router, then the answer writer for a typed data question); the writer has no tools, so it cannot start a loop; function calls per router response 3; tool steps per turn 4, of which at most one may call Gemini (`read_order`, `plan_lot`, `diagnose_approved_photo`; a second is offered as a button), so a typed turn spends at most 3 attempts; tool result 256 KiB (from `gemini-function-runner.js`); history sent to the router: the last 4 turn summaries, never raw tool output.
+Limits, all in `config/arc.json`, versioned: model calls per turn 2 (router, then the answer writer for a typed data question); the writer has no tools, so it cannot start a loop; function calls per router response 3; tool steps per turn 4, of which at most one may call Gemini (`read_order`, `plan_lot`, `diagnose_approved_photo`; a second is offered as a button), so a typed turn spends at most 3 attempts; tool result 256 KiB (from `gemini-function-runner.js`); history sent to the router: the summaries of the turns in `recentTurnIds` (at most 4), never raw tool output or typed text.
 
 `src/google-cloud/gemini-function-runner.js` is not reused as is: it requires the seven Blueprint tools in `AGENT_TOOLS` and allows 8 model rounds. Its call validation and result-size guard move into `src/arc/turn-runner.js`; a ticket decides whether the old runner is then deleted.
 
 **Records (ADR-0002, `04` sections 2.5, 2.6 and 3.3).**
 
-- `arc_sessions/{sessionId}`: the session record in `04` 2.5, including the job-ID list (`04` section 3).
-- `arc_sessions/{sessionId}/turns/{turnId}`: one turn summary per turn, as in step 9. This is the only transcript Arc keeps; typed text and prompts are not stored. Same TTL as the session record (ADR-0007).
-- `idempotency/{keyHash}` with scope `arc_turn`: the turn claim from step 2.
-- `arc_task_runs/{taskRunId}`: ordered steps with tool, effect key, error code and result reference. Step states are the `04` enum: `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `WAITING_FOR_USER`, `BLOCKED`, `SKIPPED`.
+- `arc_sessions/{sessionId}`: the session record in `04` 2.5, with `activeLotIds` (at most 5), `jobIds` (at most 20), `recentTurnIds` (at most 4, the router's history) and `activeTaskRunId` (`04` I5).
+- `arc_sessions/{sessionId}/turns/{clientTurnId}`: the one turn record (`04` I3, I4). It is the turn's idempotency claim and its transcript entry, as in steps 2 and 9. TTL 7 days. There is no `arc_turns` collection and no `idempotency` record with scope `arc_turn`.
+- `arc_task_runs/{taskRunId}`: ordered steps with tool, effect key, error code and result reference. Step states are the `04` enum: `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `BLOCKED`, `WAITING_FOR_USER`, `SKIPPED` (`04` I6).
+- `traces/{taskRunId}/trace_events/{sequence}`, trace kind `arc_task_run`: the run's events (`04` I8, ADR-0011).
 
 These replace the in-memory `Map` in `src/trace-registry.js` for Arc.
 
-**Resuming a long step.** `plan_lot` runs BigQuery ML and one or two Gemini calls inside the 60 s route budget (not measured end to end). If the stream drops, the client reconnects to `GET /api/arc/runs/:id/events` with `Last-Event-ID`, which replays stored events and then follows the Firestore record. If the step never finished, `POST /api/arc/runs/:id/resume` runs it again with the same effect key once its lease has expired (`04` section 3.4). The job idempotency store returns the stored result when the first call completed, so no second Gemini attempt is spent. When the first call died before storing anything, the re-run can spend new attempts, and the turn record says so.
+**Resuming a long step.** `plan_lot` runs BigQuery ML and one or two Gemini calls inside the 60 s route budget (not measured end to end). If the stream drops, the client reconnects to `GET /api/arc/runs/:taskRunId/events` with `Last-Event-ID`, which replays stored events and then follows the Firestore record. If the step never finished, `POST /api/arc/runs/:taskRunId/resume` runs it again with the same effect key once its lease has expired (`04` section 3.4). The job idempotency store returns the stored result when the first call completed, so no second Gemini attempt is spent. When the first call died before storing anything, the re-run can spend new attempts, and the turn record says so.
 
 ## 3. Model choice and cost
 
@@ -212,7 +213,7 @@ Details in ADR-0010. A later step can only make the outcome stricter (ADR-0001 i
 
 ## 6. Streaming and progress
 
-Details in ADR-0011. The turn response is a server-sent event stream; reconnect uses `GET /api/arc/runs/:id/events` with `Last-Event-ID`, the same cursor format as `src/trace-routes.js`.
+Details in ADR-0011. The turn response is a server-sent event stream; reconnect uses `GET /api/arc/runs/:taskRunId/events` with `Last-Event-ID`, the same cursor format as `src/trace-routes.js`. Events are stored in `traces/{taskRunId}/trace_events/{sequence}` (`04` I8).
 
 Events are emitted only when a real state changes, and each step event names the `04` step state it records:
 
@@ -223,8 +224,8 @@ Events are emitted only when a real state changes, and each step event names the
 | `step.succeeded` | `SUCCEEDED`, sent only after the result is stored |
 | `step.failed` | `FAILED`, with a mapped code and whether Retry is safe |
 | `step.blocked` | `BLOCKED`, with the rule |
-| `step.waiting_for_user` | `WAITING_FOR_USER`, with `waitingFor` (`order_confirmation`, `conditions_confirmation`, `line_choice`, `approval`) |
-| `answer` | none; carries the shown answer |
+| `awaiting_human` | `WAITING_FOR_USER`, with `waitingFor` (`confirm_order`, `confirm_conditions`, `choose_line`, `approve`; null otherwise) |
+| `answer` | none; stores the turn reference, and the shown text is read from the turn record (`04` I8) |
 | `run.completed`, `run.failed` | run `COMPLETED`, `FAILED` |
 
 `PENDING` and `SKIPPED` are stored but not sent. No percentage, no estimated time, no step shown before it starts. A keep-alive comment every 15 s is not an event and the UI does not render it.
@@ -255,7 +256,7 @@ Events are emitted only when a real state changes, and each step event names the
 
 The path rules in spec J11 still apply on top of this table: an explanation failure follows the J1 explanation-failed branch (G3), and an answer-writer failure shows the template answer with no error message (AC11.2). The `{retryAfterSeconds}` value comes from the budget response, never from model text.
 
-**Human step.** `step.waiting_for_user` shows the matching card, and Arc waits.
+**Human step.** `awaiting_human` shows the matching card, and Arc waits.
 
 ## 7. Eval suites
 
