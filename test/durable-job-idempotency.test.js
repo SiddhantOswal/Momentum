@@ -148,8 +148,8 @@ test("with the flag on, a retry after a restart replays the stored job and spend
   assert.deepEqual(replay.jobSheet, sheets.rows[0], "the replay is the stored row");
   assert.equal(gemini.attempts, 1, "the replay must not run the coordinator again");
   assert.equal(sheets.rows.length, 1);
-  const keyHash = createHash("sha256").update(`ustaad-jobs:v2:client:${CLIENT_KEY}`).digest("hex");
-  assert.equal(first.jobSheet.jobId, `JOB-${keyHash.slice(0, 40)}`, "the key prefix stays v2");
+  const keyHash = createHash("sha256").update(`ustaad-jobs:v3:client:${CLIENT_KEY}`).digest("hex");
+  assert.equal(first.jobSheet.jobId, `JOB-${keyHash.slice(0, 40)}`, "the key prefix is v3");
   const claim = claimDocument(fake, keyHash);
   assert.equal(claim.recordStatus, "complete");
   assert.equal(claim.scope, "jobs");
