@@ -25,14 +25,14 @@ export function Shell({ screen, go, theme, toggleTheme, title, subtitle, status,
 }) {
   return (
     <div className="flex min-h-full">
-      <nav aria-label="Main" className="sticky top-0 flex h-screen w-16 shrink-0 flex-col items-center border-r border-line bg-panel">
+      <nav aria-label="Main" className="sticky top-0 flex h-screen w-16 shrink-0 flex-col items-center border-r border-line bg-[var(--sb)]">
         <a href="#/floor" aria-label="Momentum home" className="flex h-16 w-full items-center justify-center border-b border-line"><Mark /></a>
         <div className="flex w-full flex-col pt-2">
           {NAV.map(({ key, label, Icon }) => {
             const active = key === screen;
             return (
               <button key={key} type="button" onClick={() => go(key)} aria-current={active ? "page" : undefined} title={label}
-                className={`relative flex h-14 w-full flex-col items-center justify-center gap-1 transition-colors ${active ? "text-accent" : "text-faint hover:text-text"}`}>
+                className={`relative flex h-14 w-full flex-col items-center justify-center gap-1 transition-colors ${active ? "text-text" : "text-muted hover:text-text"}`}>
                 {active && <i className="absolute left-0 top-2 bottom-2 w-[2px] bg-accent" />}
                 <Icon size={18} strokeWidth={1.6} aria-hidden="true" />
                 <span className="mono text-[9.5px] uppercase tracking-[0.08em]">{label}</span>
@@ -48,7 +48,7 @@ export function Shell({ screen, go, theme, toggleTheme, title, subtitle, status,
       </nav>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 border-b border-line bg-bg/90 backdrop-blur">
-          <div className="flex h-16 items-center justify-between gap-6 px-6">
+          <div className="flex h-[var(--arc-topbar-height)] items-center justify-between gap-6 px-[var(--arc-content-padding)]">
             <div className="flex min-w-0 items-baseline gap-4">
               <h1 className="figure truncate text-[24px] font-semibold">{title}</h1>
               {subtitle && <p className="hidden truncate text-[13px] text-muted md:block">{subtitle}</p>}
@@ -57,7 +57,7 @@ export function Shell({ screen, go, theme, toggleTheme, title, subtitle, status,
           </div>
           {status}
         </header>
-        <main id="main" className="flex-1 px-6 py-5">{children}</main>
+        <main id="main" className="flex-1 px-[var(--arc-content-padding)] py-5">{children}</main>
       </div>
     </div>
   );
