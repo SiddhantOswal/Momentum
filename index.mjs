@@ -1,6 +1,9 @@
 import { isSameApplicationOrigin } from "./src/request-origin.js";
 import { getCookie, setCookie } from "hono/cookie";
 import { createHackathonDemoAuthenticator, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
+import { createGeminiCallerMiddleware } from "./src/gemini-caller-context.js";
+import { createPitchClaimExchange, PITCH_RESERVE_GRANT } from "./src/pitch-claim.js";
+import { z } from "zod";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
@@ -56,6 +59,7 @@ import {
 import {
   createApiRateLimitMiddleware,
   createClientKeyResolver,
+  createIpKeyDeriver,
   createRequestTimeoutMiddleware,
   REQUEST_SIGNAL_CONTEXT_KEY,
 } from "./src/request-guardrails.js";
@@ -148,15 +152,29 @@ const lookupStoredJobSheet = createStoredJobSheetLookup({
   testOnly: executionMode !== "demo",
 });
 const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
+const resolveClientKey = createClientKeyResolver(process.env);
+const clientIpKey = (c) => createIpKeyDeriver(process.env.USTAAD_DEMO_SESSION_SIGNING_KEY)(resolveClientKey(c));
+// The code is read once from the Secret Manager value the service mounts as an env var, and only its digest is kept.
+const pitchExchange = createPitchClaimExchange(process.env.ARC_PITCH_RESERVE_CODE);
 const apiRateLimit = createApiRateLimitMiddleware({
   ipLimit: 300,
-  getClientIp: createClientKeyResolver(process.env),
+  getClientIp: resolveClientKey,
   getSessionId: (c) => {
     if (!hackathonAuth.configured) return undefined;
     const session = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
     return session.ok ? session.principal.sessionId : undefined;
   },
 });
+
+// Every Gemini call made while serving a request is charged to this session and address.
+app.use("*", createGeminiCallerMiddleware({
+  getPrincipal: (c) => {
+    if (!hackathonAuth.configured) return undefined;
+    const session = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
+    return session.ok ? session.principal : undefined;
+  },
+  getIpKey: clientIpKey,
+}));
 
 const requestTimeout = createRequestTimeoutMiddleware();
 app.use("*", (c, next) => {
@@ -562,11 +580,69 @@ app.get("/health", (c) => {
   return c.json({ ok: true, mode: process.env.K_SERVICE ? "cloud-run" : "local-development", executionMode });
 });
 
-app.post("/api/auth/demo-session", (c) => {
+const budgetPolicyRequested = servicePorts.geminiUsage.policy !== undefined;
+const budgetUnavailable = (c) => c.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Sessions cannot be issued right now. Try again shortly." } }, 503);
+
+function admissionRefusal(c, result, message) {
+  if (result.ok) return undefined;
+  if (result.code === "BUDGET_UNAVAILABLE") return budgetUnavailable(c);
+  c.header("Retry-After", String(result.retryAfterSeconds));
+  return c.json({ ok: false, error: { code: result.code, message, retryAfterSeconds: result.retryAfterSeconds } }, 429);
+}
+
+async function admit(c, name) {
+  const ipKey = clientIpKey(c);
+  if (ipKey === null || typeof servicePorts.geminiUsage[name] !== "function") return { ok: false, code: "BUDGET_UNAVAILABLE" };
+  try {
+    return await servicePorts.geminiUsage[name]({ ipKey, signal: c.req.raw.signal });
+  } catch {
+    return { ok: false, code: "BUDGET_UNAVAILABLE" };
+  }
+}
+
+// Minting sessions would otherwise reset the per-session Gemini limit (ADR-0004 decision 4). Off with the budget flag.
+async function refuseNewSession(c) {
+  if (!budgetPolicyRequested) return undefined;
+  return admissionRefusal(c, await admit(c, "admitSession"), "Too many sessions were started from this network. Try again later.");
+}
+
+const PitchClaimBodySchema = z.object({ code: z.string().min(1).max(128) }).strict();
+
+app.post("/api/auth/pitch-claim", async (c) => {
+  if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Hackathon authorization is disabled or incomplete." } }, 503);
+  if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
+  const cookie = getCookie(c, "__Host-ustaad-demo");
+  if (!hackathonAuth.authenticate(cookie).ok) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Start or renew the temporary hackathon session." } }, 401);
+  if (!budgetPolicyRequested || !pitchExchange.configured) return c.json({ ok: false, error: { code: "PITCH_CLAIM_UNAVAILABLE", message: "The pitch claim is not available." } }, 503);
+  const body = PitchClaimBodySchema.safeParse(await c.req.json().catch(() => undefined));
+  if (!body.success) return c.json({ ok: false, error: { code: "INVALID_REQUEST", message: "Send a JSON body with a code of at most 128 characters." } }, 400);
+  // The attempt is counted before the compare, so guessing is limited whatever the answer.
+  const refused = admissionRefusal(c, await admit(c, "admitPitchClaim"), "Too many pitch code attempts from this network. Try again later.");
+  if (refused) {
+    console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "rate_limited" }));
+    return refused;
+  }
+  if (!pitchExchange.matches(body.data.code)) {
+    console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "rejected" }));
+    return c.json({ ok: false, error: { code: "PITCH_CODE_INVALID", message: "That code is not valid." } }, 403);
+  }
+  const claimed = hackathonAuth.grant(cookie, PITCH_RESERVE_GRANT);
+  if (claimed === undefined) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Start or renew the temporary hackathon session." } }, 401);
+  console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "granted" }));
+  setCookie(c, "__Host-ustaad-demo", claimed, { secure: true, httpOnly: true, sameSite: "Strict", path: "/" });
+  return c.json({ ok: true, grant: PITCH_RESERVE_GRANT, expiresAt: new Date(hackathonAuth.authenticate(claimed).principal.expiresAt * 1000).toISOString() }, 200, { "Cache-Control": "no-store" });
+});
+
+app.post("/api/auth/demo-session", async (c) => {
   if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Hackathon authorization is disabled or incomplete." } }, 503);
   if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
   const existing = getCookie(c, "__Host-ustaad-demo");
-  const token = hackathonAuth.authenticate(existing).ok ? existing : hackathonAuth.issue();
+  let token = existing;
+  if (!hackathonAuth.authenticate(existing).ok) {
+    const refused = await refuseNewSession(c);
+    if (refused) return refused;
+    token = hackathonAuth.issue();
+  }
   setCookie(c, "__Host-ustaad-demo", token, { secure: true, httpOnly: true, sameSite: "Strict", path: "/" });
   return c.json({ ok: true, authorizationMode: "HACKATHON_DEMO", authenticatedHuman: false, expiresAt: new Date(hackathonAuth.authenticate(token).principal.expiresAt * 1000).toISOString(), approvalNote: HACKATHON_APPROVAL_NOTE }, 200, { "Cache-Control": "no-store" });
 });

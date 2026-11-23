@@ -1,3 +1,5 @@
+import { currentGeminiCaller } from "./gemini-caller-context.js";
+
 const CAP_ENV = Object.freeze({
   limit: "GEMINI_DAILY_ATTEMPT_CAP",
   timeZone: "GEMINI_DAILY_ATTEMPT_TIMEZONE",
@@ -138,9 +140,11 @@ export function withDailyGeminiCallCap(client, configuration, { now = () => Date
   async function call(method, args) {
     if (store) {
       const dayKey = currentDay();
+      const caller = currentGeminiCaller();
       const reservation = await store.reserveAttempt({
         dayKey, timeZone: configuration.timeZone, limit: configuration.limit, signal: args?.signal,
-        role: args?.role, budget: args?.budget,
+        role: args?.role,
+        budget: caller ? { principal: caller.principal, ipKey: caller.ipKey, ...args?.budget } : args?.budget,
       });
       // A disconnect after commit still consumes the attempt, but must not
       // start a provider call on behalf of an already cancelled request.
