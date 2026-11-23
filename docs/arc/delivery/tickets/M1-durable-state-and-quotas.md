@@ -119,3 +119,9 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - AC: a test fails if any event or response produced through the mock path contains "Gemini". The real Vertex path keeps its label.
 - Depends on: M1-01. Owner: backend engineer; the compliance reviewer checks.
 - Test plan: a unit test over the mock live-floor event, and a test over the real-path event using a fake Vertex client.
+
+### ARC-M1-20 Approve accepts an unknown currency (P2)
+- Goal: `POST /jobs/:id/approve?currency=ZZZ` returns 200 on both v2 and `arc/main` (found by QA during ARC-M1-01). An unsupported currency code is rejected with 400 and the supported list.
+- AC: a test fails for an unknown code and passes for INR and the other supported codes.
+- Depends on: M1-01. Owner: backend engineer.
+- Test plan: a route test plus a command test.

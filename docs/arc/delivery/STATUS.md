@@ -25,10 +25,11 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - ARC-M0-04 question list for Om: `data/om-signoff-request.md` (`00ff9c1`). Waiting for the founders to send it.
 - **M0 gate: GO** (2026-11-23, `reviews/M0-review.md`, `arc/main` at `b26b4f3`). All eight reviewers at GO after three repair rounds. Evals NOT RUN (no suites yet).
 - ARC-M1-15 merged: `data/vertex-safety-reference.md`. QA lead PASS on all three ACs. The free `countTokens` checks were re-run on 2026-11-23: `systemInstruction` and `thinkingLevel` accepted, unknown fields rejected. `safetySettings` and `toolConfig` are confirmed in the docs only; live confirmation is a merge condition of ARC-M1-14.
+- ARC-M1-01 merged: route logic moved into `src/commands/` (10 commands, 3 helpers, 9 commits). QA PASS. `npm test` 611, 610 pass, 1 known fail (ARC-M1-11); acceptance 317, 316 pass. Base and branch gave identical status, headers and bodies on 24 requests in both demo modes. Follow-up: the parity test missed a dropped `currency` query and checks only the PDF header.
 
 ## In progress
 
-- ARC-M1-01 (route logic into `src/commands/`) resumed on `arc/ARC-M1-01-commands`, rebasing on `arc/main`.
+- Running in parallel: the ARC-M1-01 parity-test follow-up, ARC-M1-02 (Firestore REST helper and state schemas), ARC-M1-03 (job fingerprint covers conditions; optimizer default 100 MiB), ARC-M1-11 (replayed APPROVED status).
 - CI "Unit tests" is expected to fail on `arc/main` until ARC-M1-11 lands (`test/job-draft-persistence.test.js:508`). No CI run exists yet; nothing has been pushed.
 
 ## Blocked
