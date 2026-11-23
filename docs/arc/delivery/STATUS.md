@@ -23,12 +23,12 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - Plan extended to production readiness: Phase B, M9 to M14 (`tickets/M9-M14-production-readiness.md`), and a production-ready definition in `00-plan.md` section 9.
 - ARC-M0-06 merged (`5dd674f`): O10 now allows 2 attempts for a typed data question and 0 for a chip; J10 job-card retrieval (AC10.1 to AC10.11, design gap G15); J11 recovery (AC11.1 to AC11.11, design gap G16); PROPOSED latency targets (spec section 3.5; `plan_lot` p50 30 s, p95 50 s, over 60 s fails); Q7 to Q11 marked answered. Follow-ups placed in ARC-M2-01, ARC-M2-05 and ARC-M3-03.
 - ARC-M0-04 question list for Om: `data/om-signoff-request.md` (`00ff9c1`). Waiting for the founders to send it.
+- **M0 gate: GO** (2026-11-23, `reviews/M0-review.md`, `arc/main` at `b26b4f3`). All eight reviewers at GO after three repair rounds. Evals NOT RUN (no suites yet).
 
 ## In progress
 
-- ARC-M0-03 M0 gate, round 1 done: **NO-GO** (`reviews/M0-review.md`). The verification auditor found a wrong test-result claim; the other seven reviewers gave CONDITIONAL GO. Round 2 repairs are with the owners: solutions architect, AI architect, product manager and business analyst, data engineer, delivery lead.
-- Built, not merged until M0 is GO and QA has verified them: ARC-M1-15 (`3279481`), ARC-M1-01 (paused partway, 4 commits on `arc/ARC-M1-01-commands`).
-- CI "Unit tests" is expected to fail on `arc/main` until ARC-M1-11 lands, because of the known failure at `test/job-draft-persistence.test.js:508`. No CI run exists yet: nothing has been pushed, and `gh run list` returns nothing.
+- M1 has started. First: QA verification and merge of ARC-M1-15 (`arc/ARC-M1-15-vertex-reference`, `3279481`), and resuming ARC-M1-01 (`arc/ARC-M1-01-commands`, paused partway with 4 commits).
+- CI "Unit tests" is expected to fail on `arc/main` until ARC-M1-11 lands (`test/job-draft-persistence.test.js:508`). No CI run exists yet; nothing has been pushed.
 
 ## Blocked
 
@@ -88,3 +88,4 @@ Asked only when a ticket needs them.
 | 2026-11-23 | Settings hardening, option (a): `bq query` and `gcloud auth print-access-token` move to ask; `node`, `npm` and `npx` are allowed only for named test, check and build commands; `find` is no longer auto-allowed; `cat` and `grep` on `.env` files are denied; more hook bypasses are denied (`-an`, trailing `-n`, abbreviated `--no-verify`, `git -c` hooks, any `git config` of `core.hooksPath`, git config env vars); edits to `scripts/git-hooks`, `scripts/quality` and `.github/workflows` ask first. CI remains the real gate | Setup gate: security B2 and N1 to N3, code review finding 1 | Founders |
 | 2026-11-23 | Plan approved, Phases A and B. RAI thresholds signed off (A5). The plan's recommendations are accepted for Q8, Q9, Q11 (with Om's review), A1, A2, A4, A6, F5, D4 and D6 | Founder approval | Founders |
 | 2026-11-23 | `arc/main` cut from `origin/v2` (`eb6eab9`), no upstream, fast-forwarded to `arc/setup` (`8bc30fd`) | ARC-M0-02 | Delivery lead |
+| 2026-11-23 | M0 closed with GO from all eight reviewers | `reviews/M0-review.md` | Delivery lead |

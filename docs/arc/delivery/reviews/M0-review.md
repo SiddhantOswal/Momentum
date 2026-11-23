@@ -72,6 +72,43 @@ These go to their owners with the same fixes: `04` branch name and lease wording
 - `.claude/settings.json` allows `gcloud config *`, so an agent could switch account or project without asking. Narrow it to `list` and `get`?
 - Off-topic eval size: 40 cases per class cannot show 95%. Grow the set to about 100 to 150 per class (more Gemini attempts), or report every rate with n and a 95% interval?
 
-## Round 2
+## Rounds 2 and 3
 
-Each owner fixes the items above. The verification auditor re-checks the NO-GO item and the other "before M0 closes" items, and the result is recorded below.
+The owners fixed every finding on separate branches. Each reviewer then re-checked its own findings: round 2 at `85d8c0b` and round 3 at `bd04a4a`, with a final re-check at `b26b4f3`. Three repair rounds were enough; nothing was escalated as a blocker.
+
+| Reviewer | Round 1 | Round 2 | Final |
+|---|---|---|---|
+| Code reviewer | CONDITIONAL GO | CONDITIONAL GO (old names in tickets) | **GO** |
+| QA lead | CONDITIONAL GO | **GO** | GO |
+| Security reviewer | CONDITIONAL GO | CONDITIONAL GO (M1-14 quota line) | **GO** |
+| AI evals reviewer | CONDITIONAL GO | CONDITIONAL GO (threshold list, eval budget) | **GO** |
+| Responsible-AI reviewer | CONDITIONAL GO | CONDITIONAL GO (chip ACs) | **GO** |
+| Compliance reviewer | CONDITIONAL GO | CONDITIONAL GO (record states, M1-18 AC) | **GO** |
+| Copy editor | CONDITIONAL GO | CONDITIONAL GO (two terms) | **GO** |
+| Verification auditor | NO-GO (wrong test count) | CONDITIONAL GO (threshold list, CI line) | **GO** |
+
+## Final verdict: GO (2026-11-23, `arc/main` at `b26b4f3`)
+
+Nothing in M0's scope is open. What this GO does not mean:
+
+- No eval suite exists yet, so all 12 suites are NOT RUN. This is not an eval pass.
+- No application code changed in M0. The test baseline is unchanged: 605 tests, 604 pass, 1 known failure at `test/job-draft-persistence.test.js:508` (ARC-M1-11), Node 26.13.1.
+
+Carried into later milestones as tickets, each re-checked at its own gate:
+
+- ARC-SETUP-02, including the strict mutation test for the quality rules: before the M1 gate.
+- ARC-M1-17, demo-session issuance and the pitch claim: M1.
+- ARC-M1-18, PDF wording: M1.
+- The approve guard enforced in the release candidate: ARC-M8-05.
+- Transcript TTL, router PO fields and `X-Forwarded-For` hops: M1 and M2 tickets.
+
+Founder decisions still open (none blocks M1 from starting):
+
+- Confirm the reworded thresholds T2, T3, T8 and T10. Until confirmed, the signed text is the pass line.
+- F2: the budget numbers, the pitch slot time, the per-IP limits (about 120 Gemini attempts a day and 30 new sessions an hour) and the eval day limit of 900 (about $3.50 a day, at most about $76).
+- Off-topic eval set size, and any pass line for tool-call accuracy.
+- Uploaded-photo retention period (ARC-M5-04).
+- Commit author email before the first push; narrowing `gcloud config *` in the settings.
+- `CLAUDE.md` nits: the "Nucleas" spelling, the blank line in section 7, and "V2".
+
+Needs Om: ARC-M0-04 (reference lot, weather stand-in, 7.3% default, headline).
