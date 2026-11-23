@@ -54,7 +54,7 @@ Arc calls these and nothing else for business effects. The left column is the ne
 | `src/commands/get-job.js:getJob` | `src/stored-job-sheet-lookup.js:createStoredJobSheetLookup` | `GET /jobs/:id`, Arc `get_job` |
 | `src/commands/approve-job.js:approveJob` | `src/google-cloud/job-card-service.js:approveJob` → `job-sheet-repository.js:approve` | `POST /jobs/:id/approve` **only**. Not exposed to any Arc tool (section 4) |
 | `src/commands/get-card.js:getCard` | `job-card-service.js:getJobCard` | `GET /jobs/:id/card.pdf`, Arc `get_job_card` (receipt check) |
-| `src/commands/update-conditions.js:updateLotConditions` | new lot-revision store (2.7), `src/condition-guard.js:isWithinRange`, `paperMoistureIssue` | NEW `PUT /lots/:lotId/conditions`, Arc `set_condition_drafts` (unconfirmed drafts only; Confirm conditions stays a button) |
+| `src/commands/update-conditions.js:updateLotConditions` | new lot-revision store (2.7), `src/condition-guard.js:isWithinRange`, `paperMoistureIssue` | NEW `PUT /lots/:lotId/conditions`, Arc `set_conditions` (unconfirmed drafts only; Confirm conditions stays a button) |
 | `src/commands/read-weather.js:readWeather` | `src/google-cloud/weather-service.js:createWeatherProviderFromEnv` behind the shared cache (6.3) | `GET /conditions/weather`, condition guard, Arc `get_weather` |
 | `src/commands/photos.js:listApprovedPhotos`, `classifyApprovedPhoto`, `diagnoseUploadedPhoto` | `approved-photo-service.js:list`, `classify`; `defect-diagnosis-service.js:diagnose` plus `findSeenBefore` (the `/evidence/diagnose-photo` handler body) | `/evidence/*`, Arc `list_approved_photos`, `diagnose_approved_photo`; upload stays a button path |
 | `src/commands/history.js:findSeenBefore` | `risk-evidence-service.js:createSeenBeforeService` | `POST /evidence/seen-before`, Arc `search_defect_history` |
@@ -212,7 +212,7 @@ export const ArcEventDocSchema = z.object({ // kind "arc_task_run"
   ...base,
   sequence: z.number().int().positive(),    // the SSE id and the Last-Event-ID cursor
   type: z.enum(["run.started", "step.started", "step.succeeded", "step.failed", "step.blocked",
-    "awaiting_human", "answer", "run.completed", "run.failed"]),   // ADR-0011 owns this list
+    "step.waiting_for_user", "answer", "run.completed", "run.failed"]),   // ADR-0011 owns this list
   clientTurnId: uuid,
   stepId: stepId.nullable(),
   tool: toolName.nullable(),
@@ -373,7 +373,7 @@ export const ArcTaskRunDocSchema = z.object({
 }).strict();
 ```
 
-When a step enters `WAITING_FOR_USER`, the run emits ADR-0011's `awaiting_human` event with the same `waitingFor` value. The `approve` wait is terminal for Arc: only the approve command, called from the client button, moves the lot forward. The run then records the outcome by reading the revision, not by calling approve.
+When a step enters `WAITING_FOR_USER`, the run emits the `step.waiting_for_user` event (ADR-0011) with the same `waitingFor` value. The `approve` wait is terminal for Arc: only the approve command, called from the client button, moves the lot forward. The run then records the outcome by reading the revision, not by calling approve.
 
 ### 2.7 Lots and revisions: `lot_heads/{lotId}` and `lot_revisions/{jobId}`
 
@@ -471,10 +471,10 @@ These settle SH-CR-1 to 6 in `reviews/M0-review.md`. This document is the source
 |---|---|---|
 | I1 | Every Arc route is under `/api/arc/*`: `POST /api/arc/turns`, `GET /api/arc/session`, `GET /api/arc/runs/:taskRunId`, `GET /api/arc/runs/:taskRunId/events` (server-sent events, resumed with `Last-Event-ID`) and `POST /api/arc/runs/:taskRunId/resume` | 1.3 |
 | I2 | The session ID comes only from the signed demo cookie. No Arc request body or query string carries `sessionId`; the strict request schemas reject one with 400 `VALIDATION_ERROR`. The turn body is `{ clientTurnId, input }` | 1.3, 2.5 |
-| I3 | One turn idempotency record: `arc_sessions/{sessionId}/turns/{clientTurnId}`, created with an exists-false precondition. There is no `idempotency` record with scope `arc_turn` and no `arc_turns` collection | 2.5a, 3.3 |
+| I3 | One turn idempotency record: `arc_sessions/{sessionId}/turns/{clientTurnId}`, created with an exists-false precondition. There is no `idempotency` record with scope `arc_turn` and no separate top-level turns collection | 2.5a, 3.3 |
 | I4 | The transcript and the turn summaries live on that turn record: typed text (at most 1,000 characters), the shown answer text and the summary. No tool results, prompts, PO text or order-derived strings. TTL 7 days | 2.0, 2.5a |
 | I5 | The session record holds `activeLotIds` (at most 5), `jobIds` (at most 20, this session's jobs only), `recentTurnIds` (at most 4, the router's history) and `activeTaskRunId` | 2.5 |
-| I6 | Step states: `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `BLOCKED`, `WAITING_FOR_USER`, `SKIPPED`. `waitingFor` is `confirm_order`, `confirm_conditions`, `choose_line`, `approve` or null. ADR-0011's `awaiting_human` event fires when a step enters `WAITING_FOR_USER` | 2.6 |
+| I6 | Step states: `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `BLOCKED`, `WAITING_FOR_USER`, `SKIPPED`. `waitingFor` is `confirm_order`, `confirm_conditions`, `choose_line`, `approve` or null. The `step.waiting_for_user` event (ADR-0011) fires when a step enters `WAITING_FOR_USER` | 2.6 |
 | I7 | Every write tool, and every tool step that spends a Gemini attempt, uses the effect key `arc1.<taskRunId>.<stepId>.<attempt>.<argsHash16>`. Budget reservation keys add the claim owner and a call index to the effect key or the turn key `arcturn1.<clientTurnId>` | 3.3, 5.2 |
 | I8 | Arc events are stored in `traces/{taskRunId}/trace_events/{sequence}` (trace kind `arc_task_run`). ADR-0011 owns the event types; an `answer` event stores the turn reference, not the text | 2.3 |
 | I9 | Arc tool names are the registry names in `05-ai-design.md` section 1 | 1.2 |
@@ -511,7 +511,7 @@ arc1.<taskRunId without dashes>.<stepId>.<attempt>.<argsHash first 16 hex>
 
 - `taskRunId` 32 hex, `stepId` from the step record, `attempt` 0 to 3, `argsHash` = SHA-256 of the canonical JSON of the tool's validated arguments (keys sorted, numbers as parsed). The regex is `effectKey` in section 2.
 - Always visible ASCII and at most 97 characters, so it passes the existing `visibleKey` check in `job-idempotency.js` (at most 128) and flows through `createJobRequestIdentity` → `demoJobIdentity` unchanged. The session HMAC in `demoJobIdentity` stops one session replaying another's key.
-- The write tools in the registry today are `read_order`, `set_condition_drafts`, `plan_lot` and `retry_explanation`. `plan_lot` sends the key as its `Idempotency-Key`. The other three claim `idempotency/{keyHash}` with scope `po_review`, `lot_conditions` or `explanation` (2.2). `diagnose_approved_photo` changes no state but spends an attempt on a cache miss, so it uses the key for its budget reservation. Any tool added later that writes or spends uses the same format; the `tool-registry` suite checks every registered key builder against `effectKey`.
+- The write tools in the registry today are `read_order`, `set_conditions`, `plan_lot` and `retry_explanation`. `plan_lot` sends the key as its `Idempotency-Key`. The other three claim `idempotency/{keyHash}` with scope `po_review`, `lot_conditions` or `explanation` (2.2). `diagnose_approved_photo` changes no state but spends an attempt on a cache miss, so it uses the key for its budget reservation. Any tool added later that writes or spends uses the same format; the `tool-registry` suite checks every registered key builder against `effectKey`.
 - `attempt` increases only when the user asks to retry a FAILED step. A resume after a crash keeps the same attempt, so it replays rather than repeats.
 - Read-only tools that spend no attempt (status, samples, weather, lot, stored job, card, approved-photo list, history, metrics) take no key; their cache rules are in 5.3.
 
