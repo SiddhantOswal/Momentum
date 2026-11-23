@@ -205,6 +205,7 @@ test("fixture-backed PO1 review flows through draft persistence, approval, and j
     shift: request.shift,
     levers: request.levers,
     conditionsConfirmed: request.conditionsConfirmed,
+    conditions,
     purchaseOrderReviewFingerprint: reviewedOrder.reviewFingerprint,
   });
   assert.equal(identityResult.ok, true);

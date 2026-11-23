@@ -51,7 +51,7 @@ function identityFor(overrides = {}) {
     operatorItemConfirmation: request().operatorItemConfirmation,
     shift: request().shift,
     levers: request().levers,
-    conditions: request().manualConditions,
+    conditions: jobSheetFixture.conditions,
     ...overrides,
   }).identity;
 }
