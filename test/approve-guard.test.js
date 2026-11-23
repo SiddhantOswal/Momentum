@@ -154,17 +154,26 @@ test("an approval that throws returns the revision to CURRENT and rethrows", asy
   assert.equal(context.read("lot_revisions", jobOne).status, "CURRENT");
 });
 
-test("a second approval while one is in progress is refused with 409 APPROVAL_IN_PROGRESS", async () => {
+test("a second approval while one is in progress is refused with 409 APPROVAL_IN_PROGRESS", { timeout: 5000 }, async () => {
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   const context = setup({ approve: async (request) => { await gate; return { ok: true, jobSheet: { jobId: request.jobId, status: "APPROVED", order: {} } }; } });
   await context.planned();
   const first = context.approve(valid);
   await new Promise((resolve) => setTimeout(resolve, 50));
-  const second = await context.approve(valid);
-  assert.equal(second.status, 409);
-  assert.equal(second.error.code, "APPROVAL_IN_PROGRESS");
-  release();
+  try {
+    // Without the guard the second call would wait on the same gate, so it is raced against a clock.
+    const second = await Promise.race([
+      context.approve(valid),
+      new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 1000)),
+    ]);
+    assert.notEqual(second.timedOut, true, "the second approval was not refused; the guard is missing");
+    assert.equal(second.status, 409);
+    assert.equal(second.error.code, "APPROVAL_IN_PROGRESS");
+    assert.equal(context.calls.length, 1);
+  } finally {
+    release();
+  }
   assert.equal((await first).ok, true);
   assert.equal(context.calls.length, 1);
 });
