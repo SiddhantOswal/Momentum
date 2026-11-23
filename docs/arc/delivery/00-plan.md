@@ -290,7 +290,7 @@ Each question has a recommendation. Answers go into the STATUS decision log.
 | Q11 | Headline: "All five models score higher than the ones they replaced." | Yes, with Om's review |
 | A1 | Router on `gemini-3.5-flash-lite` in `asia-south1`, with a fallback to 3.5-flash if the M2 router evals miss | Yes |
 | A2 | Stay in `asia-south1`; do not use the cheaper global-only models (3.8-flash promotion) | Yes |
-| A4 | A separate Gemini counter for the eval instance | Yes. Now required: with A3, a live gate run uses about 283 attempts (about $1.09), against the 300 daily limit |
+| A4 | A separate Gemini counter for the eval instance | Yes. Now required: with A3, a live gate run uses about 353 attempts (about $1.38; `05` section 7.5), more than the 300 daily limit |
 | A6 | A picked suggestion chip keeps its template answer at 0 attempts (spec AC2.5); only typed questions go to the answer writer | Yes |
 | A5 | Thresholds in section 5.3 | **Signed 2026-11-23** with the plan approval |
 | D1 | Om's sign-offs listed in ARC-M0-04: the PKBX0041 reference at 7.3% moisture, 42.0% RH and 18.5 °C (7.8 kg, ₹421); the weather stand-in; the 7.3% default; the headline. Also: DELAM leads PRINT as the primary defect by only 0.025 points, so the copy should not name a "main" defect | Needed by 26 Nov |
