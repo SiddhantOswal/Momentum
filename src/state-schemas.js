@@ -109,6 +109,8 @@ export const BUDGET_COUNTER_SHAPE = Object.freeze({
   session_minute: ["session", 12],
   mint_ip_hour: ["ip", 10],
   claim_ip_hour: ["ip", 10],
+  // Rupee spend per IST day (founder decision F2); units are micro-rupees, not attempts.
+  cost_day: ["all", 8],
 });
 const BUDGET_SUBJECT = { all: /^all$/, session: /^[a-f0-9]{32}$/, ip: /^[a-f0-9]{16}$/ };
 
@@ -141,14 +143,16 @@ export const BudgetCounterDocSchema = z.object({
   }
 });
 
+export const BudgetPurposeSchema = z.enum(["order_extraction", "explanation", "photo_classification",
+  "photo_diagnosis", "arc_router", "arc_answer_writer"]);
+
 export const BudgetReservationDocSchema = z.object({
   ...base,
   keyHash: Sha256HexSchema,
   pool: z.enum(["live", "eval"]),
   sessionId: SessionIdSchema.nullable(),
   ipKey: IpKeySchema.nullable(),
-  purpose: z.enum(["order_extraction", "explanation", "photo_classification",
-    "photo_diagnosis", "arc_router", "arc_answer_writer"]),
+  purpose: BudgetPurposeSchema,
   dayWindow: z.string().regex(/^\d{8}$/),
   units: z.number().int().positive(),
   usedPitchReserve: z.boolean(),
