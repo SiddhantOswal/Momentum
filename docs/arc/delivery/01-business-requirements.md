@@ -25,7 +25,7 @@ Amended 2026-11-23 for the M0 gate repair (`reviews/M0-review.md`): C9 and R2 fo
 | Plant operator | Real user | Enter or confirm today's conditions quickly; know which values are examples and which are measured | `Arc-Lot-Conditions.png`; paper moisture has no fallback and must be measured (`src/condition-guard.js`) |
 | Production planner | Real user | Go from a PO to a draft job card with fewer page changes; see what changed and why | `Arc-Lot-Review.png`, `Arc-Lot-Compare.png` |
 | Supervisor | Real user | Review the draft, tick the check, approve; know that a changed input voids the revision | `Arc-Lot-Approve.png`, `Arc-Lot-Replaced.png`; only managers and supervisors may approve once Google sign-in is on (`index.mjs` `/jobs/:id/approve`) |
-| Competition judges | Pitch audience, not users | See the whole route in under the pitch time, with honest labels | Pitch on 4 December 2026 (CLAUDE.md) |
+| Competition judges | Pitch audience, not users | See the whole route in under the pitch time, with correct provenance labels | Pitch on 4 December 2026 (CLAUDE.md) |
 
 Approvals are demo-session approvals, labelled as simulated; no named plant user signs in yet. The audit record marks each one as a demo-session approval (`src/approval-authorization.js`). Demo results must not be presented as plant-user results.
 
@@ -104,7 +104,7 @@ No baselines have been measured. The founders signed the eval thresholds behind 
 | UI/UX | Fewer actions and page changes (O1, O2); the approved Arc designs, including the phone layout | Labels stay visible; speed must not hide provenance |
 | Impact | Shorter preparation for small plants; modeled scrap and board reduction shown with labels | No measured-savings claims; modeled stays modeled |
 | Gen AI usage | Gemini reads orders, routes intent, explains and answers; evals cover grounding, refusals, injection and bypass (O4 to O9) | Gemini only; no model-made numbers |
-| Sustainability and social impact | Less board scrapped (modeled); a human keeps the decision; honest "insufficient data" answers | The approval stays human; nothing touches a machine |
+| Sustainability and social impact | Less board scrapped (modeled); a human keeps the decision; "insufficient data" answers that name what is missing | The approval stays human; nothing touches a machine |
 
 ## 7. Assumptions, risks and open questions
 
