@@ -205,8 +205,6 @@ Details in ADR-0010. A later step can only make the outcome stricter (ADR-0001 i
    | Order extraction | No review is stored | "Gemini would not read this order, so nothing was filled in. Choose another approved sample." No Retry |
    | Plan explanation | The explanation-failed branch of J1 (G3): the saved numbers stay and approval is held | "Gemini would not write the explanation for this plan. The numbers are saved and approval is on hold." with Retry explanation and Hold this lot |
    | Photo diagnosis | No result is stored | "Gemini would not check this photo. Nothing was stored. Try another photo." No Retry |
-
-   The product manager aligns the safety row of spec J11, which today sends every safety block to the J5 refusal.
 7. **Answer checks.** On the writer's text: zod (1 to 3 sentences, no markup), numeric fidelity, tools-only IDs, and wording rules reused from `risk-evidence-service.js` (no causal claims, no "measured", "actual" or "saved" for modeled values, no pass or fail verdict on model scores). Any failure, a truncated response or a writer error shows the template rendering with no error message (AC11.2) and logs `arc_answer_fallback` with the reason code only; a safety block adds the note in step 6. There is no retry call. The template itself passes the same numeric and ID checks; if it fails, Arc shows "Arc could not check this answer against its sources, so it is not shown. Try a suggested question, or ask again in different words." and no values.
 8. **Approval protection.** No approve tool; `plan_lot` preconditions; approve route checks `reviewConfirmed` and the fingerprint (ADR-0003).
 9. **Cost limits.** Every Gemini call goes through the ADR-0004 budget API; Arc adds a per-session limit on typed turns and reports the remaining count in `GET /api/status`.
@@ -241,15 +239,15 @@ Events are emitted only when a real state changes, and each step event names the
 | `VERTEX_INVALID_RESPONSE`, `VERTEX_INVALID_JSON`, `VERTEX_EMPTY_RESPONSE`, `VERTEX_OUTPUT_TRUNCATED` | `step.failed` | "Gemini's reply could not be used. Try again." | Yes |
 | `VERTEX_SAFETY_BLOCKED` (new, ARC-M1-14) | `step.failed` | One message per path, in section 5, step 6 | Per path |
 | `REQUEST_TIMEOUT` | `step.failed` | "This step did not finish within 60 s. Your confirmed inputs are kept. Try again." | Yes |
-| `BIGQUERY_UNAVAILABLE` | `step.failed` | "The data could not be read just now. Try again." | Yes |
-| `SERVICE_UNAVAILABLE` | `step.failed` | "Arc could not read or save its records just now. Nothing was changed. Try again." | Yes |
+| `BIGQUERY_UNAVAILABLE` | `step.failed` | "The data could not be read. Try again." | Yes |
+| `SERVICE_UNAVAILABLE` | `step.failed` | "Arc could not read or save its records. Nothing was changed. Try again." | Yes |
 | `CLOUD_STORAGE_UNAVAILABLE` | `step.failed` | "The file store could not be reached. Nothing was changed. Try again." | Yes |
 | `GEMINI_DAILY_CAP_EXCEEDED` with `BUDGET_DAY_EXHAUSTED` or `BUDGET_RESERVED_FOR_PITCH` | `step.blocked` | "Arc has used today's Gemini limit. Buttons still work. The limit resets at midnight IST (02:30 in Singapore)." | No |
 | `GEMINI_DAILY_CAP_EXCEEDED` with `BUDGET_SESSION_EXHAUSTED` | `step.blocked` | "This session has used its Gemini limit for today. Buttons still work." | No |
 | `GEMINI_DAILY_CAP_EXCEEDED` with `BUDGET_RATE_LIMITED` | `step.blocked` | "Too many typed messages in one minute. Wait {retryAfterSeconds} s, or use the buttons." | After the wait |
 | `BUDGET_UNAVAILABLE` | `step.blocked` | "Arc could not check its Gemini limit, so it did not call Gemini. Buttons still work. Try again." | Yes |
 | Expired order review (code named in `04` section 3) | `step.blocked` | "This order review has expired. Read the order again." | No; Read the order |
-| `REVISION_SUPERSEDED`, `REVISION_FINGERPRINT_MISMATCH` | `step.blocked` | "This revision is replaced. Open the current revision to approve it." | No |
+| `REVISION_SUPERSEDED`, `REVISION_FINGERPRINT_MISMATCH` | `step.blocked` | "This revision was replaced. Open the current revision to approve it." | No |
 | `APPROVAL_IN_PROGRESS`, `IN_PROGRESS` | `step.blocked` | "This step is already running in another tab. Arc will show the result here." | No |
 | Non-allowlisted file (G10) | `step.blocked` | "Arc reads the approved sample orders only. Choose PO1 to PO5." | No |
 | Unconfirmed inputs | `step.blocked` | "Confirm the order and the conditions first." | No |
