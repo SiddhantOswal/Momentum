@@ -1,0 +1,124 @@
+/* Shared values from the approved Main and Insights design HTML. */
+:root {
+  --arc-font-body: 'Inter', system-ui, sans-serif;
+  --arc-font-display: 'Inter Tight', 'Inter', sans-serif;
+  --arc-text-body: 15px;
+  --arc-leading-body: 1.4;
+  --arc-font-medium: 500;
+  --arc-font-semibold: 600;
+  --arc-font-bold: 700;
+  --arc-text-page-title: 28px;
+  --arc-leading-page-title: 34px;
+  --arc-text-card-title: 17px;
+  --arc-leading-card-title: 24px;
+  --arc-text-key-value: 24px;
+  --arc-leading-key-value: 28px;
+  --arc-text-action: 16px;
+  --arc-sidebar-width: 232px;
+  --arc-topbar-height: 56px;
+  --arc-content-padding: 24px;
+  --arc-grid-column: 82px;
+  --arc-grid-gap: 16px;
+  --arc-card-padding: 20px;
+  --arc-radius-card: 12px;
+  --arc-radius-control: 10px;
+  --arc-radius-chip: 6px;
+  --arc-accent-ink: #18110E;
+}
+
+:root, [data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121519;
+  --sb: #0B0D10;
+  --cd: #1A1E23;
+  --rz: #21262C;
+  --ln: #2A3038;
+  --ln2: #3A434D;
+  --tx: #EAEDF0;
+  --mu: #A3ACB6;
+  --dim: #7B8590;
+  --ac: #E8664F;
+  --ok: #5FBF98;
+  --wn: #E3A340;
+  --bd: #F0707A;
+  --inv: #111;
+  --ct: #F3A394;
+  --g1: #4E9E7F;
+  --g2: #6A7683;
+  --pap: #D8C6A3;
+  --bar0: #4A5460;
+  --stg: #0E1013;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #EEF0F2;
+  --sb: #E3E6E9;
+  --cd: #FFFFFF;
+  --rz: #E5E8EB;
+  --ln: #D5DADF;
+  --ln2: #B3BCC5;
+  --tx: #14181C;
+  --mu: #46515C;
+  --dim: #66717C;
+  --ac: #E8664F;
+  --ok: #1F7A58;
+  --wn: #8F5A00;
+  --bd: #B8333F;
+  --inv: #FFFFFF;
+  --ct: #B23F2A;
+  --g1: #1F7A58;
+  --g2: #7E8995;
+  --pap: #B38D52;
+  --bar0: #8F99A4;
+  --stg: #F6F4EE;
+}
+
+.arc-kraft {
+  --cd: #D7C39A;
+  --rz: rgba(255,255,255,.38);
+  --bg: rgba(255,255,255,.42);
+  --ln: rgba(31,24,16,.22);
+  --ln2: rgba(31,24,16,.4);
+  --tx: #1F1810;
+  --mu: rgba(31,24,16,.76);
+  --dim: rgba(31,24,16,.68);
+  --ok: #14573C;
+  --wn: #6E4200;
+  --bd: #9C2430;
+  --ct: #9E3320;
+  --bar0: rgba(31,24,16,.3);
+  --g1: #14573C;
+  --g2: rgba(31,24,16,.4);
+  --inv: #D7C39A;
+}
+
+[data-theme="light"] .arc-glass {
+  --tx: #EAEDF0;
+  --mu: #C3CBD3;
+  --dim: #9AA4AE;
+  --ln: #3A434D;
+  --ln2: #55606B;
+  --ok: #5FBF98;
+  --wn: #E3A340;
+}
+
+.arc-machine {
+  --rail: #D7DBDF;
+  --belt: #14171A;
+  --crate: #656B72;
+  --crate2: #4A4F55;
+  --arm: #767C83;
+  --arm2: #AEB4BA;
+  --unit: #E4E7EA;
+}
+
+[data-theme="light"] .arc-machine {
+  --rail: #FFFFFF;
+  --belt: #1B1F23;
+  --crate: #848B93;
+  --crate2: #69707A;
+  --arm: #8B929A;
+  --arm2: #BDC3CA;
+  --unit: #FFFFFF;
+}
