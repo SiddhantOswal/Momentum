@@ -133,6 +133,7 @@ export function createJobRequestIdentity({
   purchaseOrderReviewFingerprint,
   shift,
   levers,
+  conditions,
 } = {}) {
   if (idempotencyKey !== undefined &&
       (typeof idempotencyKey !== "string" || !visibleKey.test(idempotencyKey))) {
@@ -156,6 +157,12 @@ export function createJobRequestIdentity({
       !levers || typeof levers !== "object" || Array.isArray(levers) ||
       !["DAY", "NIGHT"].includes(shift)) {
     return validationError("request", "Validated operator fields, item confirmation, shift, and machine settings are required.");
+  }
+  if (!conditions || typeof conditions !== "object" || Array.isArray(conditions) ||
+      typeof conditions.runDate !== "string" ||
+      !["DAY", "NIGHT"].includes(conditions.shift) ||
+      ![conditions.ambientRhPct, conditions.ambientTempC, conditions.paperMoisturePct].every(Number.isFinite)) {
+    return validationError("conditions", "Validated run date and run conditions are required.");
   }
 
   const fileFingerprint = sha256(fileBytes);
@@ -182,11 +189,19 @@ export function createJobRequestIdentity({
       dryingHours: levers.dryingHours,
       printSpeedSpm: levers.printSpeedSpm,
     },
+    conditions: {
+      runDate: conditions.runDate,
+      shift: conditions.shift,
+      ambientRhPct: conditions.ambientRhPct,
+      ambientTempC: conditions.ambientTempC,
+      paperMoisturePct: conditions.paperMoisturePct,
+    },
   });
   const fingerprint = sha256(canonicalRequest);
+  // v2 since the fingerprint gained conditions; a v1 record must never match a v2 request.
   const keyHash = sha256(idempotencyKey === undefined
-    ? `ustaad-jobs:v1:request:${fingerprint}`
-    : `ustaad-jobs:v1:client:${idempotencyKey}`);
+    ? `ustaad-jobs:v2:request:${fingerprint}`
+    : `ustaad-jobs:v2:client:${idempotencyKey}`);
   return {
     ok: true,
     identity: {

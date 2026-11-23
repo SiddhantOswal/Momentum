@@ -48,6 +48,13 @@ const LEVERS = {
   printSpeedSpm: 50,
 };
 const DIFFERENT_LEVERS = { ...LEVERS, rollTempC: 180 };
+const CONDITIONS = {
+  runDate: "2026-11-22",
+  shift: "DAY",
+  ambientRhPct: 42,
+  ambientTempC: 24.5,
+  paperMoisturePct: 7.3,
+};
 
 const CLIENT_KEY = "client-idempotency-key-001";
 
@@ -58,6 +65,7 @@ function makeIdentity(overrides = {}) {
     operatorItemConfirmation: OPERATOR_ITEM_CONFIRMATION,
     shift: SHIFT,
     levers: LEVERS,
+    conditions: CONDITIONS,
     ...overrides,
   });
 }
@@ -723,4 +731,76 @@ test("createIdempotentJobService: different client keys create independent slots
   await createIdempotently({ identity: id2.identity, request: {} });
 
   assert.equal(createCount, 2, "Each key should create its own job");
+});
+
+// ---------------------------------------------------------------------------
+// Section L: Run conditions and run date are part of the request fingerprint
+// ---------------------------------------------------------------------------
+
+test("createJobRequestIdentity: moisture alone changes the fingerprint and job ID without a client key", () => {
+  const dry = makeIdentity();
+  const wet = makeIdentity({ conditions: { ...CONDITIONS, paperMoisturePct: 10.8 } });
+  assert.equal(dry.ok, true);
+  assert.equal(wet.ok, true);
+  assert.notEqual(dry.identity.fingerprint, wet.identity.fingerprint);
+  assert.notEqual(dry.identity.keyHash, wet.identity.keyHash);
+  assert.notEqual(dry.identity.jobId, wet.identity.jobId);
+});
+
+test("createJobRequestIdentity: each condition and the run date are part of the fingerprint", () => {
+  const base = makeIdentity();
+  for (const change of [
+    { runDate: "2026-11-23" },
+    { ambientRhPct: 55 },
+    { ambientTempC: 18.5 },
+    { paperMoisturePct: 9 },
+  ]) {
+    const changed = makeIdentity({ conditions: { ...CONDITIONS, ...change } });
+    assert.equal(changed.ok, true);
+    assert.notEqual(changed.identity.fingerprint, base.identity.fingerprint, JSON.stringify(change));
+  }
+});
+
+test("createJobRequestIdentity: condition key order does not change the fingerprint", () => {
+  const ordered = makeIdentity();
+  const reordered = makeIdentity({ conditions: {
+    paperMoisturePct: 7.3, ambientTempC: 24.5, ambientRhPct: 42, shift: "DAY", runDate: "2026-11-22",
+  } });
+  assert.equal(ordered.identity.fingerprint, reordered.identity.fingerprint);
+  assert.equal(ordered.identity.jobId, reordered.identity.jobId);
+});
+
+test("createJobRequestIdentity: rejects a request without run conditions", () => {
+  const result = makeIdentity({ conditions: undefined });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "VALIDATION_ERROR");
+});
+
+test("createIdempotentJobService: no-key requests differing only in moisture create two jobs and an identical request replays", async () => {
+  const store = new InMemoryIdempotencyStore();
+  const created = [];
+  const createIdempotently = createIdempotentJobService({
+    store,
+    leaseMs: 30_000,
+    createJob: async ({ jobId }) => {
+      created.push(jobId);
+      return makeJobResult({ jobSheet: { jobId, status: "DRAFT" } });
+    },
+    loadJob: async ({ jobId }) => makeJobResult({ jobSheet: { jobId, status: "DRAFT" }, replayed: true }),
+  });
+
+  const dry = makeIdentity().identity;
+  const wet = makeIdentity({ conditions: { ...CONDITIONS, paperMoisturePct: 10.8 } }).identity;
+  const dryAgain = makeIdentity({ conditions: { ...CONDITIONS } }).identity;
+
+  const first = await createIdempotently({ identity: dry, request: {} });
+  const second = await createIdempotently({ identity: wet, request: {} });
+  const replay = await createIdempotently({ identity: dryAgain, request: {} });
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.deepEqual(created, [dry.jobId, wet.jobId]);
+  assert.notEqual(second.jobSheet.jobId, first.jobSheet.jobId);
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.jobSheet.jobId, first.jobSheet.jobId);
 });
