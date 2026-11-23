@@ -252,7 +252,7 @@ Blocked-result handling for ARC-M1-14 (the error code names are proposals; ARC-M
 
 ## 9. NOT CONFIRMED items
 
-1. On `generateContent` for both models in `asia-south1`: acceptance of `safetySettings` (with `method`), `toolConfig.functionCallingConfig` with `ANY` and `allowedFunctionNames`, and each recommended `thinkingLevel`. NOT CONFIRMED (LIVE); ARC-M1-14 checks them.
+1. On `generateContent` for both models in `asia-south1`: acceptance of `safetySettings` (with `method`), `toolConfig.functionCallingConfig` with `ANY` and `allowedFunctionNames`, and each recommended `thinkingLevel`. Partly closed on 2026-11-23 by L2 below: `safetySettings` with `method`, `systemInstruction`, `ANY` with `allowedFunctionNames`, `MEDIUM` on `gemini-3.5-flash` and `MINIMAL` on both models returned 200. Still NOT CONFIRMED (LIVE): `LOW` (the writer level), and any call from a tagged Cloud Run revision; L2 ran from a workstation with the logged-in gcloud identity.
 2. The threshold used when `safetySettings` is omitted (S2 contradicts itself; Flash-Lite is not named).
 3. The default `method` (S2 says `SEVERITY`; S1 and D1 say probability).
 4. Whether `BLOCK_NONE` or `OFF` needs special access (no source says so). Arc uses neither.
@@ -288,3 +288,34 @@ Request: `POST https://asia-south1-aiplatform.googleapis.com/v1/projects/prepage
 | `tools` plus `toolConfig: { functionCallingConfig: { mode: "AUTO" } }` | 400, `Unknown name "toolConfig": Cannot find field.` |
 
 The two 400s for `safetySettings` and `toolConfig` match D1: `CountTokensRequest` has `contents`, `systemInstruction`, `tools`, `generationConfig`, `instances` and `model`, and no safety or tool config. They say nothing about `generateContent`, where D1 lists both fields.
+
+## Live generateContent check (L2, ARC-M1-14)
+
+Run on 2026-11-23 between 14:32:52 and 14:32:57 UTC from a workstation with the logged-in gcloud identity, project `prepagent-hack`, region `asia-south1`, on branch `arc/ARC-M1-12-14-gemini-settings` at 3340d8f. Each request body was built by `createVertexGeminiClient` from `config/arc-models.json` (`arc-models-v1`) and sent unchanged; the script recorded the body and the response. The token was read inside the script and never printed. Prompt: five words. Output limit: 32 tokens. Three calls in total.
+
+| Call | Model | Fields sent besides `contents` | HTTP | `finishReason` | Client result | `usageMetadata` |
+|---|---|---|---|---|---|---|
+| Explanation role | `gemini-3.5-flash` | `systemInstruction`; `safetySettings` (4 categories, `BLOCK_MEDIUM_AND_ABOVE`, `method: PROBABILITY`); `generationConfig` `temperature: 0`, `maxOutputTokens: 32`, `thinkingConfig { thinkingLevel: MEDIUM, includeThoughts: false }` | 200 | `MAX_TOKENS` | `VERTEX_OUTPUT_TRUNCATED` | prompt 56, thoughts 29, total 85, `trafficType` `ON_DEMAND` |
+| Router role | `gemini-3.5-flash-lite` | `tools` (one declaration, `getLotStatus`); `toolConfig { functionCallingConfig { mode: ANY, allowedFunctionNames: ["getLotStatus"] } }`; `safetySettings` as above; `generationConfig` `maxOutputTokens: 32`, `thinkingConfig { thinkingLevel: MINIMAL, includeThoughts: false }` | 200 | `STOP` | one `functionCall` to `getLotStatus` | prompt 32, candidates 17, total 49, `trafficType` `ON_DEMAND` |
+| Router fallback | `gemini-3.5-flash` | Same as the router row | 200 | `STOP` | one `functionCall` to `getLotStatus` | prompt 32, candidates 17, total 49, `trafficType` `ON_DEMAND` |
+
+What this shows:
+
+- `generateContent` on both models accepts `safetySettings` with `category`, `threshold` and `method`, and `toolConfig.functionCallingConfig` with `mode: ANY` and `allowedFunctionNames`. These were NOT CONFIRMED (LIVE) in L1.
+- `systemInstruction` and `thinkingLevel: MEDIUM` are accepted on `gemini-3.5-flash`, and `MINIMAL` on both models.
+- The 32-token limit was spent on thinking in the first call (29 thinking tokens), so the client returned `VERTEX_OUTPUT_TRUNCATED`, as designed. The limit was set for the check only; the explanation role uses 8,192.
+- The v1 responses carried an `id` on each `functionCall`. Section 5 says `id` matching needs v1beta1; that row should be rechecked.
+- No call was blocked, so the HTTP status of a blocked result (section 9, item 7) is still NOT CONFIRMED (LIVE).
+- Not checked live: `thinkingLevel: LOW` (writer role), `generateJson` with `fileData` and `responseSchema` alongside the new fields, and a call from a tagged Cloud Run revision. The ARC-M1-14 merge condition names a tagged no-traffic revision; that call has NOT RUN.
+
+## Vertex AI per-minute request quota (Q1)
+
+Read on 2026-11-23 with `gcloud beta quotas info list --service=aiplatform.googleapis.com --project=prepagent-hack` (Cloud Quotas API, read-only). Quota `GenerateContentRequestsPerMinutePerProjectPerRegionPerBaseModel`, metric `aiplatform.googleapis.com/generate_content_requests_per_minute_per_project_per_base_model`, dimensions `base_model` and `region`.
+
+| Model | Region | Value | Status |
+|---|---|---|---|
+| `gemini-3.5-flash` | `asia-south1` | No entry for this base model | NOT READ: the API returns no per-model value |
+| `gemini-3.5-flash-lite` | `asia-south1` | No entry for this base model | NOT READ: the API returns no per-model value |
+| Region default (no `base_model`) | `asia-south1` | `details` is empty | No number returned |
+
+The only `asia-south1` entries with a number are for older models (`gemini-1.5-flash`, `gemini-1.5-flash-8b` and `gemini-1.5-pro` at 5, `gemini-pro` at 300). The API does not say what an empty `details` means, and no source read here says whether Gemini 3.5 requests in `asia-south1` are limited by a fixed per-project quota or by shared capacity. The calls in L2 reported `trafficType: ON_DEMAND`. A number for ADR-0008 and founder decision F2 needs either the console quota page for these models or a source that states the rule; until then the per-minute quota is NOT READ.
