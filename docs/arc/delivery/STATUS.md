@@ -50,8 +50,7 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 ## Open founder questions
 
 Asked only when a ticket needs them.
-- F1: which URL the competition submission lists (decides `prepagent` Gemini off or a separate counter). Blocks the ARC-M1-08 cloud change.
-- F2: the budget numbers (proposed 300 a day, 40 per session, 20 per minute, 6 per session-minute, 80 reserved for the pitch) and the time of the pitch slot. Not yet decided. Blocks the ARC-M1-08 reserve window.
+- F2: confirm that the ₹10,000 budget is in rupees, and the time of the pitch slot. The proposed rupee caps (about ₹600 a day for Momentum, ₹200 a day for evals) await confirmation.
 - F4: whether Billing credits cover Vertex AI and Cloud Run (console check). Blocks the first cost-bearing cloud change.
 - D1: Om's sign-offs (ARC-M0-04). D2: where `sid_pack.zip` is. D5: Phase B dates and plant profile.
 
@@ -98,3 +97,5 @@ Asked only when a ticket needs them.
 | 2026-11-23 | `arc/main` cut from `origin/v2` (`eb6eab9`), no upstream, fast-forwarded to `arc/setup` (`8bc30fd`) | ARC-M0-02 | Delivery lead |
 | 2026-11-23 | M0 closed with GO from all eight reviewers | `reviews/M0-review.md` | Delivery lead |
 | 2026-11-23 | `ArcEventDocSchema` requires `waitingFor` exactly on `step.waiting_for_user` events | `04` section 2.6 and I6 say the event carries the same `waitingFor` | Tech lead |
+| 2026-11-23 | F1: the old `prepagent` Cloud Run service stays on, unchanged. ARC-M1-08 moves `momentum` to its own budget counters (`budget_counters`), so the shared `gemini_daily_usage` document can no longer lock Momentum out. No interim change to `prepagent` unless the founders ask | People may still open the older service; the submitted product is Momentum on the `momentum` service | Founders |
+| 2026-11-23 | F2 (partial): Google Cloud credits total 25,000; the founders set aside 10,000 for this build. Currency to confirm; read as INR, matching the existing ₹5,000 alert | The worst-case cost on call-count limits (about ₹1.2 lakh over 13 days) is above 10,000, so ARC-M1-08 adds rupee caps from Gemini `usageMetadata`, and ARC-M8-02 adds a ₹10,000 billing budget with alerts at 50%, 90% and 100% | Founders; delivery lead proposal |

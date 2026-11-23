@@ -48,6 +48,10 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 ### ARC-M1-08 Configurable Gemini budget (P0)
 - Goal: `firestore-budget-store.js` with `reserve` and `peek` (design 5.2), behind `USTAAD_GEMINI_BUDGET_POLICY=budget-v2`, with day, session, minute and session-minute limits and the pitch reserve read from `GEMINI_BUDGET_LIMITS`.
 - AC: every Gemini call still passes through `withDailyGeminiCallCap`. The same idempotency key is charged once. Each limit returns its own code. Different limits on two callers no longer lock each other out (E7). An invalid policy blocks Gemini. `/api/status` shows what remains.
+- Founder decisions (2026-11-23):
+  - F1: `momentum` uses only its own `budget_counters`, never the shared `gemini_daily_usage` document. The old `prepagent` service is left unchanged.
+  - F2: total spend must stay under the 10,000 set aside. Besides the attempt limits, the store keeps a cost counter per day, built from each response's `usageMetadata` and the per-token prices in `data/vertex-safety-reference.md` / ADR-0008. It blocks further Gemini calls at the rupee cap (proposed: about ₹600 a day for `momentum`, about ₹200 a day for the eval counter; both configurable in `GEMINI_BUDGET_LIMITS`).
+  - A test shows that a burst of maximum-length responses stops at the rupee cap before the attempt limit.
 - Depends on: M1-02, M1-04, founder decision F1 and F2. Owner: backend engineer.
 - Test plan: unit tests for each limit, the reserve window, the pitch-session allowlist, replay, and a concurrent reserve on the last unit.
 

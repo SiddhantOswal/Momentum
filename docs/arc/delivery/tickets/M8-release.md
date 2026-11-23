@@ -11,6 +11,7 @@ ADR-0006; design sections 5.6, 5.7 and 7.
 ### ARC-M8-02 Demo-day scaling (P0, cloud change)
 - Goal: apply the scaling the founders approve in F3. The proposal is min 1 and max 6 to 2 Dec, min 2 on 3 and 4 Dec, back to min 0 and max 4 from 5 Dec, with startup CPU boost on.
 - AC: a change record with commands, cost and rollback exists before each change.
+- Also: a billing budget of 10,000 (founder figure, currency to confirm) on the project, with alerts at 50%, 90% and 100%. The change record comes first.
 - Depends on: F3, F4. Owner: release manager.
 - Test plan: `gcloud run services describe` read-back in the change record.
 
