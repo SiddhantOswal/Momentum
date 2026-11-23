@@ -1,7 +1,6 @@
-import { PhotoClassificationRequestSchema } from "./src/google-cloud/approved-photo-service.js";
 import { isSameApplicationOrigin } from "./src/request-origin.js";
 import { getCookie, setCookie } from "hono/cookie";
-import { createHackathonDemoAuthenticator, demoJobIdentity, demoOwnsJob, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
+import { createHackathonDemoAuthenticator, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
@@ -9,24 +8,15 @@ import { bodyLimit } from "hono/body-limit";
 import { serve } from "@hono/node-server";
 import {
   FeedbackInputSchema,
-  DisplayPrefsQuerySchema,
   InsightsQuerySchema,
   JobIdSchema,
   JobSheetSchema,
-  LeversSchema,
   LaunchCurrencySchema,
   LocaleSchema,
-  OperatorItemConfirmationSchema,
-  OrderOperatorFieldsSchema,
   RiskOptimizationRequestSchema,
   RiskExplanationRequestSchema,
   GuardedRiskPredictionRequestSchema,
-  ManualRunConditionsSchema,
-  SeenBeforeRequestSchema,
   SimilarRunsRequestSchema,
-  SUPPORTED_CURRENCIES,
-  SUPPORTED_LANGUAGES,
-  ValidationFailureSchema,
 } from "./src/schemas.js";
 import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.js";
 import { readServerPort } from "./src/runtime-config.js";
@@ -38,21 +28,30 @@ import { canApprove, initializeUserSessionAuth, SESSION_COOKIE } from "./src/use
 import { createWeatherProviderFromEnv } from "./src/google-cloud/weather-service.js";
 import { traceRegistry } from "./src/trace-registry.js";
 import { fxRatesService } from "./src/fx-rates.js";
-import { servicePorts, getJobLifecycleAvailability } from "./src/service-ports.js";
+import { servicePorts } from "./src/service-ports.js";
 import modelAcceptanceConfig from "./config/model-acceptance.json" with { type: "json" };
 import { getModelAcceptanceSummary, isModelSetAccepted } from "./src/model-acceptance.js";
 import { createJobCoordinator } from "./src/job-coordinator.js";
 import { createLinkedFeedbackService } from "./src/linked-feedback-service.js";
 import { createStoredJobSheetLookup } from "./src/stored-job-sheet-lookup.js";
-import { createJobRequestIdentity, InMemoryIdempotencyStore } from "./src/job-idempotency.js";
+import { InMemoryIdempotencyStore } from "./src/job-idempotency.js";
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
-import { identifyPurchaseOrderMimeType, MAX_PURCHASE_ORDER_BYTES } from "./src/purchase-order-file.js";
-import { readDailyGeminiCallCapConfig } from "./src/daily-gemini-call-cap.js";
+import { authorizeSupervisor } from "./src/commands/authorize.js";
+import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
+import { getStatus, impactSummary } from "./src/commands/status.js";
+import { liveActor } from "./src/commands/live-events.js";
+import { readOrder } from "./src/commands/read-order.js";
+import { planLot } from "./src/commands/plan-lot.js";
+import { getJob } from "./src/commands/get-job.js";
+import { approveJob } from "./src/commands/approve-job.js";
+import { getCard } from "./src/commands/get-card.js";
+import { createWeatherCache, readWeather } from "./src/commands/read-weather.js";
+import { classifyApprovedPhoto, diagnoseUploadedPhoto, listApprovedPhotos } from "./src/commands/photos.js";
+import { findSeenBefore } from "./src/commands/history.js";
 import {
   firebaseWebClientConfig,
   initializeFirebaseSupervisorAuthenticator,
 } from "./src/firebase-supervisor-auth.js";
-import { isApprovedSyntheticPurchaseOrder } from "./src/synthetic-po-allowlist.js";
 import {
   createPerIpRateLimitMiddleware,
   createRequestTimeoutMiddleware,
@@ -88,19 +87,11 @@ const liveStore = createLiveStore({
   enabled: process.env.USTAAD_ENABLE_LIVE_STORE === "true",
   projectId: process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT,
 });
-const liveActor = (principal) => principal?.provider === "google.com" && typeof principal.email === "string" ? principal.email : undefined;
-function liveLot(jobSheet, status) {
-  const risk = jobSheet?.recommended?.risk ?? jobSheet?.baseline?.risk;
-  return {
-    lotId: jobSheet?.jobId, jobId: jobSheet?.jobId, status,
-    orderId: jobSheet?.order?.orderId, itemCode: jobSheet?.order?.itemCode, quantity: jobSheet?.order?.quantity,
-    ...(risk ? { totalScrapPct: risk.totalScrapPct, primaryDefect: risk.primaryDefect, ratesPct: risk.ratesPct, currency: risk.currency } : {}),
-    ...(Number.isFinite(jobSheet?.savings?.inr) ? { predictedSaving: Math.max(0, jobSheet.savings.inr) } : {}),
-    ...(Array.isArray(jobSheet?.changes) ? { changes: jobSheet.changes.slice(0, 3).map(({ lever, from, to }) => ({ lever, from, to })) } : {}),
-  };
+function isSameOrigin({ origin, requestUrl }) {
+  return isSameApplicationOrigin({ origin, requestUrl, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
 }
 function sameOrigin(c) {
-  return isSameApplicationOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
+  return isSameOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url });
 }
 
 const plantId = process.env.USTAAD_PLANT_ID ??
@@ -197,6 +188,15 @@ function responseForResult(c, result) {
   return c.json(result, status);
 }
 
+// Command failures that choose their own HTTP status carry it beside the body.
+function commandResponse(c, result) {
+  if (result?.ok === false && Number.isInteger(result.status)) {
+    const { status, ...body } = result;
+    return c.json(body, status);
+  }
+  return responseForResult(c, result);
+}
+
 function demoAgentUnavailable(c) {
   if (executionMode === "demo") return undefined;
   return c.json({
@@ -216,58 +216,59 @@ const privilegedPortNames = [
 ];
 const localPrivilegedAdapterConfigured = privilegedPortNames.some((name) => servicePorts.availability[name] === true);
 
-async function requireSupervisor(c) {
-  if (userSessionAuth) {
-    const result = await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE));
-    if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
-    if (!["GET", "HEAD"].includes(c.req.method) && !sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
-    c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
-    return undefined;
-  }
-  if (hackathonAuth.enabled) {
-    const result = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
-    if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
-    if (!["GET", "HEAD"].includes(c.req.method) && !sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
-    if (c.req.path === "/insights/summary") return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "Use the anonymized impact summary." } }, 403);
-    const jobMatch = /^\/jobs\/([^/]+)/.exec(c.req.path);
-    if (jobMatch && !demoOwnsJob(result.principal, c.req.param("id") ?? jobMatch[1])) return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "This record does not belong to this demo session." } }, 403);
-    if (c.req.path.startsWith("/api/runs/") && demoTraceOwners.get(c.req.path.split("/")[3]) !== result.principal.sessionId) return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "This trace does not belong to this demo session." } }, 403);
-    c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
-    return undefined;
-  }
-  if (executionMode === "demo") return undefined;
-  if (executionMode === "offline" && !localPrivilegedAdapterConfigured) return undefined;
-  const result = await supervisorAuthenticator.authenticate(c.req.header("Authorization"));
-  if (!result.ok) {
-    return c.json({ ok: false, error: result.error }, result.status);
-  }
-  c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
-  return undefined;
+// Shared by every command call from a route; Arc tools build the same set.
+const commandDeps = Object.freeze({
+  userSessionAuth,
+  hackathonAuth,
+  supervisorAuthenticator,
+  executionMode,
+  localPrivilegedAdapterConfigured,
+  traceOwners: demoTraceOwners,
+  isSameOrigin,
+  env: process.env,
+  servicePorts,
+  approvalAuthorizationConfigured,
+  jobSheetPersistenceAvailable,
+  jobCreationAvailable,
+  idempotencyStore,
+  modelAcceptanceConfig,
+  liveStore,
+  submitJob,
+  demoMode,
+  lookupStoredJobSheet,
+  newCorrelationId: randomUUID,
+  now: Date.now,
+  log: (line) => console.info(line),
+  weatherProvider: createWeatherProviderFromEnv(process.env),
+  weatherCache: createWeatherCache(),
+  purchaseOrderPolicy: Object.freeze({
+    acceptRealOrders: Boolean(userSessionAuth?.configured) && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true",
+    extractionAdapterConfigured: servicePorts.availability.extractOrderForReview === true,
+    syntheticOnly: process.env.USTAAD_SYNTHETIC_ONLY === "true",
+  }),
+});
+
+function commandContext(c) {
+  return {
+    ...commandDeps,
+    principal: c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY),
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  };
 }
 
-function syntheticPurchaseOrderUnavailable(c, bytes) {
-  // Production: signed-in plant users may upload their own customers' orders.
-  if (userSessionAuth?.configured && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true") return undefined;
-  const extractionAdapterConfigured = servicePorts.availability.extractOrderForReview === true;
-  if (executionMode === "offline" && !extractionAdapterConfigured) return undefined;
-  if (executionMode === "live-service" && process.env.USTAAD_SYNTHETIC_ONLY !== "true") {
-    return c.json({
-      ok: false,
-      error: {
-        code: "SERVICE_UNAVAILABLE",
-        message: "Approved-document restrictions must be explicitly enabled before live-service PO processing.",
-      },
-    }, 503);
-  }
-  if (!isApprovedSyntheticPurchaseOrder(bytes)) {
-    return c.json({
-      ok: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Only the owner-approved purchase-order documents are accepted in this prototype.",
-      },
-    }, 400);
-  }
+async function requireSupervisor(c) {
+  const result = await authorizeSupervisor({
+    method: c.req.method,
+    path: c.req.path,
+    jobId: c.req.param("id"),
+    sessionCookie: getCookie(c, SESSION_COOKIE),
+    demoCookie: getCookie(c, "__Host-ustaad-demo"),
+    authorization: c.req.header("Authorization"),
+    origin: c.req.header("Origin"),
+    requestUrl: c.req.url,
+  }, commandDeps);
+  if (!result.ok) return commandResponse(c, result);
+  if (result.principal) c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
   return undefined;
 }
 
@@ -280,49 +281,23 @@ function invalidJsonResponse(c) {
   }], "Request body must be valid JSON.");
 }
 
-function validationResponse(c, issues, message = "Request fields failed validation.") {
-  return c.json(ValidationFailureSchema.parse({
-    ok: false,
-    error: {
-      code: "VALIDATION_ERROR",
-      message,
-      issues,
-    },
-  }), 400);
+function validationResponse(c, issues, message) {
+  return c.json(validationFailure(issues, message), 400);
+}
+
+function validationResult(c, validated) {
+  return validated.ok ? validated : { ok: false, response: c.json(validated.failure, 400) };
 }
 
 function validateInput(c, schema, input, message) {
-  const parsed = schema.safeParse(input);
-
-  if (!parsed.success) {
-    return {
-      ok: false,
-      response: validationResponse(
-        c,
-        parsed.error.issues.map((issue) => ({
-          field: issue.path.join(".") || "root",
-          path: issue.path,
-          code: issue.code,
-          message: issue.message,
-        })),
-        message
-      ),
-    };
-  }
-
-  return { ok: true, data: parsed.data };
+  return validationResult(c, validateWith(schema, input, message));
 }
 
 function validateDisplayPrefs(c) {
-  return validateInput(
-    c,
-    DisplayPrefsQuerySchema,
-    {
-      lang: c.req.query("lang"),
-      currency: c.req.query("currency"),
-    },
-    "Display preferences failed validation."
-  );
+  return validationResult(c, validateDisplayPrefsInput({
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+  }));
 }
 
 async function readJsonBody(c) {
@@ -611,140 +586,7 @@ app.get("/api/auth/config", (c) => {
   }, 200, { "Cache-Control": "no-store" });
 });
 
-app.get("/api/status", (c) => {
-  const mode = process.env.K_SERVICE ? "cloud-run" : "local-development";
-  const integrationNames = {
-    extractOrder: "PDF order extraction",
-    currentConditions: "stored sensor conditions",
-    predictRisk: "five-defect risk prediction",
-    optimizeRisk: "lever optimization",
-    findSimilarRuns: "historical similar-run evidence",
-    explainRisk: "evidence-grounded risk explanation",
-    findSeenBefore: "historical defect evidence",
-    prepareJob: "production job preparation",
-    approveJob: "job approval and card generation",
-    getJobCard: "approved job-card retrieval",
-    saveFeedback: "feedback persistence",
-    getLotOrder: "feedback lot-to-order association lookup",
-    getStoredJobSheet: "stored job-sheet retrieval",
-    createDraftJobSheet: "draft job-sheet persistence",
-    getInsights: "historical production insights",
-    getImpactSummary: "live Impact dashboard summary",
-  };
-  const unconfiguredIntegrations = Object.entries(servicePorts.availability)
-    .filter(([key, configured]) => key === "prepareJob"
-      ? !jobCreationAvailable
-      : executionMode === "live-service" && [
-        "createDraftJobSheet", "getStoredJobSheet", "approveJob", "getJobCard",
-        "saveFeedback", "getLotOrder",
-      ].includes(key)
-        ? true
-      : configured !== true)
-    .map(([key]) => integrationNames[key]);
-  const productionAdapterKeys = [
-    "extractOrder",
-    "currentConditions",
-    "predictRisk",
-    "optimizeRisk",
-    "findSimilarRuns",
-    "explainRisk",
-    "findSeenBefore",
-    "createDraftJobSheet",
-    "getStoredJobSheet",
-    "approveJob",
-    "getJobCard",
-    "saveFeedback",
-    "getInsights",
-    "getImpactSummary",
-  ];
-  const productionAdaptersConfigured = productionAdapterKeys.some(
-    (key) => servicePorts.availability[key] === true
-  );
-  const geminiCapConfig = readDailyGeminiCallCapConfig(process.env);
-  const liveModelCallsEnabled = geminiCapConfig.configured &&
-    process.env.USTAAD_ENABLE_LIVE_MODEL_CALLS === "true" &&
-    (!process.env.K_SERVICE || servicePorts.geminiUsage.sharedCounterConfigured) &&
-    (servicePorts.availability.extractOrder || servicePorts.availability.explainRisk);
-  const globalGeminiCapEnforced = liveModelCallsEnabled && servicePorts.geminiUsage.sharedCounterConfigured;
-  return c.json({
-    ok: true,
-    app: "Momentum",
-    description: "Corrugated Production-Prep Agent",
-    status: "running",
-    mode,
-    executionMode,
-    backendReachable: true,
-    authorizationMode: hackathonAuth.enabled ? "HACKATHON_DEMO" : "FIREBASE_SUPERVISOR",
-    demoSessionConfigured: hackathonAuth.configured,
-    syntheticOnlyModeRequired: executionMode === "live-service",
-    syntheticOnlyModeEnabled: process.env.USTAAD_SYNTHETIC_ONLY === "true",
-    approvedPoFixtureAllowlistEnforced: true,
-    runtimeAvailability: {
-      productionAdaptersConfigured,
-      liveModelCallsEnabled,
-      dailyGeminiCallCap: {
-        configured: geminiCapConfig.configured,
-        enforced: liveModelCallsEnabled,
-        scope: servicePorts.geminiUsage.sharedCounterConfigured ? "shared-firestore-transaction" : geminiCapConfig.scope,
-        globalScopeEnforced: globalGeminiCapEnforced,
-        ...(servicePorts.geminiUsage.sharedCounterConfigured ? { liveConnectivityVerified: false } : {}),
-        ...(geminiCapConfig.configured ? {
-          limit: geminiCapConfig.limit,
-          timeZone: geminiCapConfig.timeZone,
-          countingPolicy: geminiCapConfig.countingPolicy,
-          reset: "midnight-in-configured-time-zone",
-        } : { missing: geminiCapConfig.missing, invalid: geminiCapConfig.invalid }),
-      },
-      supervisorAuthentication: {
-        provider: "firebase-google",
-        enabled: supervisorAuthenticator.enabled,
-        verifierConfigured: supervisorAuthenticator.configured,
-        userVerified: false,
-      },
-      currentConditions: {
-        adapterConfigured: servicePorts.availability.currentConditions,
-        dataChecked: false,
-      },
-      integrationsVerified: false,
-      supervisorAuthorizationAvailable: executionMode === "demo" || approvalAuthorizationConfigured,
-      jobSheetPersistenceAvailable,
-      durableIdempotencyConfigured: false,
-      idempotencyScope: idempotencyStore ? "process-local" : "unavailable",
-      jobCreationAvailable,
-    },
-    integrations: {
-      ...servicePorts.availability,
-      ...getJobLifecycleAvailability({ availability: servicePorts.availability, executionMode,
-        supervisorConfigured: approvalAuthorizationConfigured,
-        modelsAccepted: isModelSetAccepted(modelAcceptanceConfig), jobCreationAvailable }),
-      prepareJob: jobCreationAvailable,
-      supervisorAuthorizationAvailable: executionMode === "demo" || approvalAuthorizationConfigured,
-      jobSheetPersistenceAvailable,
-      durableIdempotencyConfigured: false,
-      idempotencyScope: idempotencyStore ? "process-local" : "unavailable",
-      jobCreationAvailable,
-    },
-    isRealModelPrediction: false,
-    modelAcceptance: getModelAcceptanceSummary(modelAcceptanceConfig),
-    localCapabilities: [
-      "purchase-order field validation",
-      "run-condition validation",
-      "currency formatting",
-      "daily cached FX rates with a static fallback",
-      "local PDF rendering for a caller-supplied validated JobSheet",
-    ],
-    unconfiguredIntegrations,
-    supportedCurrencies: SUPPORTED_CURRENCIES,
-    supportedLanguages: SUPPORTED_LANGUAGES,
-    notes: [
-      mode === "cloud-run"
-        ? "This Cloud Run instance uses workload identity; only explicitly configured integrations are available, and status does not prove their connectivity."
-        : "This local process uses only explicitly configured adapters; status does not prove Google Cloud connectivity.",
-      "Model calls and BigQuery or Storage writes remain disabled unless their runtime gates are explicitly enabled.",
-      "The local PDF renderer does not create job records or upload files.",
-    ],
-  });
-});
+app.get("/api/status", (c) => c.json(getStatus({}, commandDeps)));
 
 app.post("/orders/extract", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
@@ -760,75 +602,7 @@ app.post("/orders/extract", async (c) => {
       message: "Request must contain a valid multipart purchase-order file.",
     }], "Purchase order upload is invalid.");
   }
-
-  const file = form.file;
-  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_type",
-      message: "A purchase-order PDF or JPEG file is required in the file field.",
-    }], "Purchase order upload is invalid.");
-  }
-
-  if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > MAX_PURCHASE_ORDER_BYTES) {
-    return c.json({ ok: false, error: { code: "PAYLOAD_TOO_LARGE", message: "Purchase-order files must be between 1 byte and 10 MiB." } }, 413);
-  }
-  const fileBytes = new Uint8Array(await file.arrayBuffer());
-  const mimeType = identifyPurchaseOrderMimeType(file, fileBytes);
-  if (!mimeType) {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_format",
-      message: "The uploaded purchase order must be a valid PDF or JPEG image.",
-    }], "Purchase order upload is invalid.");
-  }
-
-  const syntheticOnlyResponse = syntheticPurchaseOrderUnavailable(c, fileBytes);
-  if (syntheticOnlyResponse) return syntheticOnlyResponse;
-
-  const rawOperatorFields = {};
-  for (const field of ["orderId", "paperType", "paperSupplier"]) {
-    const value = form[field];
-    if (value === undefined || value === "") continue;
-    rawOperatorFields[field] = value;
-  }
-  const operatorFields = OrderOperatorFieldsSchema.safeParse(rawOperatorFields);
-  if (!operatorFields.success) {
-    return validationResponse(c, operatorFields.error.issues.map((issue) => ({
-      field: issue.path.join(".") || "operatorFields",
-      path: ["operatorFields", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    })), "Operator-supplied order context is invalid.");
-  }
-
-  const rawLineIndex = form.selectedLineIndex;
-  const selectedLineIndex = rawLineIndex === undefined || rawLineIndex === ""
-    ? undefined
-    : Number(rawLineIndex);
-  if (selectedLineIndex !== undefined &&
-      (!Number.isSafeInteger(selectedLineIndex) || selectedLineIndex < 0)) {
-    return validationResponse(c, [{
-      field: "selectedLineIndex",
-      path: ["selectedLineIndex"],
-      code: "invalid_value",
-      message: "selectedLineIndex must be a non-negative PO line number.",
-    }], "Purchase order line selection is invalid.");
-  }
-
-  const extraction = await servicePorts.extractOrderForReview({
-    file,
-    operatorFields: operatorFields.data,
-    ...(selectedLineIndex === undefined ? {} : { selectedLineIndex }),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  });
-  if (extraction?.ok && Array.isArray(extraction.lines)) {
-    const lines = extraction.lines.length;
-    await liveStore.publish({ event: { type: "order.read", text: `${operatorFields.data.orderId ? `Order ${operatorFields.data.orderId}` : "An order"} read by Gemini · ${lines} line${lines === 1 ? "" : "s"}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
-  }
-  return responseForResult(c, extraction);
+  return commandResponse(c, await readOrder({ fields: form }, commandContext(c)));
 });
 
 app.get("/conditions/current", async (c) => {
@@ -965,193 +739,7 @@ app.post("/jobs", async (c) => {
       message: "Request must contain a valid multipart purchase-order file.",
     }], "Job request is invalid.");
   }
-
-  const file = form.file;
-  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_type",
-      message: "A purchase-order PDF or JPEG file is required in the file field.",
-    }], "Job request is invalid.");
-  }
-
-  if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > MAX_PURCHASE_ORDER_BYTES) {
-    return c.json({ ok: false, error: { code: "PAYLOAD_TOO_LARGE", message: "Purchase-order files must be between 1 byte and 10 MiB." } }, 413);
-  }
-  const fileBytes = new Uint8Array(await file.arrayBuffer());
-  const mimeType = identifyPurchaseOrderMimeType(file, fileBytes);
-  if (!mimeType) {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_format",
-      message: "The uploaded purchase order must be a valid PDF or JPEG image.",
-    }], "Job request is invalid.");
-  }
-
-  const syntheticOnlyResponse = syntheticPurchaseOrderUnavailable(c, fileBytes);
-  if (syntheticOnlyResponse) return syntheticOnlyResponse;
-
-  const rawOperatorFields = {};
-  for (const field of ["orderId", "paperType", "paperSupplier"]) {
-    const value = form[field];
-    if (typeof value === "string" && value.trim() !== "") rawOperatorFields[field] = value;
-  }
-  const operatorFields = OrderOperatorFieldsSchema.safeParse(rawOperatorFields);
-  const numericLevers = new Set([
-    "sfSpeedMpm", "rollTempC", "gumViscositySec", "dryingHours", "printSpeedSpm",
-  ]);
-  const rawLevers = {};
-  for (const field of [
-    "sfSpeedMpm", "rollTempC", "gumApplication", "gumViscositySec",
-    "pastingPressure", "dryingHours", "printSpeedSpm",
-  ]) {
-    const value = form[field];
-    if (typeof value === "string" && value.trim() !== "") {
-      rawLevers[field] = numericLevers.has(field) ? Number(value) : value;
-    }
-  }
-  const levers = LeversSchema.safeParse(rawLevers);
-  const rawItemConfirmation = {
-    itemCode: form.confirmedItemCode,
-    quantity: typeof form.confirmedQuantity === "string" ? Number(form.confirmedQuantity) : form.confirmedQuantity,
-    ...(typeof form.confirmedLineIndex === "string" && form.confirmedLineIndex.trim() !== ""
-      ? { lineIndex: Number(form.confirmedLineIndex) - 1 }
-      : {}),
-  };
-  const operatorItemConfirmation = OperatorItemConfirmationSchema.safeParse(rawItemConfirmation);
-  const reviewId = form.reviewId;
-  const reviewFingerprint = form.reviewFingerprint;
-  const hasReviewReference = reviewId !== undefined || reviewFingerprint !== undefined;
-  const hasReviewId = typeof reviewId === "string" && reviewId.trim() !== "";
-  const hasReviewFingerprint = typeof reviewFingerprint === "string" && reviewFingerprint.trim() !== "";
-  if (hasReviewReference && (!hasReviewId || !hasReviewFingerprint ||
-      !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(reviewId) ||
-      !/^[a-f0-9]{64}$/.test(reviewFingerprint))) {
-    return validationResponse(c, [{
-      field: "purchaseOrderReview",
-      path: ["reviewId"],
-      code: "incomplete_review_reference",
-      message: "Both reviewId and reviewFingerprint are required to use the reviewed PO.",
-    }], "The purchase-order review reference is invalid.");
-  }
-  if (hasReviewId && form.confirmedSourceLine !== "true") {
-    return validationResponse(c, [{
-      field: "confirmedSourceLine",
-      path: ["confirmedSourceLine"],
-      code: "confirmation_required",
-      message: "Confirm the selected item's code and quantity against the displayed source PO line.",
-    }], "The selected PO line has not been confirmed.");
-  }
-  const shift = form.shift;
-  // A blank humidity or temperature field is "missing", not 0; the condition
-  // guard then falls back to weather or the seasonal typical value.
-  const conditionNumber = (value) => value === undefined || value === null ||
-    (typeof value === "string" && value.trim() === "")
-    ? undefined
-    : typeof value === "string" ? Number(value) : value;
-  const rawManualConditions = {
-    runDate: form.runDate,
-    shift,
-    ambientRhPct: conditionNumber(form.ambientRhPct),
-    ambientTempC: conditionNumber(form.ambientTempC),
-    paperMoisturePct: conditionNumber(form.paperMoisturePct),
-  };
-  const manualConditions = ManualRunConditionsSchema.safeParse(rawManualConditions);
-  const conditionsConfirmed = form.conditionsConfirmed === "true";
-  const issues = [
-    ...(operatorFields.success ? [] : operatorFields.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["operatorFields", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(levers.success ? [] : levers.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["levers", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(operatorItemConfirmation.success ? [] : operatorItemConfirmation.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["operatorItemConfirmation", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(shift === "DAY" || shift === "NIGHT" ? [] : [{
-      field: "shift",
-      path: ["shift"],
-      code: "invalid_value",
-      message: "Select the actual DAY or NIGHT shift.",
-    }]),
-    ...(manualConditions.success ? [] : manualConditions.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["conditions", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(conditionsConfirmed ? [] : [{
-      field: "conditionsConfirmed",
-      path: ["conditionsConfirmed"],
-      code: "confirmation_required",
-      message: "A supervisor must confirm or edit the manual condition values before prediction.",
-    }]),
-  ];
-  if (issues.length) {
-    return validationResponse(c, issues, "Job preparation requires confirmed order context, shift and actual machine settings.");
-  }
-
-  // Idempotency: read the optional client-supplied key from the request header.
-  // When present, the key is bound to a fingerprint of the validated request.
-  // Resubmitting the same key with different inputs returns 409 CONFLICT.
-  // Without durable persistence and a shared idempotency store, the submission
-  // handler returns SERVICE_UNAVAILABLE before running job preparation.
-  const rawIdempotencyKey = c.req.header("Idempotency-Key");
-  const identity = createJobRequestIdentity({
-    idempotencyKey: rawIdempotencyKey,
-    fileBytes,
-    operatorFields: operatorFields.data,
-    operatorItemConfirmation: operatorItemConfirmation.data,
-    shift,
-    levers: levers.data,
-    conditions: manualConditions.data,
-    ...(hasReviewFingerprint ? { purchaseOrderReviewFingerprint: reviewFingerprint } : {}),
-  });
-  if (!identity.ok) {
-    // Key is present but malformed — return a validation error.
-    return validationResponse(c, identity.error.issues ?? [], identity.error.message);
-  }
-
-  const signal = c.get(REQUEST_SIGNAL_CONTEXT_KEY);
-  const submissionResult = await submitJob({
-    identity: hackathonAuth.enabled ? demoJobIdentity(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY), identity.identity) : identity.identity,
-    request: {
-      file: { arrayBuffer: async () => fileBytes.buffer },
-      operatorFields: operatorFields.data,
-      operatorItemConfirmation: operatorItemConfirmation.data,
-      ...(hasReviewId ? {
-        purchaseOrderReview: {
-          reviewId,
-          reviewFingerprint,
-          confirmedSourceLine: form.confirmedSourceLine === "true",
-        },
-      } : {}),
-      shift,
-      levers: levers.data,
-      manualConditions: manualConditions.data,
-      conditionsConfirmed,
-    },
-    signal,
-  });
-  if (submissionResult.ok && submissionResult.jobSheet) {
-    const sheet = submissionResult.jobSheet;
-    await liveStore.publish({
-      lot: liveLot(sheet, "planned"),
-      event: { type: "lot.planned", lotId: sheet.jobId, text: `Lot ${sheet.order?.itemCode ?? sheet.jobId} planned · ${sheet.order?.quantity ?? "?"} units`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) },
-    });
-  }
-  return responseForResult(c, demoMode && submissionResult.ok ? { ...submissionResult, durable: false, storageScope: "process-memory", source: "mock-demo", isRealModelPrediction: false } : submissionResult);
+  return commandResponse(c, await planLot({ fields: form, idempotencyKey: c.req.header("Idempotency-Key") }, commandContext(c)));
 });
 
 app.post("/job-sheets/render.pdf", async (c) => {
@@ -1214,91 +802,27 @@ app.post("/job-sheets/render.pdf", async (c) => {
 app.get("/jobs/:id", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
-
-  return responseForResult(c, await lookupStoredJobSheet({
-    jobId: validated.data,
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  return commandResponse(c, await getJob({ jobId: c.req.param("id") }, commandContext(c)));
 });
 
 app.post("/jobs/:id/approve", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  if (userSessionAuth && !canApprove(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY))) {
-    return c.json({ ok: false, error: { code: "APPROVER_ROLE_REQUIRED", message: "Only a supervisor or manager can approve a job card." } }, 403);
-  }
-  if (executionMode !== "demo" && !isModelSetAccepted(modelAcceptanceConfig)) {
-    return c.json({
-      ok: false,
-      error: {
-        code: "MODEL_ACCEPTANCE_REQUIRED",
-        message: "Job approval is blocked until the current five-model set has complete version-linked acceptance evidence.",
-      },
-      modelAcceptance: getModelAcceptanceSummary(modelAcceptanceConfig),
-    }, 503);
-  }
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
-  const displayPrefs = validateDisplayPrefs(c);
-  if (!displayPrefs.ok) {
-    return displayPrefs.response;
-  }
-
-  const principal = c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY);
-  const approval = await servicePorts.approveJob({
-    jobId: validated.data,
-    lang: displayPrefs.data.lang,
-    currency: displayPrefs.data.currency,
-    ...(principal ? { supervisorPrincipal: principal, correlationId: randomUUID() } : {}),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  });
-  if (approval.ok && principal) {
-    console.info(JSON.stringify({
-      event: "ustaad_supervisor_action",
-      action: "job_approval_request",
-      actorUid: principal.uid,
-      authorizationMode: principal.authorizationMode ?? "FIREBASE_SUPERVISOR",
-      authenticatedHuman: principal.provider === "google.com",
-      jobId: validated.data,
-      decisionAt: new Date().toISOString(),
-      newStatus: approval.jobSheet?.status ?? approval.data?.status ?? "APPROVED",
-      auditStorage: approval.jobSheet?.approvalAudit ? "bigquery-readback-and-structured-log" : "structured-cloud-log-only",
-    }));
-  }
-  if (approval.ok && approval.jobSheet) {
-    await liveStore.publish({
-      lot: liveLot(approval.jobSheet, "approved"),
-      event: { type: "lot.approved", lotId: approval.jobSheet.jobId, text: `Lot ${approval.jobSheet.order?.itemCode ?? approval.jobSheet.jobId} approved for production`, actor: liveActor(principal) },
-    });
-  }
-  return responseForResult(c, approval);
+  return commandResponse(c, await approveJob({
+    jobId: c.req.param("id"),
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+  }, commandContext(c)));
 });
 
 app.get("/jobs/:id/card.pdf", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
-  const displayPrefs = validateDisplayPrefs(c);
-  if (!displayPrefs.ok) {
-    return displayPrefs.response;
-  }
-
-  const result = await servicePorts.getJobCard({
-    jobId: validated.data,
-    lang: displayPrefs.data.lang,
-    currency: displayPrefs.data.currency,
-    supervisorPrincipal: c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  });
+  const result = await getCard({
+    jobId: c.req.param("id"),
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+  }, commandContext(c));
   if (result.ok && result.bytes instanceof Uint8Array) {
     return c.body(result.bytes, 200, {
       "Content-Type": result.contentType,
@@ -1306,7 +830,7 @@ app.get("/jobs/:id/card.pdf", async (c) => {
       "Cache-Control": "private, no-store",
     });
   }
-  return responseForResult(c, result);
+  return commandResponse(c, result);
 });
 
 app.post("/jobs/:id/feedback", async (c) => {
@@ -1349,8 +873,6 @@ app.post("/jobs/:id/feedback", async (c) => {
   return responseForResult(c, savedFeedback);
 });
 
-// Defect Intelligence: a photo of a bad sheet -> Gemini diagnosis -> past lots with that defect
-// at similar humidity (what the good runs did differently). Causes come from our history only.
 app.post("/evidence/diagnose-photo", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
@@ -1358,37 +880,13 @@ app.post("/evidence/diagnose-photo", async (c) => {
   try { form = await c.req.parseBody(); } catch {
     return validationResponse(c, [{ field: "body", path: [], code: "invalid_multipart", message: "Send the photo as a multipart upload." }], "Photo upload is invalid.");
   }
-  const file = form.file;
-  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
-    return validationResponse(c, [{ field: "file", path: ["file"], code: "invalid_type", message: "A photo is required in the file field." }], "Photo upload is invalid.");
-  }
-  const rawRh = typeof form.ambientRhPct === "string" && form.ambientRhPct.trim() !== "" ? Number(form.ambientRhPct) : undefined;
-  if (rawRh !== undefined && !(Number.isFinite(rawRh) && rawRh >= 0 && rawRh <= 100)) {
-    return validationResponse(c, [{ field: "ambientRhPct", path: ["ambientRhPct"], code: "invalid_value", message: "Humidity must be between 0 and 100%." }], "Photo upload is invalid.");
-  }
-  const lotId = typeof form.lotId === "string" && /^[A-Za-z0-9_-]{1,120}$/.test(form.lotId) ? form.lotId : undefined;
-  const signal = c.get(REQUEST_SIGNAL_CONTEXT_KEY);
-  const result = await servicePorts.diagnoseDefectPhoto({ bytes: new Uint8Array(await file.arrayBuffer()), signal });
-  if (!result?.ok || !result.recognised || result.diagnosis.label === "NONE") return responseForResult(c, result);
-  const pastCases = rawRh === undefined ? undefined
-    : await servicePorts.findSeenBefore({ defect: result.diagnosis.label, ambientRhPct: rawRh, signal }).catch(() => undefined);
-  const defectName = { WARP: "Warp", DELAM: "Delamination", STRENGTH: "Crushed board", PRINT: "Print defect", CRACK: "Crease cracking" }[result.diagnosis.label];
-  await liveStore.publish({ event: { type: "defect.logged", ...(lotId ? { lotId } : {}), text: `${defectName} spotted on a photo · ${result.diagnosis.severity.toLowerCase()} severity`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
-  return responseForResult(c, { ...result, ...(rawRh === undefined ? {} : { ambientRhPct: rawRh }), ...(pastCases?.ok ? { pastCases } : {}) });
+  return commandResponse(c, await diagnoseUploadedPhoto({ fields: form }, commandContext(c)));
 });
 
-// Live Pune weather from the Google Weather API, cached for 10 minutes so many open screens
-// cost at most six calls an hour. Disabled unless WEATHER_API_KEY is set.
-const weatherProvider = createWeatherProviderFromEnv(process.env);
-let weatherCache;
 app.get("/conditions/weather", async (c) => {
-  if (!weatherProvider) return c.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Live weather is not configured." } }, 503);
-  if (!weatherCache || Date.now() - weatherCache.at > 10 * 60 * 1000) {
-    const reading = await weatherProvider({ signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY) }).catch(() => undefined);
-    if (reading?.ok) weatherCache = { at: Date.now(), reading };
-    else if (!weatherCache) return c.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Live weather is unavailable right now." } }, 503);
-  }
-  return c.json({ ...weatherCache.reading, location: "Pune" }, 200, { "Cache-Control": "no-store" });
+  const result = await readWeather({}, commandContext(c));
+  if (!result.ok) return commandResponse(c, result);
+  return c.json(result, 200, { "Cache-Control": "no-store" });
 });
 
 // Live floor view: the latest lots and events, now and on every change, as server-sent events.
@@ -1454,24 +952,20 @@ app.get("/insights/summary", async (c) => {
 });
 
 app.get("/impact/summary", async (c) => {
-  return responseForResult(c, await servicePorts.getImpactSummary({
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  return commandResponse(c, await impactSummary({}, commandContext(c)));
 });
 
 app.get("/evidence/approved-photos", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  return responseForResult(c, await servicePorts.getApprovedPhotos());
+  return commandResponse(c, await listApprovedPhotos({}, commandContext(c)));
 });
 app.post("/evidence/classify-photo", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
   const request = await readJsonBody(c);
   if (!request.ok) return request.response;
-  const validated = validateInput(c, PhotoClassificationRequestSchema, request.body, "Select one approved photo ID only.");
-  if (!validated.ok) return validated.response;
-  return responseForResult(c, await servicePorts.classifyApprovedPhoto({ ...validated.data, signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY) }));
+  return commandResponse(c, await classifyApprovedPhoto(request.body, commandContext(c)));
 });
 
 app.post("/evidence/seen-before", async (c) => {
@@ -1481,19 +975,7 @@ app.post("/evidence/seen-before", async (c) => {
   if (!request.ok) {
     return request.response;
   }
-  const validated = validateInput(
-    c,
-    SeenBeforeRequestSchema,
-    request.body,
-    "Historical defect-evidence request failed validation."
-  );
-  if (!validated.ok) {
-    return validated.response;
-  }
-  return responseForResult(c, await servicePorts.findSeenBefore({
-    ...validated.data,
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  return commandResponse(c, await findSeenBefore(request.body, commandContext(c)));
 });
 
 app.post("/risk/similar-runs", async (c) => {
