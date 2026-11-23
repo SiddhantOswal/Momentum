@@ -45,7 +45,7 @@ test("JobSheet renderer creates a valid PDF containing supplied order and produc
   ].map((stage) => renderedText.indexOf(stage));
   assert.ok(stages.every((position) => position >= 0));
   assert.deepEqual(stages, [...stages].sort((left, right) => left - right));
-  assert.match(renderedText, /Savings estimate \(not observed\)/);
+  assert.match(renderedText, /Model estimate: scrap reduction against the entered plan/);
   assert.match(renderedText, /0 kg; INR 0/);
   assert.match(renderedText, /Status: DRAFT/);
   assert.match(renderedText, /Explanation text supplied by the renderer test fixture\./);
@@ -166,4 +166,12 @@ test("local synthetic cards disclose mock approval before the job identity; defa
  assert.ok(text.indexOf("LOCAL MOCK BACKUP")<text.indexOf("Job ID:"));
  const normal=extractBuiltInFontText(await renderJobSheetPdf(jobSheetFixture));
  assert.doesNotMatch(normal,/LOCAL MOCK BACKUP/);
+});
+
+test("estimate heading is labelled as a model estimate and never as savings (AC1.22)", async () => {
+  for (const status of ["DRAFT", "APPROVED"]) {
+    const text = extractBuiltInFontText(await renderJobSheetPdf({ ...jobSheetFixture, status }));
+    assert.ok(text.includes("Model estimate: scrap reduction against the entered plan"));
+    assert.doesNotMatch(text, /Savings estimate/i);
+  }
 });

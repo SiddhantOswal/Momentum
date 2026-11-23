@@ -166,7 +166,7 @@ function collectText(jobSheet) {
   }
 
   lines.push(
-    ["heading", "Savings estimate (not observed)"],
+    ["heading", "Model estimate: scrap reduction against the entered plan"],
     ["line", `${jobSheet.savings.kg} kg; INR ${jobSheet.savings.inr}`],
   );
 
