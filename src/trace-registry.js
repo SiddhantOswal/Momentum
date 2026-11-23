@@ -251,3 +251,161 @@ export function createTraceRegistry({
 }
 
 export const traceRegistry = createTraceRegistry();
+
+const RUN_STATUS_BY_EVENT = Object.freeze({
+  "run.completed": "completed",
+  "run.failed": "failed",
+  "run.cancelled": "cancelled",
+});
+
+function logWriteFailure(record) {
+  console.warn(JSON.stringify(record));
+}
+
+function boundedSet(map, key, value, limit) {
+  while (map.size >= limit) map.delete(map.keys().next().value);
+  map.set(key, value);
+}
+
+/**
+ * Copies every event of the in-memory registry to a durable trace store, in
+ * sequence order, without making the run wait for or fail on the store. A
+ * failed write is logged with its error code only and stops later writes for
+ * that run, so the stored copy is always a gap-free prefix of the run.
+ */
+export function createWriteThroughTraceRegistry({
+  registry,
+  store,
+  log = logWriteFailure,
+  maxTrackedRuns = 1000,
+} = {}) {
+  if (!registry || typeof registry.startRun !== "function" ||
+      !store || typeof store.appendEvent !== "function" ||
+      typeof store.writeHead !== "function" || typeof store.readHead !== "function" ||
+      typeof log !== "function" || !Number.isInteger(maxTrackedRuns) || maxTrackedRuns < 1) {
+    throw new TypeError("A trace registry, a trace store and a logger are required.");
+  }
+
+  const runs = new Map();
+
+  function report(operation, error) {
+    const code = /^[A-Z_]{1,64}$/.test(error?.code ?? "") ? error.code : "UNEXPECTED_ERROR";
+    log({ event: "trace_store_write_failed", operation, code });
+  }
+
+  function head(runId, run, snapshot) {
+    return {
+      runId,
+      ownerSessionId: snapshot.owner,
+      status: snapshot.status,
+      lastSequence: snapshot.lastSequence,
+      createdAt: run.createdAt,
+    };
+  }
+
+  function enqueue(run, operation, write) {
+    run.chain = run.chain.then(async () => {
+      if (run.failed) return;
+      try {
+        await write();
+      } catch (error) {
+        run.failed = true;
+        report(operation, error);
+      }
+    });
+    return run.chain;
+  }
+
+  function persist(event) {
+    const run = runs.get(event.runId);
+    if (!run) return;
+    run.lastSequence = event.sequence;
+    run.status = RUN_STATUS_BY_EVENT[event.type] ?? run.status;
+    // Taken now, not when the write runs: an owner claimed later writes its own head.
+    const snapshot = { owner: run.owner, status: run.status, lastSequence: run.lastSequence };
+    enqueue(run, "event", async () => {
+      await store.appendEvent(event);
+      if (snapshot.owner) await store.writeHead(head(event.runId, run, snapshot));
+    });
+  }
+
+  const wrapped = Object.freeze({
+    ...registry,
+
+    startRun() {
+      const runId = registry.startRun();
+      const [started] = registry.getEventsAfter(runId, 0);
+      boundedSet(runs, runId, {
+        createdAt: started.occurredAt,
+        chain: Promise.resolve(),
+        failed: false,
+        owner: undefined,
+        status: "running",
+        lastSequence: 0,
+      }, maxTrackedRuns);
+      persist(started);
+      return runId;
+    },
+
+    startTool(runId, tool) {
+      const event = registry.startTool(runId, tool);
+      persist(event);
+      return event;
+    },
+
+    finishTool(runId, toolCallId, outcome, errorCode) {
+      const event = registry.finishTool(runId, toolCallId, outcome, errorCode);
+      persist(event);
+      return event;
+    },
+
+    finishRun(runId, outcome) {
+      const event = registry.finishRun(runId, outcome);
+      persist(event);
+      return event;
+    },
+  });
+
+  return Object.freeze({
+    registry: wrapped,
+
+    /**
+     * Records the session that owns a run this instance started, after every
+     * event queued so far. Never rejects: the request that produced the run
+     * answers whether or not the store took the write.
+     */
+    async claimOwner(runId, ownerSessionId) {
+      const run = runs.get(runId);
+      if (!run) return;
+      run.owner = ownerSessionId;
+      const snapshot = { owner: ownerSessionId, status: run.status, lastSequence: run.lastSequence };
+      await enqueue(run, "head", () => store.writeHead(head(runId, run, snapshot)));
+    },
+
+    async flush(runId) {
+      await runs.get(runId)?.chain;
+    },
+
+    /** Rejects when the store cannot answer, so callers can fail closed. */
+    async ownerOf(runId) {
+      const local = runs.get(runId)?.owner;
+      if (local) return local;
+      const stored = await store.readHead(runId);
+      return stored?.ownerSessionId ?? null;
+    },
+  });
+}
+
+export function configureDurableTraces({ env, registry, createStore, log } = {}) {
+  if (env?.USTAAD_ENABLE_DURABLE_TRACES !== "true") {
+    return { registry, store: undefined, claimOwner: undefined, ownerOf: undefined };
+  }
+  const store = createStore();
+  const durable = createWriteThroughTraceRegistry({ registry, store, ...(log ? { log } : {}) });
+  return {
+    registry: durable.registry,
+    store,
+    claimOwner: durable.claimOwner,
+    ownerOf: durable.ownerOf,
+  };
+}
