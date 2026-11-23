@@ -53,6 +53,13 @@ function withoutVolatile(value) {
     .map(([key, item]) => [key, withoutVolatile(item)]));
 }
 
+// Two renders of the same card differ only in the creation date and the trailer /ID.
+function maskPdfVolatile(bytes) {
+  return bytes.toString("latin1")
+    .replace(/\(D:\d{14}Z\)/g, "(D:masked)")
+    .replace(/\/ID \[<[0-9a-f]+> <[0-9a-f]+>\]/g, "/ID [masked]");
+}
+
 // Mirrors responseForResult and commandResponse in index.mjs.
 function expectedStatus(result) {
   if (result.ok) return 200;
@@ -234,6 +241,12 @@ test("demo-mode commands return through HTTP what they return in process", async
     await assertParity(await fetch(`${origin}/jobs/${jobId}/card.pdf`), await getCard({ jobId }, deps), "card before approval");
     await assertParity(await fetch(`${origin}/jobs/${jobId}/approve?lang=xx`, { method: "POST" }),
       await approveJob({ jobId, lang: "xx" }, deps), "approve, bad language");
+    // The demo ports ignore currency, so a malformed code is the only currency-dependent
+    // outcome here: it is rejected only if the route forwards the query.
+    await assertParity(await fetch(`${origin}/jobs/${jobId}/approve?lang=en&currency=us`, { method: "POST" }),
+      await approveJob({ jobId, lang: "en", currency: "us" }, deps), "approve, malformed currency");
+    await assertParity(await fetch(`${origin}/jobs/${jobId}/card.pdf?currency=us`),
+      await getCard({ jobId, currency: "us" }, deps), "card, malformed currency");
     await assertParity(await fetch(`${origin}/jobs/${jobId}/approve?lang=en&currency=INR`, { method: "POST" }),
       await approveJob({ jobId, lang: "en", currency: "INR" }, deps), "approve");
     assert.equal(published.at(-1).lot.status, "approved");
@@ -244,7 +257,7 @@ test("demo-mode commands return through HTTP what they return in process", async
     assert.equal(card.ok, true);
     assert.equal(httpCard.headers.get("content-type"), card.contentType);
     assert.equal(httpCard.headers.get("content-disposition"), `inline; filename="${card.filename}"`);
-    assert.equal(Buffer.from(await httpCard.arrayBuffer()).subarray(0, 5).toString(), Buffer.from(card.bytes).subarray(0, 5).toString());
+    assert.equal(maskPdfVolatile(Buffer.from(await httpCard.arrayBuffer())), maskPdfVolatile(Buffer.from(card.bytes)), "card: PDF bytes");
 
     await assertParity(await fetch(`${origin}/evidence/approved-photos`), await listApprovedPhotos({}, deps), "approved photos");
     const forgedPhoto = { photoId: "photo-01", fileUri: "gs://unapproved/image.jpg" };
