@@ -28,7 +28,7 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 - ARC-M0-03 M0 gate, round 1 done: **NO-GO** (`reviews/M0-review.md`). The verification auditor found a wrong test-result claim; the other seven reviewers gave CONDITIONAL GO. Round 2 repairs are with the owners: solutions architect, AI architect, product manager and business analyst, data engineer, delivery lead.
 - Built, not merged until M0 is GO and QA has verified them: ARC-M1-15 (`3279481`), ARC-M1-01 (paused partway, 4 commits on `arc/ARC-M1-01-commands`).
-- CI "Unit tests" is red on `arc/main` until ARC-M1-11 lands (known failure `test/job-draft-persistence.test.js:508`).
+- CI "Unit tests" is expected to fail on `arc/main` until ARC-M1-11 lands, because of the known failure at `test/job-draft-persistence.test.js:508`. No CI run exists yet: nothing has been pushed, and `gh run list` returns nothing.
 
 ## Blocked
 
