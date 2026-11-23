@@ -14,6 +14,7 @@ COPY --chown=node:node public ./public
 COPY --chown=node:node sql ./sql
 COPY --chown=node:node assets ./assets
 COPY --chown=node:node config ./config
+COPY --chown=node:node prompts ./prompts
 
 USER node
 

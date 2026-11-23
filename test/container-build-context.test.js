@@ -14,6 +14,7 @@ const approvedPhotoConfig = readFileSync(new URL("../config/approved-photos.json
 const modelAcceptanceConfig = readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8");
 const conditionRangesConfig = readFileSync(new URL("../config/condition-ranges.json", import.meta.url), "utf8");
 const weatherConfig = readFileSync(new URL("../config/weather.json", import.meta.url), "utf8");
+const arcModelsConfig = readFileSync(new URL("../config/arc-models.json", import.meta.url), "utf8");
 
 test("container build excludes local credentials and uses an explicit source allowlist", () => {
   for (const pattern of [
@@ -41,6 +42,8 @@ test("container build excludes local credentials and uses an explicit source all
   // The condition guard and weather fallback load these at startup.
   assert.ok(dockerignore.includes("!config/condition-ranges.json"));
   assert.ok(dockerignore.includes("!config/weather.json"));
+  // Every Gemini request reads its model and safety settings from this file.
+  assert.ok(dockerignore.includes("!config/arc-models.json"));
   assert.ok(!dockerignore.includes("!config/gcp-cloud-run.json"));
   assert.ok(!dockerignore.includes("!config/gcp-firestore.json"));
 
@@ -53,11 +56,12 @@ test("container build excludes local credentials and uses an explicit source all
     "COPY --chown=node:node sql ./sql",
     "COPY --chown=node:node assets ./assets",
     "COPY --chown=node:node config ./config",
+    "COPY --chown=node:node prompts ./prompts",
   ]);
 
   const looksSensitive =
     /-----BEGIN [A-Z ]*PRIVATE KEY-----|AIza[0-9A-Za-z_-]{20,}|ya29\.[0-9A-Za-z_-]+|AKIA[0-9A-Z]{16}/;
-  for (const configText of [storageConfig, vertexConfig, modelAcceptanceConfig, approvedPhotoConfig, conditionRangesConfig, weatherConfig]) {
+  for (const configText of [storageConfig, vertexConfig, modelAcceptanceConfig, approvedPhotoConfig, conditionRangesConfig, weatherConfig, arcModelsConfig]) {
     assert.equal(looksSensitive.test(configText), false,
       "A copied runtime manifest contains a credential-like value.");
   }
