@@ -2,6 +2,11 @@
 
 Source of truth: `docs/arc/design/source/` (HTML, CSS, tokens; byte-identical to `docs/Momentum_UI_Source.zip`) and the PNGs in `docs/arc/design/light` and `dark`. Built in the existing `web/` React and Vite app, with no new UI framework unless an ADR approves one. Founder decision Q7 (2026-11-23): every approved page ships. The gap lists are in `00-plan.md` section 6.
 
+Rules (founders, 2026-11-24):
+- The UI matches the approved screens exactly: layout, copy, states and both themes. No redesign and no extra elements.
+- Where a screen shows a function the backend does not have, the screen is still built as designed and shows the "not connected" state. The gap is listed in `00-plan.md` section 6 (U1 to U14) with the ticket that closes it.
+- Where the backend does something the approved screens do not show, nothing is added to the UI on our own. The gap is listed in `00-plan.md` section 6 (B1 to B11) for a founder decision: design it (D4) or leave it out. Keep both lists current as tickets land.
+
 UI work can start on 24 Nov against a typed API client and recorded responses, because the screens are fixed. It wires to the real routes as M2 and M3 land.
 
 ### ARC-M6-01 Tokens and theme (P0)
