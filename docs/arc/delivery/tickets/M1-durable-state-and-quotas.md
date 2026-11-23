@@ -174,3 +174,9 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - Depends on: M1-10, M6-03. Owner: frontend engineer and QA lead.
 - Test plan: the Playwright run with the mutation applied.
 
+### ARC-M1-27 Compare conditions, not clocks, when a plan finishes (P2)
+- Goal: `makeCurrent` decides that a PENDING revision is stale by checking that the lot head `updatedAt` is later than the revision `createdAt`. An edit in the same millisecond as registration is not caught (ARC-M1-10 QA).
+- AC: staleness is decided by comparing the conditions fingerprint of the head with the revision's, or by a head version counter, with no clock. A test covers an edit with an identical timestamp.
+- Depends on: M1-10. Owner: backend engineer.
+- Test plan: a store test with a frozen clock that fails on the old comparison.
+

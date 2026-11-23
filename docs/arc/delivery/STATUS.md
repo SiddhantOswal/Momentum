@@ -49,7 +49,7 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 - ARC-M6-01 (Codex, tokens and theme): QA ACCEPT WITH FIXES. Token values match the design (41 of 41 names, no value differences) and theme behaviour passes; the font files lack the arrow glyph and display type was Inter Tight against the PNGs' Inter. Fix list sent to Codex. Not merged.
 
-- ARC-M1-10 QA: MERGE WITH FIXES (22 of 25 mutations caught; concurrent approvals and approve-versus-edit races safe). One required fix: an edit during a PENDING revision left a stale draft approvable (breaks J8). With the engineer. Follow-ups opened: ARC-M1-25 (shared transaction loop), ARC-M1-26 (browser test of the approve body). Foreign-lot access stays 403 `DEMO_SCOPE_REQUIRED`, as for jobs.
+- ARC-M1-10 merged (`6b09301`): `lot_heads` and `lot_revisions` with transactions, `PUT /lots/:lotId/conditions`, `GET /lots/:lotId`, the approve guard behind `USTAAD_ENFORCE_APPROVE_GUARD` (409 `REVISION_SUPERSEDED`), `lotId` in the job identity (key prefix v3, one planned assertion change in `test/durable-job-idempotency.test.js`), and both clients sending `reviewConfirmed` and `revisionFingerprint`. QA MERGE after one repair round (a stale draft could be approved after an edit during planning; fixed and re-checked, mutations fail in milliseconds to 1 s). `npm test` on `arc/main`: 913 of 913. Live Firestore and Playwright NOT RUN. Follow-ups: ARC-M1-25 (shared transaction loop), ARC-M1-26 (browser test of the approve body), ARC-M1-27 (compare conditions, not clocks). Guard 7b stays off until ARC-M8-05. Foreign-lot access stays 403 `DEMO_SCOPE_REQUIRED`.
 
 ## In progress
 
