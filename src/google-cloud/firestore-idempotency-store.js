@@ -262,13 +262,16 @@ export function createFirestoreIdempotencyStore({
       const updateUrl = conditionalWriteUrl(
         getUrl,
         document.updateTime,
-        ["recordStatus", "completedAt"],
+        ["recordStatus", "completedAt", "updatedAt"],
       );
-      const completed = encodeRecord({ ...existing, recordStatus: "complete", completedAt });
+      const completed = encodeRecord({
+        ...existing, recordStatus: "complete", completedAt, updatedAt: isoAt(completedAt),
+      });
       const body = JSON.stringify({
         fields: {
           recordStatus: completed.recordStatus,
           completedAt: completed.completedAt,
+          updatedAt: completed.updatedAt,
         },
       });
       const updateResponse = await authorizedRequest(updateUrl, { method: "PATCH", body }, signal);

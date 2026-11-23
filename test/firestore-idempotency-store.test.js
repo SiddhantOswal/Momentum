@@ -13,7 +13,7 @@
  *   - claim: existing in_progress with expired lease → delete+create → claimed
  *   - claim: existing document with different fingerprint → conflict
  *   - claim: 409 race condition → re-read and determine status
- *   - complete: updates only recordStatus and completedAt fields
+ *   - complete: updates only recordStatus, completedAt and updatedAt
  *   - complete: non-owner token is a no-op
  *   - release: deletes document if owned
  *   - release: non-owner token is a no-op
@@ -293,7 +293,7 @@ test("FirestoreIdempotencyStore: 409 on create with complete re-read returns com
 // Section H: complete
 // ---------------------------------------------------------------------------
 
-test("FirestoreIdempotencyStore: complete sends PATCH with only status and completedAt fields", async () => {
+test("FirestoreIdempotencyStore: complete sends PATCH with only status, completedAt and updatedAt fields", async () => {
   const { fetchImpl, calls } = fakeSequence([
     { status: 200, body: JSON.parse(inProgressDoc()) },  // GET to verify ownership
     { status: 200, body: {} },                            // PATCH
@@ -308,10 +308,11 @@ test("FirestoreIdempotencyStore: complete sends PATCH with only status and compl
   assert.equal(calls[1].method, "PATCH");
   const patchUrl = new URL(calls[1].url);
   assert.equal(patchUrl.searchParams.get("currentDocument.updateTime"), "2026-10-14T12:00:00.000Z");
-  assert.deepEqual(patchUrl.searchParams.getAll("updateMask.fieldPaths"), ["recordStatus", "completedAt"]);
+  assert.deepEqual(patchUrl.searchParams.getAll("updateMask.fieldPaths"), ["recordStatus", "completedAt", "updatedAt"]);
   const patched = JSON.parse(calls[1].body);
   assert.equal(patched.fields.recordStatus.stringValue, "complete");
   assert.equal(patched.fields.completedAt.integerValue, String(NOW + 5_000));
+  assert.deepEqual(patched.fields.updatedAt, { timestampValue: new Date(NOW + 5_000).toISOString() });
   assert.equal(completed, true);
 });
 
