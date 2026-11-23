@@ -29,6 +29,7 @@ import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "./daily-ge
 import { createFirestoreGeminiAttemptStore } from "./google-cloud/firestore-gemini-attempt-store.js";
 import { budgetCapStore, createFirestoreBudgetStore } from "./google-cloud/firestore-budget-store.js";
 import { readGeminiBudgetConfig } from "./gemini-budget-config.js";
+import { createFirestoreLotStore } from "./google-cloud/firestore-lot-store.js";
 import { createFirestorePoReviewStore } from "./google-cloud/firestore-po-review-store.js";
 import { createFirestoreIdempotencyStore } from "./google-cloud/firestore-idempotency-store.js";
 import { createDefectDiagnosisService } from "./google-cloud/defect-diagnosis-service.js";
@@ -131,6 +132,7 @@ export function createServicePorts(adapters = {}) {
     diagnoseDefectPhoto: adapters.diagnoseDefectPhoto ?? unavailable("diagnoseDefectPhoto"),
     geminiUsage: adapters.geminiUsage ?? Object.freeze({ sharedCounterConfigured: false, liveConnectivityVerified: false }),
     jobIdempotency: adapters.jobIdempotency ?? Object.freeze({ durableRequested: false }),
+    lotRevisions: adapters.lotRevisions ?? Object.freeze({ enabled: false, enforceGuard: false, store: undefined }),
     extractOrder: adapters.extractOrder ?? unavailable("extractOrder"),
     extractOrderForReview: adapters.extractOrderForReview ?? unavailable("extractOrderForReview"),
     confirmPurchaseOrderReview: adapters.confirmPurchaseOrderReview ?? unavailable("confirmPurchaseOrderReview"),
@@ -519,6 +521,16 @@ export function createConfiguredServicePorts({
       store: projectId ? createFirestoreIdempotencyStore({
         projectId, collection: "idempotency", fetchImpl, tokenProvider,
       }) : undefined,
+    });
+  }
+  // 7a writes revisions; 7b enforces the approve guard. Both need the store, and neither falls back to memory.
+  const lotRevisionsEnabled = env.USTAAD_ENABLE_LOT_REVISIONS === "true";
+  const approveGuardEnforced = env.USTAAD_ENFORCE_APPROVE_GUARD === "true";
+  if (lotRevisionsEnabled || approveGuardEnforced) {
+    adapters.lotRevisions = Object.freeze({
+      enabled: lotRevisionsEnabled,
+      enforceGuard: approveGuardEnforced,
+      store: projectId ? createFirestoreLotStore({ projectId, fetchImpl, tokenProvider }) : undefined,
     });
   }
   if (projectId) {

@@ -1,4 +1,4 @@
-import { demoOwnsJob } from "../hackathon-demo-auth.js";
+import { demoOwnsJob, demoOwnsLot } from "../hackathon-demo-auth.js";
 import { canApprove } from "../user-session-auth.js";
 
 const READ_METHODS = ["GET", "HEAD"];
@@ -50,6 +50,10 @@ export async function authorizeSupervisor({
     const jobMatch = /^\/jobs\/([^/]+)/.exec(path);
     if (jobMatch && !demoOwnsJob(result.principal, jobId ?? jobMatch[1])) {
       return rejection(403, "DEMO_SCOPE_REQUIRED", "This record does not belong to this demo session.");
+    }
+    const lotMatch = /^\/lots\/([^/]+)/.exec(path);
+    if (lotMatch && !demoOwnsLot(result.principal, lotMatch[1])) {
+      return rejection(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
     }
     if (path.startsWith("/api/runs/") && traceOwnerLookup) {
       let owner;
