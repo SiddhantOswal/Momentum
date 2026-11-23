@@ -621,14 +621,15 @@ The founders signed the eval thresholds in `00-plan.md` section 5.3 with the pla
 
 ### 9.2 Gates where PO prompt-injection evals run (Q5)
 
-The tech lead's plan (`00-plan.md`) does not exist yet, so the milestone numbers below are proposed and the tech lead confirms them.
+This list matches `00-plan.md` sections 5.1 and 5.3.
 
-1. **M1 gate**: the first build in which Arc reads a PO through the Arc turn command.
-2. **M2 gate**: J1 complete end to end, including approval, the PDF check and durable review state.
-3. **M3 gate**: the release candidate for the pitch, run on the frozen build.
-4. **Any gate after a change** to the extraction prompt, Arc's system prompt, Arc's tool list or the Gemini model version.
+1. **Every push**: the offline `po-injection` cases run in CI.
+2. **M3 gate** (new lot in Arc): the first live run, once Arc reads a PO and plans a lot.
+3. **M7 gate** (evals and hardening): live run on the hardened build.
+4. **M8 gate** (release candidate): live run on the frozen build.
+5. **Any other gate after a change** to a prompt (the extraction prompt, Arc's router or writer prompts, the explanation prompt), the tool list or the Gemini model or its version.
 
-The photo injection set (AC6.7) runs at the same gates from the first gate that includes uploads. Because live intake rejects every non-allowlisted file, these evals run on a local or non-production instance with real Gemini on Vertex AI, and the report is labelled "eval run, not the live service". The attempts they spend are recorded; if they share the live Firestore counter, they are not scheduled on 3 or 4 December.
+The photo injection set (AC6.7) runs at the same gates from the first gate that includes uploads. Because live intake rejects every non-allowlisted file, the live runs use a local or non-production instance with real Gemini on Vertex AI and the separate eval counter (A4), and the report is labelled "eval run, not the live service". The attempts they spend are recorded, and none is scheduled on 3 or 4 December.
 
 ## 10. Founder answers to Q7 to Q11
 
