@@ -59,11 +59,12 @@ No baselines have been measured. The founders signed the eval thresholds behind 
 
 **Figures already in the repo that Arc may show.**
 
-- **PKBX0041: 100.4 kg / ₹5,351 baseline, 83.0 kg / ₹4,426 recommended, 17.4 kg and ₹925 lower.**
-  - Source: README "Verified reference case" and the verified-test comment in `sql/optimize.sql`, dated 2026-10-15.
-  - Label: model estimate for one evaluated case, not a measured saving.
-  - Inputs used: RH 86%, temperature 26 °C, paper moisture 10.8%.
-  - Caveat: the figure was produced with the old `m_*` models. The app now uses the `m2_*` models (D4-2026-11-20-OM), and the case has not been re-run on them. It must be re-run before Arc shows it (see section 8).
+- **PKBX0041, re-run on the `m2_*` models: scrap 62.9 kg entered plan to 55.1 kg recommended, a model-estimated reduction of 7.8 kg and ₹421.**
+  - Source: `docs/arc/delivery/data/PKBX0041-m2-rerun.md`, "Final reference"; job `arc_pkbx0041_m2_t19_rh420_t185_20261122T212952Z`.
+  - Inputs used: paper moisture 7.3%, RH 42.0%, temperature 18.5 °C.
+  - Label: model estimate on the `m2_*` models for one evaluated case, not a measured saving.
+  - Status: awaiting Om's sign-off (`00-plan.md` D1). Arc does not show it until he signs off.
+  - The earlier figure (100.4 to 83.0 kg, ₹925, at 10.8% moisture, RH 86% and 26 °C, 2026-10-15) came from the old `m_*` models and is superseded (see section 8).
 - **September 2026 holdout, 219 lots.**
   - Model estimate: scrap cost reduction ₹7,934 net, 149 kg less board, scrap rate 7.06% to 6.36%, 3 lots made worse.
   - Source: `docs/evidence/impact-v2.json`.
