@@ -47,6 +47,7 @@ import { planLot } from "./src/commands/plan-lot.js";
 import { getJob } from "./src/commands/get-job.js";
 import { approveJob } from "./src/commands/approve-job.js";
 import { getCard } from "./src/commands/get-card.js";
+import { createWeatherCache, readWeather } from "./src/commands/read-weather.js";
 import {
   firebaseWebClientConfig,
   initializeFirebaseSupervisorAuthenticator,
@@ -238,6 +239,8 @@ const commandDeps = Object.freeze({
   newCorrelationId: randomUUID,
   now: Date.now,
   log: (line) => console.info(line),
+  weatherProvider: createWeatherProviderFromEnv(process.env),
+  weatherCache: createWeatherCache(),
   purchaseOrderPolicy: Object.freeze({
     acceptRealOrders: Boolean(userSessionAuth?.configured) && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true",
     extractionAdapterConfigured: servicePorts.availability.extractOrderForReview === true,
@@ -898,18 +901,10 @@ app.post("/evidence/diagnose-photo", async (c) => {
   return responseForResult(c, { ...result, ...(rawRh === undefined ? {} : { ambientRhPct: rawRh }), ...(pastCases?.ok ? { pastCases } : {}) });
 });
 
-// Live Pune weather from the Google Weather API, cached for 10 minutes so many open screens
-// cost at most six calls an hour. Disabled unless WEATHER_API_KEY is set.
-const weatherProvider = createWeatherProviderFromEnv(process.env);
-let weatherCache;
 app.get("/conditions/weather", async (c) => {
-  if (!weatherProvider) return c.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Live weather is not configured." } }, 503);
-  if (!weatherCache || Date.now() - weatherCache.at > 10 * 60 * 1000) {
-    const reading = await weatherProvider({ signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY) }).catch(() => undefined);
-    if (reading?.ok) weatherCache = { at: Date.now(), reading };
-    else if (!weatherCache) return c.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Live weather is unavailable right now." } }, 503);
-  }
-  return c.json({ ...weatherCache.reading, location: "Pune" }, 200, { "Cache-Control": "no-store" });
+  const result = await readWeather({}, commandContext(c));
+  if (!result.ok) return commandResponse(c, result);
+  return c.json(result, 200, { "Cache-Control": "no-store" });
 });
 
 // Live floor view: the latest lots and events, now and on every change, as server-sent events.
