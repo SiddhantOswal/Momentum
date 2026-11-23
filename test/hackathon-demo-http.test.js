@@ -1,20 +1,16 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { once } from "node:events";
 import test from "node:test";
+import { startIndexServer } from "./helpers/server.js";
 
 test("HTTP hackathon sessions enforce origin, record ownership, model acceptance and mock isolation without Firebase", async () => {
-  const port = 4198;
+  // No cloud credentials/adapters. Real HTTP and signed session cookies; provider calls absent.
+  const { child, port } = await startIndexServer({ PATH: process.env.PATH, K_SERVICE: "prepagent", PROJECT_ID: "prepagent-hack",
+      USTAAD_AUTHORIZATION_MODE: "HACKATHON_DEMO", USTAAD_DEMO_SESSION_SIGNING_KEY: "a".repeat(64),
+      USTAAD_ENABLE_APPROVAL_AUDIT: "true", USTAAD_SYNTHETIC_ONLY: "true", USTAAD_ENABLE_DEMO_MODE: "true" });
   const origin = `http://127.0.0.1:${port}`;
   const requestOrigin = origin.replace("http:", "https:"); // Cloud Run TLS termination emulation.
-  // No cloud credentials/adapters. Real HTTP and signed session cookies; provider calls absent.
-  const child = spawn(process.execPath, ["index.mjs"], { cwd: new URL("..", import.meta.url),
-    env: { PATH: process.env.PATH, PORT: String(port), K_SERVICE: "prepagent", PROJECT_ID: "prepagent-hack",
-      USTAAD_AUTHORIZATION_MODE: "HACKATHON_DEMO", USTAAD_DEMO_SESSION_SIGNING_KEY: "a".repeat(64),
-      USTAAD_ENABLE_APPROVAL_AUDIT: "true", USTAAD_SYNTHETIC_ONLY: "true", USTAAD_ENABLE_DEMO_MODE: "true" },
-    stdio: ["ignore", "pipe", "pipe"] });
   try {
-    await Promise.race([once(child.stdout, "data"), once(child, "exit").then(() => { throw new Error("Backend exited"); }), new Promise((_, reject) => setTimeout(() => reject(new Error("Startup timeout")), 5000).unref())]);
     const config = await (await fetch(origin + "/api/auth/config")).json();
     assert.equal(config.authorizationMode, "HACKATHON_DEMO");
     assert.equal(config.enabled, false); assert.equal(config.demoSessionConfigured, true);
