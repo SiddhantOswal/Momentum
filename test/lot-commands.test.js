@@ -102,6 +102,8 @@ test("every guard branch of the conditions command refuses before writing", asyn
     ["unknown field", { lotId, body: { conditions: [typed("speed", 8)] } }, deps, 400, "VALIDATION_ERROR"],
     ["duplicate field", { lotId, body: { conditions: [typed("paperMoisturePct", 8), typed("paperMoisturePct", 9)] } }, deps, 400, "VALIDATION_ERROR"],
     ["weather source", { lotId, body: { conditions: [{ field: "ambientRhPct", value: 60, source: "weather" }] } }, deps, 400, "VALIDATION_ERROR"],
+    ["weather record as a source", { lotId, body: { conditions: [{ field: "ambientRhPct", value: 60, source: "public_weather_record" }] } }, deps, 400, "VALIDATION_ERROR"],
+    ["weather record as a provenance", { lotId, body: { conditions: [{ field: "ambientRhPct", value: 60, source: "typed", provenance: "public_weather_record", observationId: "7d1f5f0e-6c1d-4c53-9d9e-0a0a0a0a0a0a" }] } }, deps, 400, "VALIDATION_ERROR"],
     ["client-supplied label", { lotId, body: { conditions: [{ ...typed("paperMoisturePct", 8), label: "From dataset" }] } }, deps, 400, "VALIDATION_ERROR"],
     ["text for a number", { lotId, body: { conditions: [typed("paperMoisturePct", "8")] } }, deps, 400, "VALIDATION_ERROR"],
     ["humidity over 100", { lotId, body: { conditions: [typed("ambientRhPct", 101)] } }, deps, 400, "VALIDATION_ERROR"],
