@@ -1,10 +1,12 @@
 # 01. Business requirements: Arc by Momentum
 
-Status: draft for founder review. Author role: business analyst. Date: 2026-11-22. Branch: `arc/m0-discovery`.
+Status: approved by the founders with the plan on 2026-11-23. Still open: every baseline in section 4 is NOT MEASURED, and the O2 time target is set after the first measured run; Om's sign-offs on the PKBX0041 re-run, the 7.3% example and the weather stand-in (`00-plan.md` D1); and the disagreements in section 8, each with its owner. Author role: business analyst. Date: 2026-11-22. Branch: `arc/m0-discovery`.
 
 Each statement names its source. "Assumption" marks anything not yet backed by evidence, and each one needs a founder decision (section 7). No targets in this document have been measured yet.
 
 Amended 2026-11-23 for ticket ARC-M0-06 (product manager): O10 and constraint C8 follow founder decisions A3 and A6 and the raised cap on `momentum`. Q1 to Q6 in section 7 were answered on 2026-11-22; the answers are in `02-product-spec.md` section 9.
+
+Amended 2026-11-23 for the M0 gate repair (`reviews/M0-review.md`): C9 and R2 follow the live `momentum-00023-yaz` limits; section 4 records the signed thresholds (A5) and labels the holdout figure as a model estimate; section 2 no longer describes the live auth settings.
 
 ## 1. Business need
 
@@ -25,11 +27,11 @@ Amended 2026-11-23 for ticket ARC-M0-06 (product manager): O10 and constraint C8
 | Supervisor | Real user | Review the draft, tick the check, approve; know that a changed input voids the revision | `Arc-Lot-Approve.png`, `Arc-Lot-Replaced.png`; only managers and supervisors may approve once Google sign-in is on (`index.mjs` `/jobs/:id/approve`) |
 | Competition judges | Pitch audience, not users | See the whole route in under the pitch time, with honest labels | Pitch on 4 December 2026 (CLAUDE.md) |
 
-Today no named plant user signs in. The live service runs in `HACKATHON_DEMO` mode with Firebase auth off (live Cloud Run env read on 2026-11-22). Any participant can approve, and the audit records `authenticatedHuman: false` (`src/hackathon-demo-auth.js`, `src/approval-authorization.js`). Demo results must not be presented as plant-user results.
+Approvals are demo-session approvals, labelled as simulated; no named plant user signs in yet. The audit record marks each one as a demo-session approval (`src/approval-authorization.js`). Demo results must not be presented as plant-user results.
 
-## 3. Today, Arc, roadmap
+## 3. Today, with Arc, and later
 
-| Capability | Momentum today | Arc (this delivery) | Roadmap (not in scope) |
+| Capability | Momentum today | With Arc (this delivery) | Later (not in scope) |
 |---|---|---|---|
 | Read a PO | Five approved fixtures only (`src/synthetic-po-allowlist.js`; live `USTAAD_SYNTHETIC_ONLY=true`) | Same five fixtures, through chat | Real customer POs after Google sign-in (`USTAAD_ACCEPT_REAL_ORDERS`) |
 | Conditions | Operator entry; humidity and temperature fall back to weather, then the seasonal median (`src/condition-guard.js`) | Arc fills what it can and asks for the rest; sources labelled | Plant sensor feed |
@@ -40,7 +42,7 @@ Today no named plant user signs in. The live service runs in `HACKATHON_DEMO` mo
 
 ## 4. Measurable outcomes
 
-No baselines have been measured. Every target below is a proposal (an assumption) until the founders approve it.
+No baselines have been measured. The founders signed the eval thresholds behind O4 to O9 on 2026-11-23 (A5, `00-plan.md` section 5.3). The O1, O2, O3 and O10 targets were approved with the plan on the same day. The pass lines are listed in `02-product-spec.md` section 9.1.
 
 | ID | Outcome | Proposed target | Baseline | How it is measured | Awards |
 |---|---|---|---|---|---|
@@ -48,10 +50,10 @@ No baselines have been measured. Every target below is a proposal (an assumption
 | O2 | Elapsed time to an approved job card | Arc no slower than the manual route; target to be set after the first measured run | Baseline NOT MEASURED | Same scripted runs, timed 5 times per route on the live service; report the median and range | UI/UX, Impact |
 | O3 | Same outcome on both routes | 100% match on item, quantity, conditions, proposed settings, scrap estimate and PDF content for PO1 to PO5 | NOT MEASURED | Parity test: run each fixture through both routes and compare the stored JobSheet field by field | Overall, Gen AI usage |
 | O4 | Approval bypass | 0 approvals without the user's checkbox and Approve press | NOT MEASURED | Eval suite of bypass prompts, plus an API test that Arc's tool list contains no approve command | Gen AI usage, Sustainability and social impact |
-| O5 | Off-topic refusal accuracy | Founders to set a threshold; analyst proposes 95% or higher | NOT MEASURED | Labelled eval set of in-scope and off-topic questions; report precision and recall | Gen AI usage |
+| O5 | Off-topic refusal accuracy | Precision and recall at least 95% each (signed, A5) | NOT MEASURED | Labelled eval set of in-scope and off-topic questions; report precision and recall | Gen AI usage |
 | O6 | Insufficient-data answers name what is missing | 100% of no-data cases name the missing data | NOT MEASURED | Eval set built from questions about data that does not exist (for example, measured scrap) | Gen AI usage, Impact |
 | O7 | Numeric fidelity | 100% of numbers Arc shows trace to a backend response or stored record | NOT MEASURED | Eval checks each number in Arc's output against the tool result of the same turn | Overall, Gen AI usage |
-| O8 | Provenance labels | 100% of shown values carry the correct label (model estimate, example, modelled, simulated, weather, operator-entered) | NOT MEASURED | Eval plus a copy review against the label list in CLAUDE.md section 3 | Sustainability and social impact, UI/UX |
+| O8 | Provenance labels | 100% of shown values carry the correct label (model estimate, example, modeled, simulated, weather, operator-entered) | NOT MEASURED | Eval plus a copy review against the label list in CLAUDE.md section 3 | Sustainability and social impact, UI/UX |
 | O9 | Prompt injection in PO content | 0 capability changes or actions triggered by PO text | NOT MEASURED | Injected PO variants. These cannot use the five allowlisted fixtures, so they run offline or in a test mode (see Q5) | Gen AI usage |
 | O10 | Gemini attempts per Arc lot and per Arc turn | A button-only J1 lot uses at most 3 attempts. Each typed message adds 1 attempt (router). A typed data question that returns data uses 2 (router plus answer writer, founder decision A3). A picked suggestion chip or button uses 0 and keeps its template answer (founder decision A6). An "insufficient data" answer or an off-topic refusal skips the writer, so it uses 1 when typed. A full rehearsal plus the pitch must fit inside the daily cap (C8) | NOT MEASURED. Today one lot uses at least one extraction call and one explanation call, plus one retry if the explanation fails (commit `91c9b09`). Estimates, not measurements, from `05-ai-design.md` section 3: 2 attempts (about $0.035) for a button-only lot, 3 with an explanation retry, 6 (about $0.049) with 2 typed condition entries and 1 typed data question. ARC-M2-08 measures them | Count Firestore counter deltas per scripted Arc run and per turn kind (button, typed message, typed data question) | Overall (demo reliability) |
 
@@ -63,9 +65,9 @@ No baselines have been measured. Every target below is a proposal (an assumption
   - Inputs used: RH 86%, temperature 26 °C, paper moisture 10.8%.
   - Caveat: the figure was produced with the old `m_*` models. The app now uses the `m2_*` models (D4-2026-11-20-OM), and the case has not been re-run on them. It must be re-run before Arc shows it (see section 8).
 - **September 2026 holdout, 219 lots.**
-  - Net saving ₹7,934, board saved 149 kg, scrap rate 7.06% to 6.36%, 3 lots made worse.
+  - Model estimate: scrap cost reduction ₹7,934 net, 149 kg less board, scrap rate 7.06% to 6.36%, 3 lots made worse.
   - Source: `docs/evidence/impact-v2.json`.
-  - Label: predicted on one held-out month, scored with the plant rules on modelled history. Not annualised and not measured.
+  - Label: predicted on one held-out month, scored with the plant rules on modeled history. Not annualised and not measured.
 - **Model R² on the September holdout:** WARP 0.468, DELAM 0.519, STRENGTH 0.388, PRINT 0.640, CRACK 0.108.
   - Source: `config/model-acceptance.json`, README.
   - The October thresholds are kept for reference only and are not claimed.
@@ -86,7 +88,7 @@ No baselines have been measured. Every target below is a proposal (an assumption
 | C6 | Live PO intake accepts only the five allowlisted fixtures, each up to 10 MiB. | `src/synthetic-po-allowlist.js`; `index.mjs`; live env `USTAAD_SYNTHETIC_ONLY=true` |
 | C7 | Voice is disabled in code until a voice backend exists. | CLAUDE.md section 4 |
 | C8 | The Gemini cap is a number of attempted calls per Asia/Kolkata day, shared through Firestore: 300 on `momentum` since 2026-11-22, 100 on `prepagent`. Failed attempts count, and the cap covers extraction, explanation, photo diagnosis, every typed Arc turn and the answer writer. | `src/daily-gemini-call-cap.js`; `changes/2026-11-22-momentum-limits.md`; STATUS decision log |
-| C9 | Cloud Run is limited to 2 instances at concurrency 20. PO review state lives in each instance's memory and expires after 30 minutes. | Live service read 2026-11-22; `src/purchase-order-review.js` |
+| C9 | The live `momentum` revision `momentum-00023-yaz` runs up to 4 instances at concurrency 20, with session affinity on. PO review state lives in each instance's memory and expires after 30 minutes. Affinity is best-effort, so a review can still land on another instance and be lost; durable review state is still needed (spec S13). | `changes/2026-11-22-momentum-limits.md`; `src/purchase-order-review.js` |
 | C10 | Per-IP rate limit of 60 requests per minute; 60-second request timeout. | `src/request-guardrails.js` |
 | C11 | The ₹5,000 budget alert is an alert, not a spending cap. | README; `ops/billing/` |
 | C12 | The repository is public. Nothing from `docs/arc/reference/` is read, quoted or committed; the folder is now in `.gitignore`. | CLAUDE.md section 7; founder decision 2026-11-22 |
@@ -99,29 +101,29 @@ No baselines have been measured. Every target below is a proposal (an assumption
 |---|---|---|
 | Overall winner | One honest route from PO to checked PDF, matching the manual route (O1, O3, O7) | The manual dashboard keeps working unchanged |
 | UI/UX | Fewer actions and page changes (O1, O2); the approved Arc designs, including the phone layout | Labels stay visible; speed must not hide provenance |
-| Impact | Shorter preparation for small plants; modelled scrap and board reduction shown with labels | No measured-savings claims; modelled stays modelled |
+| Impact | Shorter preparation for small plants; modeled scrap and board reduction shown with labels | No measured-savings claims; modeled stays modeled |
 | Gen AI usage | Gemini reads orders, routes intent, explains and answers; evals cover grounding, refusals, injection and bypass (O4 to O9) | Gemini only; no model-made numbers |
-| Sustainability and social impact | Less board scrapped (modelled); a human keeps the decision; honest "insufficient data" answers | The approval stays human; nothing touches a machine |
+| Sustainability and social impact | Less board scrapped (modeled); a human keeps the decision; honest "insufficient data" answers | The approval stays human; nothing touches a machine |
 
 ## 7. Assumptions, risks and open questions
 
 **Assumptions (each needs a decision)**
 
-- A1. The O1 to O10 targets above are the analyst's proposals.
+- A1. The O1 to O10 targets above started as the analyst's proposals. They are now approved (section 4); their baselines are still NOT MEASURED.
 - A2. PO1 (PKBX0041 × 1,300) is the measurement fixture for O1 and O2.
 - A3. Arc's added Gemini calls fit inside the daily cap. The cap on `momentum` was raised from 100 to 300 on 2026-11-22 because Arc needs more calls (C8). This assumption is separate from founder decision A3 on written answers.
 
 **Risks**
 
 - R1. **Gemini cap exhaustion on pitch day.** Rehearsals and the live pitch share one daily cap. The counter resets at midnight IST, which is 02:30 in Singapore.
-- R2. **Instance-local review state.** A PO review on one of the two instances can be lost if Arc's next call lands on the other instance (README, "Product boundaries").
+- R2. **Instance-local review state.** A PO review held on one instance can be lost if Arc's next call lands on another one. Session affinity on `momentum-00023-yaz` makes this less likely but does not prevent it (C9; README, "Product boundaries").
 - R3. **Stale figures in the designs** (section 8). Showing them would breach CLAUDE.md section 3.
 - R4. **No revision model in the backend.** The designs rely on "Rev 1" and "replaced revision", but the backend has no revision record (no revision field in `src/`).
 
 **Open questions for the founders**
 
 - Q1. Weather fallback: the code already uses the Maps Platform Weather API for "Pune plant" (`config/weather.json`), but CLAUDE.md section 6 requires Om to confirm the plant location first. Does Om confirm Pune? If not, should Arc turn the weather fallback off and use only the seasonal median? Recommendation: ask Om to confirm Pune and label weather values as above.
-- Q2. Who signs off the O1 to O10 thresholds, especially refusal accuracy (O5)? Recommendation: the founders, at the product-spec gate.
+- Q2. Who signs off the O1 to O10 thresholds, especially refusal accuracy (O5)? Recommendation: the founders, at the product-spec gate. Answered: the founders signed the eval thresholds on 2026-11-23 (A5).
 - Q3. Should the paper-moisture "example value" (7.3%) be pre-filled in Arc? The code treats moisture as a required, measured input. Recommendation: show it as a labelled example that the operator must confirm or replace, as the design does, and never confirm it automatically.
 - Q4. Defect photos: should Arc follow the design (ten approved photos only) or the v2 backend (any uploaded photo)? Recommendation: the ten approved photos for the pitch.
 - Q5. Where do prompt-injection evals for POs run, given that live intake rejects every non-allowlisted file? Recommendation: offline or local mode with mock extraction, labelled as such.
