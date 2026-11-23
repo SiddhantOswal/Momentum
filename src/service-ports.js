@@ -66,11 +66,12 @@ const requirements = {
 // Keep its 80 MiB ceiling isolated from the general read client's 50 MiB cap.
 const RISK_PREDICTION_MAX_BYTES_BILLED = 80 * 1024 * 1024;
 
-// The canonical optimizer's two ASSERT jobs and SELECT are billed separately.
-// Keep the historical ceiling until the owner approves the proposed 100 MiB
-// retry. An invalid/unreviewed value disables only the optimizer adapter.
+// The canonical optimizer's two ASSERT jobs and SELECT are billed separately,
+// 90 MiB in total for the recorded PKBX0041 run, so 80 MiB cannot cover one run.
+// An invalid/unreviewed value disables only the optimizer adapter.
+const OPTIMIZER_DEFAULT_MAX_BYTES_BILLED = 100 * 1024 * 1024;
 export function readOptimizerQueryBudget(env = process.env) {
-  const raw = env.USTAAD_OPTIMIZER_MAX_BYTES_BILLED ?? String(RISK_PREDICTION_MAX_BYTES_BILLED);
+  const raw = env.USTAAD_OPTIMIZER_MAX_BYTES_BILLED ?? String(OPTIMIZER_DEFAULT_MAX_BYTES_BILLED);
   return [String(80 * 1024 * 1024), String(100 * 1024 * 1024)].includes(raw)
     ? Number(raw) : undefined;
 }
