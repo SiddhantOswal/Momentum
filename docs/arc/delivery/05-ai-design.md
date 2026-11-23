@@ -95,7 +95,7 @@ Route: `POST /api/arc/turns`, behind `requireSupervisor`, the per-IP limit and a
 
 A typed data question costs 2 attempts: the router call in step 4d and the writer call in step 8. A typed message that is not a data question, including job-card retrieval (J10) and every refusal, costs 1. Spec O10 already reads this way (ARC-M0-06).
 
-Limits, all in `config/arc.json`, versioned: model calls per turn 2 (router, then the answer writer for a typed data question); the writer has no tools, so it cannot start a loop; function calls per router response 3; tool steps per turn 4; tool result 256 KiB (from `gemini-function-runner.js`); history sent to the router: the last 4 turn summaries, never raw tool output.
+Limits, all in `config/arc.json`, versioned: model calls per turn 2 (router, then the answer writer for a typed data question); the writer has no tools, so it cannot start a loop; function calls per router response 3; tool steps per turn 4, of which at most one may call Gemini (`read_order`, `plan_lot`, `diagnose_approved_photo`; a second is offered as a button), so a typed turn spends at most 3 attempts; tool result 256 KiB (from `gemini-function-runner.js`); history sent to the router: the last 4 turn summaries, never raw tool output.
 
 `src/google-cloud/gemini-function-runner.js` is not reused as is: it requires the seven Blueprint tools in `AGENT_TOOLS` and allows 8 model rounds. Its call validation and result-size guard move into `src/arc/turn-runner.js`; a ticket decides whether the old runner is then deleted.
 
@@ -134,7 +134,19 @@ Facts as given on 2026-11-22: `gemini-3.5-flash` and `gemini-3.5-flash-lite` are
 | Answer writer (flash) | about 2,000: system prompt 500, question 50, writer fields from the tool results 1,500 | about 550: 150 of text, 400 of thinking | $0.0087; $0.0236 at the 2,048 limit | Prompt not written yet; budget, not a measurement |
 | Answer writer (flash-lite, alternative) | about 2,000 | about 550 | $0.0022 | Same |
 
-A typed data question therefore costs about $0.0105 and 2 attempts (router plus writer), and at most about $0.027 if both calls reach their output limits. A typed condition entry or a refusal stays at 1 attempt, $0.0018.
+**Per turn (closes `G_turn` in `04` section 5.2; ADR-0008).** Estimates, not measurements; M2 replaces them (ARC-M2-08).
+
+| Turn | Attempts | Input / output tokens | Estimated cost |
+|---|---|---|---|
+| Button, chip, suggested question, or approval phrase caught by the rule | 0 | 0 | $0 |
+| Typed message that is not a data question: condition entry, refusal, clarification, job-card retrieval (J10) | 1 | about 3,000 / 300 | $0.0018 on flash-lite; $0.0079 on the flash fallback |
+| Typed data question (router, then writer) | 2 | about 5,000 / 850 | $0.0105; about $0.027 if both calls reach their output limits; $0.0040 with the flash-lite writer |
+| Typed "read PO1" (router, then extraction) | 2 | about 4,000 / 1,300 | $0.0134 |
+| Typed "plan it" (router, then `plan_lot` with 1 or 2 explanation attempts) | 2 or 3 | about 4,700 / 2,400, plus 1,700 / 2,100 for the retry | $0.025, or $0.049 with the retry |
+
+Against the ADR-0004 limits proposed in `04` section 5.2 (decision F2), 6 attempts a minute per session allow 3 typed data questions a minute, and 40 a day per session allow 20 typed data questions with no lot planned.
+
+**Vertex AI per-minute quota.** The project's per-minute request quota for `gemini-3.5-flash` and `gemini-3.5-flash-lite` in `asia-south1` has not been read: NOT RUN. ARC-M1-14 reads it from the quota page for `prepagent-hack`, records the value and the date, and compares it with the budget's 20 attempts a minute and with the rate of a live eval run. Until then, a 429 from Vertex AI under load is possible and maps to `VERTEX_GENERATION_FAILED` (section 6).
 
 **Per J1 lot (PO1).**
 
@@ -153,7 +165,7 @@ The daily attempt cap bounds spend: 300 attempts on `momentum` at the worst sing
 
 **To measure in M2** (from `usageMetadata`, which `vertex-gemini-client.js` already reports, and from step timings in the task-run record): input, output and thinking tokens per role; p50 and p95 latency per role and for `plan_lot`; attempts per J1 run (AC1.10, O10); router accuracy on flash-lite against flash on the `off-topic` and `scope-refusal` sets; the answer writer's fallback rate and the reason for each fallback. Each result is labelled "eval run, not the live service".
 
-Settings for every request, versioned in `config/arc-models.json` and `prompts/` (RAI-5): model ID, region, temperature 0, output limit, thinking setting, `systemInstruction`, explicit `safetySettings` for the four harm categories at `BLOCK_MEDIUM_AND_ABOVE`, and for the router `functionCallingConfig` mode `ANY` with `allowedFunctionNames` set per state. The client today sends none of `systemInstruction`, `safetySettings` or thinking settings, and hard-codes mode `AUTO`. The field names must be checked against the Vertex AI reference in the M1 ticket; they were not fetched in M0. The extraction, explanation and photo prompts are string constants in code today; a ticket moves them to `prompts/` with a version that each stored result records.
+Settings for every request, versioned in `config/arc-models.json` and `prompts/` (RAI-5): model ID, region, temperature 0, output limit, thinking setting, `systemInstruction`, explicit `safetySettings` for the four harm categories at `BLOCK_MEDIUM_AND_ABOVE` with `method: PROBABILITY` (RAI-5), and for the router `functionCallingConfig` mode `ANY` with `allowedFunctionNames` set per state. The client today sends none of `systemInstruction`, `safetySettings` or thinking settings, and hard-codes mode `AUTO`. The field names and the default threshold for these models must be checked against the Vertex AI reference and recorded in `data/vertex-safety-reference.md` (ARC-M1-15) before ARC-M1-14 is built; they were not fetched in M0. The default may be OFF, so until ARC-M1-14 ships every call may run with no safety filter. The extraction, explanation and photo prompts are string constants in code today; a ticket moves them to `prompts/` with a version that each stored result records.
 
 ## 4. Grounded answers
 
@@ -172,13 +184,29 @@ Details in ADR-0009.
 
 Details in ADR-0010. A later step can only make the outcome stricter (ADR-0001 item 3).
 
-1. **Transport.** Session, same-origin, rate limit, size limits (existing, `index.mjs:159-246`).
-2. **Deterministic scope rules.** NFKC normalisation; buttons and exact suggestion text; an approval phrase rule ("approve", "tick", "sign off", and the equivalents in each supported locale, listed in a versioned file) returns the approval card again with "Arc cannot approve. Tick the box and press Approve job card." (G11) and spends no attempt.
+1. **Transport.** Session from the signed cookie, same-origin, rate limit, size limits (existing, `index.mjs:159-246`).
+2. **Deterministic scope rules.** NFKC normalisation; buttons and exact suggestion text; an approval phrase rule (requests such as "approve it", "tick the box", "sign off", and the equivalents in each supported locale, listed in a versioned file) returns the approval card again with "Arc cannot approve. Tick the box and press Approve job card." (G11) and spends no attempt. The rule matches requests to approve, not questions about approval: "Is PKBX0041 approved?" goes to the router. The `approval-bypass` controls test both sides.
 3. **Budget.** ADR-0004 budget check before any model call. A refusal shows the cap state (G2) and keeps every button path that needs no model working.
 4. **Router and scope classifier.** One Gemini call with the allowed functions for the current state. Off-topic goes to `reply_out_of_scope`; mixed messages produce one in-scope call and one refusal (AC5.4).
-5. **Untrusted content.** PO, photo and document content never enters the router's context. The router sees only schema-validated extracted fields, rendered as data. An injection tripwire (regex over extracted strings and photo `visibleSigns`) logs `arc_injection_tripwire` with field name and pattern ID only. It does not change behaviour, so injected text cannot block a lot either.
-6. **Output validation.** zod on every function call and every structured response. A `finishReason` of `SAFETY` or a `promptFeedback.blockReason` becomes a refusal, never an answer (RAI-5).
-7. **Answer checks.** On the writer's text: zod (1 to 3 sentences, no markup), numeric fidelity, tools-only IDs, and wording rules reused from `risk-evidence-service.js` (no causal claims, no "measured", "actual" or "saved" for modeled values, no pass or fail verdict on model scores). Any failure, a safety block, a truncated response or a writer error shows the template rendering and logs `arc_answer_fallback` with the reason code only. There is no retry call. The template itself passes the same numeric and ID checks; if it fails, Arc shows "Arc could not check this answer against its sources."
+5. **Untrusted content.** Document text and image content never enter the router's context: no PO page, no image, and no string the extraction or photo call produced. From an extraction result the router sees only these fields, each validated by `src/schemas.js` and sent as data:
+   - enums: `orderProfile.boxStyle`, `fluteProfile`, `paperType`, `ply`; per line `status`, `catalogStatus`, `validationIssues`; `missingFields`, `documentMissingFields`;
+   - booleans: `needsClarification`, `lineSelectionRequired`;
+   - numbers: `orderProfile.lengthMm`, `widthMm`, `heightMm`, `topLinerGsm`, `fluteGsm`, `innerLinerGsm`, `linerBf`, `inkColors`, `inkCoveragePct`, `quantity`; per line `lineIndex`, `sourcePage`, `quantity`, `confirmedQuantity`; `selectedLineIndex`;
+   - IDs: `orderProfile.itemCode`, `resolvedItemCode`, `confirmedItemCode` and `candidates`, each only when it equals an item code in the 117-item catalog; the sample ID (`PO1` to `PO5`).
+
+   Never sent to the router: `orderId`, `customerId`, `paperSupplier`, `extractedItemCode`, `purchaseOrderDocument` (`poNumber`, `buyer`, `deliveryDate`), `sourceDocumentUri` and any field not in the list. From a photo diagnosis the router sees the defect label (one of the five), the confidence number and the photo ID, never `visibleSigns` or other text. A field added to the extraction schema stays out until this list names it. An injection tripwire (regex over extracted strings and photo `visibleSigns`) logs `arc_injection_tripwire` with field name and pattern ID only. It does not change behaviour, so injected text cannot block a lot either.
+6. **Output validation and safety blocks.** zod on every function call and every structured response. A `finishReason` of `SAFETY` or a `promptFeedback.blockReason` is never shown as an answer (RAI-5). It maps to `VERTEX_SAFETY_BLOCKED`, and each path has its own message (copy proposals for G2):
+
+   | Path | What Arc does | On screen |
+   |---|---|---|
+   | Router | No tool runs | "Arc cannot help with that message. Ask about your lots, data, models, defects or job cards." with the in-scope suggestions of J5 |
+   | Answer writer | The template answer is shown; no retry call | The template answer, with the note "Gemini did not write a summary for this answer. The values below come from Arc's records." |
+   | Order extraction | No review is stored | "Gemini would not read this order, so nothing was filled in. Choose another approved sample." No Retry |
+   | Plan explanation | The explanation-failed branch of J1 (G3): the saved numbers stay and approval is held | "Gemini would not write the explanation for this plan. The numbers are saved and approval is on hold." with Retry explanation and Hold this lot |
+   | Photo diagnosis | No result is stored | "Gemini would not check this photo. Nothing was stored. Try another photo." No Retry |
+
+   The product manager aligns the safety row of spec J11, which today sends every safety block to the J5 refusal.
+7. **Answer checks.** On the writer's text: zod (1 to 3 sentences, no markup), numeric fidelity, tools-only IDs, and wording rules reused from `risk-evidence-service.js` (no causal claims, no "measured", "actual" or "saved" for modeled values, no pass or fail verdict on model scores). Any failure, a truncated response or a writer error shows the template rendering with no error message (AC11.2) and logs `arc_answer_fallback` with the reason code only; a safety block adds the note in step 6. There is no retry call. The template itself passes the same numeric and ID checks; if it fails, Arc shows "Arc could not check this answer against its sources, so it is not shown. Try a suggested question, or ask again in different words." and no values.
 8. **Approval protection.** No approve tool; `plan_lot` preconditions; approve route checks `reviewConfirmed` and the fingerprint (ADR-0003).
 9. **Cost limits.** Every Gemini call goes through the ADR-0004 budget API; Arc adds a per-session limit on typed turns and reports the remaining count in `GET /api/status`.
 
