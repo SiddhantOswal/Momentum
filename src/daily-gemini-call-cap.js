@@ -14,7 +14,27 @@ export class GeminiDailyCallCapError extends Error {
   }
 }
 
+const BUDGET_MESSAGES = Object.freeze({
+  BUDGET_DAY_EXHAUSTED: "Today's Gemini attempts are used up. Try after midnight IST.",
+  BUDGET_SESSION_EXHAUSTED: "This session has used its Gemini attempts for today.",
+  BUDGET_IP_EXHAUSTED: "This network has used its Gemini attempts for today.",
+  BUDGET_RATE_LIMITED: "Too many Gemini requests this minute. Try again in a minute.",
+  BUDGET_SESSION_RATE_LIMITED: "This session sent too many Gemini requests this minute. Try again in a minute.",
+  BUDGET_RESERVED_FOR_PITCH: "The Gemini attempts left today are held for the pitch.",
+  BUDGET_COST_EXHAUSTED: "Today's Gemini spending limit is reached. Try after midnight IST.",
+  BUDGET_WINDOW_BLOCKED: "Gemini eval runs are paused during the pitch window.",
+});
+
 export function geminiUsageFailure(error) {
+  if (error?.code === "GEMINI_DAILY_CAP_EXCEEDED" && Object.hasOwn(BUDGET_MESSAGES, error.budgetCode)) return {
+    ok: false,
+    error: {
+      code: "GEMINI_DAILY_CAP_EXCEEDED",
+      budgetCode: error.budgetCode,
+      ...(Number.isSafeInteger(error.retryAfterSeconds) ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
+      message: BUDGET_MESSAGES[error.budgetCode],
+    },
+  };
   if (error?.code === "GEMINI_DAILY_CAP_EXCEEDED") return {
     ok: false, error: { code: "GEMINI_DAILY_CAP_EXCEEDED", message: "The daily Gemini attempt cap is exhausted. Try after midnight IST." },
   };
@@ -118,8 +138,9 @@ export function withDailyGeminiCallCap(client, configuration, { now = () => Date
   async function call(method, args) {
     if (store) {
       const dayKey = currentDay();
-      await store.reserveAttempt({
+      const reservation = await store.reserveAttempt({
         dayKey, timeZone: configuration.timeZone, limit: configuration.limit, signal: args?.signal,
+        role: args?.role, budget: args?.budget,
       });
       // A disconnect after commit still consumes the attempt, but must not
       // start a provider call on behalf of an already cancelled request.
@@ -131,7 +152,18 @@ export function withDailyGeminiCallCap(client, configuration, { now = () => Date
         error.code = "GEMINI_USAGE_UNAVAILABLE";
         throw error;
       }
-      return client[method](args);
+      if (typeof store.recordUsage !== "function") return client[method](args);
+      const { budget: _budget, onUsage, ...providerArgs } = args ?? {};
+      let usage;
+      try {
+        return await client[method]({
+          ...providerArgs,
+          onUsage: (reported) => { usage = reported; onUsage?.(reported); },
+        });
+      } finally {
+        // A response that reported usage was billed, whether or not the caller could use it.
+        if (usage) await store.recordUsage({ role: args?.role, usage, reservation });
+      }
     }
     const entry = counterFor(currentDay());
     if (entry.calls >= configuration.limit) throw new GeminiDailyCallCapError();

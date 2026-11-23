@@ -12,7 +12,7 @@
  * (founder decision F1).
  */
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createCloudRunAccessTokenProvider } from "./bigquery-read-client.js";
 import {
   createFirestoreRestClient,
@@ -20,7 +20,7 @@ import {
   encodeDocument,
   parseDocument,
 } from "./firestore-rest.js";
-import { istWindows, windowActive } from "../gemini-budget-config.js";
+import { attemptCostMicroInr, istWindows, windowActive } from "../gemini-budget-config.js";
 import { isDemoPrincipal } from "../hackathon-demo-auth.js";
 import { hasPitchReserveClaim } from "../pitch-claim.js";
 import {
@@ -355,6 +355,79 @@ export function createFirestoreBudgetStore({
       } catch {
         return unavailable(signal);
       }
+    },
+  });
+}
+
+// Model roles in config/arc-models.json and the reservation purpose each is charged as.
+// The agent role has no purpose of its own, so its callers must name one.
+const ROLE_PURPOSE = Object.freeze({
+  extraction: "order_extraction",
+  explanation: "explanation",
+  photo: "photo_diagnosis",
+  router: "arc_router",
+  writer: "arc_answer_writer",
+});
+
+function usageError(code, message, extra = {}) {
+  return Object.assign(new Error(message), { name: "GeminiBudgetError", code, ...extra });
+}
+
+/**
+ * Adapts the budget store to the `store` that withDailyGeminiCallCap expects,
+ * so every Gemini call keeps passing through that one wrapper (design 5.2).
+ * A refusal keeps the existing GEMINI_DAILY_CAP_EXCEEDED code for current
+ * clients and adds the specific budget code.
+ */
+export function budgetCapStore(store, { costOf = attemptCostMicroInr, log = console.error } = {}) {
+  if (!store || typeof store.reserve !== "function" || typeof store.peek !== "function" ||
+      typeof store.recordUsage !== "function" || typeof costOf !== "function" || typeof log !== "function") {
+    throw new TypeError("A budget store with reserve, peek and recordUsage is required.");
+  }
+  return Object.freeze({
+    scope: "shared-firestore-transaction",
+    policyVersion: BUDGET_POLICY_VERSION,
+    peek: (args) => store.peek(args),
+
+    async reserveAttempt({ role, budget = {}, signal } = {}) {
+      const purpose = budget.purpose ?? ROLE_PURPOSE[role];
+      let result;
+      try {
+        result = await store.reserve({
+          principal: budget.principal,
+          ipKey: budget.ipKey ?? null,
+          purpose,
+          units: budget.units ?? 1,
+          // Without a caller key every call is its own attempt, which is what a provider call costs.
+          reservationKey: budget.reservationKey ?? `attempt.${randomUUID()}`,
+          evalSuite: budget.evalSuite ?? null,
+          signal,
+        });
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        throw usageError("GEMINI_USAGE_UNAVAILABLE", "The Gemini budget request is invalid. No provider request was issued.");
+      }
+      if (result.ok) return result;
+      if (result.code === "BUDGET_UNAVAILABLE") {
+        throw usageError("GEMINI_USAGE_UNAVAILABLE", "Gemini usage could not be reserved. No provider request was issued.");
+      }
+      throw usageError("GEMINI_DAILY_CAP_EXCEEDED", "The Gemini budget does not allow this call.", {
+        budgetCode: result.code,
+        ...(result.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: result.retryAfterSeconds }),
+      });
+    },
+
+    /** Never fails the caller: the response already exists, so a lost cost record is logged instead. */
+    async recordUsage({ role, usage, reservation } = {}) {
+      let code;
+      try {
+        const recorded = await store.recordUsage({ dayWindow: reservation.dayWindow, costMicroInr: costOf(role, usage) });
+        if (recorded.ok) return;
+        code = recorded.code;
+      } catch {
+        code = "BUDGET_COST_UNPRICED";
+      }
+      log(JSON.stringify({ event: "gemini_budget_cost_unrecorded", role: ROLE_PURPOSE[role] ? role : "other", code }));
     },
   });
 }

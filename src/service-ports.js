@@ -27,6 +27,8 @@ import {
 import { createImpactSummaryService } from "./google-cloud/impact-summary-service.js";
 import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "./daily-gemini-call-cap.js";
 import { createFirestoreGeminiAttemptStore } from "./google-cloud/firestore-gemini-attempt-store.js";
+import { budgetCapStore, createFirestoreBudgetStore } from "./google-cloud/firestore-budget-store.js";
+import { readGeminiBudgetConfig } from "./gemini-budget-config.js";
 import { createFirestorePoReviewStore } from "./google-cloud/firestore-po-review-store.js";
 import { createDefectDiagnosisService } from "./google-cloud/defect-diagnosis-service.js";
 import { mergeDraftWriteArgs } from "./job-draft-persistence.js";
@@ -426,6 +428,45 @@ function createSyntheticDemoServicePorts() {
   });
 }
 
+/**
+ * Chooses the store behind withDailyGeminiCallCap. With
+ * `USTAAD_GEMINI_BUDGET_POLICY=budget-v2` it is the budget store, which never
+ * touches the shared `gemini_daily_usage` document (founder decision F1); a
+ * requested policy with invalid limits permits no Gemini call. Without the
+ * flag the existing day cap is unchanged.
+ */
+export function configureGeminiUsage({ env, projectId, fetchImpl = fetch, tokenProvider, geminiDailyCap, now } = {}) {
+  const budget = readGeminiBudgetConfig(env);
+  if (budget.requested) {
+    const configured = budget.configured && Boolean(projectId);
+    return Object.freeze({
+      policy: "budget-v2",
+      budgetStatus: budget.status,
+      sharedCounterConfigured: configured,
+      callsPermitted: configured,
+      store: configured ? budgetCapStore(createFirestoreBudgetStore({
+        projectId, fetchImpl, tokenProvider, limits: budget.limits, ...(now ? { now } : {}),
+      })) : undefined,
+    });
+  }
+  const sharedCounterRequested = env.USTAAD_ENABLE_FIRESTORE_GEMINI_CAP === "true";
+  const sharedCounterConfigured = sharedCounterRequested && Boolean(projectId) &&
+    env.USTAAD_GEMINI_COUNTER_DATABASE === "(default)" && geminiDailyCap.configured &&
+    geminiDailyCap.timeZone === "Asia/Kolkata";
+  // Source support is not cloud approval. This flag stays absent/false until
+  // the owner approves the existing database and its IAM/cost scope.
+  const callsPermitted = (env.K_SERVICE || env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO")
+    ? sharedCounterConfigured
+    : (!sharedCounterRequested || sharedCounterConfigured);
+  return Object.freeze({
+    sharedCounterConfigured,
+    callsPermitted,
+    store: sharedCounterConfigured ? createFirestoreGeminiAttemptStore({
+      projectId, database: env.USTAAD_GEMINI_COUNTER_DATABASE, fetchImpl, tokenProvider,
+    }) : undefined,
+  });
+}
+
 export function createConfiguredServicePorts({
   env = process.env,
   modelConfig = vertexConfig,
@@ -441,14 +482,9 @@ export function createConfiguredServicePorts({
     env.USTAAD_ENABLE_LIVE_MODEL_CALLS === "true";
   const geminiDailyCap = readDailyGeminiCallCapConfig(env);
   const projectId = env.PROJECT_ID ?? env.GOOGLE_CLOUD_PROJECT ?? modelConfig.projectId;
-  const sharedCounterRequested = env.USTAAD_ENABLE_FIRESTORE_GEMINI_CAP === "true";
-  const sharedCounterConfigured = sharedCounterRequested && Boolean(projectId) &&
-    env.USTAAD_GEMINI_COUNTER_DATABASE === "(default)" && geminiDailyCap.configured &&
-    geminiDailyCap.timeZone === "Asia/Kolkata";
-  // Source support is not cloud approval. This flag stays absent/false until
-  // the owner approves the existing database and its IAM/cost scope.
-  const allowed = liveModelCallsOptedIn && geminiDailyCap.configured &&
-    ((env.K_SERVICE || env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO") ? sharedCounterConfigured : (!sharedCounterRequested || sharedCounterConfigured));
+  const geminiUsage = configureGeminiUsage({ env, projectId, fetchImpl, tokenProvider, geminiDailyCap });
+  const { sharedCounterConfigured } = geminiUsage;
+  const allowed = liveModelCallsOptedIn && geminiDailyCap.configured && geminiUsage.callsPermitted;
   const region = env.REGION ?? env.VERTEX_LOCATION ?? modelConfig.location;
   const vertexLocation = env.VERTEX_LOCATION ?? region;
   const bucket = env.BUCKET ?? env.USTAAD_GCS_BUCKET ?? bucketConfig.bucket?.name;
@@ -464,7 +500,12 @@ export function createConfiguredServicePorts({
     weatherProvider: createWeatherProviderFromEnv(env, { fetchImpl }),
   });
   const adapters = {
-    geminiUsage: Object.freeze({ sharedCounterConfigured, liveConnectivityVerified: false }),
+    geminiUsage: Object.freeze({
+      sharedCounterConfigured,
+      liveConnectivityVerified: false,
+      ...(geminiUsage.policy ? { policy: geminiUsage.policy, budgetStatus: geminiUsage.budgetStatus } : {}),
+      ...(geminiUsage.store?.peek ? { peek: geminiUsage.store.peek } : {}),
+    }),
     conditionGuard,
   };
   if (projectId) {
@@ -539,10 +580,7 @@ export function createConfiguredServicePorts({
     fetchImpl,
     tokenProvider,
   });
-  const attemptStore = sharedCounterConfigured ? createFirestoreGeminiAttemptStore({
-    projectId, database: env.USTAAD_GEMINI_COUNTER_DATABASE, fetchImpl, tokenProvider,
-  }) : undefined;
-  const gemini = withDailyGeminiCallCap(vertexGemini, geminiDailyCap, { store: attemptStore });
+  const gemini = withDailyGeminiCallCap(vertexGemini, geminiDailyCap, { store: geminiUsage.store });
   if (env.USTAAD_ENABLE_RISK_PREDICTION === "true") {
     const riskBigquery = createBigQueryReadClient({
       projectId,
