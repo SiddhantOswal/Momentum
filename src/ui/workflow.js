@@ -1,6 +1,6 @@
 import { isConditionsDisplay, isJobDisplay } from "./contracts.js";
 import { markMoney, refreshMoney } from "./currency-display.js";
-import { apiUrl, request, createRequestGate, setResponseAuthorizationMode, isLocalSyntheticRuntime } from "./api.js";
+import { apiUrl, approveRequestOptions, request, createRequestGate, setResponseAuthorizationMode, isLocalSyntheticRuntime } from "./api.js";
 import { REQUEST_FIELDS, LEVER_DEFINITIONS } from "./fields.js";
 import { initShell, toast, renderRisk, renderComparison, renderStoredSheet, renderImpactCharts, clearCharts, initDefectCheck, renderPhotoPresentation, renderPremiumImpact } from "./components.js";
 
@@ -516,6 +516,7 @@ async function runJsonRequest({ url, options = {}, outputId, button, idleText, o
 }
 
 let currentStoredJob = null;
+let currentRevisionFingerprint = null;
 let latestIntegrations = {};
 function applyIntegrationAvailability(integrations = latestIntegrations) {
   latestIntegrations = localSyntheticUI ? { ...(integrations ?? {}), predictRisk: false, optimizeRisk: false, findSimilarRuns: false, explainRisk: false, findSeenBefore: false } : integrations ?? {};
@@ -1358,7 +1359,7 @@ function jobPreparationIdempotencyKey(file, operatorFields, itemConfirmation, sh
   return lastJobIdempotency.key;
 }
 
-function applyStoredJobContext(jobSheet) {
+function applyStoredJobContext(jobSheet, revision) {
   if (!isJobDisplay(jobSheet)) {
     throw new Error("The stored job response was incomplete. Approval remains blocked.");
   }
@@ -1366,6 +1367,7 @@ function applyStoredJobContext(jobSheet) {
     ? { ...jobSheet, savings: { kg: jobSheet.savings.kg, inr: jobSheet.savings.amount } }
     : jobSheet;
   currentStoredJob = displaySheet;
+  currentRevisionFingerprint = revision?.fingerprint ?? null;
   renderStoredSheet(displaySheet);
   syncJobControls();
   document.getElementById("shared-job-id").value = jobSheet.jobId;
@@ -1468,7 +1470,7 @@ document.getElementById("prepare-job").addEventListener("click", async (event) =
     button,
     onSuccess: (payload) => {
       if (payload?.durable === true || (localSyntheticUI && payload?.storageScope === "process-memory")) {
-        applyStoredJobContext(payload.jobSheet);
+        applyStoredJobContext(payload.jobSheet, payload.revision);
         renderRisk(payload.jobSheet.baseline.risk);
         setResult("risk-result", "Prediction from the persisted JobSheet’s planned settings.", "success");
         setResult("optimization-result", "Recommendation from the persisted JobSheet. Review its approval status.", "success");
@@ -1499,7 +1501,7 @@ document.getElementById("load-stored-job-form").addEventListener("submit", async
     outputId: "stored-job-result",
     isCurrent: () => document.getElementById("shared-job-id").value.trim() === jobId,
     button: form.querySelector("button[type=submit]"),
-    onSuccess: (payload) => { applyStoredJobContext(payload?.jobSheet); },
+    onSuccess: (payload) => { applyStoredJobContext(payload?.jobSheet, payload?.revision); },
   });
 });
 
@@ -1523,11 +1525,11 @@ document.getElementById("confirm-approval").addEventListener("click", async () =
     url: "/jobs/" + encodeURIComponent(jobId) + "/approve?lang=" +
       encodeURIComponent(languagePreference.value) + "&currency=" +
       encodeURIComponent(document.getElementById("display-currency").value),
-    options: { method: "POST", headers: { Accept: "application/json" } },
+    options: approveRequestOptions(currentRevisionFingerprint),
     outputId: "approval-result",
     button: form.querySelector("button[type=submit]"),
     onSuccess: (payload) => {
-      if (payload.jobSheet) applyStoredJobContext(payload.jobSheet);
+      if (payload.jobSheet) applyStoredJobContext(payload.jobSheet, payload.revision);
       else { currentStoredJob = null; syncJobControls(); setResult("approval-result", "Approval response received. Reload the stored job to verify its status.", "incomplete"); }
     },
   });

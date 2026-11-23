@@ -13,6 +13,14 @@ export function apiUrl(path) {
   if (resolved.origin !== window.location.origin) throw new Error("API requests must use the current application origin.");
   return resolved.toString();
 }
+// Pressing "Approve reviewed draft" in the dialog is the confirmation. The fingerprint comes from the loaded draft's revision block, which the server omits while lot revisions are off.
+export function approveRequestOptions(revisionFingerprint) {
+  return {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ reviewConfirmed: true, ...(revisionFingerprint ? { revisionFingerprint } : {}) }),
+  };
+}
 export async function request(url, options = {}) {
   const response = await fetch(apiUrl(url), options);
   const type = response.headers.get("content-type") ?? "";
