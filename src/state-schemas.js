@@ -93,7 +93,12 @@ export const ArcEventDocSchema = z.object({
   errorCode: z.string().max(64).nullable(),
   // An answer event points at its turn; the text is stored only there.
   resultRef: ResultRefSchema.nullable(),
-}).strict();
+}).strict().superRefine((event, ctx) => {
+  // The event carries the same waitingFor as the step that entered WAITING_FOR_USER.
+  if ((event.type === "step.waiting_for_user") !== (event.waitingFor !== null)) {
+    ctx.addIssue({ code: "custom", path: ["waitingFor"], message: "waitingFor is set exactly on step.waiting_for_user events" });
+  }
+});
 
 // Each scope maps to [subject kind, number of digits in its IST window].
 export const BUDGET_COUNTER_SHAPE = Object.freeze({

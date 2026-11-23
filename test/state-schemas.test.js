@@ -155,6 +155,12 @@ test("arc task-run event document", () => {
   rejects(ArcEventDocSchema, { ...arcEvent, text: "The plan is ready." });
 });
 
+test("arc event: waitingFor is set exactly on step.waiting_for_user", () => {
+  accepts(ArcEventDocSchema, { ...arcEvent, type: "step.waiting_for_user", waitingFor: "confirm_conditions" });
+  rejects(ArcEventDocSchema, { ...arcEvent, type: "step.waiting_for_user", waitingFor: null }, ["waitingFor"]);
+  rejects(ArcEventDocSchema, { ...arcEvent, type: "step.succeeded", waitingFor: "approve" }, ["waitingFor"]);
+});
+
 test("waitingFor enum is fixed to the four user waits", () => {
   assert.deepEqual(WaitingForSchema.options, ["confirm_order", "confirm_conditions", "choose_line", "approve"]);
   rejects(WaitingForSchema, "approve_job");
