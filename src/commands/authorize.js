@@ -1,4 +1,5 @@
 import { demoOwnsJob } from "../hackathon-demo-auth.js";
+import { canApprove } from "../user-session-auth.js";
 
 const READ_METHODS = ["GET", "HEAD"];
 
@@ -59,4 +60,12 @@ export async function authorizeSupervisor({
   const result = await supervisorAuthenticator.authenticate(authorization);
   if (!result.ok) return authenticatorRejection(result);
   return { ok: true, principal: result.principal };
+}
+
+/** With Google sign-in, only supervisors and managers may approve a job card. */
+export function authorizeApproval(principal, { userSessionAuth }) {
+  if (userSessionAuth && !canApprove(principal)) {
+    return rejection(403, "APPROVER_ROLE_REQUIRED", "Only a supervisor or manager can approve a job card.");
+  }
+  return { ok: true };
 }

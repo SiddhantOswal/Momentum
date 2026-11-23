@@ -41,9 +41,12 @@ import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
 import { authorizeSupervisor } from "./src/commands/authorize.js";
 import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
 import { getStatus, impactSummary } from "./src/commands/status.js";
-import { liveActor, liveLot } from "./src/commands/live-events.js";
+import { liveActor } from "./src/commands/live-events.js";
 import { readOrder } from "./src/commands/read-order.js";
 import { planLot } from "./src/commands/plan-lot.js";
+import { getJob } from "./src/commands/get-job.js";
+import { approveJob } from "./src/commands/approve-job.js";
+import { getCard } from "./src/commands/get-card.js";
 import {
   firebaseWebClientConfig,
   initializeFirebaseSupervisorAuthenticator,
@@ -231,6 +234,10 @@ const commandDeps = Object.freeze({
   liveStore,
   submitJob,
   demoMode,
+  lookupStoredJobSheet,
+  newCorrelationId: randomUUID,
+  now: Date.now,
+  log: (line) => console.info(line),
   purchaseOrderPolicy: Object.freeze({
     acceptRealOrders: Boolean(userSessionAuth?.configured) && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true",
     extractionAdapterConfigured: servicePorts.availability.extractOrderForReview === true,
@@ -792,91 +799,27 @@ app.post("/job-sheets/render.pdf", async (c) => {
 app.get("/jobs/:id", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
-
-  return responseForResult(c, await lookupStoredJobSheet({
-    jobId: validated.data,
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  return commandResponse(c, await getJob({ jobId: c.req.param("id") }, commandContext(c)));
 });
 
 app.post("/jobs/:id/approve", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  if (userSessionAuth && !canApprove(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY))) {
-    return c.json({ ok: false, error: { code: "APPROVER_ROLE_REQUIRED", message: "Only a supervisor or manager can approve a job card." } }, 403);
-  }
-  if (executionMode !== "demo" && !isModelSetAccepted(modelAcceptanceConfig)) {
-    return c.json({
-      ok: false,
-      error: {
-        code: "MODEL_ACCEPTANCE_REQUIRED",
-        message: "Job approval is blocked until the current five-model set has complete version-linked acceptance evidence.",
-      },
-      modelAcceptance: getModelAcceptanceSummary(modelAcceptanceConfig),
-    }, 503);
-  }
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
-  const displayPrefs = validateDisplayPrefs(c);
-  if (!displayPrefs.ok) {
-    return displayPrefs.response;
-  }
-
-  const principal = c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY);
-  const approval = await servicePorts.approveJob({
-    jobId: validated.data,
-    lang: displayPrefs.data.lang,
-    currency: displayPrefs.data.currency,
-    ...(principal ? { supervisorPrincipal: principal, correlationId: randomUUID() } : {}),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  });
-  if (approval.ok && principal) {
-    console.info(JSON.stringify({
-      event: "ustaad_supervisor_action",
-      action: "job_approval_request",
-      actorUid: principal.uid,
-      authorizationMode: principal.authorizationMode ?? "FIREBASE_SUPERVISOR",
-      authenticatedHuman: principal.provider === "google.com",
-      jobId: validated.data,
-      decisionAt: new Date().toISOString(),
-      newStatus: approval.jobSheet?.status ?? approval.data?.status ?? "APPROVED",
-      auditStorage: approval.jobSheet?.approvalAudit ? "bigquery-readback-and-structured-log" : "structured-cloud-log-only",
-    }));
-  }
-  if (approval.ok && approval.jobSheet) {
-    await liveStore.publish({
-      lot: liveLot(approval.jobSheet, "approved"),
-      event: { type: "lot.approved", lotId: approval.jobSheet.jobId, text: `Lot ${approval.jobSheet.order?.itemCode ?? approval.jobSheet.jobId} approved for production`, actor: liveActor(principal) },
-    });
-  }
-  return responseForResult(c, approval);
+  return commandResponse(c, await approveJob({
+    jobId: c.req.param("id"),
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+  }, commandContext(c)));
 });
 
 app.get("/jobs/:id/card.pdf", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
-  const displayPrefs = validateDisplayPrefs(c);
-  if (!displayPrefs.ok) {
-    return displayPrefs.response;
-  }
-
-  const result = await servicePorts.getJobCard({
-    jobId: validated.data,
-    lang: displayPrefs.data.lang,
-    currency: displayPrefs.data.currency,
-    supervisorPrincipal: c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  });
+  const result = await getCard({
+    jobId: c.req.param("id"),
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+  }, commandContext(c));
   if (result.ok && result.bytes instanceof Uint8Array) {
     return c.body(result.bytes, 200, {
       "Content-Type": result.contentType,
@@ -884,7 +827,7 @@ app.get("/jobs/:id/card.pdf", async (c) => {
       "Cache-Control": "private, no-store",
     });
   }
-  return responseForResult(c, result);
+  return commandResponse(c, result);
 });
 
 app.post("/jobs/:id/feedback", async (c) => {
