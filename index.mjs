@@ -26,7 +26,8 @@ import { streamSSE } from "hono/streaming";
 import { createLiveStore } from "./src/google-cloud/live-store.js";
 import { canApprove, initializeUserSessionAuth, SESSION_COOKIE } from "./src/user-session-auth.js";
 import { createWeatherProviderFromEnv } from "./src/google-cloud/weather-service.js";
-import { traceRegistry } from "./src/trace-registry.js";
+import { configureDurableTraces, traceRegistry } from "./src/trace-registry.js";
+import { createFirestoreTraceStore } from "./src/google-cloud/firestore-trace-store.js";
 import { fxRatesService } from "./src/fx-rates.js";
 import { servicePorts } from "./src/service-ports.js";
 import modelAcceptanceConfig from "./config/model-acceptance.json" with { type: "json" };
@@ -82,6 +83,12 @@ const hackathonAuth = createHackathonDemoAuthenticator({ mode: process.env.USTAA
   auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true" });
 const approvalAuthorizationConfigured = hackathonAuth.enabled ? hackathonAuth.configured : supervisorAuthenticator.configured;
 const demoTraceOwners = new Map();
+// USTAAD_ENABLE_DURABLE_TRACES: trace events and owners also go to Firestore, so any instance can serve a run.
+const durableTraces = configureDurableTraces({
+  env: process.env,
+  registry: traceRegistry,
+  createStore: () => createFirestoreTraceStore({ projectId: process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT }),
+});
 // Central live store: Firestore in the cloud (opt-in), memory locally. Publishing never fails a request,
 // but is awaited: Cloud Run throttles CPU once a response is sent, so a fire-and-forget write can stall.
 const liveStore = createLiveStore({
@@ -99,7 +106,7 @@ const plantId = process.env.USTAAD_PLANT_ID ??
   (demoMode ? "PLANT-DEMO-01" : undefined);
 const prepareJob = createJobCoordinator({
   services: servicePorts,
-  traceRegistry,
+  traceRegistry: durableTraces.registry,
   plantId,
   allowSyntheticDemoConditions: demoMode,
 });
@@ -185,9 +192,16 @@ app.use("*", bodyLimit({
 function responseForResult(c, result) {
   const actor = c.get("verifiedSupervisorPrincipal");
   if (hackathonAuth.enabled && actor && result?.runId) {
+    if (durableTraces.claimOwner) {
+      return durableTraces.claimOwner(result.runId, actor.sessionId).then(() => resultResponse(c, result));
+    }
     while (demoTraceOwners.size >= 1000) demoTraceOwners.delete(demoTraceOwners.keys().next().value);
     demoTraceOwners.set(result.runId, actor.sessionId);
   }
+  return resultResponse(c, result);
+}
+
+function resultResponse(c, result) {
   if (result.ok) {
     return c.json(result);
   }
@@ -236,6 +250,7 @@ const commandDeps = Object.freeze({
   executionMode,
   localPrivilegedAdapterConfigured,
   traceOwners: demoTraceOwners,
+  traceOwnerLookup: durableTraces.ownerOf,
   isSameOrigin,
   env: process.env,
   servicePorts,
@@ -532,7 +547,7 @@ app.use("/api/runs/*", async (c, next) => {
   return next();
 });
 
-app.route("/api/runs", createTraceRoutes(traceRegistry));
+app.route("/api/runs", createTraceRoutes(durableTraces.registry, { store: durableTraces.store }));
 
 // One canonical application. Old dashboard bookmarks retain query/fragment state.
 for (const path of ["/dashboard", "/dashboard/", "/dasboard", "/dasboard/"]) {
