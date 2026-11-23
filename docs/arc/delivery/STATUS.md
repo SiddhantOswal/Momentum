@@ -47,6 +47,8 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 - ARC-M1-22 merged (`fbd15d3`): server-starting tests use a per-run free port through `test/helpers/server.js` (10 s startup timeout, up to 3 retries on a new port). QA PASS after one repair round: the two breaks that only hung now fail fast, and a retry test exists. Two concurrent `npm test` runs gave 787 of 787 each. `npm test` on `arc/main`: 822 of 822. Five older tests already used a free port and are not on the helper.
 
+- ARC-M6-01 (Codex, tokens and theme): QA ACCEPT WITH FIXES. Token values match the design (41 of 41 names, no value differences) and theme behaviour passes; the font files lack the arrow glyph and display type was Inter Tight against the PNGs' Inter. Fix list sent to Codex. Not merged.
+
 ## In progress
 
 - ARC-M1-05 merged (`67602dc`; QA PASS, 19 of 20 mutations caught, the survivor closed by a test of `index.mjs` wiring) and ARC-M1-08 merged (`ea06073`; QA PASS, 29 of 30 caught, the survivor closed by a thinking-token cost test). `npm test` on `arc/main` after both: 760 of 760. Session and IP limits and the rupee overshoot are in the ARC-M1-17 AC.
@@ -122,3 +124,5 @@ Asked only when a ticket needs them.
 | 2026-11-24 | Codex and GitHub Copilot may build tickets as engineers under `AGENTS.md` and `external-agents.md`. They never verify or merge their own work; the Claude Code QA lead and reviewers do | Two more coding agents to meet the 30 Nov RC; reviewer independence (`CLAUDE.md` section 5) | Founders; delivery lead |
 | 2026-11-24 | UI fidelity: screens are built exactly as approved. Functions in the UI with no backend are listed (U1 to U14) and shown as "not connected"; backend features missing from the UI are listed (B1 to B11) for a founder decision. Neither list is changed by agents on their own | Founders want the approved design delivered as is, with every gap visible | Founders |
 | 2026-11-24 | Work is split with Codex (frontend M6 stream) and Copilot (small backend and data tickets). The Claude Code team does not redo their tickets; it runs QA, the review gate and the merge | Spread the load; keep the reviewer independent of the builder | Founders |
+| 2026-11-24 | Display type follows the approved PNGs: plain Inter for headings and figures, not Inter Tight. The design source HTML declares Inter Tight, but the PNGs were rendered with Inter (heading width 423 px against 392 px). ARC-M6-19 aligns the HTML source to Inter when it regenerates the design files. The full Inter files must include the arrow glyphs U+2190 to U+2193 | The PNGs are what the founders approved | Founders |
+
