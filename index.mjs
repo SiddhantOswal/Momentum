@@ -1,7 +1,7 @@
 import { PhotoClassificationRequestSchema } from "./src/google-cloud/approved-photo-service.js";
 import { isSameApplicationOrigin } from "./src/request-origin.js";
 import { getCookie, setCookie } from "hono/cookie";
-import { createHackathonDemoAuthenticator, demoJobIdentity, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
+import { createHackathonDemoAuthenticator, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
@@ -12,15 +12,11 @@ import {
   InsightsQuerySchema,
   JobIdSchema,
   JobSheetSchema,
-  LeversSchema,
   LaunchCurrencySchema,
   LocaleSchema,
-  OperatorItemConfirmationSchema,
-  OrderOperatorFieldsSchema,
   RiskOptimizationRequestSchema,
   RiskExplanationRequestSchema,
   GuardedRiskPredictionRequestSchema,
-  ManualRunConditionsSchema,
   SeenBeforeRequestSchema,
   SimilarRunsRequestSchema,
 } from "./src/schemas.js";
@@ -40,14 +36,14 @@ import { getModelAcceptanceSummary, isModelSetAccepted } from "./src/model-accep
 import { createJobCoordinator } from "./src/job-coordinator.js";
 import { createLinkedFeedbackService } from "./src/linked-feedback-service.js";
 import { createStoredJobSheetLookup } from "./src/stored-job-sheet-lookup.js";
-import { createJobRequestIdentity, InMemoryIdempotencyStore } from "./src/job-idempotency.js";
+import { InMemoryIdempotencyStore } from "./src/job-idempotency.js";
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
 import { authorizeSupervisor } from "./src/commands/authorize.js";
 import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
 import { getStatus, impactSummary } from "./src/commands/status.js";
 import { liveActor, liveLot } from "./src/commands/live-events.js";
-import { readPurchaseOrderUpload } from "./src/commands/purchase-order-upload.js";
 import { readOrder } from "./src/commands/read-order.js";
+import { planLot } from "./src/commands/plan-lot.js";
 import {
   firebaseWebClientConfig,
   initializeFirebaseSupervisorAuthenticator,
@@ -233,6 +229,8 @@ const commandDeps = Object.freeze({
   idempotencyStore,
   modelAcceptanceConfig,
   liveStore,
+  submitJob,
+  demoMode,
   purchaseOrderPolicy: Object.freeze({
     acceptRealOrders: Boolean(userSessionAuth?.configured) && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true",
     extractionAdapterConfigured: servicePorts.availability.extractOrderForReview === true,
@@ -731,170 +729,7 @@ app.post("/jobs", async (c) => {
       message: "Request must contain a valid multipart purchase-order file.",
     }], "Job request is invalid.");
   }
-
-  const upload = await readPurchaseOrderUpload(form.file, { invalidMessage: "Job request is invalid.", ...commandDeps });
-  if (!upload.ok) return commandResponse(c, upload);
-  const { fileBytes } = upload;
-
-  const rawOperatorFields = {};
-  for (const field of ["orderId", "paperType", "paperSupplier"]) {
-    const value = form[field];
-    if (typeof value === "string" && value.trim() !== "") rawOperatorFields[field] = value;
-  }
-  const operatorFields = OrderOperatorFieldsSchema.safeParse(rawOperatorFields);
-  const numericLevers = new Set([
-    "sfSpeedMpm", "rollTempC", "gumViscositySec", "dryingHours", "printSpeedSpm",
-  ]);
-  const rawLevers = {};
-  for (const field of [
-    "sfSpeedMpm", "rollTempC", "gumApplication", "gumViscositySec",
-    "pastingPressure", "dryingHours", "printSpeedSpm",
-  ]) {
-    const value = form[field];
-    if (typeof value === "string" && value.trim() !== "") {
-      rawLevers[field] = numericLevers.has(field) ? Number(value) : value;
-    }
-  }
-  const levers = LeversSchema.safeParse(rawLevers);
-  const rawItemConfirmation = {
-    itemCode: form.confirmedItemCode,
-    quantity: typeof form.confirmedQuantity === "string" ? Number(form.confirmedQuantity) : form.confirmedQuantity,
-    ...(typeof form.confirmedLineIndex === "string" && form.confirmedLineIndex.trim() !== ""
-      ? { lineIndex: Number(form.confirmedLineIndex) - 1 }
-      : {}),
-  };
-  const operatorItemConfirmation = OperatorItemConfirmationSchema.safeParse(rawItemConfirmation);
-  const reviewId = form.reviewId;
-  const reviewFingerprint = form.reviewFingerprint;
-  const hasReviewReference = reviewId !== undefined || reviewFingerprint !== undefined;
-  const hasReviewId = typeof reviewId === "string" && reviewId.trim() !== "";
-  const hasReviewFingerprint = typeof reviewFingerprint === "string" && reviewFingerprint.trim() !== "";
-  if (hasReviewReference && (!hasReviewId || !hasReviewFingerprint ||
-      !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(reviewId) ||
-      !/^[a-f0-9]{64}$/.test(reviewFingerprint))) {
-    return validationResponse(c, [{
-      field: "purchaseOrderReview",
-      path: ["reviewId"],
-      code: "incomplete_review_reference",
-      message: "Both reviewId and reviewFingerprint are required to use the reviewed PO.",
-    }], "The purchase-order review reference is invalid.");
-  }
-  if (hasReviewId && form.confirmedSourceLine !== "true") {
-    return validationResponse(c, [{
-      field: "confirmedSourceLine",
-      path: ["confirmedSourceLine"],
-      code: "confirmation_required",
-      message: "Confirm the selected item's code and quantity against the displayed source PO line.",
-    }], "The selected PO line has not been confirmed.");
-  }
-  const shift = form.shift;
-  // A blank humidity or temperature field is "missing", not 0; the condition
-  // guard then falls back to weather or the seasonal typical value.
-  const conditionNumber = (value) => value === undefined || value === null ||
-    (typeof value === "string" && value.trim() === "")
-    ? undefined
-    : typeof value === "string" ? Number(value) : value;
-  const rawManualConditions = {
-    runDate: form.runDate,
-    shift,
-    ambientRhPct: conditionNumber(form.ambientRhPct),
-    ambientTempC: conditionNumber(form.ambientTempC),
-    paperMoisturePct: conditionNumber(form.paperMoisturePct),
-  };
-  const manualConditions = ManualRunConditionsSchema.safeParse(rawManualConditions);
-  const conditionsConfirmed = form.conditionsConfirmed === "true";
-  const issues = [
-    ...(operatorFields.success ? [] : operatorFields.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["operatorFields", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(levers.success ? [] : levers.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["levers", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(operatorItemConfirmation.success ? [] : operatorItemConfirmation.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["operatorItemConfirmation", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(shift === "DAY" || shift === "NIGHT" ? [] : [{
-      field: "shift",
-      path: ["shift"],
-      code: "invalid_value",
-      message: "Select the actual DAY or NIGHT shift.",
-    }]),
-    ...(manualConditions.success ? [] : manualConditions.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["conditions", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(conditionsConfirmed ? [] : [{
-      field: "conditionsConfirmed",
-      path: ["conditionsConfirmed"],
-      code: "confirmation_required",
-      message: "A supervisor must confirm or edit the manual condition values before prediction.",
-    }]),
-  ];
-  if (issues.length) {
-    return validationResponse(c, issues, "Job preparation requires confirmed order context, shift and actual machine settings.");
-  }
-
-  // Idempotency: read the optional client-supplied key from the request header.
-  // When present, the key is bound to a fingerprint of the validated request.
-  // Resubmitting the same key with different inputs returns 409 CONFLICT.
-  // Without durable persistence and a shared idempotency store, the submission
-  // handler returns SERVICE_UNAVAILABLE before running job preparation.
-  const rawIdempotencyKey = c.req.header("Idempotency-Key");
-  const identity = createJobRequestIdentity({
-    idempotencyKey: rawIdempotencyKey,
-    fileBytes,
-    operatorFields: operatorFields.data,
-    operatorItemConfirmation: operatorItemConfirmation.data,
-    shift,
-    levers: levers.data,
-    conditions: manualConditions.data,
-    ...(hasReviewFingerprint ? { purchaseOrderReviewFingerprint: reviewFingerprint } : {}),
-  });
-  if (!identity.ok) {
-    // Key is present but malformed — return a validation error.
-    return validationResponse(c, identity.error.issues ?? [], identity.error.message);
-  }
-
-  const signal = c.get(REQUEST_SIGNAL_CONTEXT_KEY);
-  const submissionResult = await submitJob({
-    identity: hackathonAuth.enabled ? demoJobIdentity(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY), identity.identity) : identity.identity,
-    request: {
-      file: { arrayBuffer: async () => fileBytes.buffer },
-      operatorFields: operatorFields.data,
-      operatorItemConfirmation: operatorItemConfirmation.data,
-      ...(hasReviewId ? {
-        purchaseOrderReview: {
-          reviewId,
-          reviewFingerprint,
-          confirmedSourceLine: form.confirmedSourceLine === "true",
-        },
-      } : {}),
-      shift,
-      levers: levers.data,
-      manualConditions: manualConditions.data,
-      conditionsConfirmed,
-    },
-    signal,
-  });
-  if (submissionResult.ok && submissionResult.jobSheet) {
-    const sheet = submissionResult.jobSheet;
-    await liveStore.publish({
-      lot: liveLot(sheet, "planned"),
-      event: { type: "lot.planned", lotId: sheet.jobId, text: `Lot ${sheet.order?.itemCode ?? sheet.jobId} planned · ${sheet.order?.quantity ?? "?"} units`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) },
-    });
-  }
-  return responseForResult(c, demoMode && submissionResult.ok ? { ...submissionResult, durable: false, storageScope: "process-memory", source: "mock-demo", isRealModelPrediction: false } : submissionResult);
+  return commandResponse(c, await planLot({ fields: form, idempotencyKey: c.req.header("Idempotency-Key") }, commandContext(c)));
 });
 
 app.post("/job-sheets/render.pdf", async (c) => {
