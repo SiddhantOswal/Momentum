@@ -34,7 +34,7 @@ import { getModelAcceptanceSummary, isModelSetAccepted } from "./src/model-accep
 import { createJobCoordinator } from "./src/job-coordinator.js";
 import { createLinkedFeedbackService } from "./src/linked-feedback-service.js";
 import { createStoredJobSheetLookup } from "./src/stored-job-sheet-lookup.js";
-import { InMemoryIdempotencyStore } from "./src/job-idempotency.js";
+import { selectJobIdempotencyStore } from "./src/job-idempotency.js";
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
 import { authorizeSupervisor } from "./src/commands/authorize.js";
 import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
@@ -106,12 +106,15 @@ const prepareJob = createJobCoordinator({
 const jobSheetPersistenceAvailable =
   servicePorts.availability.createDraftJobSheet === true &&
   servicePorts.availability.getStoredJobSheet === true;
-// Om's approved prototype contract uses the durable BigQuery JobSheet row and
-// process-local idempotency/trace state. Cloud Run is capped at two instances;
-// cross-instance coordination is explicitly future work for this prototype.
-const idempotencyStore = (jobSheetPersistenceAvailable || demoMode)
-  ? new InMemoryIdempotencyStore({ leaseMs: 30_000 })
-  : undefined;
+// Om's approved prototype contract keeps idempotency process-local.
+// USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY shares claims across Cloud Run
+// instances through Firestore instead (design 3.2).
+const jobIdempotency = selectJobIdempotencyStore({
+  jobIdempotency: servicePorts.jobIdempotency,
+  jobSheetPersistenceAvailable,
+  demoMode,
+});
+const idempotencyStore = jobIdempotency.store;
 const jobCreationAvailable = jobSheetPersistenceAvailable &&
   typeof idempotencyStore?.claim === "function" &&
   (executionMode === "demo" ||
@@ -125,7 +128,7 @@ const submitJob = createJobSubmissionHandler({
   storedJobLookupEnabled: servicePorts.availability.getStoredJobSheet === true,
   plantId,
   store: idempotencyStore,
-  leaseMs: 30_000,
+  leaseMs: jobIdempotency.leaseMs,
 });
 
 const saveLinkedFeedback = createLinkedFeedbackService({
@@ -240,6 +243,7 @@ const commandDeps = Object.freeze({
   jobSheetPersistenceAvailable,
   jobCreationAvailable,
   idempotencyStore,
+  idempotencyScope: jobIdempotency.scope,
   modelAcceptanceConfig,
   liveStore,
   submitJob,

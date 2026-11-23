@@ -28,6 +28,7 @@ import { createImpactSummaryService } from "./google-cloud/impact-summary-servic
 import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "./daily-gemini-call-cap.js";
 import { createFirestoreGeminiAttemptStore } from "./google-cloud/firestore-gemini-attempt-store.js";
 import { createFirestorePoReviewStore } from "./google-cloud/firestore-po-review-store.js";
+import { createFirestoreIdempotencyStore } from "./google-cloud/firestore-idempotency-store.js";
 import { createDefectDiagnosisService } from "./google-cloud/defect-diagnosis-service.js";
 import { mergeDraftWriteArgs } from "./job-draft-persistence.js";
 import { renderJobSheetPdf } from "./job-sheet-pdf.js";
@@ -127,6 +128,7 @@ export function createServicePorts(adapters = {}) {
     classifyApprovedPhoto: adapters.classifyApprovedPhoto ?? unavailable("classifyApprovedPhoto"),
     diagnoseDefectPhoto: adapters.diagnoseDefectPhoto ?? unavailable("diagnoseDefectPhoto"),
     geminiUsage: adapters.geminiUsage ?? Object.freeze({ sharedCounterConfigured: false, liveConnectivityVerified: false }),
+    jobIdempotency: adapters.jobIdempotency ?? Object.freeze({ durableRequested: false }),
     extractOrder: adapters.extractOrder ?? unavailable("extractOrder"),
     extractOrderForReview: adapters.extractOrderForReview ?? unavailable("extractOrderForReview"),
     confirmPurchaseOrderReview: adapters.confirmPurchaseOrderReview ?? unavailable("confirmPurchaseOrderReview"),
@@ -467,6 +469,14 @@ export function createConfiguredServicePorts({
     geminiUsage: Object.freeze({ sharedCounterConfigured, liveConnectivityVerified: false }),
     conditionGuard,
   };
+  if (env.USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY === "true") {
+    adapters.jobIdempotency = Object.freeze({
+      durableRequested: true,
+      store: projectId ? createFirestoreIdempotencyStore({
+        projectId, collection: "idempotency", fetchImpl, tokenProvider,
+      }) : undefined,
+    });
+  }
   if (projectId) {
     adapters.getLotOrder = createLotAssociationService({ bigquery, projectId });
     if (env.USTAAD_ENABLE_IMPACT_SUMMARY === "true") {

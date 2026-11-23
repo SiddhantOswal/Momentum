@@ -451,6 +451,28 @@ test("Cloud Run status advertises only configured cloud ports without making cal
   }
 });
 
+test("Cloud Run status reports shared Firestore idempotency when its flag is on", async () => {
+  const { child } = await startServer({
+    K_SERVICE: "prepagent",
+    PROJECT_ID: "prepagent-hack",
+    REGION: "asia-south1",
+    BUCKET: "prepagent-hack-data",
+    USTAAD_PLANT_ID: "PLANT-01",
+    USTAAD_ENABLE_JOB_STORAGE: "true",
+    USTAAD_ENABLE_BIGQUERY_WRITES: "true",
+    USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: "true",
+  });
+  try {
+    const payload = await (await fetch(`http://127.0.0.1:${PORT}/api/status`)).json();
+    for (const section of [payload.runtimeAvailability, payload.integrations]) {
+      assert.equal(section.durableIdempotencyConfigured, true);
+      assert.equal(section.idempotencyScope, "shared-firestore");
+    }
+  } finally {
+    await stopServer(child);
+  }
+});
+
 test("live decision routes reject missing or forged supervisor identity before validation or service calls", async () => {
   const { child } = await startServer({
     K_SERVICE: "prepagent",

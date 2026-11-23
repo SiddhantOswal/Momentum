@@ -182,6 +182,7 @@ export function createJobSubmissionHandler({
   plantId,
   store,
   leaseMs = 30_000,
+  now,
 } = {}) {
   if (typeof prepareJob !== "function") {
     throw new TypeError("A job coordinator is required.");
@@ -196,6 +197,7 @@ export function createJobSubmissionHandler({
   const createIdempotently = createIdempotentJobService({
     store,
     leaseMs,
+    ...(now === undefined ? {} : { now }),
     createJob,
     loadJob: createStoredJobReplayLoader({ getStoredJobSheet, storedJobLookupEnabled }),
   });
