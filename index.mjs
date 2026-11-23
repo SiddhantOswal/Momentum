@@ -1,6 +1,7 @@
 import { isSameApplicationOrigin } from "./src/request-origin.js";
 import { getCookie, setCookie } from "hono/cookie";
 import { createHackathonDemoAuthenticator, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
+import { createGeminiCallerMiddleware } from "./src/gemini-caller-context.js";
 import { createPitchClaimExchange, PITCH_RESERVE_GRANT } from "./src/pitch-claim.js";
 import { z } from "zod";
 import { readFile } from "node:fs/promises";
@@ -157,6 +158,16 @@ const apiRateLimit = createApiRateLimitMiddleware({
     return session.ok ? session.principal.sessionId : undefined;
   },
 });
+
+// Every Gemini call made while serving a request is charged to this session and address.
+app.use("*", createGeminiCallerMiddleware({
+  getPrincipal: (c) => {
+    if (!hackathonAuth.configured) return undefined;
+    const session = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
+    return session.ok ? session.principal : undefined;
+  },
+  getIpKey: clientIpKey,
+}));
 
 const requestTimeout = createRequestTimeoutMiddleware();
 app.use("*", (c, next) => {
