@@ -35,7 +35,7 @@ test("Cloud Run Gemini requires explicit shared-counter opt-in and an approved d
   assert.equal(requests, 0);
 });
 
-test("optimizer byte budget stays 80 MiB unless the proposed 100 MiB limit is explicitly configured; invalid limits disable optimization", () => {
+test("optimizer byte budget defaults to 100 MiB, accepts only 80 or 100 MiB, and invalid limits disable optimization", () => {
   assert.equal(readOptimizerQueryBudget({}), 104857600);
   assert.equal(readOptimizerQueryBudget({ USTAAD_OPTIMIZER_MAX_BYTES_BILLED: "104857600" }), 104857600);
   for (const value of ["0", "unlimited", "104857601", "NaN", "100", ""]) {
