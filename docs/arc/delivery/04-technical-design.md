@@ -74,7 +74,7 @@ Existing routes keep their paths and responses. Changes:
 | NEW `PUT /lots/:lotId/conditions` | Save conditions in progress with provenance; supersedes the current draft if an input changed |
 | NEW `GET /lots/:lotId` | Lot head and revision list, for "Next for you", J3 and J8 |
 | `POST /api/auth/demo-session` | Issuing a new session is rate-limited per IP (5.2). A request with a valid cookie reuses it, as today |
-| NEW `POST /api/auth/pitch-claim` | Exchanges the pitch reserve code for a signed cookie grant (5.2) |
+| NEW `POST /api/auth/pitch-claim` | Exchanges the pitch reserve code for a signed pitch claim in the cookie (5.2) |
 | NEW `POST /api/arc/turns` | One Arc turn. Body `{ clientTurnId, input }`; no `sessionId` (3.0 I2). Streaming per ADR-0011 |
 | NEW `GET /api/arc/session`, `GET /api/arc/runs/:taskRunId`, `POST /api/arc/runs/:taskRunId/resume` | Session state, task-run state, resume after restart (3.4) |
 | NEW `GET /api/arc/runs/:taskRunId/events` | Server-sent events for a task run, replayed from `Last-Event-ID` (2.3, ADR-0011) |
@@ -545,7 +545,7 @@ Each step is one ticket and one deploy behind its flag. A flag off restores toda
 | 3 | Wire `firestore-idempotency-store.js` for `/jobs`, lease 130 s, fencing | `USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY` (the name its header already documents) | flag off |
 | 4 | Durable PO reviews | `USTAAD_ENABLE_DURABLE_PO_REVIEWS` | flag off (reviews in flight are lost, as today) |
 | 5 | Durable traces, owner check from Firestore | `USTAAD_ENABLE_DURABLE_TRACES` | flag off |
-| 6 | Budget store `budget-v2` replaces the day cap for `momentum`; session issuance limit; pitch reserve grant | `USTAAD_GEMINI_BUDGET_POLICY=budget-v2`, limits in `GEMINI_BUDGET_LIMITS` | unset the flag; the old counter path is untouched |
+| 6 | Budget store `budget-v2` replaces the day cap for `momentum`; session issuance limit; pitch claim | `USTAAD_GEMINI_BUDGET_POLICY=budget-v2`, limits in `GEMINI_BUDGET_LIMITS` | unset the flag; the old counter path is untouched |
 | 7a | Lot heads and revisions written; `revision` block returned; clients send the approve body | `USTAAD_ENABLE_LOT_REVISIONS` | flag off |
 | 7b | Approve guard enforced | `USTAAD_ENFORCE_APPROVE_GUARD` | flag off |
 | 8 | Conditions sources with provenance; shared weather cache and observations | `USTAAD_ENABLE_CONDITION_PROVENANCE` | flag off |
@@ -620,7 +620,7 @@ reserve({ principal, ipKey, purpose, units = 1, reservationKey, evalSuite = null
 peek({ principal, ipKey, signal }) => Promise<{ day, session, ip, minute, reserveWindowActive, limits }>
 ```
 
-- `principal` is the verified cookie principal from `authorizeSupervisor`: the session ID and any grant come from it, never from a request field. `ipKey` is the first 16 hex of HMAC-SHA-256 over `ip.v1.<address>` with the demo signing key, where the address is the rate-limit key from 5.4. Raw addresses are never stored or logged.
+- `principal` is the verified cookie principal from `authorizeSupervisor`: the session ID and any pitch claim come from it, never from a request field. `ipKey` is the first 16 hex of HMAC-SHA-256 over `ip.v1.<address>` with the demo signing key, where the address is the rate-limit key from 5.4. Raw addresses are never stored or logged.
 - `reservationKey` is built as in 3.3. The same key returns `replayed: true` and counts nothing. A provider call that actually happens is always counted, because a re-run after a lease expiry has a new key.
 - One reservation is one transaction over the day, session-day, IP-day, minute and session-minute counters plus the reservation document: 6 writes.
 - `withDailyGeminiCallCap` keeps its role as the one wrapper around every Gemini call. Its `store` becomes an adapter whose `reserveAttempt` calls `reserve` with the `budget` context passed in the Gemini call arguments. Callers with no session (none today) are charged to the day and minute counters only.
@@ -636,16 +636,16 @@ peek({ principal, ipKey, signal }) => Promise<{ day, session, ip, minute, reserv
                "windowEnd": "2026-12-04T23:59:59+08:00", "grant": "pitch_reserve", "sessionDayLimit": 120 } }
 ```
 
-Outside the reserve window, usable day units are `dayLimit - reserve.units`. Inside it, the reserved units are usable only by a session whose verified cookie carries the `pitch_reserve` grant; every other session still sees `dayLimit - reserve.units`. The values above are proposals; founders set them (decision F2). Per-turn Gemini use is in `05-ai-design.md` section 3: 1 attempt for a typed message, 2 for a typed data question, 0 for buttons and picked suggestions.
+Outside the reserve window, usable day units are `dayLimit - reserve.units`. Inside it, the reserved units are usable only by a session whose verified cookie carries the pitch claim (`pitch_reserve`); every other session still sees `dayLimit - reserve.units`. The values above are proposals; founders set them (decision F2). Per-turn Gemini use is in `05-ai-design.md` section 3: 1 attempt for a typed message, 2 for a typed data question, 0 for buttons and picked suggestions.
 
 **Demo session issuance (BL-SE-1).** Minting new sessions would otherwise reset the per-session limit. `POST /api/auth/demo-session` now counts each new session on `live_mint_ip_hour_<ipKey>_<YYYYMMDDHH>` in a transaction before it issues the cookie. Above `demoSessionMint.perIpPerHour` it returns 429 `DEMO_SESSION_RATE_LIMITED` with `Retry-After` and no cookie. A request that already has a valid cookie reuses it, as today (`index.mjs:566`), and counts nothing. With the budget flag on and Firestore unavailable, the route returns 503 and issues nothing. The per-session limits bound one session, `ipDayLimit` bounds what one address can spend however many sessions it mints, and the day limit bounds everything. At the venue every judge may share one NAT address, so `ipDayLimit` is shared there; the pitch laptop does not depend on it (next paragraph).
 
 **Pitch reserve credential.** The reserve is held on a server credential, not on session IDs.
 
 1. A founder creates one Secret Manager secret, `arc-pitch-reserve-code` (32 random bytes, hex), with a change record first. The service reads it through `--update-secrets` as `ARC_PITCH_RESERVE_CODE`.
-2. NEW `POST /api/auth/pitch-claim`, body `{ code }` (strict, at most 128 characters), same-origin, valid demo cookie required. Each attempt is counted on `live_claim_ip_hour_<ipKey>_<YYYYMMDDHH>` before the compare, at most `pitchClaim.attemptsPerIpPerHour`. The server compares the SHA-256 digests with `timingSafeEqual`. On a match it re-issues the cookie with the same `sid` and `exp` and a signed `grants: ["pitch_reserve"]` claim (cookie policy `HACKATHON_DEMO:v2`; `v1` cookies stay valid with no grants). The code never appears in a URL, a response, a log line or the repository; the log line `arc_pitch_claim` records the outcome only. The pitch laptop enters it once in a password field (frontend ticket).
-3. Inside the reserve window, a session with the grant may spend the reserved units, uses `reserve.sessionDayLimit` instead of `sessionDayLimit`, and is not counted against `ipDayLimit`. Minute limits still apply.
-4. The grant changes the budget only. It grants no approval, no tool and no other capability, and the identity label stays "Demo session, simulated".
+2. NEW `POST /api/auth/pitch-claim`, body `{ code }` (strict, at most 128 characters), same-origin, valid demo cookie required. Each attempt is counted on `live_claim_ip_hour_<ipKey>_<YYYYMMDDHH>` before the compare, at most `pitchClaim.attemptsPerIpPerHour`. The server compares the SHA-256 digests with `timingSafeEqual`. On a match it re-issues the cookie with the same `sid` and `exp` and a signed `grants: ["pitch_reserve"]` claim (cookie policy `HACKATHON_DEMO:v2`; `v1` cookies stay valid with no pitch claim). The code never appears in a URL, a response, a log line or the repository; the log line `arc_pitch_claim` records the outcome only. The pitch laptop enters it once in a password field (frontend ticket).
+3. Inside the reserve window, a session with the pitch claim may spend the reserved units, uses `reserve.sessionDayLimit` instead of `sessionDayLimit`, and is not counted against `ipDayLimit`. Minute limits still apply.
+4. The pitch claim changes the budget only. It gives no approval, no tool and no other capability, and the identity label stays "Demo session, simulated".
 5. After 5 December the secret version is disabled and `reserve` is removed from the limits. Grants end with their 2 h cookies.
 
 **Eval pool (SH-EV-S7).** Live eval suites run in a local process with the developer's gcloud credentials (`K_SERVICE` unset) and `"pool": "eval"`. Its counters are the `eval_*` documents, so a gate run never draws on the `live` pool. Config validation rejects `"pool": "eval"` when `K_SERVICE` is set, so no Cloud Run revision can serve from it.
