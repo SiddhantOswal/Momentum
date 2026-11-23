@@ -32,15 +32,10 @@ function frozenConditions(manualConditions) {
  * an explicit lot ID the lot is derived from the request, so every plan has a
  * revision for the approve guard to check.
  */
-async function registerRevision({ fields, identity, conditions, principal, lotRevisions, signal }) {
-  let lotId = `LOT-HACK-${principal.sessionId}-${identity.keyHash.slice(0, 12)}`;
-  if (fields.lotId !== undefined) {
-    const validated = validateWith(LotIdSchema, fields.lotId, "Lot ID failed validation.");
-    if (!validated.ok) return validated.failure;
-    if (!demoOwnsLot(principal, validated.data)) {
-      return lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
-    }
-    lotId = validated.data;
+async function registerRevision({ lotId: requestedLotId, identity, conditions, principal, lotRevisions, signal }) {
+  const lotId = requestedLotId ?? `LOT-HACK-${principal.sessionId}-${identity.keyHash.slice(0, 12)}`;
+  if (!demoOwnsLot(principal, lotId)) {
+    return lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
   }
   try {
     const registered = await lotRevisions.store.registerPending({
@@ -105,6 +100,10 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   purchaseOrderPolicy,
   lotRevisions,
 }) {
+  // A lot ID is part of the request identity, so two lots with the same inputs never share a job.
+  const lotField = typeof fields.lotId === "string" && fields.lotId.trim() !== "" ? validateWith(LotIdSchema, fields.lotId, "Lot ID failed validation.") : undefined;
+  if (lotField && !lotField.ok) return lotField.failure;
+  const lotId = lotField?.data;
   const upload = await readPurchaseOrderUpload(fields.file, {
     invalidMessage: "Job request is invalid.",
     executionMode,
@@ -229,6 +228,7 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   // handler returns SERVICE_UNAVAILABLE before running job preparation.
   const identity = createJobRequestIdentity({
     idempotencyKey,
+    ...(lotId === undefined ? {} : { lotId }),
     fileBytes,
     operatorFields: operatorFields.data,
     operatorItemConfirmation: operatorItemConfirmation.data,
@@ -245,7 +245,7 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   const scopedIdentity = hackathonAuth.enabled ? demoJobIdentity(principal, identity.identity) : identity.identity;
   const conditions = frozenConditions(manualConditions.data);
   const lot = lotRevisions?.enabled === true && isDemoPrincipal(principal)
-    ? await registerRevision({ fields, identity: scopedIdentity, conditions, principal, lotRevisions, signal })
+    ? await registerRevision({ lotId, identity: scopedIdentity, conditions, principal, lotRevisions, signal })
     : undefined;
   if (lot && !lot.ok) return lot;
 

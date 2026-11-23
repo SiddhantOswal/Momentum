@@ -166,3 +166,26 @@ test("a session without a demo principal plans as before and gets no revision", 
   assert.equal("revision" in result, false);
   assert.equal(context.firestore.calls.length, 0);
 });
+
+test("two lots planned with the same inputs get different jobs, with or without lot revisions", async () => {
+  for (const enabled of [true, false]) {
+    const context = setup({ enabled });
+    const lotFor = (suffix) => `LOT-HACK-${context.principal.sessionId}-${suffix.repeat(12)}`;
+    const first = await context.plan(jobFields({ lotId: lotFor("c") }), "plan-key-lot-c1");
+    const second = await context.plan(jobFields({ lotId: lotFor("d") }), "plan-key-lot-d1");
+    assert.equal(first.ok && second.ok, true);
+    assert.notEqual(first.jobSheet.jobId, second.jobSheet.jobId);
+    // The same inputs and the same key in one lot still name one job.
+    const again = await context.plan(jobFields({ lotId: lotFor("d") }), "plan-key-lot-d1");
+    assert.equal(again.jobSheet.jobId, second.jobSheet.jobId);
+  }
+});
+
+test("one client key reused for a second lot carries a different request fingerprint", async () => {
+  const context = setup({ enabled: false });
+  const lotFor = (suffix) => `LOT-HACK-${context.principal.sessionId}-${suffix.repeat(12)}`;
+  await context.plan(jobFields({ lotId: lotFor("c") }), "one-key-two-lots");
+  await context.plan(jobFields({ lotId: lotFor("d") }), "one-key-two-lots");
+  assert.equal(context.seen[0].identity.keyHash, context.seen[1].identity.keyHash);
+  assert.notEqual(context.seen[0].identity.fingerprint, context.seen[1].identity.fingerprint);
+});
