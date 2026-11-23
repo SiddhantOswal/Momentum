@@ -30,8 +30,9 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## In progress
 
-- **Resume point (2026-11-23).** ARC-M0-03, the full M0 review gate over `origin/v2..arc/main` (252 files, 12 commits at `ed821e4` plus this status commit), was started with all eight reviewers in parallel. The account usage limit stopped them; it resets at 07:20 IST. On resume: collect or rerun each reviewer, write `reviews/M0-review.md`, fix blocking findings through their owners, and re-review.
-- Built, not merged (they wait for QA and the M0 GO): ARC-M1-15 on `arc/ARC-M1-15-vertex-reference` (`3279481`). ARC-M1-01 on `arc/ARC-M1-01-commands` was being built in worktree `.claude/worktrees/agent-ae8940e3f24a159d2`; check its branch for commits and run `npm test` there before QA.
+- ARC-M0-03 M0 gate, round 1 done: **NO-GO** (`reviews/M0-review.md`). The verification auditor found a wrong test-result claim; the other seven reviewers gave CONDITIONAL GO. Round 2 repairs are with the owners: solutions architect, AI architect, product manager and business analyst, data engineer, delivery lead.
+- Built, not merged until M0 is GO and QA has verified them: ARC-M1-15 (`3279481`), ARC-M1-01 (paused partway, 4 commits on `arc/ARC-M1-01-commands`).
+- CI "Unit tests" is red on `arc/main` until ARC-M1-11 lands (known failure `test/job-draft-persistence.test.js:508`).
 
 ## Blocked
 
@@ -46,7 +47,7 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 Asked only when a ticket needs them.
 - F1: which URL the competition submission lists (decides `prepagent` Gemini off or a separate counter). Blocks the ARC-M1-08 cloud change.
-- F2: the time of the pitch slot (budget numbers accepted with the plan). Blocks the ARC-M1-08 reserve window.
+- F2: the budget numbers (proposed 300 a day, 40 per session, 20 per minute, 6 per session-minute, 80 reserved for the pitch) and the time of the pitch slot. Not yet decided. Blocks the ARC-M1-08 reserve window.
 - F4: whether Billing credits cover Vertex AI and Cloud Run (console check). Blocks the first cost-bearing cloud change.
 - D1: Om's sign-offs (ARC-M0-04). D2: where `sid_pack.zip` is. D5: Phase B dates and plant profile.
 
