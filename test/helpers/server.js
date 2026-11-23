@@ -7,6 +7,24 @@ const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const STARTUP_TIMEOUT_MS = 10000;
 const MAX_ATTEMPTS = 3;
 
+const started = new Set();
+let generation = 0;
+
+// Lets a test's cleanup hook stop every child the helper spawned, including
+// ones whose startup never completed and so were never handed to the test.
+// Starts still in their retry loop are abandoned so they cannot respawn.
+export async function stopAllStarted() {
+  generation += 1;
+  await Promise.all([...started].map(async (child) => {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, "exit");
+      child.kill("SIGKILL");
+      await exited;
+    }
+    started.delete(child);
+  }));
+}
+
 export async function freePort() {
   const listener = createServer();
   listener.listen(0, "127.0.0.1");
@@ -25,6 +43,7 @@ async function attempt(env, timeoutMs, entry) {
     env: { ...env, PORT: String(port) },
     stdio: ["ignore", "pipe", "pipe"],
   });
+  started.add(child);
   let stderr = "";
   child.stderr.on("data", (chunk) => { stderr += chunk; });
   let timer;
@@ -45,7 +64,9 @@ async function attempt(env, timeoutMs, entry) {
 
 export async function startIndexServer(env, { timeoutMs = STARTUP_TIMEOUT_MS, entry = "index.mjs" } = {}) {
   const failures = [];
+  const startGeneration = generation;
   for (let i = 0; i < MAX_ATTEMPTS; i += 1) {
+    if (generation !== startGeneration) throw new Error("Backend start abandoned: helper was stopped");
     const result = await attempt(env, timeoutMs, entry);
     if (result.child) return result;
     failures.push(result.failure);

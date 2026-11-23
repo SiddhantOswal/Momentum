@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer } from "node:net";
-import test from "node:test";
-import { freePort, startIndexServer } from "./helpers/server.js";
+import test, { afterEach } from "node:test";
+import { freePort, startIndexServer, stopAllStarted } from "./helpers/server.js";
+
+const TEST_TIMEOUT_MS = 15000;
+
+afterEach(stopAllStarted);
 
 async function stop(child) {
   if (child.exitCode !== null || child.signalCode !== null) return;
@@ -11,7 +15,7 @@ async function stop(child) {
   await exited;
 }
 
-test("concurrent servers get distinct ports and both answer", async () => {
+test("concurrent servers get distinct ports and both answer", { timeout: TEST_TIMEOUT_MS }, async () => {
   const env = { PATH: process.env.PATH };
   const servers = await Promise.all([startIndexServer(env), startIndexServer(env)]);
   try {
@@ -25,7 +29,7 @@ test("concurrent servers get distinct ports and both answer", async () => {
   }
 });
 
-test("freePort does not return a port that is in use", async () => {
+test("freePort does not return a port that is in use", { timeout: TEST_TIMEOUT_MS }, async () => {
   const holder = createServer();
   holder.listen(0, "127.0.0.1");
   await once(holder, "listening");
@@ -36,14 +40,14 @@ test("freePort does not return a port that is in use", async () => {
   }
 });
 
-test("a server that exits before starting fails fast with a clear message", async () => {
+test("a server that exits before starting fails fast with a clear message", { timeout: TEST_TIMEOUT_MS }, async () => {
   await assert.rejects(
     startIndexServer({ PATH: process.env.PATH }, { entry: "test/helpers/no-such-entry.mjs" }),
     /failed to start after 3 attempts.*exited before startup/,
   );
 });
 
-test("a server that never prints fails at the startup timeout", async () => {
+test("a server that never prints fails at the startup timeout", { timeout: TEST_TIMEOUT_MS }, async () => {
   await assert.rejects(
     startIndexServer({ PATH: process.env.PATH }, { entry: "test/helpers/silent-entry.mjs", timeoutMs: 300 }),
     /no startup output within 300 ms/,
