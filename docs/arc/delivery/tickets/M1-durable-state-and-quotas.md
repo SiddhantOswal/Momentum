@@ -161,3 +161,16 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - Depends on: M1-07. Owner: backend engineer.
 - Test plan: fail both the event write and the head write, and read from a second instance.
 - From the ARC-M1-17 QA: pass the caller's `ipKey` to the `/api/status` peek so the budget view does not show units left when the address cap is spent; add a test in `gemini-session-limits-http.test.js` that fails when the IP mint limit is removed on the store-backed HTTP path.
+
+### ARC-M1-25 Share the Firestore transaction retry loop (P2)
+- Goal: `firestore-lot-store.js` and the budget store each carry a copy of the roughly 30-line `withToken`, `readDoc` and `transact` retry loop (ARC-M1-10 QA, item 5). Move it into `src/google-cloud/firestore-rest.js` and use it in both.
+- AC: one implementation; both stores' tests pass unchanged; a test of the retry loop covers contention and the retry bound.
+- Depends on: M1-10. Owner: backend engineer.
+- Test plan: the existing store tests plus the new loop test.
+
+### ARC-M1-26 Browser test of the approve request body (P1, with the M6 pages)
+- Goal: the M1-10 client tests are source-text checks. Add a Playwright test for the dashboard and for `web/` that intercepts `POST /jobs/:id/approve` and asserts the JSON body carries `reviewConfirmed: true` and `revisionFingerprint`.
+- AC: the test fails if a client stops sending either field, even when the source text is refactored. It must pass on the live revision before `USTAAD_ENFORCE_APPROVE_GUARD` is turned on (ARC-M8-05).
+- Depends on: M1-10, M6-03. Owner: frontend engineer and QA lead.
+- Test plan: the Playwright run with the mutation applied.
+

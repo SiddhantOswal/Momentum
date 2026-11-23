@@ -49,6 +49,8 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 - ARC-M6-01 (Codex, tokens and theme): QA ACCEPT WITH FIXES. Token values match the design (41 of 41 names, no value differences) and theme behaviour passes; the font files lack the arrow glyph and display type was Inter Tight against the PNGs' Inter. Fix list sent to Codex. Not merged.
 
+- ARC-M1-10 QA: MERGE WITH FIXES (22 of 25 mutations caught; concurrent approvals and approve-versus-edit races safe). One required fix: an edit during a PENDING revision left a stale draft approvable (breaks J8). With the engineer. Follow-ups opened: ARC-M1-25 (shared transaction loop), ARC-M1-26 (browser test of the approve body). Foreign-lot access stays 403 `DEMO_SCOPE_REQUIRED`, as for jobs.
+
 ## In progress
 
 - ARC-M1-05 merged (`67602dc`; QA PASS, 19 of 20 mutations caught, the survivor closed by a test of `index.mjs` wiring) and ARC-M1-08 merged (`ea06073`; QA PASS, 29 of 30 caught, the survivor closed by a thinking-token cost test). `npm test` on `arc/main` after both: 760 of 760. Session and IP limits and the rupee overshoot are in the ARC-M1-17 AC.
