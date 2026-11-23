@@ -4,6 +4,8 @@ Status: M0 discovery, read-only. Author role: solutions architect. Date: 2026-11
 
 Scope: what the v2 backend and the two UIs actually do, where state lives, and where the reference PDFs disagree with the code. It does not repeat `01`, `02` (C1 to C20, G1 to G14), `STATUS.md` or `changes/2026-11-22-momentum-limits.md`; it cites them where it adds to them.
 
+Amended 2026-11-23 at the M0 gate: the test baseline in 1.5 and D10 is replaced with the figures measured on Node 26.13.1, and wording that described live access in more detail than the plan needs is removed.
+
 No source file, branch, commit or cloud resource was changed. Cloud reads were `describe` and `list` only. Secret values and secret-like env values (PROJECT_ID, BUCKET, USTAAD_PUBLIC_ORIGIN, keys) were not printed.
 
 ## 0. Commands run
@@ -13,8 +15,8 @@ No source file, branch, commit or cloud resource was changed. Cloud reads were `
 | R1 | `gcloud run services describe momentum\|prepagent --region asia-south1 --format=json`, filtered to annotations, concurrency, resources, env var names, non-secret flag values | Sections 1.7, 3 |
 | R2 | `gcloud run revisions describe momentum-00023-yaz ... --format="value(metadata.annotations)"` | Revision max scale and affinity |
 | R3 | `gcloud firestore databases list --project prepagent-hack` | Firestore mode and settings |
-| R4 | `gcloud projects get-iam-policy prepagent-hack --filter=bindings.members:prepagent-run@` | Runtime account roles |
-| R5 | `node --test test/*.test.js` (Node v22.17.1, `K_SERVICE` unset) | Test counts |
+| R4 | `gcloud projects get-iam-policy prepagent-hack`, filtered to the runtime service account | Runtime account roles |
+| R5 | `node --test test/*.test.js` (`K_SERVICE` unset). The baseline in 1.5 is the M0 gate run on Node 26.13.1 (`reviews/M0-review.md`) | Test counts |
 | R6 | `npm run test:acceptance` | Acceptance counts |
 | R7 | `git rev-list --count main..v2`, `git log --all -S createFirestoreIdempotencyStore` | History checks |
 
@@ -27,7 +29,7 @@ NOT RUN: Playwright (`npm run test:ui`), `web` build (`npm run build` in `web/`)
 | Item | Value | Evidence |
 |---|---|---|
 | Server | Node, Hono 4 on `@hono/node-server`, zod 4, pdfkit, firebase-admin | `package.json` dependencies |
-| Node version | `engines >=20.10.0`; container is `node:22-slim`; local tests ran on 22.17.1 | `package.json`, `Dockerfile:1` |
+| Node version | `engines >=20.10.0`; container is `node:22-slim`; the test baseline was measured on Node 26.13.1, and Node 22 is not installed on the audit machine | `package.json`, `Dockerfile:1` |
 | Entry | `index.mjs` (1,628 lines), `npm start` | `package.json` `start` |
 | Adapters | `src/service-ports.js` builds every Google Cloud adapter from env flags at import time (`servicePorts`, line 576) | `src/service-ports.js:427-576` |
 | Old UI | Server-rendered HTML at `/` (`src/operator-ui.js`, modules in `src/ui/*.js` served from `/ui/:filename`) | `index.mjs:416-422, 556` |
@@ -116,15 +118,16 @@ Five routes can spend Gemini attempts: `/orders/extract`, `/jobs`, `/risk/explan
 
 | Suite | Files | Result (this audit) |
 |---|---|---|
-| `npm test` (`node --test test/*.test.js`) | 76 files, 599 tests | R5: 597 pass, 1 fail, 1 cancelled |
-| `npm run test:acceptance` | 32 of the 76 files (`package.json`) | R6: 317 tests, 316 pass, 1 fail |
+| `npm test` on `origin/v2` (`node --test test/*.test.js`, Node 26.13.1) | 75 files, 588 tests | R5: 587 pass, 1 fail, 0 cancelled |
+| `npm test` on `arc/main` at `a4480ec` (Node 26.13.1) | 76 files, 605 tests | 604 pass, 1 fail |
+| `npm run test:acceptance` on `origin/v2` | 32 of the 75 files (`package.json`) | R6: 317 tests, 316 pass, 1 fail |
 | `npm run test:ui` (Playwright) | `test/browser/{dashboard,frontend,local-backup}.spec.js` | NOT RUN |
 
 - Failing test in both runs: `test/job-draft-persistence.test.js:508` "completed request replay retains the durable APPROVED lifecycle and audit". The v2 PDF lists it as a known failure that also fails on `main`.
-- Cancelled: `test/weather-service.test.js` "weather provider times out to unavailable instead of hanging" (event loop resolved with the promise pending).
-- 44 test files are outside `test:acceptance`, including `firestore-idempotency-store`, `trace-registry`, `trace-routes`, `request-guardrails`, `live-store`, `condition-guard`, `defect-diagnosis-service`, `gemini-function-runner`, `schemas` and `quality-rules`.
+- An earlier run on Node 22.17.1 reported 599 tests, 597 pass, 1 fail and 1 cancelled (`test/weather-service.test.js`, "weather provider times out to unavailable instead of hanging"). That figure is NOT VERIFIED: Node 22 is not installed on the audit machine, and on Node 26.13.1 no test was cancelled. ARC-M1-13 pins Node 22 and must reproduce the cancellation before any fix.
+- On `origin/v2`, 43 test files are outside `test:acceptance`, including `firestore-idempotency-store`, `trace-registry`, `trace-routes`, `request-guardrails`, `live-store`, `condition-guard`, `defect-diagnosis-service`, `gemini-function-runner` and `schemas`. `arc/main` adds `quality-rules`, also outside it.
 - All three Playwright specs target the old UI at `/` (`frontend.spec.js:421,435`, `dashboard.spec.js:26,155-160`). No browser test covers `/app`. The Playwright server runs with every cloud flag off (`playwright.config.js:8`).
-- `test/quality-rules.test.js` is untracked on this branch (git status).
+- `test/quality-rules.test.js` was untracked on `arc/m0-discovery` when this audit ran; it is committed on `arc/main`.
 
 ### 1.6 Build and deploy
 
@@ -189,13 +192,13 @@ UI key: **Old** = server-rendered UI at `/` (sections `screen-impact`, `screen-o
 
 | Capability | Where | What is missing |
 |---|---|---|
-| Per-defect partial prediction, fail-closed for job sheets | `risk-prediction-service.js:259-278`; `job-coordinator.js:495-522` | No partial-state UI (G1, G2) |
+| Per-defect partial prediction, fail-closed for JobSheet drafts | `risk-prediction-service.js:259-278`; `job-coordinator.js:495-522` | No partial-state UI (G1, G2) |
 | Humidity band (RH ±5) | `risk-prediction-service.js:15-17` | Not shown in the App |
 | Condition sources (`plant`, `weather`, `seasonal`) and reduced confidence | `condition-guard.js:129-163` | Only on the stored JobSheet; C20 |
 | Attribution rows per defect | `/risk/explanation` returns `rows` (`risk-evidence-service.js:548-553`) | Insights "What moved the Warp estimate" has no screen |
 | Current R² per model and the October thresholds | `/api/status` `modelAcceptance.models[].r2`, `requiredR2` (`model-acceptance.js:103,113`) | The App Models screen is a placeholder. The replaced models' R² ("earlier check") is not returned. |
 | Gemini cap state | `/api/status` `runtimeAvailability.dailyGeminiCallCap` | Shows the limit only, not calls used, when the shared store is on (`daily-gemini-call-cap.js:149-152`) |
-| Google sign-in with roles | `user-session-auth.js:74-77`, `/api/auth/session` | Off live (`USTAAD_AUTH_MODE` unset) |
+| Google sign-in with roles | `user-session-auth.js:74-77`, `/api/auth/session` | Not used live; the live service uses signed demo sessions (spec C9) |
 | Tool-calling loop | `gemini-function-runner.js` | Not wired to any route; candidate base for Arc |
 | Durable idempotency adapter | `firestore-idempotency-store.js` | Not wired (section 3.2) |
 | Similar runs as a standalone call | `/risk/similar-runs` | App does not call it |
@@ -248,7 +251,7 @@ Live context: `momentum` runs up to 4 instances per revision with 20 concurrent 
 
 | Store | Holds | Evidence |
 |---|---|---|
-| BigQuery `prepagent.job_sheets` | DRAFT and APPROVED job sheets, approval audit JSON | `job-sheet-repository.js:98`, `bigquery-write-client.js:68-80, 150-152` |
+| BigQuery `prepagent.job_sheets` | DRAFT and APPROVED JobSheet records, approval audit JSON | `job-sheet-repository.js:98`, `bigquery-write-client.js:68-80, 150-152` |
 | BigQuery `feedback` | actual-scrap feedback | `bigquery-write-client.js:5` |
 | Cloud Storage | PO files, photos, job-card PDFs | `storage-client.js`, `job-card-service.js` |
 | Firestore `gemini_daily_usage` | shared daily attempt count (transaction) | `firestore-gemini-attempt-store.js:77-82` |
@@ -262,7 +265,7 @@ Live context: `momentum` runs up to 4 instances per revision with 20 concurrent 
 | Durable PO review store | Does not exist | n/a |
 | Durable trace store | Does not exist | n/a |
 
-Flags present on `momentum` but read by no code: `USTAAD_ENABLE_FIREBASE_AUTH=false`. The code reads `USTAAD_FIREBASE_AUTH_ENABLED` (`firebase-supervisor-auth.js:96,128`) and `USTAAD_AUTH_MODE` (`user-session-auth.js:75`), and neither is set. The result is the same (sign-in off), but the live flag does nothing.
+Flags present on `momentum` but read by no code: `USTAAD_ENABLE_FIREBASE_AUTH=false`. The code reads `USTAAD_FIREBASE_AUTH_ENABLED` (`firebase-supervisor-auth.js:96,128`) and `USTAAD_AUTH_MODE` (`user-session-auth.js:75`), and neither is set, so the live flag has no effect. The live service uses signed demo sessions.
 
 ## 4. Reference PDFs compared with the code
 
@@ -276,8 +279,8 @@ Flags present on `momentum` but read by no code: `USTAAD_ENABLE_FIREBASE_AUTH=fa
 | D6 | v2 PDF p. 4: Cloud Build "builds every release" | The build config builds and smoke-tests an image but does not build `web/` and does not deploy. `/app` assets come from an untracked local build, so "built from commit 7d9c2e5" cannot cover the React bundle. | `Dockerfile`; `.gitignore:29`; `ops/cloudbuild-private.yaml` |
 | D7 | v2 PDF p. 2: Firebase sign-in "built, not switched on" | Correct, but the live env carries the unused `USTAAD_ENABLE_FIREBASE_AUTH` flag (3.2) | R1 |
 | D8 | OM addendum WP04 asks for review handles, idempotency and leases checked across two instances and restarts; Master audit lists Firestore idempotency as an "optional baseline" | In v2, review handles, idempotency and traces are all process memory (M1 to M4). The Firestore idempotency adapter is unused. | Section 3 |
-| D9 | OM addendum WP03: fail closed on an incomplete five-model prediction | Done for `/jobs` (blocks the job sheet). `/risk/predict` alone still returns a partial result with `unavailableDefects` by design. | `job-coordinator.js:495-522`; `risk-prediction-service.js:270-278` |
-| D10 | Master audit: "535 passed, 0 failed, 1 skipped" scoped Node tests; acceptance "315 passed, 1 skipped" | On v2 now: 599 tests, 597 pass, 1 fail, 1 cancelled; acceptance 317, 316 pass, 1 fail. The audit measured a different branch (Session 2 local), not v2. | R5, R6 |
+| D9 | OM addendum WP03: fail closed on an incomplete five-model prediction | Done for `/jobs` (blocks the JobSheet draft). `/risk/predict` alone still returns a partial result with `unavailableDefects` by design. | `job-coordinator.js:495-522`; `risk-prediction-service.js:270-278` |
+| D10 | Master audit: "535 passed, 0 failed, 1 skipped" scoped Node tests; acceptance "315 passed, 1 skipped" | On `origin/v2`, Node 26.13.1: 75 files, 588 tests, 587 pass, 1 fail (`test/job-draft-persistence.test.js:508`), 0 cancelled; acceptance 317, 316 pass, 1 fail. On `arc/main` at `a4480ec`: 605 tests, 604 pass, 1 fail. The audit measured a different branch (Session 2 local), not v2. | R5, R6; `reviews/M0-review.md` |
 | D11 | Node 22 container (addendum WP02) against brief's "Node 20" | `engines >=20.10.0`, image `node:22-slim` | `package.json`; `Dockerfile:1` |
 
 ## 5. Points for the technical design (not decisions)
