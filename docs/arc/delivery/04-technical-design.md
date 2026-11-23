@@ -1,6 +1,6 @@
 # 04. Technical design: Arc on the v2 backend
 
-Status: Proposed, M0. Amended 2026-11-23 for the M0 gate, round 1 (`reviews/M0-review.md`). Author role: solutions architect. Date: 2026-11-23. Based on `origin/v2` at `eb6eab9`; first written on `arc/m0-discovery`.
+Status: Approved with the plan on 2026-11-23, M0. Amended 2026-11-23 for the M0 gate, round 1 (`reviews/M0-review.md`). Author role: solutions architect. Date: 2026-11-23. Based on `origin/v2` at `eb6eab9`; first written on `arc/m0-discovery`.
 
 Inputs: `01`, `02` (C8, C11, C12, C16, C17, C20, section 11), `03-discovery-audit.md`, `data/data-audit.md`, `data/stale-claims.md`, ADR-0001, and the V5 contracts and policies as a baseline (not quoted). Where the founder brief differs from V5 the brief wins: approval is a checkbox plus Approve inside Arc, identity stays a labelled demo session, and the mic button is shown but disabled.
 
@@ -658,7 +658,7 @@ Outside the reserve window, usable day units are `dayLimit - reserve.units`. Ins
 
 - The eval day limit is 900: one full live gate run (353 attempts, `05-ai-design.md` section 7.5), one full retry run (353), and the one-off M1 router comparison (about 130 router calls), 836 in total, plus a margin of 64 (about 8%) for estimate error. A day that needs more stops at the limit, and the remaining suites run on the next IST day. `minuteLimit` 10 keeps eval traffic to half of the live per-minute limit, because both draw on the same Vertex AI per-minute quota (to be confirmed at 30 or more per minute in ADR-0008). `blockedWindows` copies the pitch reserve window, so no eval run calls Gemini during it.
 - Every eval reservation must carry `evalSuite` (schema in 2.4), and is logged as `arc_budget_reserve` with pool, suite, purpose, units and remaining day units. The gate report lists attempts per suite from a read-only query on `budget_reservations` (`pool == "eval"` and `dayWindow == <date>`, equality filters only, so no composite index).
-- Cost: about $1.38 for a typical gate run, about $3.80 for a full eval day with typical calls, and at most about $76 a day at the worst single-call cost of $0.084 (estimates, `05-ai-design.md` sections 3 and 7.5).
+- Cost: about $1.38 for a typical gate run, about $3.50 for a full eval day at the 900 limit at the eval-run rate ($1.38 per 353 attempts), and at most about $76 a day at the worst single-call cost of $0.084 (estimates, `05-ai-design.md` sections 3 and 7.5).
 
 ### 5.3 Caching
 
