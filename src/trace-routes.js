@@ -61,7 +61,92 @@ function createEventQueue(maxQueuedEvents = 250) {
   };
 }
 
-export function createTraceRoutes(registry) {
+function isTerminal(event) {
+  return event.type.startsWith("run.") && event.type !== "run.started";
+}
+
+function streamFailure(stream) {
+  return stream.writeSSE({
+    event: "stream.error",
+    data: JSON.stringify({
+      ok: false,
+      error: {
+        code: "TRACE_STREAM_FAILED",
+        message: "Trace stream ended unexpectedly.",
+      },
+    }),
+  });
+}
+
+function pause(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve();
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    }
+    signal.addEventListener("abort", done, { once: true });
+  });
+}
+
+/**
+ * Serves a run this instance does not hold in memory from the durable store.
+ * A run still going on another instance is followed by polling, because
+ * instances share no event channel; the stream ends at the run's terminal
+ * event or after maxStreamMs, and the client resumes with Last-Event-ID.
+ */
+async function streamFromStore(c, { store, runId, sequence, pollIntervalMs, maxStreamMs }) {
+  let head;
+  try {
+    head = await store.readHead(runId, { signal: c.req.raw.signal });
+  } catch {
+    return errorResponse(c, 503, "SERVICE_UNAVAILABLE", "Trace store is unavailable.");
+  }
+  if (!head) {
+    return errorResponse(c, 404, "TRACE_NOT_FOUND", "Trace run was not found or has expired.");
+  }
+  if (sequence > head.lastSequence) {
+    return errorResponse(c, 400, "TRACE_INVALID_CURSOR", "Trace event cursor is invalid.");
+  }
+
+  return streamSSE(c, async (stream) => {
+    const signal = c.req.raw.signal;
+    const deadline = Date.now() + maxStreamMs;
+    let lastSentSequence = sequence;
+    try {
+      while (!signal.aborted) {
+        for (const event of await store.readEventsAfter(runId, lastSentSequence, { signal })) {
+          await stream.writeSSE({
+            id: event.id,
+            event: event.type,
+            data: JSON.stringify(event),
+          });
+          lastSentSequence = event.sequence;
+          if (isTerminal(event)) return;
+        }
+        if (Date.now() + pollIntervalMs > deadline) return;
+        await pause(pollIntervalMs, signal);
+      }
+    } catch {
+      if (!signal.aborted) await streamFailure(stream);
+    }
+  });
+}
+
+export function createTraceRoutes(registry, {
+  store,
+  pollIntervalMs = 1000,
+  maxStreamMs = 60_000,
+} = {}) {
+  if (store !== undefined && (typeof store.readHead !== "function" || typeof store.readEventsAfter !== "function")) {
+    throw new TypeError("A durable trace store must read heads and events.");
+  }
+  if (!Number.isInteger(pollIntervalMs) || pollIntervalMs < 1 ||
+      !Number.isInteger(maxStreamMs) || maxStreamMs < pollIntervalMs) {
+    throw new RangeError("Trace polling limits must be positive.");
+  }
   const routes = new Hono();
 
   routes.get("/:runId/events", (c) => {
@@ -79,6 +164,9 @@ export function createTraceRoutes(registry) {
       registry.getRun(runId);
       registry.getEventsAfter(runId, cursor.sequence);
     } catch (error) {
+      if (store && error instanceof TraceRegistryError && error.code === "TRACE_NOT_FOUND") {
+        return streamFromStore(c, { store, runId, sequence: cursor.sequence, pollIntervalMs, maxStreamMs });
+      }
       if (error instanceof TraceRegistryError) {
         const status = error.code === "TRACE_NOT_FOUND" ? 404
           : error.code === "TRACE_REPLAY_UNAVAILABLE" ? 409
@@ -148,16 +236,7 @@ export function createTraceRoutes(registry) {
           }
         }
       } catch {
-        await stream.writeSSE({
-          event: "stream.error",
-          data: JSON.stringify({
-            ok: false,
-            error: {
-              code: "TRACE_STREAM_FAILED",
-              message: "Trace stream ended unexpectedly.",
-            },
-          }),
-        });
+        await streamFailure(stream);
       } finally {
         cleanup();
       }

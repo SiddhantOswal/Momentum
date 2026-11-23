@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { Hono } from "hono";
+import { getCookie } from "hono/cookie";
 import test from "node:test";
+import { authorizeSupervisor } from "../src/commands/authorize.js";
+import { createFirestoreTraceStore } from "../src/google-cloud/firestore-trace-store.js";
+import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
 import { createTraceRoutes } from "../src/trace-routes.js";
-import { createTraceRegistry } from "../src/trace-registry.js";
+import { createTraceRegistry, createWriteThroughTraceRegistry } from "../src/trace-registry.js";
+import { createFakeFirestore, FAKE_PROJECT_ID } from "./fixtures/fake-firestore.js";
 
 function createApp(registry) {
   const app = new Hono();
@@ -114,4 +119,177 @@ test("SSE subscriptions isolate runs and clean up after disconnect", async () =>
   const otherRun = registry.startRun();
   const otherEvents = registry.getEventsAfter(otherRun);
   assert.equal(otherEvents.some((event) => event.runId === runId), false);
+});
+
+const demoAuth = createHackathonDemoAuthenticator({
+  mode: "HACKATHON_DEMO",
+  signingKey: "a".repeat(64),
+  syntheticOnly: true,
+  auditEnabled: true,
+});
+
+function demoSession() {
+  const token = demoAuth.issue();
+  return { cookie: `__Host-ustaad-demo=${token}`, sessionId: demoAuth.authenticate(token).principal.sessionId };
+}
+
+// One Cloud Run instance: its own in-memory registry, the shared store, and
+// the same authorization middleware index.mjs puts in front of /api/runs.
+function createInstance(fake, { routeOptions = {}, durable = true } = {}) {
+  const store = createFirestoreTraceStore({
+    projectId: FAKE_PROJECT_ID,
+    fetchImpl: fake.fetchImpl,
+    tokenProvider: async () => "fake-access-token",
+  });
+  const traces = createWriteThroughTraceRegistry({ registry: createTraceRegistry(), store, log: () => {} });
+  const app = new Hono();
+  app.use("/api/runs/*", async (c, next) => {
+    const result = await authorizeSupervisor({
+      method: c.req.method,
+      path: c.req.path,
+      demoCookie: getCookie(c, "__Host-ustaad-demo"),
+      requestUrl: c.req.url,
+    }, {
+      hackathonAuth: demoAuth,
+      traceOwners: new Map(),
+      ...(durable ? { traceOwnerLookup: traces.ownerOf } : {}),
+      isSameOrigin: () => true,
+    });
+    if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
+    return next();
+  });
+  app.route("/api/runs", durable
+    ? createTraceRoutes(traces.registry, { store, ...routeOptions })
+    : createTraceRoutes(traces.registry));
+  return { app, traces, store };
+}
+
+async function finishedRunOn(instance, ownerSessionId) {
+  const { registry } = instance.traces;
+  const runId = registry.startRun();
+  const tool = registry.startTool(runId, "predictRisk");
+  registry.finishTool(runId, tool.toolCallId, "succeeded");
+  registry.finishRun(runId, "completed");
+  await instance.traces.claimOwner(runId, ownerSessionId);
+  return runId;
+}
+
+test("a second instance replays a run from the shared store exactly as the first instance does", async () => {
+  const fake = createFakeFirestore();
+  const first = createInstance(fake);
+  const second = createInstance(fake);
+  const owner = demoSession();
+  const runId = await finishedRunOn(first, owner.sessionId);
+
+  const local = await first.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  const remote = await second.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  assert.equal(remote.status, 200);
+  assert.match(remote.headers.get("content-type"), /text\/event-stream/);
+  const localBody = await local.text();
+  const remoteBody = await remote.text();
+  assert.equal(remoteBody, localBody);
+  assert.deepEqual([...remoteBody.matchAll(/^id: (.+)$/gm)].map((match) => match[1]),
+    [1, 2, 3, 4].map((sequence) => `${runId}:${sequence}`));
+  assert.deepEqual([...remoteBody.matchAll(/^event: (.+)$/gm)].map((match) => match[1]),
+    ["run.started", "tool.started", "tool.succeeded", "run.completed"]);
+});
+
+test("a second instance resumes from the same Last-Event-ID cursor", async () => {
+  const fake = createFakeFirestore();
+  const first = createInstance(fake);
+  const second = createInstance(fake);
+  const owner = demoSession();
+  const runId = await finishedRunOn(first, owner.sessionId);
+
+  const resumed = await second.app.request(`/api/runs/${runId}/events`, {
+    headers: { Cookie: owner.cookie, "Last-Event-ID": `${runId}:2` },
+  });
+  assert.equal(resumed.status, 200);
+  const body = await resumed.text();
+  assert.deepEqual([...body.matchAll(/^id: (.+)$/gm)].map((match) => match[1]), [`${runId}:3`, `${runId}:4`]);
+  assert.doesNotMatch(body, /event: run\.started/);
+
+  const ahead = await second.app.request(`/api/runs/${runId}/events`, {
+    headers: { Cookie: owner.cookie, "Last-Event-ID": `${runId}:5` },
+  });
+  assert.equal(ahead.status, 400);
+  assert.equal((await ahead.json()).error.code, "TRACE_INVALID_CURSOR");
+});
+
+test("another session gets 404 for a run on either instance", async () => {
+  const fake = createFakeFirestore();
+  const first = createInstance(fake);
+  const second = createInstance(fake);
+  const owner = demoSession();
+  const stranger = demoSession();
+  const runId = await finishedRunOn(first, owner.sessionId);
+
+  for (const instance of [first, second]) {
+    const response = await instance.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: stranger.cookie } });
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error.code, "TRACE_NOT_FOUND");
+  }
+  const unknown = await second.app.request("/api/runs/8a2ff660-17a9-493a-8a70-703ef8952bb1/events", {
+    headers: { Cookie: owner.cookie },
+  });
+  assert.equal(unknown.status, 404);
+});
+
+test("the owner check fails closed when the shared store cannot answer", async () => {
+  let down = false;
+  const fake = createFakeFirestore({ failWhen: () => down });
+  const first = createInstance(fake);
+  const second = createInstance(fake);
+  const owner = demoSession();
+  const runId = await finishedRunOn(first, owner.sessionId);
+  down = true;
+
+  const remote = await second.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  assert.equal(remote.status, 503);
+  assert.equal((await remote.json()).error.code, "SERVICE_UNAVAILABLE");
+  const local = await first.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  assert.equal(local.status, 200, "the instance that ran the trace serves it from memory");
+  assert.match(await local.text(), /event: run\.completed/);
+});
+
+test("a second instance follows a run that is still running until it ends", async () => {
+  const fake = createFakeFirestore();
+  const first = createInstance(fake);
+  const second = createInstance(fake, { routeOptions: { pollIntervalMs: 5 } });
+  const owner = demoSession();
+  const { registry } = first.traces;
+  const runId = registry.startRun();
+  await first.traces.claimOwner(runId, owner.sessionId);
+
+  const response = await second.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  assert.equal(response.status, 200);
+  const bodyPromise = response.text();
+  const tool = registry.startTool(runId, "getConditions");
+  registry.finishTool(runId, tool.toolCallId, "unavailable", "SERVICE_UNAVAILABLE");
+  registry.finishRun(runId, "failed");
+  await first.traces.flush(runId);
+  const body = await bodyPromise;
+
+  assert.deepEqual([...body.matchAll(/^event: (.+)$/gm)].map((match) => match[1]),
+    ["run.started", "tool.started", "tool.unavailable", "run.failed"]);
+});
+
+test("without the durable store a run from another instance stays unknown and unowned runs keep the 403", async () => {
+  const fake = createFakeFirestore();
+  const first = createInstance(fake);
+  const second = createInstance(fake, { durable: false });
+  const owner = demoSession();
+  const runId = await finishedRunOn(first, owner.sessionId);
+  const callsBefore = fake.calls.length;
+
+  const response = await second.app.request(`/api/runs/${runId}/events`, { headers: { Cookie: owner.cookie } });
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error.code, "DEMO_SCOPE_REQUIRED");
+  assert.equal(fake.calls.length, callsBefore);
+
+  const unguarded = new Hono();
+  unguarded.route("/api/runs", createTraceRoutes(createTraceRegistry()));
+  const missing = await unguarded.request(`/api/runs/${runId}/events`);
+  assert.equal(missing.status, 404);
+  assert.equal(fake.calls.length, callsBefore);
 });
