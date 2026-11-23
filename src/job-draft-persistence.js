@@ -162,7 +162,10 @@ export function createStoredJobReplayLoader({ getStoredJobSheet, storedJobLookup
     // Completion is a request identity, not a frozen DRAFT lifecycle state.
     // Replaying after approval must return that same durable approved record.
     const candidate = stored.ok === true ? (stored.jobSheet ?? stored.data) : stored;
-    const approved = StoredJobSheetSchema.safeParse(candidate);
+    if (candidate == null || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+    // A JobSheet without evidence is written as an empty evidence list
+    // (mapJobSheetToBigQuery), so the approved record is read back the same way.
+    const approved = StoredJobSheetSchema.safeParse({ ...candidate, evidence: candidate.evidence ?? [] });
     if (!approved.success || approved.data.jobId !== jobId || approved.data.status !== "APPROVED" ||
         !validStoredApprovalAudit(approved.data)) return null;
     return { ok: true, jobId, jobSheet: approved.data, durable: true };
