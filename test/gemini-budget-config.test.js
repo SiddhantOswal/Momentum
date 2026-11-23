@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   attemptCostMicroInr,
   istWindows,
+  modelCostMicroInr,
   readGeminiBudgetConfig,
   windowActive,
 } from "../src/gemini-budget-config.js";
@@ -113,4 +114,14 @@ test("the configured reserve window covers all of 4 Dec in Singapore time", () =
   assert.equal(windowActive(window, Date.parse("2026-12-03T16:00:00Z")), true);
   assert.equal(windowActive(window, Date.parse("2026-12-04T15:59:59.999Z")), true);
   assert.equal(windowActive(window, Date.parse("2026-12-04T16:00:00Z")), false);
+});
+
+test("thinking tokens are charged even when usageMetadata has no totalTokenCount", () => {
+  const usage = { promptTokenCount: 1000, candidatesTokenCount: 200, thoughtsTokenCount: 800 };
+  // Flash: (1,000 x 1.65 + 1,000 x 9.90) / 1e6 USD at 0.01034 USD per rupee, rounded up.
+  assert.equal(modelCostMicroInr("gemini-3.5-flash", usage), 1117022);
+  // Flash-Lite: (1,000 x 0.33 + 1,000 x 2.75) / 1e6 USD at the same rate.
+  assert.equal(modelCostMicroInr("gemini-3.5-flash-lite", usage), 297873);
+  assert.equal(attemptCostMicroInr("explanation", usage), 1117022);
+  assert.throws(() => modelCostMicroInr("gemini-unpriced", usage), TypeError);
 });

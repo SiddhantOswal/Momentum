@@ -100,6 +100,17 @@ const tokens = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : 0
 export function attemptCostMicroInr(role, usage = {}) {
   const price = rolePrice(role);
   if (!price || !pricesUsable()) throw new TypeError(`No usable Gemini price for role ${role}.`);
+  return costMicroInr(price, usage);
+}
+
+/** The same cost for one named model, priced on its own without a fallback. */
+export function modelCostMicroInr(model, usage = {}) {
+  const price = parsedPrices.success && Object.hasOwn(parsedPrices.data.models, model) ? parsedPrices.data.models[model] : undefined;
+  if (!price || !pricesUsable()) throw new TypeError(`No usable Gemini price for model ${model}.`);
+  return costMicroInr(price, usage);
+}
+
+function costMicroInr(price, usage) {
   const prompt = tokens(usage.promptTokenCount);
   const cached = Math.min(tokens(usage.cachedContentTokenCount), prompt);
   const output = tokens(usage.candidatesTokenCount) + tokens(usage.thoughtsTokenCount);
