@@ -93,6 +93,7 @@ test("Vertex Gemini adapter sends GCS PDF and structured JSON request", async ()
   });
 
   const result = await gemini.generateJson({
+    role: "extraction",
     fileUri: "gs://prepagent-hack-data/orders/test.pdf",
     mimeType: "application/pdf",
     prompt: "Extract fields",
@@ -122,7 +123,7 @@ test("Vertex Gemini adapter rejects invalid responses and unsafe GCS URIs", asyn
     fetchImpl: async () => { called = true; return jsonResponse({}); },
   });
   await assert.rejects(
-    gemini.generateJson({ fileUri: "gs://bucket/../secret.pdf", mimeType: "application/pdf", prompt: "x", responseSchema: {} }),
+    gemini.generateJson({ role: "extraction", fileUri: "gs://bucket/../secret.pdf", mimeType: "application/pdf", prompt: "x", responseSchema: {} }),
     VertexGeminiError,
   );
   assert.equal(called, false);
@@ -143,7 +144,7 @@ test("Vertex Gemini adapter supports bounded function-calling requests", async (
   const contents = [{ role: "user", parts: [{ text: "Prepare the order." }] }];
   const tools = [{ functionDeclarations: [{ name: "getConditions", parameters: { type: "OBJECT" } }] }];
 
-  const result = await gemini.generateContent({ contents, tools });
+  const result = await gemini.generateContent({ role: "agent", contents, tools });
   assert.deepEqual(result, { role: "model", parts: [{ text: "ok" }] });
   assert.match(request.url, /:generateContent$/);
   assert.deepEqual(request.body.contents, contents);

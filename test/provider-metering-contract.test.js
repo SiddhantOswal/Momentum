@@ -62,12 +62,12 @@ test("Gemini rejects oversized contents and prompts before provider requests and
   let request;
   const client = createVertexGeminiClient({ projectId: "prepagent-hack", model: "gemini-3.5-flash", tokenProvider: async () => "test-token",
     fetchImpl: async (_url, options) => { request = JSON.parse(options.body); return Response.json({ candidates: [{ content: { parts: [{ text: '{}' }] } }] }); } });
-  await assert.rejects(client.generateContent({ contents: [{ role: "user", parts: [{ text: "x".repeat(65537) }] }] }), { code: "INVALID_GENERATION_REQUEST" });
-  await assert.rejects(client.generateContent({ contents: [{ role: "user", parts: [{ text: "短".repeat(22000) }] }] }), { code: "INVALID_GENERATION_REQUEST" });
-  await assert.rejects(client.generateContent({ contents: [{ role: "user", parts: [{ text: "explain" }] }], tools: [{ description: "x".repeat(65537) }] }), { code: "INVALID_GENERATION_REQUEST" });
-  await assert.rejects(client.generateJson({ fileUri: "gs://prepagent-hack-data/orders/test.pdf", mimeType: "application/pdf", prompt: "x".repeat(12001), responseSchema: {} }), { code: "INVALID_GENERATION_REQUEST" });
+  await assert.rejects(client.generateContent({ role: "agent", contents: [{ role: "user", parts: [{ text: "x".repeat(65537) }] }] }), { code: "INVALID_GENERATION_REQUEST" });
+  await assert.rejects(client.generateContent({ role: "agent", contents: [{ role: "user", parts: [{ text: "短".repeat(22000) }] }] }), { code: "INVALID_GENERATION_REQUEST" });
+  await assert.rejects(client.generateContent({ role: "agent", contents: [{ role: "user", parts: [{ text: "explain" }] }], tools: [{ description: "x".repeat(65537) }] }), { code: "INVALID_GENERATION_REQUEST" });
+  await assert.rejects(client.generateJson({ role: "extraction", fileUri: "gs://prepagent-hack-data/orders/test.pdf", mimeType: "application/pdf", prompt: "x".repeat(12001), responseSchema: {} }), { code: "INVALID_GENERATION_REQUEST" });
   assert.equal(request, undefined);
-  await client.generateJson({ fileUri: "gs://prepagent-hack-data/orders/test.pdf", mimeType: "application/pdf", prompt: "extract", responseSchema: {} });
+  await client.generateJson({ role: "extraction", fileUri: "gs://prepagent-hack-data/orders/test.pdf", mimeType: "application/pdf", prompt: "extract", responseSchema: {} });
   assert.equal(request.generationConfig.maxOutputTokens, 2048);
 });
 
