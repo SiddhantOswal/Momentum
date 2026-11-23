@@ -7,7 +7,7 @@ Written: 2026-11-22, before any query ran. Results are added below the plan once
 
 **Model estimate on m2_* models, not a measured saving. Awaiting Om sign-off on ambient temperature and RH.**
 
-Founder decision (2026-11-23): PKBX0041 stays the reference lot, and the honest m2 re-run figures are used, labelled as a model estimate. No search was made for a larger number. Ambient temperature was given provisionally as about 19 °C (the December to February band), to be checked against the modeled lots first. Everything in this section is read-only: one SELECT on `prepagent.lots` and one run of `sql/optimize.sql`, both with `--maximum_bytes_billed=104857600`, project `prepagent-hack`, location `asia-south1`, identity the founders' logged-in gcloud identity. No DDL, DML or destination table. Both jobs wrote only to BigQuery's anonymous cache dataset.
+Founder decision (2026-11-23): PKBX0041 stays the reference lot, and the m2 re-run figures are used as they came out, labelled as a model estimate. No search was made for a larger number. Ambient temperature was given provisionally as about 19 °C (the December to February band), to be checked against the modeled lots first. Everything in this section is read-only: one SELECT on `prepagent.lots` and one run of `sql/optimize.sql`, both with `--maximum_bytes_billed=104857600`, project `prepagent-hack`, location `asia-south1`, identity the founders' logged-in gcloud identity. No DDL, DML or destination table. Both jobs wrote only to BigQuery's anonymous cache dataset.
 
 ### Temperature and RH check
 
