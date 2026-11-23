@@ -40,19 +40,49 @@ export function createFakeFirestore({ failWhen = () => false } = {}) {
     return new Date(Date.UTC(2026, 11, 4, 0, 0, tick)).toISOString();
   }
 
+  // Orders by one or more fields (timestamp, integer or string values, plus __name__) and
+  // honours a startAt cursor. A query with no `where` returns the whole collection.
+  function sortValue(path, stored, field) {
+    if (field === "__name__") return `${NAME_ROOT}/${path}`;
+    const value = stored.fields?.[field];
+    return value?.timestampValue ?? value?.stringValue ?? Number(value?.integerValue);
+  }
+
   function runQuery(parent, body) {
     const { structuredQuery } = JSON.parse(body);
     const prefix = `${parent}/${structuredQuery.from[0].collectionId}/`;
-    const after = Number(structuredQuery.where.fieldFilter.value.integerValue);
-    const [order] = structuredQuery.orderBy ?? [];
-    const orderField = order?.field.fieldPath ?? "sequence";
-    const direction = order?.direction === "DESCENDING" ? -1 : 1;
+    const filter = structuredQuery.where?.fieldFilter;
+    const after = filter ? Number(filter.value.integerValue) : undefined;
+    const orders = structuredQuery.orderBy?.length ? structuredQuery.orderBy : [{ field: { fieldPath: "sequence" } }];
+    const sign = ({ direction }) => (direction === "DESCENDING" ? -1 : 1);
+    // Negative when `a` sorts before `b` in the query order.
+    const compare = (left, right) => {
+      for (const order of orders) {
+        const a = sortValue(left.path, left.stored, order.field.fieldPath);
+        const b = sortValue(right.path, right.stored, order.field.fieldPath);
+        if (a !== b) return sign(order) * (a < b ? -1 : 1);
+      }
+      return 0;
+    };
+    const cursor = structuredQuery.startAt;
+    const atOrAfterCursor = (entry) => {
+      if (!cursor) return true;
+      for (const [index, order] of orders.entries()) {
+        const value = cursor.values[index];
+        const wanted = value.timestampValue ?? value.referenceValue ?? value.stringValue;
+        const own = sortValue(entry.path, entry.stored, order.field.fieldPath);
+        if (own !== wanted) return sign(order) * (own < wanted ? -1 : 1) > 0;
+      }
+      return cursor.before === true;
+    };
     const matches = [...documents.entries()]
       .filter(([path]) => path.startsWith(prefix) && !path.slice(prefix.length).includes("/"))
-      .map(([, stored]) => stored)
-      .filter((stored) => integerField(stored.fields, "sequence") > after)
-      .sort((a, b) => direction * (integerField(a.fields, orderField) - integerField(b.fields, orderField)))
-      .slice(0, structuredQuery.limit);
+      .map(([path, stored]) => ({ path, stored }))
+      .filter(({ stored }) => after === undefined || integerField(stored.fields, "sequence") > after)
+      .sort(compare)
+      .filter(atOrAfterCursor)
+      .slice(0, structuredQuery.limit)
+      .map(({ stored }) => stored);
     const readTime = nextTime();
     return respond(200, matches.length
       ? matches.map((stored) => ({ document: structuredClone(stored), readTime }))
