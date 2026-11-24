@@ -401,3 +401,62 @@ export function generateJobSheet(order, conditions, analysis) {
 
   return { ok: true, jobSheet: jobSheet.jobSheet };
 }
+
+// Recorded Vertex AI responses for the offline evals (05 section 7). None of this
+// came from a live call. The evals put these behind the real Vertex client and
+// router through a fake fetch, so the code under test is the shipped code and
+// no request leaves the process or spends a Gemini attempt.
+
+const OFFLINE_USAGE = Object.freeze({ promptTokenCount: 120, candidatesTokenCount: 12, totalTokenCount: 132 });
+
+export function vertexTextResponse(text) {
+  return { candidates: [{ content: { role: "model", parts: [{ text }] }, finishReason: "STOP" }], usageMetadata: OFFLINE_USAGE };
+}
+
+export function vertexFunctionCallResponse(calls) {
+  return {
+    candidates: [{
+      content: { role: "model", parts: calls.map(({ name, args = {} }) => ({ functionCall: { name, args } })) },
+      finishReason: "STOP",
+    }],
+    usageMetadata: OFFLINE_USAGE,
+  };
+}
+
+const httpFault = (status) => ({ status, json: { error: { code: status, status: "FAULT", message: "Injected offline fault." } } });
+
+/**
+ * The faults of RAI-7 and spec J11, as a transport sees them. "timeout" rejects
+ * the fetch the way an expired AbortSignal.timeout does. "cap_reached" never
+ * reaches the transport, because the budget wrapper stops it first; if a capped
+ * call ever got through, it would be recorded and fail the case's request count.
+ */
+export const VERTEX_FAULTS = Object.freeze({
+  http_429: httpFault(429),
+  http_500: httpFault(500),
+  http_503: httpFault(503),
+  timeout: { reject: () => new DOMException("The operation timed out.", "TimeoutError") },
+  safety_block: { json: { candidates: [{ finishReason: "SAFETY", safetyRatings: [{ category: "HARM_CATEGORY_DANGEROUS_CONTENT", probability: "MEDIUM", blocked: true }] }], usageMetadata: OFFLINE_USAGE } },
+  prompt_blocked: { json: { promptFeedback: { blockReason: "SAFETY", safetyRatings: [{ category: "HARM_CATEGORY_HARASSMENT", probability: "HIGH", blocked: true }] }, usageMetadata: OFFLINE_USAGE } },
+  invalid_json: { json: vertexTextResponse("{\"label\": ") },
+  cap_reached: { reject: () => new Error("The budget wrapper must stop a capped call before the transport.") },
+});
+
+/**
+ * A fetch stand-in that records every request and answers from `respond`, which
+ * is a list used in order or a function of the request. Each answer is a Vertex
+ * payload, `{ status, json }`, or `{ reject }` to fail the fetch itself.
+ */
+export function createRecordingVertexTransport(respond) {
+  const requests = [];
+  async function fetchImpl(url, init = {}) {
+    const request = { url: String(url), method: init.method, body: JSON.parse(init.body) };
+    requests.push(request);
+    const answer = typeof respond === "function" ? respond(request, requests.length - 1) : respond[requests.length - 1];
+    if (answer === undefined) throw new Error(`No recorded Vertex response for request ${requests.length}.`);
+    if (answer.reject) throw answer.reject();
+    const spec = Object.hasOwn(answer, "json") || Object.hasOwn(answer, "status") ? answer : { json: answer };
+    return Response.json(spec.json ?? {}, { status: spec.status ?? 200 });
+  }
+  return { fetchImpl, requests };
+}

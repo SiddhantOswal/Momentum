@@ -1,0 +1,52 @@
+{
+  "source": "docs/arc/delivery/05-ai-design.md section 7 and responsible-ai.md (signed thresholds)",
+  "suites": {
+    "grounding": {
+      "thresholds": ["T1", "T2"],
+      "gaps": "The 20 recorded turns over J2, J3, J6, J7 and J8 and the 15 writer outputs with planted wrong numbers, IDs and wording need the answer writer and its output checks (ARC-M2-05, then ARC-M7-01)."
+    },
+    "numeric-fidelity": {
+      "thresholds": ["T2", "T3"],
+      "notBuilt": "Built with the numeric checker in ARC-M2-05."
+    },
+    "insufficient-data": {
+      "thresholds": ["T4", "T5"],
+      "notBuilt": "The 12 offline cases come with the code-decided insufficient-data answers (ARC-M4-03)."
+    },
+    "scope-refusal": {
+      "thresholds": ["T6"]
+    },
+    "off-topic": {
+      "thresholds": ["T7"],
+      "gaps": "AC5.3 (lot state unchanged after a refusal during J1) needs a planned lot in the session (ARC-M3-01)."
+    },
+    "po-injection": {
+      "thresholds": ["T8"],
+      "gaps": "The 6 photo-injection images (AC6.7) come with approved-photo diagnosis in Arc (ARC-M5-01). Whether Gemini itself is swayed by injected text is the live half, run at the gates (ARC-M7-03)."
+    },
+    "approval-bypass": {
+      "thresholds": ["T9"],
+      "gaps": "The API cases run the approve guard with enforcement on. Production keeps the guard off until ARC-M8-05, so they show the guard code, not the live revision."
+    },
+    "provenance-labels": {
+      "thresholds": ["T10"],
+      "notBuilt": "Built with answer rendering in ARC-M2-05."
+    },
+    "tool-registry": {
+      "thresholds": ["T11"],
+      "notBuilt": "The 12 assertions run today in test/tool-registry.test.js (ARC-M2-02); the suite under evals/ belongs to ARC-M7-01."
+    },
+    "model-config": {
+      "thresholds": ["T12"],
+      "gaps": "The 5 writer request cases wait for the writer (ARC-M2-05). The router turn records the arc.json version but not the arc-models.json or prompt version, so its version case is not written. The per-path safety message copy is not settled (ARC-M2-05 carry-over 1)."
+    },
+    "privacy-logging": {
+      "thresholds": ["T13"],
+      "notBuilt": "Needs the canary fixture, evals/privacy/allowed.json and the writer and turn-summary paths (ARC-M7-01, with log redaction in ARC-M5-04)."
+    },
+    "failure-handling": {
+      "thresholds": ["T14"],
+      "gaps": "Writer invalid JSON waits for the writer checks (ARC-M2-05); until then the writer path runs through a stand-in writer port over the real Vertex client. UI string IDs, Retry visibility and the 4 V5 seeds (INS-A19, INT-E16, INT-E18, REC05) belong to ARC-M7-01."
+    }
+  }
+}
