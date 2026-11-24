@@ -1,6 +1,6 @@
 # Arc delivery status
 
-Last updated: 2026-11-24. Finals: 3 to 5 December 2026, pitch on 4 December.
+Last updated: 2026-11-25 (Om's session on a second laptop, from the 24 Nov handover bundle). Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## Done
 - Delivery folders created on branch `arc/m0-discovery`, cut from `v2` at `eb6eab9`. The work moved to `arc/setup` on 2026-11-23 for the first commit.
@@ -76,6 +76,20 @@ Last updated: 2026-11-24. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 - Handover package built and checked (2026-11-24): `/Users/siddhant/Developer/momentum-handover/momentum-arc-handover-2026-11-24.zip` (63 MB, from `arc/main` at `f092be3`): the full git bundle (all branches), the private reference material as a separate zip, `START-HERE.md`, `PROMPT-FOR-CLAUDE.md`, `NEW-LAPTOP-SETUP.md`, `STATE.txt`, `MANIFEST.md` with SHA-256 for every file. A secret scan of `arc/main` runs before the build (it found only the marker list in `tools/prepare-release-snapshot.py`, no key). Simulated second laptop (unzip, clone from the bundle, `npm ci`, hooks, tests): `npm test` 1104 of 1104, the commit check passes (334 messages) after a fix to the setup guide (the clone keeps `origin`, which the check needs). Not done: a cold-start run of a fresh Codex session with `external/handover-prompt.md` (the ChatGPT limit resets 5:21 PM IST), and a Claude Code run of `handover/CLAUDE-ORCHESTRATOR-PROMPT.md` on a second machine (NOT RUN). Rebuild the zip before travelling: `bash tools/orchestrator/build-handover-zip.sh <output-directory>`.
 
+## 2026-11-25: Om's session (second laptop)
+
+Orchestrated by a Claude Code session on Om's laptop from the handover bundle (`arc/main` at `a04a53a`). Builders and independent QA were Claude subagents in worktrees under `.claude/worktrees/`. Hooks installed with `scripts/install-hooks.sh`. Handover note: `handover/2026-11-25-om-session.md`.
+
+- ARC-ML-01 merged (`b28f64d`): `tools/ml/evaluate.mjs` and `tools/ml/naive-reference.mjs`, five-target evaluator with paired lot-bootstrap deltas (seed 20261125, 2,000 resamples) that refuses missing labels, unit mismatches, duplicates, unpaired files and zero-variance R². Tier B: orchestrator spot-check (breaking the paired delta fails 3 tests).
+- ARC-M0-05 merged (`6ac3566`): `tools/data/generator.ts` and `impact.ts` from `sid_pack.zip` (location given by Om: `~/Downloads/Google AI Builder Cup/`). The generator reproduces the founders' `truth.jsonl` byte for byte (sha256 `75a70582…1afb`). Price is one setting, ₹53.3 per kg, the value the live impact tables used (the file said 45). The 117-item catalog is not committed (not public); full-catalog tests run when `MOMENTUM_ITEMS_JSONL` is set and are skipped otherwise. A holdout window (seed 20261125, `HLD-` IDs) emits October and November 2026 lots without changing existing output. Spot-check: a price of 53.4 fails 6 tests.
+- ARC-ML-02 merged (`ac0e3e1`): `tools/ml/score-holdout.mjs` scores a lot file on a BigQuery ML model set with the lots as a query parameter (nothing written, bytes cap). Run on 451 generated Oct-Nov 2026 lots: 2 jobs, 52,428,800 bytes billed each. R² new/old: warp 0.619/0.566, delam 0.629/0.601, strength 0.336/0.323, print 0.800/0.778, crack 0.112/0.024; paired MAE gain clear only for print; all beat the training-only RH-band baseline. Record: `data/holdout-2026-10-11.md`. Generated data, not plant measurements.
+- ARC-REL-01 merged (`8cfc8aa`): the release snapshot list (and `.dockerignore`) now ship `config/arc.json`, `arc-scope.json`, `arc-metrics.json` and `gemini-prices.json`; the server failed at startup from the shipped file set without them (`ERR_MODULE_NOT_FOUND`, reproduced). A test scans every config reference and starts the server from the shipped set.
+- ARC-M2-07 merged (`a9fed6c`): `npm run eval:offline` (`node --test evals/*.test.js`), 7 suites at merge. Findings for owners: the router turn records no prompt version (RAI-5); extraction and photo safety blocks return a generic `SERVICE_UNAVAILABLE`; the cap reply wording differs from `05` section 6.
+- ARC-ML-04 merged (`a9d4295`): with `USTAAD_ENFORCE_MODEL_VERSIONS=true` the service checks each `m2_*` etag with the BigQuery models API at startup, every 10 minutes, and on the request path when the last pass is older than 30 minutes; prediction, optimization and explanation return 503 `MODEL_VERSION_MISMATCH` or `MODEL_VERSION_UNVERIFIED`. QA: MERGE WITH FIXES, then MERGE (15 of 17 mutations caught). Live etags read on 2026-11-25 all match `config/model-acceptance.json`. Flag off in production until the release gate.
+- ARC-M2-05 merged (`7968771`): the answer writer (`src/arc/answer-*.js`, `prompts/writer/v1/`). Numbers and IDs in writer text must appear in the turn's tool facts (leading dot, other-script digits, number words and units included), labels come from code, the Gemini chip only on checked writer text. Weather, defect-history, scrap and catalog turns skip the writer and show the labelled template (`LABEL_NOT_REBUILDABLE`, 1 attempt), because their blocks cannot yet be rebuilt with labels. QA: MERGE WITH FIXES, then MERGE. `eval:offline` 211 of 211.
+- ARC-ML-03 merged (`3bba53b`): use classes in `config/model-acceptance.json` (`targetUse`): crack `advisory`, the others `optimizer`. Totals, kg, cost, savings, primary defect and the optimizer objective count only optimizer targets (bound `@optimizer_targets`); crack is shown labelled low confidence. `impact_batch.sql` now writes `impact_recs_v3`. QA: MERGE WITH FIXES, then MERGE. Web build passes.
+- `npm test` on `arc/main` `3bba53b`, two runs: 1225 tests, 1217 pass, 6 fail, 2 skipped. The 6 fail on this laptop only (five in `orchestrator-scripts.test.js`: the path has spaces and `codex` is absent; the snapshot test: python3 cannot start from Node, error -86). `npm run eval:offline`: 211 of 211, 9 suites; insufficient-data, tool-registry and privacy-logging NOT BUILT.
+
 ## In progress
 
 - ARC-M1-05 merged (`67602dc`; QA PASS, 19 of 20 mutations caught, the survivor closed by a test of `index.mjs` wiring) and ARC-M1-08 merged (`ea06073`; QA PASS, 29 of 30 caught, the survivor closed by a thinking-token cost test). `npm test` on `arc/main` after both: 760 of 760. Session and IP limits and the rupee overshoot are in the ARC-M1-17 AC.
@@ -94,9 +108,10 @@ Last updated: 2026-11-24. Finals: 3 to 5 December 2026, pitch on 4 December.
 ## Open founder questions
 
 Asked only when a ticket needs them.
+- 2026-11-25 (Om's session): G1, Gen AI trade-off: the writer now runs only for model-score and lot-status answers; other data answers are labelled templates until ARC-M4-04 rebuilds labelled blocks. Accept for the pitch, or prioritise ARC-M4-04? G2: rerun the impact batch without crack (`impact_recs_v3`, then `impact_lots_v3` and `dash_kpis.sql`): a BigQuery write, about 73 MB billed. G3: the PKBX0041 reference in `data/om-signoff-request.md` was computed with crack counted and must be recomputed before Om signs. G4: who runs the delivery from now (one orchestrator merging into `arc/main` at a time), and the private backup remote.
 - F2 remaining: the pitch slot time. Until it is known, the 80-attempt pitch reserve covers all of 4 December (SGT).
 - F4: whether Billing credits cover Vertex AI and Cloud Run (console check). Blocks the first cost-bearing cloud change.
-- D1: Om's sign-offs (ARC-M0-04). D2: where `sid_pack.zip` is. D5: Phase B dates and plant profile.
+- D1: Om's sign-offs (ARC-M0-04). D2 answered 2026-11-25: `sid_pack.zip` is in `~/Downloads/Google AI Builder Cup/` on Om's laptop (ARC-M0-05 merged). D5: Phase B dates and plant profile.
 
 ## Known risks
 
@@ -108,7 +123,7 @@ Asked only when a ticket needs them.
 - Rehearsals and the pitch share one Gemini daily cap (300 on `momentum`, 100 on `prepagent`), which resets at midnight IST (02:30 Singapore). Both services count against the same Firestore day document.
 - `tools/validate-optimizer-acceptance.mjs` still checks against the October m_* values.
 - The shared Gemini counter can lock one service out for a day when `momentum` (300) and `prepagent` (100) disagree on the cap (`decodeCount`, design E7). Not yet seen live. Founder question F1.
-- The lot generator (`sid_pack.zip`, seed 20261010) is not in the repo (ARC-M0-05).
+- Published September savings (₹7,934) and the dashboard KPIs counted crack; they no longer match the optimizer after ARC-ML-03 until the impact batch is rerun (G2).
 
 ## Decision log
 
@@ -160,4 +175,7 @@ Asked only when a ticket needs them.
 | 2026-11-24 | Handover kit so a successor can run the delivery without the Claude Code session: `external/ORCHESTRATOR.md` (runbook), `external/decisions-and-defaults.md`, `external/handover-prompt.md`, the queue brought up to date, and `tools/orchestrator/` scripts (`codex-session.sh` fixes the sandbox, model and effort; `suite-twice.sh`; `new-worktree.sh`; `resume.sh`), tested in `test/orchestrator-scripts.test.js`. A cold-start check with a fresh Codex session is pending the ChatGPT limit reset (5:21 PM IST) | Founders asked that the work never stall on one tool's limit | Founders; delivery lead |
 | 2026-11-24 | Standing permissions and approvals for the orchestrator (any tool): routine Google Cloud changes in `prepagent-hack` after a written change record (no per-step yes), read-only and dry-run BigQuery, deploys with `--no-traffic`, moving live traffic only after the ARC-M8-05 release gate is GO and the acceptance script has passed, live evals and the integration run within the ₹10,000 budget and the caps, installing tools, editing settings and quality scripts (never to weaken a check), pushing `arc/*` to a private backup remote the founders name. Not granted: deleting resources, pushing to the public origin, committing reference material or secrets, bypassing hooks, spending beyond the budget, claims without evidence, approving a job card on a user's behalf. Full list in `handover/PERMISSIONS.md` | The founders want the delivery to stay unblocked if the Claude Code session is lost | Founders |
 | 2026-11-24 | Handover package: a zip for a second laptop (the full git bundle, a copy of the private reference material, the setup guide, the prompt for a Claude Code orchestrator, a state snapshot and a manifest), built by `tools/orchestrator/build-handover-zip.sh` | Continuity if this laptop or session is lost | Founders |
-
+| 2026-11-25 | Om's session follows the CLAUDE.md process: tickets, builders and QA as separate agents, Tier A QA for risky tickets, merges with --no-ff. Cloud: read-only BigQuery and metadata reads only; no deploys or writes without asking Om | Om's instruction to proceed with the agreed plan | Om |
+| 2026-11-25 | New tickets ARC-ML-01 to ARC-ML-04 and ARC-REL-01 (`tickets/ML-model-evidence.md`) answer the 23 Nov independent audit (M01, M02, M06) and the release config gap | Model claims must be defensible; arc/main must be deployable | Om; delivery lead |
+| 2026-11-25 | Crack is advisory: predicted, shown with a low-confidence label, never counted in totals or the optimizer objective | Holdout R² 0.11 on September and on fresh Oct-Nov lots; MAE no better than the replaced model | Om (from the plan) |
+| 2026-11-25 | Writer skips turns whose values cannot be shown with a code-set label (QA finding: unlabelled weather and history numbers) | CLAUDE.md section 3 provenance rule; narrows A3 until ARC-M4-04 | Tech lead; founders to confirm (G1) |

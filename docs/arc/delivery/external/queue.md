@@ -2,7 +2,7 @@
 
 Order follows `00-plan.md` and the ticket files. P0 tickets first; P1 and P2 tickets wait until the P0 work of their milestone is merged. The release candidate is due 30 November 2026. The orchestrator updates this file after each merge; STATUS.md is the record. Procedure: `external/ORCHESTRATOR.md`. Defaults for open items: `external/decisions-and-defaults.md`.
 
-State on 2026-11-24 (evening): `arc/main` passes `npm test` 1104 of 1104 and `npm run test:ui` 42 of 42 (as of the M6-01 merge). M0 and M1 gates closed (CONDITIONAL GO, `reviews/M0-review.md`, `reviews/M1-review.md`). Merged in M2 so far: M2-01, M2-02, M2-03, M2-04. The M2 gate runs after M2-08 (or at the end of M2-07 if M2-08 waits for a tagged revision).
+State on 2026-11-25 (Om's session): M2-05 and M2-07 merged; ARC-M0-05, ARC-ML-01 to ARC-ML-04 and ARC-REL-01 merged (`tickets/ML-model-evidence.md`); `npm test` 1217 of 1225 (6 laptop-only failures), `eval:offline` 211 of 211. Earlier state on 2026-11-24 (evening): `arc/main` passes `npm test` 1104 of 1104 and `npm run test:ui` 42 of 42 (as of the M6-01 merge). M0 and M1 gates closed (CONDITIONAL GO, `reviews/M0-review.md`, `reviews/M1-review.md`). Merged in M2 so far: M2-01, M2-02, M2-03, M2-04. The M2 gate runs after M2-08 (or at the end of M2-07 if M2-08 waits for a tagged revision).
 
 ## Step 0: M1 gate conditions still open (backend and AI builders, one small packet each)
 
@@ -29,9 +29,9 @@ State on 2026-11-24 (evening): `arc/main` passes `npm test` 1104 of 1104 and `np
 | Order | Ticket | Depends on | State and notes |
 |---|---|---|---|
 | 1 to 4 | ARC-M2-01 routes and stores, M2-02 registry, M2-03 turn runner, M2-04 router and scope rules | | Merged |
-| 5 | ARC-M2-05 answer writing and output checks | M2-03, M2-04 | Next. Carries: error table and user copy for `GEMINI_CALL_REPLAYED`, `BUDGET_TURN_EXHAUSTED` and `GEMINI_SAFETY_BLOCKED` (the safety-block wording needs one choice from the spec); refusal suggestions rebuilt from `config/arc-scope.json`; the typed job-card path (no writer); the writer wired into `index.mjs`; Hindi coverage needs a reviewer |
+| 5 | ARC-M2-05 answer writing and output checks | M2-03, M2-04 | Merged 2026-11-25 (`7968771`). Follow-ups: metric reference ID grammar in contract 5.1, G2 copy for `SOURCE_*`, chip on job references, labelled weather and history blocks (ARC-M4-04) so the writer can run on them again. Original notes: Carries: error table and user copy for `GEMINI_CALL_REPLAYED`, `BUDGET_TURN_EXHAUSTED` and `GEMINI_SAFETY_BLOCKED` (the safety-block wording needs one choice from the spec); refusal suggestions rebuilt from `config/arc-scope.json`; the typed job-card path (no writer); the writer wired into `index.mjs`; Hindi coverage needs a reviewer |
 | 6 | ARC-M2-06 event stream and resume, plus the durable effect store | M2-01, M2-03, M1-07 | Amends `04` 3.4 and `05` 2 (restart rule); two tabs must not create a second run |
-| 7 | ARC-M2-07 offline eval harness and `npm run eval:offline` | M2-02 | Can start now. Owns the T1, T2, T9, T12, T14 suites (EV-6) and the `model-config` suite (EV-2) |
+| 7 | ARC-M2-07 offline eval harness and `npm run eval:offline` | M2-02 | Merged 2026-11-25 (`a9fed6c`); 9 suites run, 3 NOT BUILT (M4-03, M7-01). Original notes: Owns the T1, T2, T9, T12, T14 suites (EV-6) and the `model-config` suite (EV-2) |
 | 8 | ARC-M3-01 J1 task-run plan | M2-05, M2-06, M1-10 | `read_order` and `set_conditions` need durable replay (M2-06) |
 | 9 | ARC-M3-02 conditions with provenance | M1-10, Om | Blocked on Om for the weather fairness answer |
 | 10 | ARC-M4-03 insufficient-data answers, ARC-M4-04 model trust and moisture | M4-01, M3-02 | M4-01 merged |
@@ -47,7 +47,8 @@ State on 2026-11-24 (evening): `arc/main` passes `npm test` 1104 of 1104 and `np
 | ARC-M4-02 labelled views P3 to P5 | Cloud change; change record first |
 | ARC-M4-06 answers with no owner (Q2, Q16, Q19) | P1 |
 | ARC-M3-04 combinations count | P2 |
-| ARC-M0-05 recover the lot generator | Blocked: `sid_pack.zip` location (default in `decisions-and-defaults.md`) |
+| ARC-M0-05 recover the lot generator | Merged 2026-11-25 (`6ac3566`) |
+| ARC-ML-01 to ARC-ML-04, ARC-REL-01 | Merged 2026-11-25. Next: rerun the impact batch without crack (founder approval, G2) |
 | ARC-M1-16 stale m_* fixtures and acceptance tool | Copilot; R² checks only until Om signs off |
 
 ## Deferred until the P0 work of the milestone is merged
