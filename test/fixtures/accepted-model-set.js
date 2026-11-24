@@ -1,3 +1,5 @@
+import activeAcceptance from "../../config/model-acceptance.json" with { type: "json" };
+
 // Synthetic acceptance evidence used only by isolated adapter tests.
 // It is not evidence about the deployed BigQuery ML model versions.
 export const acceptedModelSetFixture = Object.freeze({
@@ -9,11 +11,8 @@ export const acceptedModelSetFixture = Object.freeze({
   linkedToCurrentResourceVersions: true,
   currentModelVersions: Object.freeze({ WARP: "test-version-1", DELAM: "test-version-1", STRENGTH: "test-version-1", PRINT: "test-version-1", CRACK: "test-version-1" }),
   featureImportanceReviewed: true,
-  // Every target counts here so the older adapter fixtures, whose totals include
-  // crack, stay valid. Tests of the advisory rule build their own map.
-  targetUse: Object.freeze(Object.fromEntries(["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].map((defect) => [
-    defect, Object.freeze({ useClass: "optimizer", reason: "Isolated test fixture." }),
-  ]))),
+  // The real use classes (crack advisory), so adapter tests exercise the rule the service ships with.
+  targetUse: activeAcceptance.targetUse,
   models: Object.freeze([
     ["WARP", 0.61], ["DELAM", 0.67], ["STRENGTH", 0.47], ["PRINT", 0.75], ["CRACK", 0.30],
   ].map(([defect, r2]) => Object.freeze({
