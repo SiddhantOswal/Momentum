@@ -64,7 +64,7 @@ export function createAnswerBlocks({
     }
   }
 
-  return function answerBlocks(summary) {
+  function answerBlocks(summary) {
     if (!summary) return [];
     const blocks = summary.intent === "reply_out_of_scope" ? [{ kind: "refusal", suggestions: scope.suggestions() }] : [];
     for (const ref of summary.resultRefs ?? []) {
@@ -72,7 +72,14 @@ export function createAnswerBlocks({
       if (block) blocks.push(block);
     }
     return blocks.slice(0, MAX_BLOCKS).map((block, index) => ({ blockId: `b${index + 1}`, ...block }));
+  }
+
+  /** True when a later read can show this result again with its code-set label, not as `unavailable`. */
+  answerBlocks.rebuildable = (ref) => {
+    const block = ref ? blockFor(ref) : null;
+    return block !== null && block.kind !== "unavailable";
   };
+  return Object.freeze(answerBlocks);
 }
 
 export const answerBlocks = createAnswerBlocks();

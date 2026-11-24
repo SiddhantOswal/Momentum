@@ -118,17 +118,17 @@ function metricSentence(facts) {
     case "defect_history_at_humidity": {
       const [row] = rows;
       return `In modeled lots near ${facts.filters.ambientRhPct}% humidity, ${DEFECT_NAMES[row.defect] ?? row.defect} was the main problem ` +
-        `in ${row.n_cases} of ${row.lots_in_band} lots. ${facts.basis}`;
+        `in ${row.n_cases} of ${row.lots_in_band} lots. ${facts.label}. ${facts.basis}`;
     }
     case "top_scrap_items":
-      return `Highest modeled scrap cost: ${rows.map((row) => `${row.item_code} ${row.scrap_cost_12m} ${row.currency}`).join(", ")}. ${facts.basis}`;
+      return `Highest modeled scrap cost: ${rows.map((row) => `${row.item_code} ${row.scrap_cost_12m} ${row.currency}`).join(", ")}. ${facts.label}. ${facts.basis}`;
     case "catalog_item": {
       const [row] = rows;
       return `${row.item_code}: ${shown(row.box_style)}, ${shown(row.length_mm)} by ${shown(row.width_mm)} by ${shown(row.height_mm)} mm, ` +
-        `${shown(row.ply)} ply, flute ${shown(row.flute_profile)}. ${facts.basis}`;
+        `${shown(row.ply)} ply, flute ${shown(row.flute_profile)}. ${facts.label}. ${facts.basis}`;
     }
     default:
-      return facts.basis;
+      return `${facts.label}. ${facts.basis}`;
   }
 }
 
@@ -139,10 +139,10 @@ function sentenceFor(facts) {
     case "get_weather": {
       const time = facts.observedAt?.match(/T(\d{2}:\d{2})/)?.[1];
       return `${facts.location ? `${facts.location} weather record` : "Weather record"}: humidity ${facts.ambientRhPct}% and temperature ${facts.ambientTempC} °C` +
-        `${time ? `, read at ${time} UTC` : ""}. ${facts.note}`;
+        `${time ? `, read at ${time} UTC` : ""}. ${facts.label}. ${facts.note}`;
     }
     case "search_defect_history":
-      return `${DEFECT_NAMES[facts.defect]} was the main problem in ${facts.caseCount} modeled lots at similar humidity. ${facts.note}`;
+      return `${DEFECT_NAMES[facts.defect]} was the main problem in ${facts.caseCount} modeled lots at similar humidity. ${facts.label}. ${facts.note}`;
     case "get_lot":
       return facts.currentRevision > 0
         ? `The lot is at the ${facts.stage.replaceAll("_", " ")} stage, on revision ${facts.currentRevision}.`

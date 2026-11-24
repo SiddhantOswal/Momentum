@@ -8,6 +8,7 @@ import { unavailable } from "../google-cloud/firestore-arc-client.js";
 import { TURN_LEASE_MS } from "../google-cloud/firestore-arc-session-store.js";
 import { demoOwnsJob, demoOwnsLot } from "../hackathon-demo-auth.js";
 import { IpKeySchema, ResultRefSchema, ToolNameSchema } from "../state-schemas.js";
+import { answerBlocks } from "./answer-blocks.js";
 import { checkGrounding, checkWriterText } from "./answer-checks.js";
 import { UNCHECKED_TEXT, factsFor, metricRef, renderTemplate as renderAnswerTemplate } from "./answer-render.js";
 import { canonicalJson } from "./canonical-json.js";
@@ -334,10 +335,12 @@ export function createArcTurnRunner({
     // Facts are the projected results the template, the writer and the checks share.
     const data = [];
     let writable = false;
-    function collect(name, args, result) {
+    let unlabelled = false;
+    function collect(name, args, result, ref) {
       const facts = factsFor({ tool: name, args, result });
       if (facts) data.push(facts);
       if (facts && dataReturned(name, result)) writable = true;
+      if (facts && !answerBlocks.rebuildable(ref)) unlabelled = true;
     }
     const wantsWriter = !fixed && !reply && calls.some(({ name }) => dataTools.has(name)) &&
       !calls.some(({ name }) => name === "get_job" || name === "get_job_card");
@@ -356,7 +359,7 @@ export function createArcTurnRunner({
         if (discoveryTools.has(name) || dataTools.has(name)) {
           const result = boundResult(await registry.execute(name, argsParsed.data, context));
           if (result?.ok) await rememberDiscovered(name);
-          collect(name, argsParsed.data, result);
+          collect(name, argsParsed.data, result, step.resultRef);
         }
         continue;
       }
@@ -400,7 +403,7 @@ export function createArcTurnRunner({
       await saveStep(index, step);
       await rememberDiscovered(name);
       await emit("step.succeeded", { ...fields, resultRef: step.resultRef });
-      collect(name, argsParsed.data, result);
+      collect(name, argsParsed.data, result, step.resultRef);
     }
 
     const summary = {
@@ -418,7 +421,12 @@ export function createArcTurnRunner({
     }
     let outcome;
     const insufficient = data.some(({ status }) => status === "insufficient_data");
-    if (wantsWriter && writable && !insufficient && !unchecked && typeof writer === "function") {
+    // A value whose card cannot be rebuilt later (weather, BigQuery reads) would sit under the written
+    // text with no label, so the template, which states its labels in words, is shown instead.
+    if (wantsWriter && writable && !insufficient && !unchecked && unlabelled) {
+      outcome = { outcome: "fallback", reason: "LABEL_NOT_REBUILDABLE" };
+      log({ event: "arc_answer_fallback", reason: outcome.reason });
+    } else if (wantsWriter && writable && !insufficient && !unchecked && typeof writer === "function") {
       const { settingsVersion, promptVersion } = arcModelSettings.generation("writer");
       summary.versions = { models: settingsVersion, ...(promptVersion && { writer: promptVersion }) };
       try {
