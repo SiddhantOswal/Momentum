@@ -127,3 +127,34 @@
   --arm2: #BDC3CA;
   --unit: #FFFFFF;
 }
+
+.arc-main-machine {
+  --h-st: #0B0D10;
+  --h-belt: #262B32;
+  --h-rail: #8A929B;
+  --h-rail2: #6C747D;
+  --h-rail3: #565D66;
+  --h-ln: rgba(255,255,255,.1);
+  --h-top: #D3A66B;
+  --h-sd: #B4854C;
+  --h-ed: #926838;
+  --h-metal: #6F7780;
+  --h-metal2: #9AA3AC;
+  --h-metal3: #4C535B;
+  --h-gnd: #14181C;
+  --h-gl: rgba(255,255,255,.1);
+}
+
+[data-theme="light"] .arc-main-machine {
+  --h-st: #E7E3DA;
+  --h-belt: #2A2F35;
+  --h-rail: #CFD4D9;
+  --h-rail2: #B0B7BE;
+  --h-rail3: #98A0A8;
+  --h-ln: rgba(255,255,255,.1);
+  --h-gnd: #F3F0E9;
+  --h-gl: rgba(20,24,28,.12);
+  --h-metal: #8E969F;
+  --h-metal2: #B9C0C7;
+  --h-metal3: #6D757E;
+}
