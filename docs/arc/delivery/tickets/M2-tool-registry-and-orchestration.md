@@ -27,6 +27,7 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 - Goal: the router system instruction and the deterministic scope and approval rules (05 section 5, steps 1 and 2), with `reply_out_of_scope`, `ask_clarification` and `explain_cannot_approve`.
 - AC: off-topic, approval and injection phrasings that match the rules never reach the model. The router model and region come from config.
 - Depends on: M2-03, M1-12, founder decision A1. Owner: AI engineer.
+- Carry-over from the ARC-M2-03 QA (QA-9): the tool registry is rebuilt every turn and discovered IDs live in the per-turn instance, so a typed `diagnose_approved_photo` can never validate (not in the same turn, because validation runs before the list step, and not in a later turn). No typed turn can spend Gemini on a tool today. Decide how discovered IDs persist across a turn (for example from the session's stored tool results) so the router can use them, and test it. Also wire the router into `index.mjs` and expose the budget store from `service-ports` (see ARC-M2-05).
 - Test plan: the offline `scope-refusal` and `off-topic` rule cases; the live router comparison of flash-lite against flash is recorded with an "eval run" label.
 - M0 gate additions: the router sees only the extracted PO fields listed in `05` section 5 (enums, numbers and IDs; no free text such as customer or buyer name). A test asserts that the router request body contains none of the free-text fields of PO1 to PO5.
 
