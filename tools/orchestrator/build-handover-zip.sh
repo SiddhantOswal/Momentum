@@ -19,7 +19,9 @@ if git -C "$root" grep -nIE 'AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|-----BEGIN (
   echo "A secret-like string was found in arc/main. Stopping." >&2; exit 1
 fi
 
-git -C "$root" bundle create "$stage/repo/momentum-arc.bundle" --branches --tags >/dev/null 2>&1
+# HEAD goes in the bundle so that a plain clone starts on the branch checked out here, which must be arc/main.
+[ "$(git -C "$root" rev-parse --abbrev-ref HEAD)" = "arc/main" ] || { echo "Run this from the arc/main checkout." >&2; exit 1; }
+git -C "$root" bundle create "$stage/repo/momentum-arc.bundle" HEAD --branches --tags >/dev/null 2>&1
 git -C "$root" bundle verify "$stage/repo/momentum-arc.bundle" >/dev/null 2>&1
 
 cp "$handover/README.md" "$stage/START-HERE.md"
