@@ -29,6 +29,7 @@ config
 !config/arc-scope.json
 !config/arc-metrics.json
 !config/gemini-prices.json
+!config/model-version-binding.json
 *.log
 
 !config/approved-photos.json

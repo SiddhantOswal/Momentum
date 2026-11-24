@@ -1,0 +1,6 @@
+{
+  "checkIntervalMs": 600000,
+  "requestTimeoutMs": 10000,
+  "maxVerifiedAgeMs": 1800000,
+  "note": "With USTAAD_ENFORCE_MODEL_VERSIONS=true the service reads each m2_* model's etag (BigQuery models.get, metadata only) at startup and on this interval, and compares it with currentModelVersions in model-acceptance.json. The timeout bounds the token read and each models.get call. Cloud Run may not run the timer while an instance is idle, so a result older than maxVerifiedAgeMs counts as unverified and the next guarded request checks again first."
+}

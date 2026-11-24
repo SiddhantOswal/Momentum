@@ -3,6 +3,9 @@ import test from "node:test";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
 import { createTraceRegistry } from "../src/trace-registry.js";
 import { createJobCoordinator } from "../src/job-coordinator.js";
+import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
+import bindingConfig from "../config/model-version-binding.json" with { type: "json" };
+import { createModelVersionBinding } from "../src/google-cloud/model-version-binding.js";
 
 function traceIdFactory() {
   let sequence = 0;
@@ -838,3 +841,54 @@ test("job coordinator records cancellation without leaving an active tool or run
   ]);
   assert.equal(traceRegistry.getRun(events[0].runId).status, "cancelled");
 });
+
+for (const [code, laterEtag, message] of [
+  ["MODEL_VERSION_MISMATCH", "ZGVsYW0tcmV0cmFpbmVk", "Explanation is blocked: the DELAM model in BigQuery is not the accepted version."],
+  ["MODEL_VERSION_UNVERIFIED", undefined, "Explanation is blocked until the accepted model versions are confirmed in BigQuery."],
+]) {
+  test(`job coordinator stops at the explanation step with ${code} when the model check has changed`, async () => {
+    // Prediction and optimization pass on a fresh check. By the explanation step the
+    // pass is past its maximum age, and the re-check finds a retrained or unreadable model.
+    let current = Date.parse("2026-11-25T08:00:00.000Z");
+    const etags = Object.fromEntries(Object.entries(modelAcceptanceConfig.currentModelVersions)
+      .map(([defect, etag]) => [`m2_${defect.toLowerCase()}`, etag]));
+    const versions = createModelVersionBinding({
+      projectId: "prepagent-hack", modelAcceptance: modelAcceptanceConfig,
+      fetchImpl: async (url) => Response.json({ etag: etags[String(url).split("/").pop()] }),
+      tokenProvider: async () => "test-token", now: () => new Date(current), log: () => {},
+    });
+    await versions.check();
+    let explanations = 0;
+    const base = services({
+      optimizeRisk: async () => ({
+        ok: true, baseline: jobSheetFixture.baseline, best: jobSheetFixture.recommended, changes: [], savings: jobSheetFixture.savings,
+      }),
+      findSimilarRuns: async () => {
+        current += bindingConfig.maxVerifiedAgeMs + 1;
+        etags.m2_delam = laterEtag;
+        return { ok: true, evidence: [] };
+      },
+      explainRisk: async () => {
+        explanations += 1;
+        return { ok: true, explanation: "Test-only explanation." };
+      },
+    });
+    const traceRegistry = createTraceRegistry({ idFactory: traceIdFactory() });
+    const result = await createJobCoordinator({
+      services: {
+        ...base,
+        predictRisk: versions.guard(base.predictRisk, "Prediction"),
+        optimizeRisk: versions.guard(base.optimizeRisk, "Optimization"),
+        explainRisk: versions.guard(base.explainRisk, "Explanation"),
+      },
+      traceRegistry,
+    })(input());
+
+    assert.equal(result.ok, false);
+    assert.equal(result.blockedAt, "explainRisk");
+    assert.deepEqual(result.error, { code, message, targets: ["DELAM"] });
+    assert.deepEqual(result.completedStages, ["extractOrder", "getConditions", "predictRisk", "optimizeLevers", "findSimilarRuns"]);
+    assert.equal(explanations, 0);
+    assert.equal(traceRegistry.getRun(result.runId).status, "failed");
+  });
+}
