@@ -325,6 +325,7 @@ test("a replay of a turn with a task run is read from the stored events and carr
   const withoutHook = build({ fake: withHook.fake, runTurn: runnerSpy().runTurn });
   const unavailable = await send(withoutHook.app, "POST", "/api/arc/turns", { session, body });
   assert.equal(unavailable.status, 503);
+  assert.equal(unavailable.headers.get("cache-control"), "no-store");
   assert.equal((await unavailable.json()).error.code, "SERVICE_UNAVAILABLE");
 });
 
@@ -372,6 +373,7 @@ test("without a turn runner a new turn is 503 and nothing is stored, but a store
   const body = textTurn("hello");
   const refused = await send(app, "POST", "/api/arc/turns", { session, body });
   assert.equal(refused.status, 503);
+  assert.equal(refused.headers.get("cache-control"), "no-store");
   assert.equal((await refused.json()).error.code, "SERVICE_UNAVAILABLE");
   assert.equal([...fake.documents.keys()].some((path) => path.includes("/turns/")), false);
 
@@ -415,6 +417,7 @@ test("an oversized body is 413 before it is parsed", async () => {
   const { app } = build({ runTurn: runnerSpy().runTurn });
   const response = await send(app, "POST", "/api/arc/turns", { session: newSession(), body: JSON.stringify({ pad: "x".repeat(40_000) }) });
   assert.equal(response.status, 413);
+  assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal((await response.json()).error.code, "PAYLOAD_TOO_LARGE");
 });
 
@@ -512,6 +515,7 @@ test("a Firestore outage is 503 SERVICE_UNAVAILABLE and never an empty session",
   const { app } = build({ fake: createFakeFirestore({ failWhen: () => true }) });
   const response = await send(app, "GET", "/api/arc/session", { session: newSession() });
   assert.equal(response.status, 503);
+  assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal((await response.json()).error.code, "SERVICE_UNAVAILABLE");
 });
 
@@ -535,6 +539,7 @@ test("enabled without Firestore stores is 503 SERVICE_UNAVAILABLE, a different s
   app.route("/api/arc", createArcRoutes({ enabled: true, commandDeps }));
   const response = await send(app, "GET", "/api/arc/session", { session: newSession() });
   assert.equal(response.status, 503);
+  assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal((await response.json()).error.code, "SERVICE_UNAVAILABLE");
 });
 
