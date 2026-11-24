@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
+import { jobSheetFixture } from "./fixtures/job-sheet.js";
 import { startIndexServer } from "./helpers/server.js";
 
 const ACCEPTED = modelAcceptanceConfig.currentModelVersions;
@@ -19,13 +20,29 @@ const requests = [
   ["/risk/predict", { order: { itemCode: "PKBX0041", quantity: 1300, paperType: "RECYCLED", paperSupplier: "SUP-D" },
     conditions, conditionsConfirmed: true, levers }],
   ["/risk/optimize", { order, conditions: { ...conditions, runDate: "2026-10-15" }, conditionsConfirmed: true, levers }],
+  ["/risk/explanation", {
+    order: jobSheetFixture.order,
+    conditions: jobSheetFixture.conditions,
+    prediction: jobSheetFixture.baseline.risk,
+    optimization: { baseline: jobSheetFixture.baseline, best: jobSheetFixture.recommended, changes: jobSheetFixture.changes, savings: jobSheetFixture.savings },
+    evidence: [],
+  }],
 ];
+// The explanation port exists only when live Gemini calls are permitted, which on Cloud Run needs the budget policy.
+const BUDGET_LIMITS = {
+  pool: "live",
+  dayLimit: 300, sessionDayLimit: 40, ipDayLimit: 120, minuteLimit: 20, sessionMinuteLimit: 6,
+  reserve: { units: 80, windowStart: "2026-12-04T00:00:00+08:00", windowEnd: "2026-12-04T23:59:59+08:00",
+    grant: "pitch_reserve", sessionDayLimit: 120 },
+};
 
 async function withServer(etags, run) {
   const { child, port } = await startIndexServer({
     PATH: process.env.PATH, K_SERVICE: "prepagent", PROJECT_ID: "prepagent-hack", REGION: "asia-south1",
     USTAAD_AUTHORIZATION_MODE: "HACKATHON_DEMO", USTAAD_DEMO_SESSION_SIGNING_KEY: "a".repeat(64), USTAAD_SYNTHETIC_ONLY: "true",
     USTAAD_ENABLE_APPROVAL_AUDIT: "true", USTAAD_ENABLE_RISK_PREDICTION: "true", USTAAD_OPTIMIZER_CONTRACT_STATUS: "approved", USTAAD_OPTIMIZER_CONTRACT_VERSION: "om-d2-d3-v1",
+    BUCKET: "prepagent-hack-data", USTAAD_ENABLE_LIVE_MODEL_CALLS: "true",
+    USTAAD_GEMINI_BUDGET_POLICY: "budget-v2", GEMINI_BUDGET_LIMITS: JSON.stringify(BUDGET_LIMITS),
     USTAAD_ENFORCE_MODEL_VERSIONS: "true", FAKE_MODEL_ETAGS: JSON.stringify(etags),
   }, { entry: "test/helpers/fake-models-api-entry.mjs" });
   const origin = `http://127.0.0.1:${port}`;
@@ -40,13 +57,14 @@ async function withServer(etags, run) {
       if (status.modelVersions?.state !== "unchecked") break;
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
+    assert.equal(status.integrations.explainRisk, true, "the explanation port must be configured for this test to mean anything");
     await run({ origin, headers, status });
   } finally {
     if (child.exitCode === null && child.signalCode === null) { const exited = once(child, "exit"); child.kill("SIGTERM"); await exited; }
   }
 }
 
-test("HTTP prediction and optimization return 503 MODEL_VERSION_MISMATCH and status names the target", { timeout: 30000 }, async () => {
+test("HTTP prediction, optimization and explanation return 503 MODEL_VERSION_MISMATCH and status names the target", { timeout: 30000 }, async () => {
   await withServer({ ...acceptedEtags(), m2_crack: "cmV0cmFpbmVkLWNyYWNr" }, async ({ origin, headers, status }) => {
     assert.equal(status.modelVersions.enforced, true);
     assert.equal(status.modelVersions.state, "mismatch");
@@ -70,7 +88,7 @@ test("HTTP prediction and optimization return 503 MODEL_VERSION_MISMATCH and sta
   });
 });
 
-test("HTTP prediction and optimization return 503 MODEL_VERSION_UNVERIFIED when a model cannot be read", { timeout: 30000 }, async () => {
+test("HTTP prediction, optimization and explanation return 503 MODEL_VERSION_UNVERIFIED when a model cannot be read", { timeout: 30000 }, async () => {
   const { m2_delam: _unreadable, ...etags } = acceptedEtags();
   await withServer(etags, async ({ origin, headers, status }) => {
     assert.equal(status.modelVersions.state, "unverified");

@@ -78,3 +78,31 @@ test("any other value of USTAAD_ENFORCE_MODEL_VERSIONS keeps today's behaviour",
     assert.equal(result.error.code, "VALIDATION_ERROR", "the unguarded service answers directly");
   }
 });
+
+test("the explanation port is guarded only when the flag is exactly true", async () => {
+  const modelConfig = { modelCallsEnabled: true, testModel: "gemini-3.5-flash", location: "asia-south1" };
+  const liveEnv = { ...PORTS_ENV, BUCKET: "prepagent-hack-data", USTAAD_ENABLE_LIVE_MODEL_CALLS: "true" };
+  const fake = fakeModelsApi({ ...acceptedEtags(), m2_strength: "c3RyZW5ndGgtbmV3" });
+  const ports = createConfiguredServicePorts({
+    env: { ...liveEnv, USTAAD_ENFORCE_MODEL_VERSIONS: "true" }, modelConfig, fetchImpl: fake.fetchImpl, tokenProvider: async () => TOKEN,
+  });
+  try {
+    assert.equal(ports.availability.explainRisk, true);
+    await ports.modelVersions.check();
+    const result = await ports.explainRisk({});
+    assert.deepEqual(result.error, {
+      code: MODEL_VERSION_MISMATCH,
+      message: "Explanation is blocked: the STRENGTH model in BigQuery is not the accepted version.",
+      targets: ["STRENGTH"],
+    });
+    assert.ok(fake.calls.every((call) => call.url.startsWith(MODELS_URL)), "no BigQuery query or Gemini call ran");
+  } finally {
+    ports.modelVersions.stop();
+  }
+
+  const off = fakeModelsApi();
+  const unguarded = createConfiguredServicePorts({ env: liveEnv, modelConfig, fetchImpl: off.fetchImpl, tokenProvider: async () => TOKEN });
+  assert.equal(unguarded.availability.explainRisk, true);
+  assert.notEqual((await unguarded.explainRisk({})).error?.code, MODEL_VERSION_MISMATCH);
+  assert.equal(off.calls.some((call) => call.url.startsWith(MODELS_URL)), false);
+});

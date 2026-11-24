@@ -643,6 +643,8 @@ export function createConfiguredServicePorts({
       tokenProvider,
     });
     adapters.explainRisk = createRiskExplanationService({ bigquery: riskBigquery, gemini });
+    // sql/explain.sql runs ML.EXPLAIN_PREDICT on the same m2_* models.
+    if (adapters.modelVersions) adapters.explainRisk = adapters.modelVersions.guard(adapters.explainRisk, "Explanation");
   }
   if (env.USTAAD_ENABLE_DEFECT_DIAGNOSIS === "true") {
     adapters.diagnoseDefectPhoto = createDefectDiagnosisService({ storage, gemini, bucket, model }).diagnose;
