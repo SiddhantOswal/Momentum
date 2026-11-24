@@ -1,7 +1,10 @@
 -- predict.sql: one lot in -> 5 scrap rates, total kg, cost, primary defect
--- Params (15): item_code, quantity, paper_type, paper_supplier, shift, ambient_rh_pct, ambient_temp_c,
+-- Params (16): item_code, quantity, paper_type, paper_supplier, shift, ambient_rh_pct, ambient_temp_c,
 --   paper_moisture_pct, sf_speed_mpm, roll_temp_c, gum_application, gum_viscosity_sec, pasting_pressure,
---   drying_hours, print_speed_spm
+--   drying_hours, print_speed_spm, optimizer_targets (ARRAY<STRING>)
+-- Use classes (ARC-ML-03): only the targets in @optimizer_targets (the "optimizer" use class in
+--   config/model-acceptance.json) count toward total_scrap_pct, total_scrap_kg, scrap_cost and
+--   primary_defect. Every rate is still returned; the service drops abstain targets.
 -- Humidity band: the same job predicts three rows (CENTRAL at @ambient_rh_pct, LOW at RH-5, HIGH at RH+5).
 --   The band is clamped to the plant's recorded humidity range 25..98 %RH (config/condition-ranges.json).
 --   Totals and primary_defect come from the CENTRAL row only; band columns are the min/max across the rows.
@@ -81,6 +84,24 @@ rates AS (
     MIN(r_crack) AS crack_low, MAX(r_crack) AS crack_high
   FROM scenario_rates
   HAVING COUNT(*) > 0
+),
+eligible AS (
+  SELECT
+    'WARP' IN UNNEST(@optimizer_targets) AS u_warp,
+    'DELAM' IN UNNEST(@optimizer_targets) AS u_delam,
+    'STRENGTH' IN UNNEST(@optimizer_targets) AS u_strength,
+    'PRINT' IN UNNEST(@optimizer_targets) AS u_print,
+    'CRACK' IN UNNEST(@optimizer_targets) AS u_crack
+),
+-- c_* feed the totals (0 when not counted); k_* pick the primary defect (-1 when not counted).
+counted AS (
+  SELECT r.*,
+    IF(e.u_warp, r_warp, 0) + IF(e.u_delam, r_delam, 0) + IF(e.u_strength, r_strength, 0)
+      + IF(e.u_print, r_print, 0) + IF(e.u_crack, r_crack, 0) AS counted_pct,
+    IF(e.u_warp, r_warp, -1) AS k_warp, IF(e.u_delam, r_delam, -1) AS k_delam,
+    IF(e.u_strength, r_strength, -1) AS k_strength, IF(e.u_print, r_print, -1) AS k_print,
+    IF(e.u_crack, r_crack, -1) AS k_crack
+  FROM rates r CROSS JOIN eligible e
 )
 SELECT
   @item_code AS item_code,
@@ -89,13 +110,13 @@ SELECT
   ROUND(r_strength, 3) AS rate_strength_pct,
   ROUND(r_print, 3) AS rate_print_pct,
   ROUND(r_crack, 3) AS rate_crack_pct,
-  ROUND(r_warp + r_delam + r_strength + r_print + r_crack, 2) AS total_scrap_pct,
-  ROUND(quantity * box_weight_kg * (r_warp + r_delam + r_strength + r_print + r_crack) / 100, 1) AS total_scrap_kg,
-  ROUND(quantity * box_weight_kg * (r_warp + r_delam + r_strength + r_print + r_crack) / 100 * pl.cost_per_kg, 0) AS scrap_cost,
+  ROUND(counted_pct, 2) AS total_scrap_pct,
+  ROUND(quantity * box_weight_kg * counted_pct / 100, 1) AS total_scrap_kg,
+  ROUND(quantity * box_weight_kg * counted_pct / 100 * pl.cost_per_kg, 0) AS scrap_cost,
   pl.base_currency AS currency,
-  CASE GREATEST(r_warp, r_delam, r_strength, r_print, r_crack)
-    WHEN r_warp THEN 'WARP' WHEN r_delam THEN 'DELAM' WHEN r_strength THEN 'STRENGTH'
-    WHEN r_print THEN 'PRINT' ELSE 'CRACK' END AS primary_defect,
+  CASE GREATEST(k_warp, k_delam, k_strength, k_print, k_crack)
+    WHEN k_warp THEN 'WARP' WHEN k_delam THEN 'DELAM' WHEN k_strength THEN 'STRENGTH'
+    WHEN k_print THEN 'PRINT' ELSE 'CRACK' END AS primary_defect,
   ROUND(rh_low, 2) AS rh_band_low_pct,
   ROUND(rh_high, 2) AS rh_band_high_pct,
   ROUND(warp_low, 3) AS rate_warp_low_pct,
@@ -108,5 +129,5 @@ SELECT
   ROUND(print_high, 3) AS rate_print_high_pct,
   ROUND(crack_low, 3) AS rate_crack_low_pct,
   ROUND(crack_high, 3) AS rate_crack_high_pct
-FROM rates, prepagent.plants pl
+FROM counted, prepagent.plants pl
 WHERE pl.plant_id = 'PLANT-01';

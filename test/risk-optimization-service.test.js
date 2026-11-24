@@ -138,7 +138,7 @@ test("optimization fails closed before BigQuery when model acceptance evidence i
   assert.equal(queryCalled, false);
 });
 
-test("optimization service sends all 15 named parameters in correct order", async () => {
+test("optimization service sends the 15 named inputs in order, then the optimizer target set", async () => {
   let capturedRequest;
   const service = createRiskOptimizationService({
     bigquery: {
@@ -157,8 +157,11 @@ test("optimization service sends all 15 named parameters in correct order", asyn
     "item_code", "quantity", "paper_type", "paper_supplier", "shift",
     "ambient_rh_pct", "ambient_temp_c", "paper_moisture_pct",
     "sf_speed_mpm", "roll_temp_c", "gum_application", "gum_viscosity_sec",
-    "pasting_pressure", "drying_hours", "print_speed_spm",
+    "pasting_pressure", "drying_hours", "print_speed_spm", "optimizer_targets",
   ]);
+  assert.deepEqual(capturedRequest.parameters.optimizer_targets, {
+    type: "ARRAY<STRING>", value: ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"],
+  });
   assert.equal(capturedRequest.parameters.item_code, "PKBX0041");
   assert.equal(capturedRequest.parameters.quantity.type, "INT64");
   assert.equal(capturedRequest.parameters.quantity.value, 1300);

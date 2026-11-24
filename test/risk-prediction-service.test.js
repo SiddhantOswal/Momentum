@@ -51,7 +51,7 @@ test("risk prediction runs the supplied model SQL with exact named parameters an
   assert.deepEqual(Object.keys(request.parameters), [
     "item_code", "quantity", "paper_type", "paper_supplier", "shift", "ambient_rh_pct",
     "ambient_temp_c", "paper_moisture_pct", "sf_speed_mpm", "roll_temp_c", "gum_application",
-    "gum_viscosity_sec", "pasting_pressure", "drying_hours", "print_speed_spm",
+    "gum_viscosity_sec", "pasting_pressure", "drying_hours", "print_speed_spm", "optimizer_targets",
   ]);
   assert.equal(response.ok, true);
   assert.equal(response.source, "bigquery-ml");
@@ -126,16 +126,19 @@ test("PKBX0041 fixture matches the supplied SQL's live prediction result", async
   assert.equal(response.currency, "INR");
 });
 
-test("PKBX0041 acceptance: all 15 parameters bound with correct names and types", async () => {
+test("PKBX0041 acceptance: the 15 inputs and the optimizer target set are bound with correct names and types", async () => {
   let captured;
   const service = createRiskPredictionService({
     bigquery: { query: async (req) => { captured = req; return resultRow(); } },
   });
   await service(input);
 
-  // All 15 required parameter names
+  // The 15 inputs plus the optimizer target set from the acceptance record
   const keys = Object.keys(captured.parameters);
-  assert.equal(keys.length, 15);
+  assert.equal(keys.length, 16);
+  assert.deepEqual(captured.parameters.optimizer_targets, {
+    type: "ARRAY<STRING>", value: ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"],
+  });
   assert.equal(captured.parameters.item_code, "PKBX0041");
   assert.equal(captured.parameters.shift, "DAY");
   assert.equal(captured.parameters.paper_type, "RECYCLED");
@@ -332,7 +335,7 @@ test("risk prediction runs the supplied model SQL with exact named parameters an
   assert.deepEqual(Object.keys(request.parameters), [
     "item_code", "quantity", "paper_type", "paper_supplier", "shift", "ambient_rh_pct",
     "ambient_temp_c", "paper_moisture_pct", "sf_speed_mpm", "roll_temp_c", "gum_application",
-    "gum_viscosity_sec", "pasting_pressure", "drying_hours", "print_speed_spm",
+    "gum_viscosity_sec", "pasting_pressure", "drying_hours", "print_speed_spm", "optimizer_targets",
   ]);
   assert.equal(response.ok, true);
   assert.equal(response.source, "bigquery-ml");

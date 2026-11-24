@@ -401,9 +401,9 @@ export const RiskPredictionApiResponseSchema = z.object({
   itemCode: nonEmptyString,
   ...RiskResultSchema.shape,
   // A partial result (one or more defect models failed) lists only the
-  // available defects; a complete result still carries all five.
+  // available defects; a complete result carries every non-abstain target.
   ratesPct: z.partialRecord(DefectSchema, finiteNumber.min(0).max(25)),
-  targetUse: TargetUseSchema.optional(),
+  targetUse: TargetUseSchema,
   humidityBand: HumidityBandSchema.optional(),
   partial: z.boolean().optional(),
   unavailableDefects: z.array(DefectSchema).max(4).optional(),

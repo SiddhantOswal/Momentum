@@ -8,6 +8,7 @@ import {
   OrderProfileSchema,
   RiskResultSchema,
   RunConditionsSchema,
+  shownDefects,
   SimilarRunSchema,
 } from "../schemas.js";
 import { HUMIDITY_BAND_POINTS } from "../humidity-band.js";
@@ -430,6 +431,8 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         parameters: parametersFor(inputOrder, inputConditions, levers),
         signal,
       });
+      // Abstain targets are dropped: their attribution rows would put a predicted rate into the prompt.
+      const shown = shownDefects(inputOptimization.best.risk.targetUse);
       const rows = decodeRows(result, EXPLAIN_COLUMNS, "EXPLAIN_SCHEMA_MISMATCH").map((row) => {
         const defect = DefectSchema.safeParse(row.defect);
         if (!defect.success) {
@@ -443,9 +446,9 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
           driver: row.driver,
           attributionPts: finiteNumber(row.attribution_pts, "attribution_pts", "EXPLAIN_ROW_INVALID"),
         };
-      });
-      const expectedDefects = ["WARP", "DELAM", "STRENGTH", "CRACK"];
-      if (inputOrder.inkColors > 0) expectedDefects.splice(3, 0, "PRINT");
+      }).filter((row) => shown.includes(row.defect));
+      const expectedDefects = ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].filter((defect) =>
+        (defect !== "PRINT" || inputOrder.inkColors > 0) && shown.includes(defect));
       const knownDrivers = new Set(Object.values(DRIVER_ALIASES).flat().map((driver) => driver.toLowerCase()));
       const defectsPresent = new Set(rows.map((row) => row.defect));
       if (rows.length === 0 || expectedDefects.some((defect) => !defectsPresent.has(defect)) ||
