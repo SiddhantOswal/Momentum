@@ -26,7 +26,7 @@ Everything else is in the repository (`docs/arc/delivery/`): the rules (`CLAUDE.
 
 ## Reading order for a person
 
-`CLAUDE.md`, `handover/LIFECYCLE.md`, `handover/PERMISSIONS.md`, `docs/arc/delivery/STATUS.md`, `external/ORCHESTRATOR.md`, `external/decisions-and-defaults.md`, `external/queue.md`, then `00-plan.md` and the rest on demand.
+`CLAUDE.md`, `handover/LIFECYCLE.md`, `handover/PERMISSIONS.md`, `handover/GIT-WORKFLOW.md`, `docs/arc/delivery/STATUS.md`, `external/ORCHESTRATOR.md`, `external/decisions-and-defaults.md`, `external/queue.md`, then `00-plan.md` and the rest on demand.
 
 ## The one rule behind everything
 
