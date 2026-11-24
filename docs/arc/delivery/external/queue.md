@@ -25,7 +25,7 @@ Re-run the QA and verification-audit reviews, collect `reviews/M1-review.md`, th
 
 | Order | Ticket | Depends on | Notes |
 |---|---|---|---|
-| 1 | ARC-M2-01 Arc routes and stores | M1-02, M1-05, wire contract | Partly built on branch `worktree-agent-a65409c978eed8e26` (store tests first); continue from it |
+| 1 | ARC-M2-01 Arc routes and stores | M1-02, M1-05, wire contract | Merged (`21de95f`) |
 | 2 | ARC-M2-02 tool registry | M2-01, M1-01 | `tool-registry` suite (12 assertions); no tool reaches approve |
 | 3 | ARC-M2-03 turn runner | M2-02, M1-08 | Run Gemini calls inside `runAsGeminiCaller` (carry-over from M1-17) |
 | 4 | ARC-M2-04 router and scope rules, ARC-M2-05 answer rendering and checks | M2-03 | Router sees only enums, numbers and IDs, no free text |
