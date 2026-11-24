@@ -56,3 +56,10 @@ Design: `05-ai-design.md` sections 1, 2, 5, 6; ADR-0007, ADR-0010, ADR-0011; int
 - AC: `data/arc-m2-measurements.md` records input, output and thinking tokens per role, p50 and p95 latency per role and for `plan_lot`, and attempts per J1 run (O10). Each is labelled "eval run, not the live service".
 - Depends on: M3-01. Owner: AI engineer; the verification auditor checks the run logs.
 - Test plan: the scripted run itself, with its raw output kept in the record.
+
+### ARC-M2-09 Save a regenerated explanation to the current draft (P1)
+- Goal: the registry tool `retry_explanation` fails closed because no command saves a regenerated explanation to the current draft (ARC-M2-02 QA).
+- AC: a command in `src/commands/` regenerates the explanation through the budget wrapper and saves it, with its source, to the current draft revision; the tool calls it. A superseded revision returns 409 `REVISION_SUPERSEDED`; a replayed key stores nothing twice.
+- Depends on: M2-02, M1-10, M1-21. Owner: backend engineer and AI engineer.
+- Test plan: command tests with a fake model and the fake Firestore; the registry test that the tool no longer fails closed.
+
