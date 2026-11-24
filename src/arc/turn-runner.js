@@ -227,7 +227,7 @@ export function createArcTurnRunner({
     const fixed = actionId !== null ? config.actions[actionId] : null;
     if (!fixed) {
       const stopped = await preRoute?.({ text: normalizedText, signal });
-      if (stopped) return complete(answerTextSchema.parse(stopped.text), {});
+      if (stopped) return complete(answerTextSchema.parse(stopped.text), { intent: stopped.intent });
       if (typeof router !== "function") return fail("SERVICE_UNAVAILABLE");
     }
 
