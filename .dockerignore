@@ -25,6 +25,7 @@ config
 !config/condition-ranges.json
 !config/weather.json
 !config/arc-models.json
+!config/model-version-binding.json
 *.log
 
 !config/approved-photos.json

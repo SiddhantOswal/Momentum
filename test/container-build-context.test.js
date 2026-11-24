@@ -44,6 +44,8 @@ test("container build excludes local credentials and uses an explicit source all
   assert.ok(dockerignore.includes("!config/weather.json"));
   // Every Gemini request reads its model and safety settings from this file.
   assert.ok(dockerignore.includes("!config/arc-models.json"));
+  // The model version binding reads its interval and timeout from this file at startup.
+  assert.ok(dockerignore.includes("!config/model-version-binding.json"));
   assert.ok(!dockerignore.includes("!config/gcp-cloud-run.json"));
   assert.ok(!dockerignore.includes("!config/gcp-firestore.json"));
 
