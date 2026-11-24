@@ -24,6 +24,8 @@ An orchestrator does not build tickets. It dispatches builders and reviewers, ch
 
 Commit rules, enforced by `scripts/git-hooks/` and CI: subject at most 72 characters, imperative, specific; no attribution trailers; the words "Claude", "Codex" and "Copilot" are rejected in commit subjects; the banned phrases in `CLAUDE.md` section 2 are rejected in committed text (so a doc that lists them must point to `CLAUDE.md` instead of quoting them); no emoji. A rejected commit did not happen: fix and make a new commit.
 
+Branching, merging, remotes and the release tag are specified in `handover/GIT-WORKFLOW.md`; follow it exactly.
+
 ## 3. The loop
 
 ```
