@@ -222,6 +222,8 @@ export const ArcTurnDocSchema = z.object({
   answerText: z.string().max(1200).nullable(),
   summary: ArcTurnSummarySchema.nullable(),
   eventRange: z.object({ first: z.number().int().positive(), last: z.number().int().positive() }).strict().nullable(),
+  // Set when recordStatus is "failed", so a turn without a task run can still replay its reason (wire contract D3).
+  errorCode: z.string().max(64).nullable(),
 }).strict();
 
 export const StepStatusSchema = z.enum(["PENDING", "RUNNING", "SUCCEEDED", "FAILED",

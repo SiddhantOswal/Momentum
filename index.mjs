@@ -25,6 +25,9 @@ import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.
 import { readServerPort } from "./src/runtime-config.js";
 import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
+import { createArcRoutes } from "./src/arc/routes.js";
+import { createFirestoreArcSessionStore } from "./src/google-cloud/firestore-arc-session-store.js";
+import { createFirestoreArcTaskRunStore } from "./src/google-cloud/firestore-arc-task-run-store.js";
 import { streamSSE } from "hono/streaming";
 import { createLiveStore } from "./src/google-cloud/live-store.js";
 import { canApprove, initializeUserSessionAuth, SESSION_COOKIE } from "./src/user-session-auth.js";
@@ -151,6 +154,17 @@ const lookupStoredJobSheet = createStoredJobSheetLookup({
   testOnly: executionMode !== "demo",
 });
 const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
+const isArcRequest = (c) => c.req.path === "/api/arc" || c.req.path.startsWith("/api/arc/");
+const limitRequestBody = bodyLimit({
+  maxSize: MAX_REQUEST_BODY_BYTES,
+  onError: (c) => c.json({
+    ok: false,
+    error: {
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Request body must not exceed 10 MiB.",
+    },
+  }, 413),
+});
 const resolveClientKey = createClientKeyResolver(process.env);
 const clientIpKey = (c) => createIpKeyDeriver(process.env.USTAAD_DEMO_SESSION_SIGNING_KEY)(resolveClientKey(c));
 // The code is read once from the Secret Manager value the service mounts as an env var, and only its digest is kept.
@@ -163,6 +177,11 @@ const apiRateLimit = createApiRateLimitMiddleware({
     const session = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
     return session.ok ? session.principal.sessionId : undefined;
   },
+});
+
+app.use("/api/arc/*", async (c, next) => {
+  c.header("Cache-Control", "no-store");
+  return next();
 });
 
 // Every Gemini call made while serving a request is charged to this session and address.
@@ -183,6 +202,8 @@ app.use("*", (c, next) => {
   return requestTimeout(c, next);
 });
 
+// Arc checks the global body limit before charging either rate-limit bucket.
+app.use("/api/arc/*", limitRequestBody);
 app.use("/api/*", apiRateLimit);
 app.use("/orders/*", apiRateLimit);
 app.use("/conditions/*", apiRateLimit);
@@ -196,16 +217,7 @@ app.use("/insights/*", apiRateLimit);
 app.use("/impact/*", apiRateLimit);
 app.use("/evidence/*", apiRateLimit);
 
-app.use("*", bodyLimit({
-  maxSize: MAX_REQUEST_BODY_BYTES,
-  onError: (c) => c.json({
-    ok: false,
-    error: {
-      code: "PAYLOAD_TOO_LARGE",
-      message: "Request body must not exceed 10 MiB.",
-    },
-  }, 413),
-}));
+app.use("*", (c, next) => isArcRequest(c) ? next() : limitRequestBody(c, next));
 
 function responseForResult(c, result) {
   const actor = c.get("verifiedSupervisorPrincipal");
@@ -567,6 +579,18 @@ app.use("/api/runs/*", async (c, next) => {
 });
 
 app.route("/api/runs", createTraceRoutes(durableTraces.registry, { store: durableTraces.store }));
+
+// USTAAD_ENABLE_ARC (exact "true") turns the Arc routes on; off, every /api/arc path answers 404 ARC_NOT_ENABLED.
+// The turn runner and the event routes arrive with ARC-M2-03 and ARC-M2-06.
+const arcEnabled = process.env.USTAAD_ENABLE_ARC === "true";
+const arcProjectId = process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT;
+app.route("/api/arc", createArcRoutes({
+  enabled: arcEnabled,
+  commandDeps,
+  sessionStore: arcEnabled && arcProjectId ? createFirestoreArcSessionStore({ projectId: arcProjectId }) : undefined,
+  taskRunStore: arcEnabled && arcProjectId ? createFirestoreArcTaskRunStore({ projectId: arcProjectId }) : undefined,
+  lotStore: servicePorts.lotRevisions.store,
+}));
 
 // One canonical application. Old dashboard bookmarks retain query/fragment state.
 for (const path of ["/dashboard", "/dashboard/", "/dasboard", "/dasboard/"]) {
