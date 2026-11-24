@@ -163,3 +163,25 @@ test('/app matches the approved title styles and numeric arrow font', async ({ p
     ...titleStyles, fontSize: '17px', lineHeight: '24px', letterSpacing: '-0.1px',
   });
 });
+
+test('/app loads and switches theme when localStorage access throws', async ({ page }) => {
+  await page.addInitScript(() => {
+    const blocked = () => { throw new DOMException('Storage is blocked', 'SecurityError'); };
+    Storage.prototype.getItem = blocked;
+    Storage.prototype.setItem = blocked;
+  });
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/app/#/defects');
+
+  const root = page.locator('html');
+  await expect(page.getByRole('heading', { name: 'Defects', exact: true })).toBeVisible();
+  await expect(root).toHaveAttribute('data-theme', 'light');
+  await expect(root).toHaveCSS('color-scheme', 'light');
+
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  await expect(root).toHaveCSS('color-scheme', 'dark');
+  await expect(page.getByRole('button', { name: 'Switch to light theme' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
