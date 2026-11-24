@@ -1,115 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { Hono } from "hono";
-import { createArcRoutes } from "../src/arc/routes.js";
-import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "../src/daily-gemini-call-cap.js";
-import { createFirestoreArcSessionStore } from "../src/google-cloud/firestore-arc-session-store.js";
-import { createFirestoreTraceStore } from "../src/google-cloud/firestore-trace-store.js";
-import { createFirestoreArcTaskRunStore } from "../src/google-cloud/firestore-arc-task-run-store.js";
-import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
-import { readGeminiBudgetConfig } from "../src/gemini-budget-config.js";
-import { budgetCapStore, createFirestoreBudgetStore } from "../src/google-cloud/firestore-budget-store.js";
-import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
-import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
-import { createFakeFirestore, FAKE_PROJECT_ID } from "./fixtures/fake-firestore.js";
-
-async function loadNewModule(path) {
-  try {
-    return await import(path);
-  } catch (error) {
-    if (error.code !== "ERR_MODULE_NOT_FOUND" || error.url !== new URL(path, import.meta.url).href) throw error;
-    return {};
-  }
-}
-
-const [runnerModule, { createArcEventStore }] = await Promise.all([
-  loadNewModule("../src/arc/turn-runner.js"),
-  loadNewModule("../src/google-cloud/firestore-arc-event-store.js"),
-]);
-
-const auth = createHackathonDemoAuthenticator({
-  mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "a".repeat(64),
-});
-const ipKey = "a".repeat(16);
-const modelCall = (name, args = {}) => ({ name, args });
-const privateText = "Private customer text from the document.";
-const privatePrompt = "Internal system instruction used by the adapter.";
-
-function fixture({ router, writer, preRoute, readToolEffect, services = {}, commandDeps = {}, budgetLimits = {}, ip = ipKey, ...ports } = {}) {
-  assert.equal(typeof runnerModule.createArcTurnRunner, "function", "Arc turn runner must exist");
-  const fake = createFakeFirestore();
-  let time = Date.now();
-  const now = () => time;
-  const clock = (ms) => { time += ms; };
-  const options = { projectId: FAKE_PROJECT_ID, fetchImpl: fake.fetchImpl, tokenProvider: async () => "test", now };
-  const sessionStore = createFirestoreArcSessionStore(options);
-  const taskRunStore = createFirestoreArcTaskRunStore(options);
-  const eventStore = createArcEventStore(options);
-  const attempts = new Map();
-  const reservations = [];
-  const budgetFirestore = fakeFirestore();
-  const { limits } = readGeminiBudgetConfig({
-    USTAAD_GEMINI_BUDGET_POLICY: "budget-v2",
-    GEMINI_BUDGET_LIMITS: JSON.stringify({
-      pool: "live", dayLimit: 300, sessionDayLimit: 40, ipDayLimit: 120, minuteLimit: 20, sessionMinuteLimit: 6,
-      ...budgetLimits,
-    }),
-  });
-  const budget = createFirestoreBudgetStore({ ...options, fetchImpl: budgetFirestore.fetchImpl, limits });
-  const store = budgetCapStore({
-    ...budget,
-    async reserve(request) {
-      const result = await budget.reserve(request);
-      reservations.push({ key: request.reservationKey, replayed: result.replayed ?? false });
-      if (result.ok && !result.replayed) attempts.set(request.reservationKey, request);
-      return result;
-    },
-  });
-  const geminiCap = readDailyGeminiCallCapConfig({});
-  const cookie = auth.issue();
-  const principal = auth.authenticate(cookie).principal;
-  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, servicePorts: services, modelAcceptanceConfig, ...commandDeps };
-  const create = (overrides = {}) => runnerModule.createArcTurnRunner({
-    sessionStore, taskRunStore, eventStore, deps, now, geminiCap, attemptStore: store,
-    router, writer, preRoute, readToolEffect, ...ports, ...overrides,
-  });
-  function request(path, requestOptions, runner = create()) {
-    const app = new Hono();
-    app.route("/api/arc", createArcRoutes({ enabled: true, commandDeps: deps, sessionStore, taskRunStore,
-      ...runner, getIpKey: () => ip }));
-    return app.request(`http://localhost${path}`, {
-      ...requestOptions, headers: { Cookie: `__Host-ustaad-demo=${cookie}`, Origin: "http://localhost" },
-    });
-  }
-  function post(input, { runner, clientTurnId = randomUUID(), signal } = {}) {
-    return request("/api/arc/turns", {
-      method: "POST", body: JSON.stringify({ clientTurnId, input }), signal,
-    }, runner);
-  }
-  return {
-    create, post, request, attempts, reservations, budget, principal, sessionStore, taskRunStore, fake, clock, geminiCap,
-    store, legacyTraceStore: createFirestoreTraceStore(options),
-  };
-}
-
-function text(text) { return { kind: "text", text }; }
-function action(actionId, params) { return { kind: "action", actionId, params }; }
-
-async function events(response, accepted = "accepted") {
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get("arc-turn"), accepted);
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.match(response.headers.get("content-type"), /^text\/event-stream/);
-  return (await response.text()).split("\n\n").filter((frame) => frame.includes("data: "))
-    .map((frame) => {
-      const lines = frame.split("\n");
-      const data = JSON.parse(lines.find((line) => line.startsWith("data: ")).slice(6));
-      assert.ok(lines.includes(`event: ${data.type}`));
-      assert.equal(lines.find((line) => line.startsWith("id: ")), data.sequence ? `id: ${data.sequence}` : undefined);
-      return data;
-    });
-}
+import { withDailyGeminiCallCap } from "../src/daily-gemini-call-cap.js";
+import {
+  action, arcConfig, events, fixture, ipKey, modelCall, privatePrompt, privateText, text,
+} from "./fixtures/arc-turn-runner.js";
 
 test("buttons, exact suggestion text and deterministic refusals use no Gemini attempts", { timeout: 2000 }, async () => {
   const { post, attempts } = fixture({
@@ -235,7 +130,7 @@ async function interruptedPhotoRun({ readEffect }) {
       },
     },
     config: {
-      ...runnerModule.arcConfig,
+      ...arcConfig,
       actions: { check_photo: { kind: "photo_check", calls: [
         modelCall("list_approved_photos"), modelCall("diagnose_approved_photo", { photoId: "photo-01" }), modelCall("get_status"),
       ] } },
@@ -327,7 +222,7 @@ test("a denied writer reservation keeps the template and counts only charged att
 test("a fixed plan above the tool-step limit runs no tools", { timeout: 2000 }, async () => {
   const { post, attempts } = fixture({
     config: {
-      ...runnerModule.arcConfig,
+      ...arcConfig,
       actions: { list_photos: { kind: "photo_check", calls: Array.from({ length: 5 }, () => modelCall("list_approved_photos")) } },
     },
     services: { getApprovedPhotos: () => assert.fail("the plan is over the limit") },
@@ -439,7 +334,7 @@ test("one metered step cannot charge above the configured attempt cap", { timeou
   let client;
   const setup = fixture({
     config: {
-      ...runnerModule.arcConfig,
+      ...arcConfig,
       maxGeminiAttempts: 1,
       actions: { check_photo: { kind: "photo_check", calls: [
         modelCall("list_approved_photos"), modelCall("diagnose_approved_photo", { photoId: "photo-01" }),
@@ -465,7 +360,7 @@ test("one metered step cannot charge above the configured attempt cap", { timeou
 test("a plan with two Gemini-spending tool steps runs no tools", { timeout: 2000 }, async () => {
   const { post, attempts } = fixture({
     config: {
-      ...runnerModule.arcConfig,
+      ...arcConfig,
       actions: { check_photos: { kind: "photo_check", calls: [
         modelCall("diagnose_approved_photo", { photoId: "photo-01" }), modelCall("diagnose_approved_photo", { photoId: "photo-02" }),
       ] } },
@@ -569,7 +464,7 @@ test("the router sees earlier turn summaries and never earlier typed text", { ti
 
 test("a step that outlives the request budget ends the stream with REQUEST_TIMEOUT", { timeout: 2000 }, async () => {
   const setup = fixture({
-    config: { ...runnerModule.arcConfig, requestTimeoutMs: 60 },
+    config: { ...arcConfig, requestTimeoutMs: 60 },
     services: { getApprovedPhotos: () => new Promise(() => {}) },
   });
   const frames = await events(await setup.post(action("list_approved_photos")));
@@ -609,7 +504,7 @@ test("a rate-limit block sends retryAfterSeconds live and omits it on replay", {
 
 test("a tool result above the configured size fails the step", { timeout: 2000 }, async () => {
   const { post } = fixture({
-    config: { ...runnerModule.arcConfig, maxToolResultBytes: 64 },
+    config: { ...arcConfig, maxToolResultBytes: 64 },
     services: { getApprovedPhotos: async () => ({ ok: true, photos: [{ id: "photo-01", note: "x".repeat(200) }] }) },
   });
   const frames = await events(await post(action("list_approved_photos")));
