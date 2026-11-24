@@ -73,6 +73,7 @@ test("with USTAAD_ENABLE_ARC off every route and unknown path is 404 ARC_NOT_ENA
     const response = await send(app, method, path, { origin: "https://elsewhere.example" });
     assert.equal(response.status, 404, `${method} ${path}`);
     assert.equal((await response.json()).error.code, "ARC_NOT_ENABLED", `${method} ${path}`);
+    assert.equal(response.headers.get("cache-control"), "no-store", `${method} ${path}`);
   }
   assert.equal(fake.calls.length, 0);
 });
@@ -117,12 +118,51 @@ test("a sessionId in a body or query string is 400 VALIDATION_ERROR and never re
   assert.deepEqual(failure.error.issues.map((issue) => issue.field), ["sessionId"]);
   const nested = await send(app, "POST", "/api/arc/turns", { session, body: { ...textTurn("hello"), input: { kind: "text", text: "hi", sessionId: other.sessionId } } });
   assert.equal(nested.status, 400);
+  const action = await send(app, "POST", "/api/arc/turns", {
+    session,
+    body: { clientTurnId: randomUUID(), input: { kind: "action", actionId: "plan_lot", params: { sessionId: other.sessionId } } },
+  });
+  assert.equal(action.status, 400);
+  assert.equal((await action.json()).error.code, "VALIDATION_ERROR");
   for (const path of [`/api/arc/session?sessionId=${other.sessionId}`, `/api/arc/turns?sessionId=${other.sessionId}`]) {
     const response = await send(app, "GET", path, { session });
     assert.equal(response.status, 400, path);
     assert.equal((await response.json()).error.code, "VALIDATION_ERROR");
   }
   assert.equal(fake.documents.size, 0);
+});
+
+test("run and turn detail and turn submission reject a query sessionId before reading Firestore", async (t) => {
+  const { app, fake, taskRunStore } = build({ runTurn: runnerSpy().runTurn });
+  const session = newSession();
+  const body = textTurn("hello");
+  const taskRunId = randomUUID();
+  await taskRunStore.create({
+    taskRunId, sessionId: session.sessionId, kind: "data_question", lotId: null, status: "RUNNING",
+    steps: [{
+      stepId: "query_metric", tool: "query_metric", status: "PENDING", argsHash: "a".repeat(64),
+      idempotencyKey: null, attempt: 0, leaseOwner: null, leaseExpiresAt: null,
+      resultRef: null, waitingFor: null, errorCode: null, startedAt: null, finishedAt: null,
+    }],
+  });
+  const accepted = await send(app, "POST", "/api/arc/turns", { session, body });
+  assert.equal(accepted.status, 200);
+  await accepted.text();
+  for (const [method, path, requestBody] of [
+    ["GET", `/api/arc/runs/${taskRunId}`],
+    ["GET", `/api/arc/turns/${body.clientTurnId}`],
+    ["POST", "/api/arc/turns", body],
+  ]) {
+    await t.test(`${method} ${path}`, async () => {
+      const callsBefore = fake.calls.length;
+      const response = await send(app, method, `${path}?sessionId=${session.sessionId}`, { session, body: requestBody });
+      assert.equal(response.status, 400);
+      const failure = await response.json();
+      assert.equal(failure.error.code, "VALIDATION_ERROR");
+      assert.deepEqual(failure.error.issues.map((issue) => issue.field), ["sessionId"]);
+      assert.equal(fake.calls.length, callsBefore);
+    });
+  }
 });
 
 test("GET /session creates the record once and returns only the fields the contract lists", async () => {
@@ -253,6 +293,12 @@ test("a failed turn replays its stored error code and a new attempt needs a new 
   await send(app, "POST", "/api/arc/turns", { session, body });
   const stored = await sessionStore.getTurn(session.sessionId, body.clientTurnId);
   await sessionStore.failTurn({ sessionId: session.sessionId, clientTurnId: body.clientTurnId, ownerToken: stored.ownerToken, errorCode: "BUDGET_DAY_EXHAUSTED" });
+  const read = await send(app, "GET", `/api/arc/turns/${body.clientTurnId}`, { session });
+  assert.equal(read.status, 200);
+  assert.equal(read.headers.has("retry-after"), false);
+  const { turn } = await read.json();
+  assert.equal(turn.status, "failed");
+  assert.equal(turn.errorCode, "BUDGET_DAY_EXHAUSTED");
   const replay = await send(app, "POST", "/api/arc/turns", { session, body });
   assert.equal(replay.headers.get("arc-turn"), "replayed");
   assert.deepEqual(JSON.parse(/data: (.+)\n/.exec(await replay.text())[1]), { sequence: 0, type: "run.failed", clientTurnId: body.clientTurnId, errorCode: "BUDGET_DAY_EXHAUSTED" });
@@ -407,12 +453,18 @@ test("GET /turns/:id returns the turn view, with the answer only once the turn i
   const session = newSession();
   const body = textTurn("What is the R2 of the crack model?");
   await send(app, "POST", "/api/arc/turns", { session, body });
-  const running = (await (await send(app, "GET", `/api/arc/turns/${body.clientTurnId}`, { session })).json()).turn;
+  const runningResponse = await send(app, "GET", `/api/arc/turns/${body.clientTurnId}`, { session });
+  const { turn: running } = await runningResponse.json();
   assert.equal(running.status, "in_progress");
   assert.equal(running.answer, null);
+  assert.equal(running.errorCode, null);
+  assert.equal(runningResponse.headers.get("retry-after"), "5");
   const stored = await sessionStore.getTurn(session.sessionId, body.clientTurnId);
   await sessionStore.completeTurn({ sessionId: session.sessionId, clientTurnId: body.clientTurnId, ownerToken: stored.ownerToken, taskRunId: null, answerText: "The crack model scores an R2 of 0.640.", summary: { intent: "data_question", tools: [], resultRefs: [], attempts: 2, writerOutcome: "shown", fallbackReason: null, versions: {} }, eventRange: null });
-  const { turn } = await (await send(app, "GET", `/api/arc/turns/${body.clientTurnId}`, { session })).json();
+  const completed = await send(app, "GET", `/api/arc/turns/${body.clientTurnId}`, { session });
+  assert.equal(completed.headers.has("retry-after"), false);
+  const { turn } = await completed.json();
+  assert.equal(turn.errorCode, null);
   assert.deepEqual(turn.input, { kind: "text", text: "What is the R2 of the crack model?" });
   assert.deepEqual(turn.answer, { text: "The crack model scores an R2 of 0.640.", generatedByGemini: true, writerOutcome: "shown", blocks: [] });
   for (const hidden of ["ownerToken", "inputFingerprint", "leaseExpiresAt", "sessionId", "summary", "paramsHash"]) {
@@ -484,4 +536,22 @@ test("enabled without Firestore stores is 503 SERVICE_UNAVAILABLE, a different s
   const response = await send(app, "GET", "/api/arc/session", { session: newSession() });
   assert.equal(response.status, 503);
   assert.equal((await response.json()).error.code, "SERVICE_UNAVAILABLE");
+});
+
+test("missing Firestore stores do not bypass origin, cookie or request validation", async (t) => {
+  const app = new Hono();
+  app.route("/api/arc", createArcRoutes({ enabled: true, commandDeps }));
+  for (const [status, code, method, path, options] of [
+    [403, "ORIGIN_REQUIRED", "POST", "/api/arc/turns", { origin: "" }],
+    [401, "DEMO_SESSION_REQUIRED", "POST", "/api/arc/turns", {}],
+    [401, "DEMO_SESSION_REQUIRED", "GET", "/api/arc/session", {}],
+    [400, "VALIDATION_ERROR", "POST", "/api/arc/turns", { session: newSession(), body: {} }],
+  ]) {
+    await t.test(`${method} ${path} returns ${code}`, async () => {
+      const response = await send(app, method, path, options);
+      assert.equal(response.status, status);
+      assert.equal((await response.json()).error.code, code);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+    });
+  }
 });
