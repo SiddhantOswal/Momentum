@@ -122,6 +122,15 @@ Pending cloud steps are listed in `queue.md` (the pitch secret, `GEMINI_BUDGET_L
 
 Ask, one question at a time with options and a recommendation, only for: a founder decision (scope, money, a new risk), anything that needs Om, moving live traffic before the release gate has passed, spending beyond the estimate (budget: ₹10,000; daily caps ₹600 and ₹200), and a NO-GO you cannot fix in three rounds. The standing approvals in `handover/PERMISSIONS.md` already cover the routine cloud steps. Check `external/decisions-and-defaults.md` first: if a default is written for the situation, apply it and record that you did, rather than asking again.
 
+## 6a. When you are blocked
+
+1. Try again a different way, up to three attempts per failure (three repair rounds for review findings). Typical causes and the fix: a hook rejected a commit (read the message, fix the text, new commit); a test hangs (look for another `node --test` holding a server, never kill what you did not start); a session stopped on a usage limit (back up its worktree, wait for the reset or use the other tool); a cloud call is denied (read the error, find the missing role with `gcloud projects get-iam-policy`, ask the founders only if the signed-in account cannot be given it); a design record contradicts the ticket (decide as tech lead, record it).
+2. Still failing: write BLOCKED in STATUS with what you tried and the evidence, then move on to the next independent ticket. Do not sit idle and do not wait for an answer.
+3. If the matter is one the founders must decide (section 6), ask one question with options and a recommendation, and keep working on other lanes. Anything with a default in `decisions-and-defaults.md` is applied, not asked.
+4. Never unblock yourself by weakening a test, skipping a hook, widening a permission beyond `handover/PERMISSIONS.md`, or marking something done that is not.
+
+Tools: `node tools/orchestrator/ticket-status.mjs` lists every ticket as merged or open by priority (from the merge commits on `arc/main` and `external/done-without-merge.txt`); `bash tools/orchestrator/resume.sh` shows the repository and process state.
+
 ## 7. Pitfalls already met (each cost a round)
 
 - A hook rejects the words "Claude", "Codex" or "Copilot" in a commit subject and the banned phrases in any committed text (including docs that list them).

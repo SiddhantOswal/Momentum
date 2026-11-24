@@ -13,6 +13,7 @@ The handover zip (`momentum-arc-handover-<date>.zip`) holds:
 | `NEW-LAPTOP-SETUP.md` | install, clone, hooks, tests and Google Cloud sign-in |
 | `repo/momentum-arc.bundle` | the whole git repository: every branch (`arc/*`, `v2`, `main`) with full history, including unmerged work in progress |
 | `private/reference-material.zip` | the V5 pack, source PDFs and strategy files: excluded from git, never to be committed or pushed (keep the zip private) |
+| `TICKETS.txt` | every ticket merged or open, by priority, when the zip was built |
 | `STATE.txt` | the output of `tools/orchestrator/resume.sh` when the zip was built |
 | `MANIFEST.md` | every file with its SHA-256 and the git commit the bundle was built from |
 
@@ -23,6 +24,13 @@ Everything else is in the repository (`docs/arc/delivery/`): the rules (`CLAUDE.
 1. Follow `NEW-LAPTOP-SETUP.md` (about 30 minutes).
 2. Paste `PROMPT-FOR-CLAUDE.md` into Claude Code in the repository root.
 3. The session reads the documents, reconciles `STATUS.md` with the repository, and continues the loop from `external/queue.md`: the M1 gate conditions, then ARC-M2-05 (the answer writer), M2-06 (event stream and resume), M2-07 (the eval harness), the M2 gate, then M3 to M8 and the release gate on 30 November.
+
+## More in this folder
+
+- `ENVIRONMENT.md`: the live Google Cloud environment, names only.
+- `ROADMAP-TO-RELEASE.md`: day by day to the release candidate and the pitch.
+- `GIT-WORKFLOW.md`, `PERMISSIONS.md`, `LIFECYCLE.md`, `NEW-LAPTOP-SETUP.md`, `settings.unblocked.json`.
+- `node tools/orchestrator/ticket-status.mjs`: every ticket, merged or open.
 
 ## Reading order for a person
 

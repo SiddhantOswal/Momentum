@@ -7,7 +7,7 @@ The rules that keep the code safe. They follow `CLAUDE.md` section 7 and the fou
 | Branch | What it is | Rule |
 |---|---|---|
 | `v2` (`origin/v2`) | Om's branch, last commit `eb6eab9` | Never modified, rebased, merged into or pushed. Om's commits are never rewritten. |
-| `main` | the product's main line | Untouched. Nothing from Arc goes into `main` or `v2` until the founders decide (decision of 2026-11-22). |
+| `main` | the product's main line | Untouched. The delivery never merges into or pushes to `main` or `v2`. |
 | `arc/main` | the integration branch, cut from `origin/v2` at `eb6eab9` | All Arc work reaches it only by `git merge --no-ff` of a verified feature branch. Never rebased, never reset, never force-updated. Only the orchestrator merges. |
 | `arc/<TICKET-ID>-<short-name>` (for example `arc/ARC-M2-05-answer-writer`) | one ticket | Cut from `arc/main`, or from its parent's branch when stacked. Small commits, test first. Fixes after QA go on the same branch as new commits. |
 | `arc/ARC-SETUP-<NN>-<name>` | process, record and tooling changes (packets, STATUS, runbooks, scripts) | Same rules; merged the same way. |
@@ -45,7 +45,6 @@ Never delete a branch that is not merged. After a merge is recorded in STATUS a 
 ## Release candidate and the product line
 
 - At the release candidate (30 November 2026, after the ARC-M8-05 release gate) create an annotated tag on the exact `arc/main` commit that was verified: `git tag -a arc-rc-<YYYYMMDD> -m "<suite counts, gate verdict, revision>"`. The scripted deploy (ARC-M8-01) builds the image from that tag, and the Cloud Run revision records the commit. Deploy with `--no-traffic` first.
-- Merging `arc/main` into `main` or `v2` is a founder decision (decision of 2026-11-22). When the founders decide, do it as a merge on a new branch from the target (never a rebase or a force-push of the target), run the suites, and let the founders merge it.
 - After the finals, Phase B (M9 to M14) continues on `arc/main` the same way.
 
 ## If something goes wrong
