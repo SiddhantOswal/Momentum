@@ -29,6 +29,29 @@
   },
   "modelVersionKind": "BigQuery model etag (these models are not registered in Vertex AI)",
   "featureImportanceReviewed": true,
+  "targetUseNote": "optimizer: counts toward predicted totals and the optimizer objective. advisory: predicted and shown with a low-confidence label, never counted or used to choose settings. abstain: not shown as a number and not used.",
+  "targetUse": {
+    "WARP": {
+      "useClass": "optimizer",
+      "reason": "Holdout R2 0.47 on the September 2026 lots, above the model it replaces (0.40)."
+    },
+    "DELAM": {
+      "useClass": "optimizer",
+      "reason": "Holdout R2 0.52 on the September 2026 lots, above the model it replaces (0.50)."
+    },
+    "STRENGTH": {
+      "useClass": "optimizer",
+      "reason": "Holdout R2 0.39 on the September 2026 lots, above the model it replaces (0.30)."
+    },
+    "PRINT": {
+      "useClass": "optimizer",
+      "reason": "Holdout R2 0.64 on the September 2026 lots, above the model it replaces (0.61)."
+    },
+    "CRACK": {
+      "useClass": "advisory",
+      "reason": "Holdout R2 0.11 on the September 2026 lots: too little skill to choose settings, so it is shown as low confidence only."
+    }
+  },
   "models": [
     {
       "defect": "WARP",
