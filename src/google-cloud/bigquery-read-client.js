@@ -62,6 +62,23 @@ function assertReadOnlySql(sql) {
   }
 }
 
+const MAX_ARRAY_PARAMETER_LENGTH = 16;
+const MAX_ARRAY_ELEMENT_LENGTH = 64;
+
+// Only short string lists are needed (the optimizer target set), so arrays stay
+// narrow: STRING elements, bounded count and length, no nulls.
+function stringArrayParameter(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_ARRAY_PARAMETER_LENGTH ||
+      value.some((element) => typeof element !== "string" || element.length === 0 ||
+        element.length > MAX_ARRAY_ELEMENT_LENGTH)) {
+    throw new BigQueryReadError("INVALID_QUERY_PARAMETER", "Query parameter value does not match its type.");
+  }
+  return {
+    parameterType: { type: "ARRAY", arrayType: { type: "STRING" } },
+    parameterValue: { arrayValues: value.map((element) => ({ value: element })) },
+  };
+}
+
 function parameterTypeAndValue(input) {
   const explicit = input !== null && typeof input === "object" && !Array.isArray(input)
     ? input
@@ -101,6 +118,9 @@ function encodeParameters(parameters) {
   return Object.entries(parameters).map(([name, input]) => {
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
       throw new BigQueryReadError("INVALID_QUERY_PARAMETER", "Query parameter name is invalid.");
+    }
+    if (input !== null && typeof input === "object" && input.type === "ARRAY<STRING>") {
+      return { name, ...stringArrayParameter(input.value) };
     }
     const { type, value } = parameterTypeAndValue(input);
     return {
