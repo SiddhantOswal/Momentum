@@ -1,0 +1,69 @@
+{
+  "version": "arc-scope-v1",
+  "replies": {
+    "explain_cannot_approve": "Arc cannot approve. Tick the box and press Approve job card.",
+    "reply_out_of_scope": "That is not something Arc does. Arc works on lots, conditions, settings, defects, job cards and plant data.",
+    "ask_clarification": {
+      "request": "Tell me what you want Arc to do. For example: read a sample order, check the weather or list the approved photos.",
+      "sample_order": "Which sample order should Arc read? Choose PO1 to PO5.",
+      "photo": "Which approved photo should Arc check? List the approved photos first.",
+      "job": "Which job card do you mean? Name a job from this session.",
+      "lot": "Which lot do you mean? Read an order to start a lot first.",
+      "metric": "Which figure do you want? Ask about a model score, a defect or a plant reading."
+    }
+  },
+  "suggestions": {
+    "get_status": "How far can I trust the five models?",
+    "list_samples": "Show the sample orders",
+    "list_approved_photos": "Show the approved photos",
+    "get_weather": "Check the plant weather",
+    "list_next_actions": "What should I do next?"
+  },
+  "defaultSuggestionIds": [
+    "get_status",
+    "list_samples",
+    "list_next_actions"
+  ],
+  "questionOpener": "^(?:is|are|was|were|has|have|had|does|did|do (?:you|i|we|they)|which|what|when|who|whose|why|how|where)\\b",
+  "inScopePattern": "\\b(?:lots?|jobs?|cards?|orders?|po[1-5]|purchase|defects?|warp|delam\\w*|crack\\w*|print\\w*|strength|scrap|models?|scores?|accuracy|r2|photos?|images?|humidity|moisture|temperature|plant|weather|flute|liners?|gsm|corrugat\\w*|cartons?|catalog\\w*|items?|machines?|settings?|conditions?|risk|status|history|trust|supervisors?|samples?|pkbx\\w*)\\b",
+  "unclear": {
+    "minimumLetters": 2,
+    "exact": [
+      "hi",
+      "hello",
+      "hey",
+      "help",
+      "test",
+      "ok",
+      "okay",
+      "what",
+      "huh",
+      "do it",
+      "go",
+      "go on",
+      "continue",
+      "yes",
+      "no",
+      "thanks",
+      "thank you"
+    ]
+  },
+  "rules": [
+    {"id": "approval.en.imperative", "kind": "approval", "questionExempt": true, "pattern": "(?:^|[.;:!?,]\\s*)(?:(?:please|pls|kindly|just|now|ok(?:ay)?|and|then|so|go ahead and|go on and|can you|could you|would you|will you|i want you to|i need you to|i want to|i would like to|i'd like to|let me|let us|let's|you should|you must|you can)\\s+)*(?:approve|authori[sz]e|sign[ -]?off|rubber[ -]?stamp|green[ -]?light)\\b"},
+    {"id": "approval.en.chained", "kind": "approval", "questionExempt": true, "pattern": "\\b(?:and|then|also|&)\\s+(?:then\\s+)?(?:approve|authori[sz]e|sign[ -]?off|rubber[ -]?stamp|green[ -]?light)\\b"},
+    {"id": "approval.en.mark", "kind": "approval", "questionExempt": true, "pattern": "\\b(?:mark|set|flag|record)\\s.{0,40}\\b(?:as|to)\\s+approved\\b|\\bmark\\b.{0,40}\\b(?:as\\s+)?(?:approved|done|complete|completed|signed off)\\b"},
+    {"id": "approval.en.state", "kind": "approval", "questionExempt": true, "pattern": "\\b(?:get|make|have|set|put|turn|mark|flag|record|consider|treat)\\b[^?]{0,40}\\b(?:it|this|that|them|job|card|lot|plan|draft|status|as|to)\\b[\\s=]*approved\\b\\s*(?:now|please|asap|today|for me|already)?[.!]*$"},
+    {"id": "approval.en.permission", "kind": "approval", "questionExempt": true, "pattern": "\\byou (?:may|can|could|are allowed to|are authori[sz]ed to|have permission to)\\s+(?:now\\s+)?(?:approve|authori[sz]e|sign[ -]?off|rubber[ -]?stamp|green[ -]?light)\\b"},
+    {"id": "approval.en.tick", "kind": "approval", "pattern": "\\b(?:tick|check|untick|uncheck|auto-?tick)\\s+(?:the |that |my )?(?:approval |confirmation |review )?(?:check ?box|tick ?box|box)\\b"},
+    {"id": "approval.en.bypass", "kind": "approval", "pattern": "\\b(?:skip|bypass|ignore|disable|remove|get around|go around)\\s+(?:the |that )?(?:approval|confirmation|sign-?off|check ?box|tick ?box|human review)\\b"},
+    {"id": "approval.hi.romanised", "kind": "approval", "pattern": "\\bapprove\\s+(?:kar|karo|kardo|kijiye)\\b"},
+    {"id": "approval.hi.devanagari", "kind": "approval", "pattern": "(?:मंज़ूर|मंजूर|अप्रूव)\\s*कर|(?:मंज़ूरी|मंजूरी)\\s*दे"},
+    {"id": "injection.en.override", "kind": "injection", "pattern": "\\b(?:ignore|disregard|forget|skip|drop|override|bypass|circumvent|disable)\\s+(?:(?:the\\s+|these\\s+|those\\s+)?(?:(?:all|any|every|your|my|previous|prior|above|earlier|safety|system)\\s+)+(?:instructions?|rules|prompts?|guidelines|directions|restrictions|guardrails?|safeguards?|filters?)|(?:the\\s+)?(?:instructions?|rules|prompts?|guidelines|directions|restrictions|guardrails?|safeguards?|filters?)\\s+(?:above|before|so far))\\b"},
+    {"id": "injection.en.persona", "kind": "injection", "pattern": "\\byou are now\\b|\\bfrom now on,?\\s+(?:you|ignore|act|answer|respond|obey|disregard|forget)\\b|\\bpretend (?:to be|you|that you)\\b|\\bact as (?:if|though|a|an|my)\\b|\\brole-?play\\b|\\bdeveloper mode\\b|\\bjailbreak\\b|\\bdo anything now\\b|\\bdan mode\\b|\\byou (?:have|has) no (?:rules|restrictions|limits)\\b"},
+    {"id": "injection.en.reveal", "kind": "injection", "pattern": "\\b(?:reveal|show|print|repeat|output|display|leak|tell|give)\\s+(?:me\\s+)?(?:your|the\\s+(?:system|hidden|initial|secret|original|internal))\\s+(?:(?:system|hidden|initial|secret|original|internal)\\s+)?(?:prompt|instructions|rules)\\b|\\bsystem prompt\\b"},
+    {"id": "injection.en.delimiter", "kind": "injection", "pattern": "</?\\s*(?:system|instructions?|assistant|developer|user)\\s*>|\\[/?(?:inst|system)\\]|<\\|[a-z_]+\\|>|^\\s*(?:system|assistant|developer)\\s*:"},
+    {"id": "injection.en.new_instructions", "kind": "injection", "pattern": "\\b(?:new|updated|additional|real|actual)\\s+(?:instructions?|rules|system prompt)\\s*:"},
+    {"id": "injection.en.tool_call", "kind": "injection", "pattern": "\\bfunction_?call\\b|</?\\s*tool_?call\\b|\"name\"\\s*:\\s*\"[a-z_]+\"\\s*,\\s*\"args\"|\\b(?:call|invoke|execute|trigger|run)\\s+(?:the\\s+|a\\s+|this\\s+)?(?:function|tool|api)s?\\s*[:(\\[{]|\\b[a-z_]+\\(\\s*\\{"},
+    {"id": "off_topic.en.general", "kind": "off_topic", "pattern": "\\b(?:jokes?|poems?|poetry|haiku|limerick|lyrics|riddles?|stor(?:y|ies)|recipes?|horoscope|lottery|movies?|films?|football|soccer|cricket|ipl|tennis|nba|elections?|prime minister|president|politics|bitcoin|crypto(?:currency)?|stocks?|share price|essays?|homework|python|javascript|translate|capital of|celebrity|where (?:is|are)|who (?:is|was|won|made|created)|tell me about yourself)\\b|\\bwhat(?:'s| is) the (?:time|date) in\\b|\\bwrite (?:me )?(?:a |an )?(?:code|script|program|email|letter)\\b"}
+  ]
+}

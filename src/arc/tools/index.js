@@ -4,8 +4,9 @@ import { validateWith } from "../../commands/validation.js";
 import { runAsGeminiCaller } from "../../gemini-caller-context.js";
 import { PhotoClassificationRequestSchema } from "../../google-cloud/approved-photo-service.js";
 import { demoOwnsJob, demoOwnsLot, isDemoPrincipal } from "../../hackathon-demo-auth.js";
-import { ArcSessionDocSchema, EffectKeySchema, IpKeySchema, TaskStepSchema } from "../../state-schemas.js";
+import { ArcSessionDocSchema, DiscoveredIdsSchema, EffectKeySchema, IpKeySchema, TaskStepSchema } from "../../state-schemas.js";
 import { canonicalJson } from "../canonical-json.js";
+import { SAMPLE_DOCUMENTS } from "../../synthetic-po-allowlist.js";
 import { diagnoseApprovedPhotoTool } from "./diagnose-approved-photo.js";
 import { getJobCardTool } from "./get-job-card.js";
 import { getJobTool } from "./get-job.js";
@@ -62,15 +63,28 @@ function vertexSchema(schema) {
   };
 }
 
+const MAX_SAMPLE_IDS = 5;
+const MAX_PHOTO_IDS = 10;
+const listedPhotoIds = (ids) => ids.filter((photoId) => PhotoClassificationRequestSchema.safeParse({ photoId }).success);
+
+// A result longer than the stored limit keeps its first IDs; the rest are not offered to the router.
+function storedIds(schema, ids, isKnown, limit) {
+  const parsed = schema.safeParse(Array.isArray(ids) ? [...new Set(ids.filter(isKnown))].slice(0, limit) : []);
+  return parsed.success ? parsed.data : [];
+}
+
 function sessionIds(schema, ids, isOwned) {
   const parsed = schema.safeParse(Array.isArray(ids) ? [...new Set(ids.filter(isOwned))] : ids);
   return parsed.success ? Object.freeze(parsed.data) : Object.freeze([]);
 }
 
 /**
- * Instantiate for one authenticated session. Discovery results stay in this
- * registry instance. The runner supplies lot, step and confirmation state
- * from server records, separately from the model's function arguments.
+ * Instantiate for one authenticated session. IDs a discovery tool returns are
+ * held here and, through discovered(), saved on the session record by the
+ * runner. The next turn rebuilds the registry from that record, which is how
+ * a typed request can name a photo or sample listed earlier. The runner
+ * supplies lot, step and confirmation state from server records, separately
+ * from the model's function arguments.
  * Command results stay on the server. A caller must project the permitted
  * fields before building model context or a client response.
  */
@@ -80,8 +94,10 @@ export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}
   }
   const jobIds = sessionIds(ArcSessionDocSchema.shape.jobIds, session.jobIds, (id) => demoOwnsJob(principal, id));
   const lotIds = sessionIds(ArcSessionDocSchema.shape.activeLotIds, session.activeLotIds, (id) => demoOwnsLot(principal, id));
-  let sampleIds = [];
-  let photoIds = [];
+  let sampleIds = storedIds(DiscoveredIdsSchema.shape.sampleIds, session.discovered?.sampleIds,
+    (id) => Object.hasOwn(SAMPLE_DOCUMENTS, id), MAX_SAMPLE_IDS);
+  let photoIds = storedIds(DiscoveredIdsSchema.shape.photoIds, session.discovered?.photoIds,
+    (id) => listedPhotoIds([id]).length === 1, MAX_PHOTO_IDS);
   const contextFor = (context) => ({
     ...context, principal, lotIds, deps: { ...deps, principal, signal: context.signal ?? deps.signal },
   });
@@ -133,10 +149,12 @@ export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}
             return `${effect}.${leaseOwner.replaceAll("-", "").slice(0, 12)}.${callIndex++}`;
           },
         }, execute) : await execute();
-        if (name === "list_samples" && result.ok) sampleIds = result.samples.map(({ id }) => id);
+        if (name === "list_samples" && result.ok) {
+          sampleIds = storedIds(DiscoveredIdsSchema.shape.sampleIds, result.samples.map(({ id }) => id),
+            (id) => Object.hasOwn(SAMPLE_DOCUMENTS, id), MAX_SAMPLE_IDS);
+        }
         if (name === "list_approved_photos" && result.ok) {
-          photoIds = result.photos.map(({ id }) => id)
-            .filter((photoId) => PhotoClassificationRequestSchema.safeParse({ photoId }).success);
+          photoIds = storedIds(DiscoveredIdsSchema.shape.photoIds, listedPhotoIds(result.photos.map(({ id }) => id)), () => true, MAX_PHOTO_IDS);
         }
         return result;
       },
@@ -150,6 +168,7 @@ export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}
 
   return Object.freeze({
     tools,
+    discovered: () => ({ sampleIds: [...sampleIds], photoIds: [...photoIds] }),
     declarations: () => [{
       functionDeclarations: declarableTools().map(({ tool: { name, description }, parameters }) => ({
         name, description, parameters,

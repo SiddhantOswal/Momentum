@@ -25,6 +25,7 @@ import {
   ArcTurnDocSchema,
   BASE_TIMESTAMP_FIELDS,
   DemoJobIdSchema,
+  DiscoveredIdsSchema,
   LotIdSchema,
   SessionIdSchema,
   Sha256HexSchema,
@@ -171,6 +172,7 @@ export function createFirestoreArcSessionStore({
         sessionExpiresAt,
         activeLotIds: [],
         jobIds: [],
+        discovered: { sampleIds: [], photoIds: [] },
         activeTaskRunId: null,
         recentTurnIds: [],
         turnCount: 0,
@@ -208,6 +210,17 @@ export function createFirestoreArcSessionStore({
       return mutateSession(sessionId, (session) => ({
         ...session,
         activeLotIds: [...session.activeLotIds.filter((id) => id !== lotId), lotId].slice(-MAX_ACTIVE_LOTS),
+      }), signal);
+    },
+
+    /** Replaces one kind of discovered ID with what the tool just returned, so a later turn can name it. */
+    async recordDiscovered({ sessionId, kind, ids, signal } = {}) {
+      check(SessionIdSchema, sessionId, "The session ID");
+      check(z.enum(["sampleIds", "photoIds"]), kind, "The discovered ID kind");
+      const unique = [...new Set(ids)];
+      check(DiscoveredIdsSchema.shape[kind], unique, "The discovered IDs");
+      return mutateSession(sessionId, (session) => ({
+        ...session, discovered: { sampleIds: [], photoIds: [], ...session.discovered, [kind]: unique },
       }), signal);
     },
 
