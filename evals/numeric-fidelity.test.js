@@ -17,7 +17,7 @@ const scores = {
   ],
 };
 const weather = {
-  tool: "get_weather", label: "Weather record", location: "Pune",
+  tool: "get_weather", label: "Weather record", location: "Pune", units: { ambientRhPct: "% RH", ambientTempC: "°C" },
   ambientRhPct: 61.5, ambientTempC: 24, observedAt: "2026-11-24T09:30:00Z",
 };
 const scrap = {
@@ -53,7 +53,13 @@ const cases = [
   ["a number taken from the question fails", "At 75% humidity the reading is 61.5%.", [weather], "UNGROUNDED_NUMBER"],
   ["a flipped sign fails", "PKBX0007 scrapped -0.05% of each lot.", [scrap], "UNGROUNDED_NUMBER"],
   ["a sum of two tool values fails", "Warp and Print together score 1.11.", [scores], "UNGROUNDED_NUMBER"],
-  ["a value from another tool's unit fails", "The temperature is 61.5 °C and humidity 24%.", [scores], "UNGROUNDED_NUMBER"],
+  ["humidity and temperature swapped between their units fails", "The temperature is 61.5 °C and humidity 24%.", [weather], "UNGROUNDED_NUMBER"],
+  ["a number with a leading dot is checked", "Print scores .71.", [scores], "UNGROUNDED_NUMBER"],
+  ["a leading-dot number the tool returned passes", "Print scores .64.", [scores], null],
+  ["Devanagari digits are rejected", "Print scores ०.६४.", [scores], "UNGROUNDED_NUMBER"],
+  ["Arabic-Indic digits are rejected", "Print scores ٠.٦٤.", [scores], "UNGROUNDED_NUMBER"],
+  ["a number word the facts do not hold fails", "Seventy one percent of lots were modeled.", [scores], "UNGROUNDED_NUMBER"],
+  ["a number word the facts hold passes", "The holdout is one out-of-time month.", [{ ...scores, basis: "Holdout R2 on modeled lots, one out-of-time month." }], null],
   ["a date no tool returned fails", "The history runs to 2026-10-31.", [scrap], "UNGROUNDED_ID"],
   ["an item code no tool returned fails", "PKBX0099 has the highest modeled scrap cost.", [scrap], "UNGROUNDED_ID"],
   ["a job ID from another session fails", `Open ${foreignJob} for the card.`, [scrap], "UNGROUNDED_ID"],

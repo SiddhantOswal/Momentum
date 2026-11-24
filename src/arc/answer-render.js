@@ -13,6 +13,10 @@ const dictionary = loadMetricDictionary();
 const metrics = new Map(dictionary.metrics.map((metric) => [metric.id, metric]));
 const scoreMetric = metrics.get("model_holdout_r2");
 const MAX_TEMPLATE_ROWS = 3;
+// Filters are named in the template ("near 60% humidity"), so their units are declared like columns.
+const FILTER_UNITS = Object.freeze({ ambientRhPct: "% RH" });
+const WEATHER_UNITS = Object.freeze({ ambientRhPct: "% RH", ambientTempC: "°C" });
+const HISTORY_UNITS = Object.freeze({ ambientRhPct: "% RH", avgRateWhenMain: "% of lot" });
 
 const finite = (value) => typeof value === "number" && Number.isFinite(value);
 const pick = (row, fields) => Object.fromEntries(fields.filter((field) => Object.hasOwn(row ?? {}, field)).map((field) => [field, row[field]]));
@@ -32,7 +36,7 @@ function metricFacts(result) {
   if (result.status === "insufficient_data") return { metric: metric.id, status: "insufficient_data", missing: metric.insufficient.missing };
   return {
     metric: metric.id, status: "ok", label: result.label, basis: metric.basis,
-    units: Object.fromEntries(metric.columns.filter(({ unit }) => unit).map(({ name, unit }) => [name, unit])),
+    units: { ...FILTER_UNITS, ...Object.fromEntries(metric.columns.filter(({ unit }) => unit).map(({ name, unit }) => [name, unit])) },
     filters: result.filters ?? {},
     rows: (result.rows ?? []).map((row) => pick(row, metric.writerFields)),
   };
@@ -56,7 +60,7 @@ export function factsFor({ tool, args = {}, result }) {
     }
     case "get_weather":
       return finite(result.ambientRhPct) && finite(result.ambientTempC) ? {
-        tool, label: CHIPS.weatherRecord, note: SENTENCES.weather,
+        tool, label: CHIPS.weatherRecord, note: SENTENCES.weather, units: WEATHER_UNITS,
         ...(typeof result.location === "string" && { location: result.location }),
         ambientRhPct: result.ambientRhPct, ambientTempC: result.ambientTempC,
         ...(typeof result.observedAt === "string" && { observedAt: result.observedAt }),
@@ -64,7 +68,7 @@ export function factsFor({ tool, args = {}, result }) {
     // The command checks that its row is for the requested defect, so the validated argument names it.
     case "search_defect_history":
       return Object.hasOwn(DEFECT_NAMES, args.defect) && finite(result.caseCount) ? {
-        tool, label: CHIPS.modeledRecords, note: SENTENCES.modeled, defect: args.defect,
+        tool, label: CHIPS.modeledRecords, note: SENTENCES.modeled, units: HISTORY_UNITS, defect: args.defect,
         ...(finite(args.ambientRhPct) && { ambientRhPct: args.ambientRhPct }),
         caseCount: result.caseCount,
         ...pick(result, ["avgRateWhenMain", "costWhenMain"]),
