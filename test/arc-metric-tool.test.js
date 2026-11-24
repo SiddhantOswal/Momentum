@@ -86,3 +86,15 @@ test("the configured service ports enable metrics only on the flag and cap the q
   assert.equal(result.status, "insufficient_data");
   assert.equal(requests[0].maximumBytesBilled, String(50 * 1024 * 1024));
 });
+
+test("a disabled metric is left out of the tool enum and its declaration", async () => {
+  const { queryMetricToolFor } = await import("../src/arc/tools/query-metric.js");
+  const { parseMetricDictionary } = await import("../src/arc/metrics/dictionary.js");
+  const { readFileSync } = await import("node:fs");
+  const raw = JSON.parse(readFileSync(new URL("../config/arc-metrics.json", import.meta.url), "utf8"));
+  raw.metrics[2].enabled = false;
+  const tool = queryMetricToolFor(parseMetricDictionary(raw, (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8")));
+  assert.equal(tool.schema().safeParse({ metric: "top_scrap_items", filters: {} }).success, false);
+  assert.equal(tool.schema().safeParse({ metric: "catalog_item", filters: {} }).success, true);
+  assert.deepEqual(tool.schema().shape.metric.options, ["model_holdout_r2", "defect_history_at_humidity", "catalog_item"]);
+});

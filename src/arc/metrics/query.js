@@ -107,7 +107,10 @@ export function createMetricQueryService({
       return fail(400, "METRIC_UNKNOWN", "That metric is not in the approved dictionary.");
     }
     if (!metric.enabled) {
-      return { ok: true, status: "insufficient_data", ...describe(metric, {}), missing: metric.insufficient.missing, rows: [], rowCount: 0 };
+      return {
+        ok: true, status: "insufficient_data", code: "METRIC_DISABLED", ...describe(metric, {}),
+        missing: metric.insufficient.missing, rows: [], rowCount: 0,
+      };
     }
     const read = readParams(metric, params);
     if (!read.values) return read;

@@ -201,3 +201,23 @@ test("a BigQuery failure gives a stable code and leaks no detail", async () => {
   assert.equal(result.status, 503);
   assert.equal(JSON.stringify(result).includes("secret detail"), false);
 });
+
+test("a disabled metric is refused with METRIC_DISABLED, runs no query and keeps its missing text", async () => {
+  const disabled = loadMetricDictionary();
+  const raw = JSON.parse(readFileSync(new URL("../config/arc-metrics.json", import.meta.url), "utf8"));
+  raw.metrics[2].enabled = false;
+  const readSql = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+  const { parseMetricDictionary } = await import("../src/arc/metrics/dictionary.js");
+  const requests = [];
+  const { queryMetric } = createMetricQueryService({
+    projectId: "test-project", location: "asia-south1", tokenProvider: async () => "token",
+    dictionary: parseMetricDictionary(raw, readSql),
+    fetchImpl: async (url, init) => { requests.push(init.body); return { ok: true, status: 200, json: async () => fixture("top-items.json") }; },
+  });
+  const result = await queryMetric({ metricId: "top_scrap_items", params: {} });
+  assert.equal(result.status, "insufficient_data");
+  assert.equal(result.code, "METRIC_DISABLED");
+  assert.equal(result.missing, disabled.metrics[2].insufficient.missing);
+  assert.deepEqual(result.rows, []);
+  assert.equal(requests.length, 0);
+});
