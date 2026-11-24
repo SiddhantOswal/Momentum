@@ -12,7 +12,7 @@ Re-run the QA and verification-audit reviews, collect `reviews/M1-review.md`, th
 
 | Order | Ticket | State and notes |
 |---|---|---|
-| 1 | ARC-M6-01 tokens and theme | Fix list from QA sent; re-check, then merge |
+| 1 | ARC-M6-01 tokens and theme | Merged (`60b7035`) |
 | 2 | ARC-M6-02 Arc panel shell | Disconnected shell now; typed client after the wire contract (`06-arc-wire-contract.md`) |
 | 3 | ARC-M6-08 reproducible `/app` build | Dockerfile builds `web/`; needs a clean-checkout build |
 | 4 | ARC-M6-06 every dashboard page, in the five groups of the ticket | One builder per group, in parallel worktrees; "not connected" states where the backend is missing |
