@@ -21,6 +21,7 @@ import { validationFailure } from "../commands/validation.js";
 import { isDemoPrincipal } from "../hackathon-demo-auth.js";
 import { FirestoreRestError } from "../google-cloud/firestore-rest.js";
 import { SESSION_COOKIE } from "../user-session-auth.js";
+import { canonicalJson } from "./canonical-json.js";
 import { isRunResumable, runView, turnView } from "./run-view.js";
 
 const DEMO_COOKIE = "__Host-ustaad-demo";
@@ -89,21 +90,13 @@ function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function canonical(value) {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
 // Only a hash of an action's params is stored; typed text is the user's own and is kept as entered.
 function storedInput(input) {
-  if (input.kind === "text") return { stored: { kind: "text", text: input.text }, fingerprint: sha256(canonical({ kind: "text", text: input.text })) };
-  const paramsHash = sha256(canonical(input.params ?? {}));
+  if (input.kind === "text") return { stored: { kind: "text", text: input.text }, fingerprint: sha256(canonicalJson({ kind: "text", text: input.text })) };
+  const paramsHash = sha256(canonicalJson(input.params ?? {}));
   return {
     stored: { kind: "action", actionId: input.actionId, paramsHash },
-    fingerprint: sha256(canonical({ kind: "action", actionId: input.actionId, paramsHash })),
+    fingerprint: sha256(canonicalJson({ kind: "action", actionId: input.actionId, paramsHash })),
   };
 }
 
