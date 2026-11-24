@@ -76,3 +76,29 @@ test('the local mock demo never tells the user Gemini read the sample order', as
   const local=workflow.slice(workflow.indexOf('if (localSyntheticUI) {'),workflow.indexOf('// The authentication adapter'));
   assert.match(local,/"#evaluator-step-fill span"\)\.textContent = "Loads a sample order and fills the conditions and settings\. Sample output, no model call\."/);
 });
+
+test('the risk display accepts a missing rate only for an abstain target', () => {
+  const targetUse = Object.fromEntries(['WARP', 'DELAM', 'STRENGTH', 'PRINT', 'CRACK'].map((defect) => [
+    defect, { useClass: defect === 'CRACK' ? 'abstain' : 'optimizer', reason: 'fixture' },
+  ]));
+  const { CRACK: _crack, ...fourRates } = job.baseline.risk.ratesPct;
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates, targetUse }), true);
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, targetUse }), false, 'an abstain target must not carry a rate');
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates }), false, 'without use classes all five are required');
+  const advisory = { ...targetUse, CRACK: { useClass: 'advisory', reason: 'fixture' } };
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates, targetUse: advisory }), false);
+});
+
+test('the risk card labels from use classes: advisory is low confidence, abstain shows no number', async () => {
+  const source = await readFile(new URL('../src/ui/components.js', import.meta.url), 'utf8');
+  assert.match(source, /useClass === "advisory"\) label\.append\(node\("small", "low confidence, not counted in the total", "risk-caveat"\)\)/);
+  assert.match(source, /useClass === "abstain" \? "Not shown" : number\(risk\.ratesPct\[key\]\) \+ "%"/);
+});
+
+test('the lot plan saving and the lot list total name the targets they leave out', async () => {
+  const source = await readFile(new URL('../web/src/screens/Lots.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const savingNote = `\$\{formatNumber\(Math\.max\(0, sheet\.savings\.kg\), 1\)\} kg less scrap\$\{excluded\.length \? `; excludes \$\{excluded\.join\(", "\)\}` : ""\}`;/);
+  assert.match(source, /label="Predicted saving" [^\n]*sub=\{savingNote\}/);
+  assert.match(source, /% scrap\{lot\.primaryDefect [^\n]*\}\{excludedFromTotal\(lot\)\}<\/span>/);
+  assert.match(source, /return left\.length \? ` · excludes \$\{left\.map\(\(d\) => d\.short\)\.join\(", "\)\}` : "";/);
+});

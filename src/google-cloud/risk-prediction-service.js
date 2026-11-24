@@ -1,10 +1,17 @@
 import { readFileSync } from "node:fs";
-import { DefectSchema, RiskPredictionApiResponseSchema, RiskResultSchema } from "../schemas.js";
+import {
+  countedDefects,
+  DefectSchema,
+  RiskPredictionApiResponseSchema,
+  RiskResultSchema,
+  shownDefects,
+} from "../schemas.js";
 import { mapRiskPredictionParameters } from "../bigquery-mapper.js";
 import { BigQueryReadError } from "./bigquery-read-client.js";
 import modelAcceptanceConfig from "../../config/model-acceptance.json" with { type: "json" };
 import { getModelAcceptanceSummary, isModelSetAccepted } from "../model-acceptance.js";
 import { createConditionGuard } from "../condition-guard.js";
+import { optimizerTargetsParameter, readTargetUse } from "../target-eligibility.js";
 
 const DEFECTS = DefectSchema.options;
 const RESULT_FIELDS = Object.freeze([
@@ -84,7 +91,15 @@ function checkedBounds(low, high, central) {
   return { low, high };
 }
 
-function decodePrediction(result, expectedItemCode) {
+// Totals and the primary defect cover only the counted (optimizer) targets; the
+// first counted target with the highest rate is primary, matching predict.sql.
+function primaryOf(ratesPct, counted) {
+  const present = counted.filter((defect) => ratesPct[defect] !== undefined);
+  const maxRate = Math.max(...present.map((defect) => ratesPct[defect]));
+  return present.find((defect) => ratesPct[defect] === maxRate);
+}
+
+function decodePrediction(result, expectedItemCode, targetUse) {
   const fields = result?.schema?.fields;
   const withBand = Array.isArray(fields) && fields.length === RESULT_FIELDS.length + BAND_FIELDS.length;
   const expectedNames = withBand ? [...RESULT_FIELDS, ...BAND_FIELDS] : RESULT_FIELDS;
@@ -96,27 +111,26 @@ function decodePrediction(result, expectedItemCode) {
   if (!values) return undefined;
   const numeric = (name) => readNumeric(values, name);
   assertItemCode(values, expectedItemCode);
-  const risk = RiskResultSchema.parse({
-    ratesPct: {
-      WARP: numeric("rate_warp_pct"),
-      DELAM: numeric("rate_delam_pct"),
-      STRENGTH: numeric("rate_strength_pct"),
-      PRINT: numeric("rate_print_pct"),
-      CRACK: numeric("rate_crack_pct"),
-    },
+  const shown = shownDefects(targetUse);
+  const counted = countedDefects(targetUse);
+  const parsed = RiskResultSchema.safeParse({
+    ratesPct: Object.fromEntries(shown.map((defect) => [defect, numeric(`rate_${defect.toLowerCase()}_pct`)])),
     totalScrapPct: numeric("total_scrap_pct"),
     totalScrapKg: numeric("total_scrap_kg"),
     scrapCost: numeric("scrap_cost"),
     currency: values.currency,
     primaryDefect: values.primary_defect,
+    ...(targetUse === undefined ? {} : { targetUse }),
   });
-  const summedRate = Object.values(risk.ratesPct).reduce((sum, rate) => sum + rate, 0);
+  if (!parsed.success) {
+    throw new BigQueryReadError("RISK_ROW_INVALID", "The risk query returned a row outside the risk contract.");
+  }
+  const risk = parsed.data;
+  const summedRate = counted.reduce((sum, defect) => sum + risk.ratesPct[defect], 0);
   if (Math.abs(summedRate - risk.totalScrapPct) > 0.01) {
     throw new BigQueryReadError("RISK_ROW_INVALID", "The risk query returned inconsistent scrap-rate totals.");
   }
-  const primaryDefect = Object.entries(risk.ratesPct)
-    .find(([, rate]) => rate === Math.max(...Object.values(risk.ratesPct)))?.[0];
-  if (risk.primaryDefect !== primaryDefect) {
+  if (risk.primaryDefect !== primaryOf(risk.ratesPct, counted)) {
     throw new BigQueryReadError("RISK_ROW_INVALID", "The risk query returned a primary defect inconsistent with its rates.");
   }
   if (!withBand) {
@@ -124,7 +138,7 @@ function decodePrediction(result, expectedItemCode) {
   }
   const humidityBand = {
     ambientRhPct: { low: numeric("rh_band_low_pct"), high: numeric("rh_band_high_pct") },
-    ratesPct: Object.fromEntries(DEFECTS.map((defect) => {
+    ratesPct: Object.fromEntries(shown.map((defect) => {
       const key = defect.toLowerCase();
       return [defect, checkedBounds(numeric(`rate_${key}_low_pct`), numeric(`rate_${key}_high_pct`), risk.ratesPct[defect])];
     })),
@@ -165,8 +179,11 @@ function decodeDefectPrediction(result, defect, expectedItemCode) {
   };
 }
 
-/** Combines per-defect rows into one (possibly partial) prediction. Totals use only available defects. */
-function combineDefectPredictions(itemCode, rows, unavailableDefects) {
+/**
+ * Combines per-defect rows into one (possibly partial) prediction. Totals use
+ * only the available counted (optimizer) targets.
+ */
+function combineDefectPredictions(itemCode, rows, unavailableDefects, targetUse) {
   const [first] = rows;
   if (rows.some((row) => row.currency !== first.currency ||
       Math.abs(row.lotBoardKg - first.lotBoardKg) > 1e-6 * Math.max(1, first.lotBoardKg) ||
@@ -174,8 +191,11 @@ function combineDefectPredictions(itemCode, rows, unavailableDefects) {
     throw new BigQueryReadError("RISK_ROW_INVALID", "The defect queries disagree on the lot weight or plant cost.");
   }
   const ratesPct = Object.fromEntries(rows.map((row) => [row.defect, row.rate]));
-  const summed = rows.reduce((sum, row) => sum + row.rate, 0);
-  const maxRate = Math.max(...rows.map((row) => row.rate));
+  const counted = countedDefects(targetUse).filter((defect) => ratesPct[defect] !== undefined);
+  if (counted.length === 0) {
+    throw new BigQueryReadError("RISK_MODELS_UNAVAILABLE", "No optimizer-target model returned a prediction.");
+  }
+  const summed = counted.reduce((sum, defect) => sum + ratesPct[defect], 0);
   const scrapKg = first.lotBoardKg * summed / 100;
   return {
     itemCode,
@@ -185,13 +205,15 @@ function combineDefectPredictions(itemCode, rows, unavailableDefects) {
       totalScrapKg: Math.round(scrapKg * 10) / 10,
       scrapCost: Math.round(scrapKg * first.costPerKg),
       currency: first.currency,
-      primaryDefect: DEFECTS.find((defect) => ratesPct[defect] === maxRate),
+      primaryDefect: primaryOf(ratesPct, counted),
+      ...(targetUse === undefined ? {} : { targetUse }),
     },
     humidityBand: {
       ambientRhPct: first.rhBand,
       ratesPct: Object.fromEntries(rows.map((row) => [row.defect, row.band])),
     },
     unavailableDefects,
+    totalsCover: counted,
   };
 }
 
@@ -256,11 +278,15 @@ export function createRiskPredictionService({
     readFileSync(new URL("../../sql/predict_defect.sql", import.meta.url), "utf8");
   const defectQueries = buildDefectQueries(queryText, defectTemplate);
 
-  async function predictPerDefect(parameters, itemCode, signal) {
-    const settled = await Promise.allSettled(DEFECTS.map(async (defect) => {
+  // Abstain targets are not queried at all. The per-defect SQL reuses only the
+  // shared input CTEs, so it takes no target set.
+  async function predictPerDefect(parameters, itemCode, signal, targetUse) {
+    const { optimizer_targets: _targets, ...sharedParameters } = parameters;
+    const queried = shownDefects(targetUse);
+    const settled = await Promise.allSettled(queried.map(async (defect) => {
       const result = await bigquery.query({
         sql: defectQueries[defect],
-        parameters: { ...parameters, defect },
+        parameters: { ...sharedParameters, defect },
         signal,
       });
       return decodeDefectPrediction(result, defect, itemCode);
@@ -268,14 +294,14 @@ export function createRiskPredictionService({
     const aborted = settled.find((entry) => entry.status === "rejected" && entry.reason?.name === "AbortError");
     if (aborted) throw aborted.reason;
     const rows = settled.filter((entry) => entry.status === "fulfilled" && entry.value).map((entry) => entry.value);
-    const unavailableDefects = DEFECTS.filter((_, index) => settled[index].status === "rejected");
+    const unavailableDefects = queried.filter((_, index) => settled[index].status === "rejected");
     if (rows.length === 0) {
       return unavailableDefects.length === 0 ? undefined : null;
     }
-    if (rows.length + unavailableDefects.length !== DEFECTS.length) {
+    if (rows.length + unavailableDefects.length !== queried.length) {
       throw new BigQueryReadError("RISK_ROW_INVALID", "The defect queries disagree on whether the item exists.");
     }
-    return combineDefectPredictions(itemCode, rows, unavailableDefects);
+    return combineDefectPredictions(itemCode, rows, unavailableDefects, targetUse);
   }
 
   return async function predictRisk(input = {}) {
@@ -333,10 +359,22 @@ export function createRiskPredictionService({
           modelAcceptance: getModelAcceptanceSummary(modelAcceptance),
         };
       }
+      const targetUse = readTargetUse(modelAcceptance);
+      if (!targetUse) {
+        return {
+          ok: false,
+          error: {
+            code: "SERVICE_UNAVAILABLE",
+            message: "Prediction is blocked until every model target has a use class in the acceptance record.",
+          },
+          modelAcceptance: getModelAcceptanceSummary(modelAcceptance),
+        };
+      }
+      parameters.optimizer_targets = optimizerTargetsParameter(targetUse);
       let prediction;
       try {
         const result = await bigquery.query({ sql: queryText, parameters, signal: input.signal });
-        prediction = decodePrediction(result, rawParameters.item_code);
+        prediction = decodePrediction(result, rawParameters.item_code, targetUse);
       } catch (error) {
         // Any failure of the combined job (one bad model, a schema change, a
         // transient error) retries each defect model on its own.
@@ -344,7 +382,7 @@ export function createRiskPredictionService({
           throw error;
         }
         logCombinedFailure(error);
-        prediction = await predictPerDefect(parameters, rawParameters.item_code, input.signal);
+        prediction = await predictPerDefect(parameters, rawParameters.item_code, input.signal, targetUse);
         if (prediction === null) {
           throw new BigQueryReadError("RISK_MODELS_UNAVAILABLE", "No defect model returned a prediction.");
         }
@@ -373,7 +411,7 @@ export function createRiskPredictionService({
           ? {
             partial: true,
             unavailableDefects,
-            totalsCover: DEFECTS.filter((defect) => prediction.risk.ratesPct[defect] !== undefined),
+            totalsCover: prediction.totalsCover,
           }
           : {}),
         conditionSources: guarded.conditionSources,

@@ -332,14 +332,53 @@ export const RiskOptimizationRequestSchema = z.object({
   levers: LeversSchema,
 }).strict();
 
+// Per-target use class from config/model-acceptance.json (ARC-ML-03). Only
+// "optimizer" targets count toward totals, the primary defect and the optimizer
+// objective; "advisory" targets are shown as low confidence; "abstain" targets
+// carry no rate at all.
+export const TargetUseClassSchema = z.enum(["optimizer", "advisory", "abstain"]);
+export const TargetUseSchema = z.record(DefectSchema, z.object({
+  useClass: TargetUseClassSchema,
+  reason: nonEmptyString.max(240),
+}).strict()).refine(
+  (targetUse) => Object.values(targetUse).some((entry) => entry.useClass === "optimizer"),
+  { message: "At least one target must have the optimizer use class." },
+);
+
+// Without a use-class map (records stored before ARC-ML-03 and the local demo),
+// every target is shown and counted, as before.
+export function countedDefects(targetUse) {
+  return DefectSchema.options.filter((defect) => !targetUse || targetUse[defect].useClass === "optimizer");
+}
+export function shownDefects(targetUse) {
+  return DefectSchema.options.filter((defect) => !targetUse || targetUse[defect].useClass !== "abstain");
+}
+
+function addTargetUseIssues(risk, context, unavailable = []) {
+  const shown = shownDefects(risk.targetUse);
+  for (const defect of DefectSchema.options) {
+    const hasRate = risk.ratesPct[defect] !== undefined;
+    if (!shown.includes(defect) && hasRate) {
+      context.addIssue({ code: "custom", path: ["ratesPct", defect], message: "An abstain target must not carry a rate." });
+    }
+    if (shown.includes(defect) && !hasRate && !unavailable.includes(defect)) {
+      context.addIssue({ code: "custom", path: ["ratesPct", defect], message: "Every shown target needs a rate." });
+    }
+  }
+  if (!countedDefects(risk.targetUse).includes(risk.primaryDefect)) {
+    context.addIssue({ code: "custom", path: ["primaryDefect"], message: "The primary defect must be an optimizer target." });
+  }
+}
+
 export const RiskResultSchema = z.object({
-  ratesPct: z.record(DefectSchema, finiteNumber.min(0).max(25)),
+  ratesPct: z.partialRecord(DefectSchema, finiteNumber.min(0).max(25)),
   totalScrapPct: finiteNumber.min(0).max(125).optional(),
   totalScrapKg: nonNegativeNumber,
   scrapCost: nonNegativeNumber,
   currency: CurrencySchema,
   primaryDefect: DefectSchema,
-}).strict();
+  targetUse: TargetUseSchema.optional(),
+}).strict().superRefine((risk, context) => addTargetUseIssues(risk, context));
 export const RiskSchema = RiskResultSchema;
 
 const ModelEvaluationOutputSchema = z.object({
@@ -362,8 +401,9 @@ export const RiskPredictionApiResponseSchema = z.object({
   itemCode: nonEmptyString,
   ...RiskResultSchema.shape,
   // A partial result (one or more defect models failed) lists only the
-  // available defects; a complete result still carries all five.
+  // available defects; a complete result carries every non-abstain target.
   ratesPct: z.partialRecord(DefectSchema, finiteNumber.min(0).max(25)),
+  targetUse: TargetUseSchema,
   humidityBand: HumidityBandSchema.optional(),
   partial: z.boolean().optional(),
   unavailableDefects: z.array(DefectSchema).max(4).optional(),
@@ -397,26 +437,29 @@ export const RiskPredictionApiResponseSchema = z.object({
 }).strict().superRefine((response, context) => {
   const available = DefectSchema.options.filter((defect) => response.ratesPct[defect] !== undefined);
   const unavailable = response.unavailableDefects ?? [];
-  const covered = available.length + unavailable.length === DefectSchema.options.length &&
-    unavailable.every((defect) => !available.includes(defect)) &&
+  const shown = shownDefects(response.targetUse);
+  const covered = available.length + unavailable.length === shown.length &&
+    unavailable.every((defect) => shown.includes(defect) && !available.includes(defect)) &&
     new Set(unavailable).size === unavailable.length;
   if (!covered) {
     context.addIssue({
       code: "custom",
       path: ["unavailableDefects"],
-      message: "Every defect must have a rate or be listed as unavailable.",
+      message: "Every shown defect must have a rate or be listed as unavailable.",
     });
   }
+  addTargetUseIssues(response, context, unavailable);
   if (unavailable.length > 0 && response.partial !== true) {
     context.addIssue({ code: "custom", path: ["partial"], message: "A result missing defects must be flagged partial." });
   }
+  const totalsCover = countedDefects(response.targetUse).filter((defect) => available.includes(defect));
   if (response.partial === true && (unavailable.length === 0 ||
-      response.totalsCover?.length !== available.length ||
-      response.totalsCover.some((defect) => !available.includes(defect)))) {
+      response.totalsCover?.length !== totalsCover.length ||
+      response.totalsCover.some((defect) => !totalsCover.includes(defect)))) {
     context.addIssue({
       code: "custom",
       path: ["totalsCover"],
-      message: "A partial result must list the defects its totals cover.",
+      message: "A partial result must list the available optimizer targets its totals cover.",
     });
   }
   if (!available.includes(response.primaryDefect)) {

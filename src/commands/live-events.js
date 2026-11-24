@@ -7,6 +7,10 @@ export function liveLot(jobSheet, status) {
     lotId: jobSheet?.jobId, jobId: jobSheet?.jobId, status,
     orderId: jobSheet?.order?.orderId, itemCode: jobSheet?.order?.itemCode, quantity: jobSheet?.order?.quantity,
     ...(risk ? { totalScrapPct: risk.totalScrapPct, primaryDefect: risk.primaryDefect, ratesPct: risk.ratesPct, currency: risk.currency } : {}),
+    ...(risk?.targetUse ? {
+      lowConfidence: Object.keys(risk.targetUse).filter((defect) => risk.targetUse[defect].useClass === "advisory"),
+      abstain: Object.keys(risk.targetUse).filter((defect) => risk.targetUse[defect].useClass === "abstain"),
+    } : {}),
     ...(Number.isFinite(jobSheet?.savings?.inr) ? { predictedSaving: Math.max(0, jobSheet.savings.inr) } : {}),
     ...(Array.isArray(jobSheet?.changes) ? { changes: jobSheet.changes.slice(0, 3).map(({ lever, from, to }) => ({ lever, from, to })) } : {}),
   };

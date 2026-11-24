@@ -405,3 +405,73 @@ test("explanation rejects assertions that source records are verified real-world
     assert.notEqual(result.explanation, text);
   }
 });
+
+// The shipped use classes: crack advisory, the other four optimizer targets.
+const shippedTargetUse = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8")).targetUse;
+function withUseClasses(targetUse, dropRate = []) {
+  const profile = (risk) => {
+    const ratesPct = Object.fromEntries(Object.entries(risk.ratesPct).filter(([defect]) => !dropRate.includes(defect)));
+    return { ...risk, ratesPct, targetUse };
+  };
+  const baselineRisk = profile(prediction);
+  return {
+    prediction: baselineRisk,
+    optimization: {
+      ...optimization,
+      baseline: { ...optimization.baseline, risk: baselineRisk },
+      best: { ...optimization.best, risk: profile(optimizedRisk) },
+    },
+  };
+}
+function explainWith(text, { rows = explanationRows, prompts = [] } = {}) {
+  return createRiskExplanationService({
+    bigquery: { query: async () => bigqueryResult(explanationColumns, rows) },
+    gemini: { generateContent: async (request) => { prompts.push(request.contents[0].parts[0].text); return { parts: [{ text }] }; } },
+    sql: query("explain.sql"),
+  });
+}
+const promptJson = (prompt) => JSON.parse(prompt.slice(prompt.indexOf("{")));
+
+test("explanation marks advisory crack rows in the prompt data and refuses text that names crack without its label", async () => {
+  const linked = withUseClasses(shippedTargetUse);
+  const unlabelled = "Drying time is the largest attribution for crease cracking at 0.2 points. WARP is predicted at 3.42%, compared with a typical 1.35%. These are model associations, not proof of cause and effect.";
+  const prompts = [];
+  const rejected = await explainWith(unlabelled, { prompts })({ order, conditions, ...linked, evidence: historicalEvidence });
+  assert.equal(rejected.ok, true);
+  assert.equal(rejected.source, "bigquery-ml-attribution-summary");
+  assert.equal(prompts.length, 2, "the unlabelled text gets one more attempt, then the summary");
+  const sent = promptJson(prompts[0]).explanationRows;
+  assert.deepEqual(sent.filter((row) => row.useClass).map((row) => [row.defect, row.useClass]), [["CRACK", "advisory, low confidence"]]);
+  assert.doesNotMatch(rejected.explanation, /crease cracking(?! \(advisory, low confidence\))/i);
+
+  const labelled = "Drying time is the largest attribution for crease cracking at 0.2 points, a low confidence estimate. WARP is predicted at 3.42%, compared with a typical 1.35%. These are model associations, not proof of cause and effect.";
+  const accepted = await explainWith(labelled)({ order, conditions, ...linked, evidence: historicalEvidence });
+  assert.equal(accepted.source, "bigquery-ml-and-gemini");
+  assert.equal(accepted.explanation, labelled);
+});
+
+test("the fallback summary puts optimizer targets first and labels advisory crack", async () => {
+  // Delamination and strength abstain and the order has no ink, so the summary names only warp and crack.
+  const targetUse = { ...shippedTargetUse,
+    DELAM: { useClass: "abstain", reason: "fixture" }, STRENGTH: { useClass: "abstain", reason: "fixture" } };
+  const linked = withUseClasses(targetUse, ["DELAM", "STRENGTH"]);
+  const rows = [explanationRows[4], explanationRows[0], explanationRows[1], explanationRows[2]];
+  const result = await explainWith("Not three sentences.", { rows })({
+    order: { ...order, inkColors: 0 }, conditions, ...linked, evidence: historicalEvidence,
+  });
+  assert.equal(result.source, "bigquery-ml-attribution-summary");
+  assert.match(result.explanation, /For warp, .*For crease cracking \(advisory, low confidence\), the model predicts 0\.5%/);
+});
+
+test("abstain rows never reach the explanation prompt or result", async () => {
+  const targetUse = { ...shippedTargetUse, CRACK: { useClass: "abstain", reason: "fixture" } };
+  const linked = withUseClasses(targetUse, ["CRACK"]);
+  const rows = explanationRows.map((row) => row[0] === "CRACK" ? ["CRACK", "0.517", "0.3", "1", "drying_hours", "0.2"] : row);
+  const prompts = [];
+  const text = "WARP is predicted at 3.42%, compared with a typical 1.35%. Humidity at 86% has the largest attribution at 0.9 points. These are model associations, not proof of cause and effect.";
+  const result = await explainWith(text, { rows, prompts })({ order, conditions, ...linked, evidence: historicalEvidence });
+  assert.equal(result.ok, true);
+  assert.equal(result.rows.some((row) => row.defect === "CRACK"), false);
+  assert.equal(promptJson(prompts[0]).explanationRows.some((row) => row.defect === "CRACK"), false);
+  assert.doesNotMatch(prompts[0], /0\.517/);
+});

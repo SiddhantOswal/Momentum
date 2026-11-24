@@ -8,6 +8,7 @@ import {
   OrderProfileSchema,
   RiskResultSchema,
   RunConditionsSchema,
+  shownDefects,
   SimilarRunSchema,
 } from "../schemas.js";
 import { HUMIDITY_BAND_POINTS } from "../humidity-band.js";
@@ -331,12 +332,28 @@ function namesUnsupportedDriver(text, reportedDrivers) {
 const DEFECT_WORDS = Object.freeze({ WARP: "warp", DELAM: "delamination", STRENGTH: "box strength", PRINT: "print", CRACK: "crease cracking" });
 const driverWords = (driver) => DRIVER_ALIASES[driver]?.[1] ?? driver.replaceAll("_", " ");
 
+// Words that name a defect in generated text. "print" alone would also match the print-speed
+// setting, so a print mention needs the defect sense.
+const DEFECT_MENTIONS = Object.freeze({
+  WARP: /\bwarp/i, DELAM: /\bdelam/i, STRENGTH: /\b(?:box )?strength\b/i,
+  PRINT: /\bprint(?:ing)? (?:defect|risk|rate|scrap)/i, CRACK: /\bcrack|\bcrease/i,
+});
+const ADVISORY_LABEL = "advisory, low confidence";
+
+// An advisory target (ARC-ML-03) may be described only in a sentence that says it is low confidence.
+function unlabelledAdvisoryMention(text, advisory) {
+  return sentences(text).some((sentence) => !/low confidence/i.test(sentence) &&
+    advisory.some((defect) => DEFECT_MENTIONS[defect].test(sentence)));
+}
+
 // Used when Gemini is unavailable or its text fails the evidence checks twice. It states only
-// the validated attribution rows and the supplied totals, and passes the same checks.
-function attributionSummary(rows, baseline, best) {
+// the validated attribution rows and the supplied totals, and passes the same checks. Optimizer
+// targets come first; an advisory target is named with its low-confidence label.
+function attributionSummary(rows, baseline, best, advisory = []) {
   const byDefect = new Map();
   for (const row of rows) byDefect.set(row.defect, [...(byDefect.get(row.defect) ?? []), row]);
-  const defects = [...byDefect.keys()];
+  const defects = [...byDefect.keys()].sort((left, right) =>
+    Number(advisory.includes(left)) - Number(advisory.includes(right)));
   const lines = [];
   if (Number.isFinite(best?.totalScrapPct) && Number.isFinite(baseline?.totalScrapPct)) {
     lines.push(`The model predicts a total scrap rate of ${best.totalScrapPct}% with the recommended settings, compared with ${baseline.totalScrapPct}% with the planned settings.`);
@@ -347,7 +364,8 @@ function attributionSummary(rows, baseline, best) {
     const drivers = second
       ? `${driverWords(first.driver)} at ${first.attributionPts} points and ${driverWords(second.driver)} at ${second.attributionPts} points`
       : `${driverWords(first.driver)} at ${first.attributionPts} points`;
-    lines.push(`For ${DEFECT_WORDS[defect] ?? defect.toLowerCase()}, the model predicts ${first.predictedPct}% against a typical ${first.typicalPct}%, and its largest attributions are ${drivers}.`);
+    const name = `${DEFECT_WORDS[defect] ?? defect.toLowerCase()}${advisory.includes(defect) ? ` (${ADVISORY_LABEL})` : ""}`;
+    lines.push(`For ${name}, the model predicts ${first.predictedPct}% against a typical ${first.typicalPct}%, and its largest attributions are ${drivers}.`);
   }
   lines.push("These attributions are model associations, not proof of cause and effect, and come from history modelled on the plant.");
   return lines.join(" ");
@@ -430,6 +448,10 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         parameters: parametersFor(inputOrder, inputConditions, levers),
         signal,
       });
+      // Abstain targets are dropped: their attribution rows would put a predicted rate into the prompt.
+      const targetUse = inputOptimization.best.risk.targetUse;
+      const shown = shownDefects(targetUse);
+      const advisory = shown.filter((defect) => targetUse?.[defect].useClass === "advisory");
       const rows = decodeRows(result, EXPLAIN_COLUMNS, "EXPLAIN_SCHEMA_MISMATCH").map((row) => {
         const defect = DefectSchema.safeParse(row.defect);
         if (!defect.success) {
@@ -443,9 +465,9 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
           driver: row.driver,
           attributionPts: finiteNumber(row.attribution_pts, "attribution_pts", "EXPLAIN_ROW_INVALID"),
         };
-      });
-      const expectedDefects = ["WARP", "DELAM", "STRENGTH", "CRACK"];
-      if (inputOrder.inkColors > 0) expectedDefects.splice(3, 0, "PRINT");
+      }).filter((row) => shown.includes(row.defect));
+      const expectedDefects = ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].filter((defect) =>
+        (defect !== "PRINT" || inputOrder.inkColors > 0) && shown.includes(defect));
       const knownDrivers = new Set(Object.values(DRIVER_ALIASES).flat().map((driver) => driver.toLowerCase()));
       const defectsPresent = new Set(rows.map((row) => row.defect));
       if (rows.length === 0 || expectedDefects.some((defect) => !defectsPresent.has(defect)) ||
@@ -489,7 +511,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         baselinePrediction: inputPrediction,
         bestPrediction: inputOptimization.best.risk,
         changes: inputOptimization.changes,
-        explanationRows: rows,
+        explanationRows: rows.map((row) => advisory.includes(row.defect) ? { ...row, useClass: ADVISORY_LABEL } : row),
         historicalEvidence: evidenceForPrompt,
       };
       const instruction = `${EXPLANATION_PROMPT}\\n${JSON.stringify(promptData)}`;
@@ -510,9 +532,10 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         const driver = unsupportedDriverIn(text, reportedDrivers);
         const causalClaim = containsCausalClaim(withoutNegatedCausation(text));
         const unverifiedOutcomeClaim = containsUnverifiedOutcomeClaim(text);
-        return driver || causalClaim || unverifiedOutcomeClaim
-          ? { reason: "attribution_contract", unsupportedDriver: driver ?? false, causalClaim, unverifiedOutcomeClaim }
-          : undefined;
+        if (driver || causalClaim || unverifiedOutcomeClaim) {
+          return { reason: "attribution_contract", unsupportedDriver: driver ?? false, causalClaim, unverifiedOutcomeClaim };
+        }
+        return unlabelledAdvisoryMention(text, advisory) ? { reason: "use_class_contract" } : undefined;
       };
       // Gemini writes the explanation; a text outside the contract gets one more attempt.
       let explanation;
@@ -540,7 +563,7 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
       // Never lose a completed plan to the narrative: fall back to a summary of the validated
       // attribution rows, held to the same contract.
       if (explanation === undefined) {
-        const summary = attributionSummary(rows, inputPrediction, inputOptimization.best.risk);
+        const summary = attributionSummary(rows, inputPrediction, inputOptimization.best.risk, advisory);
         const problem = violation(summary);
         if (problem) {
           console.error(JSON.stringify({ event: "risk_explanation_rejected", attempt: "summary", ...problem }));

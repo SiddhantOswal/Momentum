@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import PDFDocument from "pdfkit";
-import { JobSheetSchema } from "./schemas.js";
+import { countedDefects, JobSheetSchema } from "./schemas.js";
 
 const scriptFontNames = {
   devanagari: "NotoSansDevanagari",
@@ -102,7 +102,17 @@ const explanationHeadings = {
   "bigquery-ml-attribution-summary": "Explanation",
 };
 
+const USE_CLASS_TEXT = {
+  optimizer: "counts toward the totals and the recommendation",
+  advisory: "advisory, low confidence; shown for information, not used for the totals or the recommendation",
+  abstain: "not shown and not used",
+};
+
 function collectText(jobSheet, explanationHeading) {
+  const targetUse = jobSheet.recommended.risk.targetUse;
+  const counted = countedDefects(targetUse);
+  // Totals and savings name their targets only when some target is left out of them.
+  const coverage = counted.length < 5 ? ` (covers ${counted.join(", ")})` : "";
   const lines = [
     ["title", "Production Job Sheet"],
     ["line", `Job ID: ${jobSheet.jobId}`],
@@ -145,17 +155,19 @@ function collectText(jobSheet, explanationHeading) {
   appendLevers(lines, jobSheet.baseline.levers);
   lines.push(
     ["heading", "Baseline risk"],
-    ["line", "Model estimates require supervisor review. CRACK is low confidence under monsoon conditions."],
+    ["line", targetUse
+      ? "Model estimates require supervisor review."
+      : "Model estimates require supervisor review. CRACK is low confidence under monsoon conditions."],
     ["line", `Primary defect: ${jobSheet.baseline.risk.primaryDefect}`],
-    ["line", `Total scrap: ${jobSheet.baseline.risk.totalScrapKg} kg; scrap cost: ${jobSheet.baseline.risk.currency} ${jobSheet.baseline.risk.scrapCost}`],
-    ["line", `Defect rates (%): ${formatRates(jobSheet.baseline.risk.ratesPct)}`],
+    ["line", `Total scrap: ${jobSheet.baseline.risk.totalScrapKg} kg; scrap cost: ${jobSheet.baseline.risk.currency} ${jobSheet.baseline.risk.scrapCost}${coverage}`],
+    ["line", `Defect rates (%): ${formatRates(jobSheet.baseline.risk.ratesPct, targetUse)}`],
     ["heading", "Recommended production settings"],
   );
   appendLevers(lines, jobSheet.recommended.levers);
   lines.push(
     ["line", `Primary defect: ${jobSheet.recommended.risk.primaryDefect}`],
-    ["line", `Total scrap: ${jobSheet.recommended.risk.totalScrapKg} kg; scrap cost: ${jobSheet.recommended.risk.currency} ${jobSheet.recommended.risk.scrapCost}`],
-    ["line", `Defect rates (%): ${formatRates(jobSheet.recommended.risk.ratesPct)}`],
+    ["line", `Total scrap: ${jobSheet.recommended.risk.totalScrapKg} kg; scrap cost: ${jobSheet.recommended.risk.currency} ${jobSheet.recommended.risk.scrapCost}${coverage}`],
+    ["line", `Defect rates (%): ${formatRates(jobSheet.recommended.risk.ratesPct, targetUse)}`],
     ["heading", "Recommended changes"],
   );
 
@@ -172,8 +184,15 @@ function collectText(jobSheet, explanationHeading) {
 
   lines.push(
     ["heading", "Model estimate: scrap reduction against the entered plan"],
-    ["line", `${jobSheet.savings.kg} kg; INR ${jobSheet.savings.inr}`],
+    ["line", `${jobSheet.savings.kg} kg; INR ${jobSheet.savings.inr}${coverage}`],
   );
+
+  if (targetUse) {
+    lines.push(["heading", "Model use per defect"]);
+    for (const [defect, { useClass, reason }] of Object.entries(targetUse)) {
+      lines.push(["line", `${defect}: ${USE_CLASS_TEXT[useClass]}. ${reason}`]);
+    }
+  }
 
   if (jobSheet.evidence?.length) {
     lines.push(["heading", "Historical evidence supplied"]);
@@ -208,10 +227,15 @@ function appendLevers(lines, levers) {
   );
 }
 
-function formatRates(rates) {
-  // Same caveat as the UI risk card: the crack model has the weakest fit (D4, R² 0.30).
+function formatRates(rates, targetUse) {
   return ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"]
-    .map((defect) => `${defect} ${rates[defect]}%${defect === "CRACK" ? " (low confidence in monsoon)" : ""}`)
+    .map((defect) => {
+      const useClass = targetUse?.[defect].useClass;
+      if (useClass === "abstain") return `${defect} not shown`;
+      if (useClass === "advisory") return `${defect} ${rates[defect]}% (advisory, low confidence)`;
+      // Sheets stored before use classes keep the original D4 crack caveat.
+      return `${defect} ${rates[defect]}%${!targetUse && defect === "CRACK" ? " (low confidence in monsoon)" : ""}`;
+    })
     .join(", ");
 }
 

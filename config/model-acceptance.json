@@ -29,6 +29,29 @@
   },
   "modelVersionKind": "BigQuery model etag (these models are not registered in Vertex AI)",
   "featureImportanceReviewed": true,
+  "targetUseNote": "optimizer: counts toward predicted totals and the optimizer objective. advisory: predicted and shown with a low-confidence label, never counted or used to choose settings. abstain: not shown as a number and not used.",
+  "targetUse": {
+    "WARP": {
+      "useClass": "optimizer",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.47 (R²), up from 0.40 for the model it replaces."
+    },
+    "DELAM": {
+      "useClass": "optimizer",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.52 (R²), up from 0.50 for the model it replaces."
+    },
+    "STRENGTH": {
+      "useClass": "optimizer",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.39 (R²), up from 0.30 for the model it replaces."
+    },
+    "PRINT": {
+      "useClass": "optimizer",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.64 (R²), up from 0.61 for the model it replaces."
+    },
+    "CRACK": {
+      "useClass": "advisory",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.11 (R²), too weak to choose settings, so it is shown as low confidence only."
+    }
+  },
   "models": [
     {
       "defect": "WARP",

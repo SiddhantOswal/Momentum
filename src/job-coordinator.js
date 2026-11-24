@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  countedDefects,
   LeversSchema,
   ManualRunConditionsSchema,
   OperatorItemConfirmationSchema,
@@ -39,10 +40,17 @@ function traceErrorCode(result) {
     : "TOOL_ERROR";
 }
 
+function sameTargetUse(left, right) {
+  return Object.keys({ ...left, ...right }).every((defect) =>
+    left?.[defect]?.useClass === right?.[defect]?.useClass);
+}
+
 function predictionMatchesBaseline(prediction, baseline) {
   const sameRoundedValue = (left, right, tolerance) =>
     Math.abs(left - right) <= tolerance;
-  return Object.keys(baseline.risk.ratesPct).every((defect) =>
+  return sameTargetUse(prediction.targetUse, baseline.risk.targetUse) &&
+    Object.keys(prediction.ratesPct).length === Object.keys(baseline.risk.ratesPct).length &&
+    Object.keys(baseline.risk.ratesPct).every((defect) =>
     sameRoundedValue(prediction.ratesPct[defect], baseline.risk.ratesPct[defect], 0.001)) &&
     prediction.totalScrapPct !== undefined &&
     sameRoundedValue(prediction.totalScrapPct, baseline.risk.totalScrapPct, 0.01) &&
@@ -52,10 +60,11 @@ function predictionMatchesBaseline(prediction, baseline) {
     prediction.primaryDefect === baseline.risk.primaryDefect;
 }
 
+// Only optimizer targets count toward the total and the primary defect.
 function predictionIsInternallyConsistent(prediction) {
-  const rates = Object.entries(prediction.ratesPct);
+  const rates = countedDefects(prediction.targetUse).map((defect) => [defect, prediction.ratesPct[defect]]);
   const total = rates.reduce((sum, [, rate]) => sum + rate, 0);
-  const primary = rates.find(([, rate]) => rate === Math.max(...Object.values(prediction.ratesPct)))?.[0];
+  const primary = rates.find(([, rate]) => rate === Math.max(...rates.map(([, value]) => value)))?.[0];
   return Math.abs(total - prediction.totalScrapPct) <= 0.01 &&
     primary === prediction.primaryDefect;
 }
@@ -536,16 +545,17 @@ export function createJobCoordinator({
       scrapCost: prediction.result.scrapCost,
       currency: prediction.result.currency,
       primaryDefect: prediction.result.primaryDefect,
+      ...(prediction.result.targetUse === undefined ? {} : { targetUse: prediction.result.targetUse }),
     });
     if (!risk.success || !predictionIsInternallyConsistent(risk.data)) {
       traceRegistry.finishRun(runId, "failed");
       return {
         ...validationFailure(
-          "The prediction did not match the five-defect risk contract.",
+          "The prediction did not match the risk contract.",
           risk.success ? [{
             path: ["prediction"],
             code: "risk_summary_mismatch",
-            message: "Defect rates must sum to total scrap, and the primary defect must have the highest rate.",
+            message: "Optimizer-target rates must sum to total scrap, and the primary defect must have the highest of them.",
           }] : risk.error.issues
         ),
         runId,

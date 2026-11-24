@@ -71,12 +71,14 @@ export function renderRisk(payload, outputId = "risk-result") {
     const track = node("div", undefined, "bar-track");
     track.setAttribute("aria-hidden", "true");
     const fill = node("div", undefined, "bar-fill");
-    fill.style.width = Math.max(0, Math.min(100, risk.ratesPct[key] / 25 * 100)) + "%";
+    const useClass = risk.targetUse?.[key]?.useClass;
+    fill.style.width = useClass === "abstain" ? "0%" : Math.max(0, Math.min(100, risk.ratesPct[key] / 25 * 100)) + "%";
     track.append(fill);
     const label = node("span", name);
-    // Om's caveat: the crack model has the weakest fit (D4, R² 0.30); flag it for monsoon conditions.
-    if (key === "CRACK") label.append(node("small", "low confidence in monsoon", "risk-caveat"));
-    row.append(label, track, node("strong", number(risk.ratesPct[key]) + "%"));
+    // Use classes come from the acceptance record; results without them keep the D4 crack caveat.
+    if (useClass === "advisory") label.append(node("small", "low confidence, not counted in the total", "risk-caveat"));
+    else if (!risk.targetUse && key === "CRACK") label.append(node("small", "low confidence in monsoon", "risk-caveat"));
+    row.append(label, track, node("strong", useClass === "abstain" ? "Not shown" : number(risk.ratesPct[key]) + "%"));
     target.append(row);
   }
   target.hidden = false;

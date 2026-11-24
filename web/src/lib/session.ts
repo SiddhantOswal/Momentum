@@ -35,7 +35,8 @@ export const LEVERS = [
 export type LeverKey = (typeof LEVERS)[number]["key"];
 export type Levers = Record<LeverKey, string | number>;
 
-export type RiskProfile = { levers: Levers; risk: { ratesPct: Record<Defect, number>; totalScrapPct?: number; totalScrapKg: number; scrapCost: number; currency: string; primaryDefect: Defect } };
+export type TargetUse = Record<Defect, { useClass: "optimizer" | "advisory" | "abstain"; reason: string }>;
+export type RiskProfile = { levers: Levers; risk: { ratesPct: Partial<Record<Defect, number>>; totalScrapPct?: number; totalScrapKg: number; scrapCost: number; currency: string; primaryDefect: Defect; targetUse?: TargetUse } };
 export type JobSheet = {
   jobId: string; status: "DRAFT" | "APPROVED" | string;
   order: { orderId: string; itemCode: string; quantity: number; paperType?: string; paperSupplier?: string };

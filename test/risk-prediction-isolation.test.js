@@ -47,7 +47,9 @@ const bandFields = [
   "rh_band_low_pct", "rh_band_high_pct",
   ...DEFECTS.flatMap((defect) => [`rate_${defect.toLowerCase()}_low_pct`, `rate_${defect.toLowerCase()}_high_pct`]),
 ].map((name) => [name, "FLOAT"]);
-const centralValues = ["PKBX0041", "3.423", "2.98", "1.167", "1.828", "0.778", "10.18", "100.4", "5351", "INR", "WARP"];
+// PO1 rates; totals over the four optimizer targets (crack is advisory), 986.2 kg of board at Rs 53.3 per kg.
+const centralValues = ["PKBX0041", "3.423", "2.98", "1.167", "1.828", "0.778", "9.4", "92.7", "4940", "INR", "WARP"];
+const { targetUse } = acceptedModelSetFixture;
 // Test values for the RH 81..91 band around the PO1 central row.
 const bandValues = ["81", "91", "2.737", "4.116", "2.98", "2.98", "0.894", "1.167", "1.828", "2.239", "0.759", "0.821"];
 
@@ -79,7 +81,7 @@ function defectResult(defect) {
   };
 }
 
-test("predict.sql predicts RH-5 and RH+5 in the same job, clamped to the recorded humidity range, with the same 15 parameters", () => {
+test("predict.sql predicts RH-5 and RH+5 in the same job, clamped to the recorded humidity range, with the 15 inputs and the target set", () => {
   const { min, max } = conditionRanges.fields.ambientRhPct;
   assert.match(predictSql, new RegExp(`GREATEST\\(CAST\\(@ambient_rh_pct AS FLOAT64\\) - 5, ${min.toFixed(1)}\\)`));
   assert.match(predictSql, new RegExp(`LEAST\\(CAST\\(@ambient_rh_pct AS FLOAT64\\) \\+ 5, ${max.toFixed(1)}\\)`));
@@ -91,17 +93,17 @@ test("predict.sql predicts RH-5 and RH+5 in the same job, clamped to the recorde
   const parameters = new Set(predictSql.replace(/--[^\n]*/g, "").match(/@[a-z_]+/g));
   assert.deepEqual([...parameters].sort(), [
     "@ambient_rh_pct", "@ambient_temp_c", "@drying_hours", "@gum_application", "@gum_viscosity_sec",
-    "@item_code", "@paper_moisture_pct", "@paper_supplier", "@paper_type", "@pasting_pressure",
+    "@item_code", "@optimizer_targets", "@paper_moisture_pct", "@paper_supplier", "@paper_type", "@pasting_pressure",
     "@print_speed_spm", "@quantity", "@roll_temp_c", "@sf_speed_mpm", "@shift",
   ]);
 });
 
 test("decoder keeps the legacy result shape and adds an optional humidity band", () => {
-  const legacy = decodeRiskPredictionResult(combinedResult({ withBand: false }), "PKBX0041");
+  const legacy = decodeRiskPredictionResult(combinedResult({ withBand: false }), "PKBX0041", targetUse);
   assert.equal(legacy.humidityBand, undefined);
-  assert.equal(legacy.risk.totalScrapPct, 10.18);
+  assert.equal(legacy.risk.totalScrapPct, 9.4);
 
-  const banded = decodeRiskPredictionResult(combinedResult(), "PKBX0041");
+  const banded = decodeRiskPredictionResult(combinedResult(), "PKBX0041", targetUse);
   assert.deepEqual(banded.risk, legacy.risk);
   assert.deepEqual(banded.humidityBand, {
     ambientRhPct: { low: 81, high: 91 },
@@ -116,7 +118,7 @@ test("decoder keeps the legacy result shape and adds an optional humidity band",
 
   const outside = [...centralValues, ...bandValues];
   outside[11 + 2] = "3.5"; // WARP low above the central 3.423
-  assert.throws(() => decodeRiskPredictionResult(combinedResult({ values: outside }), "PKBX0041"),
+  assert.throws(() => decodeRiskPredictionResult(combinedResult({ values: outside }), "PKBX0041", targetUse),
     (error) => error instanceof BigQueryReadError && /humidity band/.test(error.message));
 });
 
@@ -126,8 +128,11 @@ test("prediction response carries the humidity band, condition sources and norma
   const response = await service(input);
   assert.equal(response.ok, true);
   assert.equal(request.sql, predictSql);
-  assert.equal(Object.keys(request.parameters).length, 15);
-  assert.equal(response.totalScrapPct, 10.18);
+  assert.equal(Object.keys(request.parameters).length, 16);
+  assert.deepEqual(request.parameters.optimizer_targets, {
+    type: "ARRAY<STRING>", value: ["WARP", "DELAM", "STRENGTH", "PRINT"],
+  });
+  assert.equal(response.totalScrapPct, 9.4);
   assert.equal(response.primaryDefect, "WARP");
   assert.deepEqual(response.humidityBand.ratesPct.WARP, { low: 2.737, high: 4.116 });
   assert.deepEqual(response.conditionSources, { ambientRhPct: "plant", ambientTempC: "plant", paperMoisturePct: "plant" });
@@ -233,7 +238,7 @@ test("when every per-defect query succeeds the fallback result is complete and u
   assert.equal(response.ok, true);
   assert.equal(response.partial, undefined);
   assert.equal(Object.keys(response.ratesPct).length, 5);
-  assert.equal(response.totalScrapPct, 10.18);
+  assert.equal(response.totalScrapPct, 9.4);
   assert.equal(response.primaryDefect, "WARP");
 });
 
@@ -269,7 +274,8 @@ test("response schema keeps complete results unchanged and requires partial resu
   const complete = {
     ok: true, agent: "predictRisk", source: "bigquery-ml", isRealModelPrediction: true, itemCode: "PKBX0041",
     ratesPct: { WARP: 3.423, DELAM: 2.98, STRENGTH: 1.167, PRINT: 1.828, CRACK: 0.778 },
-    totalScrapPct: 10.18, totalScrapKg: 100.4, scrapCost: 5351, currency: "INR", primaryDefect: "WARP",
+    totalScrapPct: 9.4, totalScrapKg: 92.7, scrapCost: 4940, currency: "INR", primaryDefect: "WARP",
+    targetUse: acceptedModelSetFixture.targetUse,
     modelProvenance: {
       query: "sql/predict.sql",
       outputs: acceptedModelSetFixture.models.map(({ defect, resource, r2, modelVersion, sampleCount }) =>

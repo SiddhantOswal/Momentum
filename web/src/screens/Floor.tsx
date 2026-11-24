@@ -32,12 +32,13 @@ function calloutsFor(lot: LiveLot | undefined, seasonal: { key: string; label: s
     };
   }
   const rates = lot?.ratesPct
-    ? DEFECTS.map((d) => ({ ...d, rate: lot.ratesPct?.[d.key] ?? 0 })).sort((a, b) => b.rate - a.rate)
+    ? DEFECTS.filter((d) => lot.ratesPct?.[d.key] !== undefined)
+      .map((d) => ({ ...d, rate: lot.ratesPct?.[d.key] ?? 0 })).sort((a, b) => b.rate - a.rate)
     : seasonal;
   return {
     callouts: rates.slice(0, 2).map((d, i) => ({
       station: STATION_OF_DEFECT[d.key as keyof typeof STATION_OF_DEFECT], title: d.label,
-      to: `${formatNumber(d.rate, 2)}% ${lot ? "predicted" : "typical"}`, tone: i === 0 ? "bad" as const : "warn" as const,
+      to: `${formatNumber(d.rate, 2)}% ${lot ? "predicted" : "typical"}${lot?.lowConfidence?.some((k) => k === d.key) ? ", low confidence" : ""}`, tone: i === 0 ? "bad" as const : "warn" as const,
     })),
     caption: lot ? `Predicted risk for lot ${lot.itemCode} · illustrative line` : `Typical risk in ${seasonName ?? "this season"} · illustrative line`,
   };

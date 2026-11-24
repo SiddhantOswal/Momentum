@@ -17,15 +17,33 @@ const fields = [
   ["currency", "STRING"], ["primary_defect", "STRING"],
 ].map(([name, type]) => ({ name, type }));
 
+// The PKBX0041 rates recorded live, with totals worked out over the four optimizer
+// targets the shipped use classes count (986.2 kg of board, Rs 53.3 per kg).
+// Test arithmetic, not a live output.
 function resultRow() {
   return {
     schema: { fields },
     rows: [{ f: [
       { v: "PKBX0041" }, { v: "3.423" }, { v: "2.98" }, { v: "1.167" }, { v: "1.828" },
-      { v: "0.778" }, { v: "10.18" }, { v: "100.4" }, { v: "5351" }, { v: "INR" }, { v: "WARP" },
+      { v: "0.778" }, { v: "9.4" }, { v: "92.7" }, { v: "4940" }, { v: "INR" }, { v: "WARP" },
     ] }],
   };
 }
+
+// The PKBX0041 row as recorded live before ARC-ML-03, when all five targets counted.
+function liveResultRow() {
+  const row = resultRow();
+  row.rows[0].f[6].v = "10.18";
+  row.rows[0].f[7].v = "100.4";
+  row.rows[0].f[8].v = "5351";
+  return row;
+}
+const RECORDED_ALL_FIVE_COUNTED = Object.freeze({
+  ...acceptedModelSetFixture,
+  targetUse: Object.fromEntries(["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].map((defect) => [
+    defect, { useClass: "optimizer", reason: "All five targets counted when the PKBX0041 row was recorded." },
+  ])),
+});
 
 // PKBX0041 acceptance input from the supplied SQL handoff.
 const input = {
@@ -51,7 +69,7 @@ test("risk prediction runs the supplied model SQL with exact named parameters an
   assert.deepEqual(Object.keys(request.parameters), [
     "item_code", "quantity", "paper_type", "paper_supplier", "shift", "ambient_rh_pct",
     "ambient_temp_c", "paper_moisture_pct", "sf_speed_mpm", "roll_temp_c", "gum_application",
-    "gum_viscosity_sec", "pasting_pressure", "drying_hours", "print_speed_spm",
+    "gum_viscosity_sec", "pasting_pressure", "drying_hours", "print_speed_spm", "optimizer_targets",
   ]);
   assert.equal(response.ok, true);
   assert.equal(response.source, "bigquery-ml");
@@ -73,11 +91,12 @@ test("risk prediction runs the supplied model SQL with exact named parameters an
   assert.equal(response.ratesPct.STRENGTH, 1.167);
   assert.equal(response.ratesPct.PRINT, 1.828);
   assert.equal(response.ratesPct.CRACK, 0.778);
-  assert.equal(response.totalScrapPct, 10.18);
-  assert.equal(response.totalScrapKg, 100.4);
-  assert.equal(response.scrapCost, 5351);
+  assert.equal(response.totalScrapPct, 9.4);
+  assert.equal(response.totalScrapKg, 92.7);
+  assert.equal(response.scrapCost, 4940);
   assert.equal(response.currency, "INR");
   assert.equal(response.primaryDefect, "WARP");
+  assert.equal(response.targetUse.CRACK.useClass, "advisory");
 });
 
 // The 14 Oct record without the owner decision: thresholds met, counts missing.
@@ -110,9 +129,10 @@ test("direct risk prediction service rejects missing condition confirmation befo
   assert.equal(queryCalled, false);
 });
 
-test("PKBX0041 fixture matches the supplied SQL's live prediction result", async () => {
+test("the PKBX0041 row recorded live before ARC-ML-03 replays under the all-five setting it was recorded with", async () => {
   const service = createRiskPredictionService({
-    bigquery: { query: async () => resultRow() },
+    bigquery: { query: async () => liveResultRow() },
+    modelAcceptance: RECORDED_ALL_FIVE_COUNTED,
   });
   const response = await service(input);
 
@@ -126,16 +146,19 @@ test("PKBX0041 fixture matches the supplied SQL's live prediction result", async
   assert.equal(response.currency, "INR");
 });
 
-test("PKBX0041 acceptance: all 15 parameters bound with correct names and types", async () => {
+test("PKBX0041 acceptance: the 15 inputs and the optimizer target set are bound with correct names and types", async () => {
   let captured;
   const service = createRiskPredictionService({
     bigquery: { query: async (req) => { captured = req; return resultRow(); } },
   });
   await service(input);
 
-  // All 15 required parameter names
+  // The 15 inputs plus the optimizer target set from the acceptance record
   const keys = Object.keys(captured.parameters);
-  assert.equal(keys.length, 15);
+  assert.equal(keys.length, 16);
+  assert.deepEqual(captured.parameters.optimizer_targets, {
+    type: "ARRAY<STRING>", value: ["WARP", "DELAM", "STRENGTH", "PRINT"],
+  });
   assert.equal(captured.parameters.item_code, "PKBX0041");
   assert.equal(captured.parameters.shift, "DAY");
   assert.equal(captured.parameters.paper_type, "RECYCLED");
@@ -213,6 +236,13 @@ test("risk prediction rejects incompatible output types, duplicate rows, and ano
     bigquery: { query: async () => otherItem },
   });
   assert.equal((await otherItemService(input)).error.code, "SERVICE_UNAVAILABLE");
+});
+
+test("the recorded PKBX0041 row is refused under the shipped use classes: its total counts advisory crack", async () => {
+  const service = createRiskPredictionService({ bigquery: { query: async () => liveResultRow() } });
+  const response = await service(input);
+  assert.equal(response.ok, false);
+  assert.equal(response.error.code, "SERVICE_UNAVAILABLE");
 });
 
 test("risk prediction rejects inconsistent totals and invalid defect probabilities", async () => {
@@ -332,18 +362,19 @@ test("risk prediction runs the supplied model SQL with exact named parameters an
   assert.deepEqual(Object.keys(request.parameters), [
     "item_code", "quantity", "paper_type", "paper_supplier", "shift", "ambient_rh_pct",
     "ambient_temp_c", "paper_moisture_pct", "sf_speed_mpm", "roll_temp_c", "gum_application",
-    "gum_viscosity_sec", "pasting_pressure", "drying_hours", "print_speed_spm",
+    "gum_viscosity_sec", "pasting_pressure", "drying_hours", "print_speed_spm", "optimizer_targets",
   ]);
   assert.equal(response.ok, true);
   assert.equal(response.source, "bigquery-ml");
   assert.equal(response.isRealModelPrediction, true);
   assert.equal(response.itemCode, "PKBX0041");
   assert.equal(response.ratesPct.WARP, 3.423);
-  assert.equal(response.totalScrapPct, 10.18);
-  assert.equal(response.totalScrapKg, 100.4);
-  assert.equal(response.scrapCost, 5351);
+  assert.equal(response.totalScrapPct, 9.4);
+  assert.equal(response.totalScrapKg, 92.7);
+  assert.equal(response.scrapCost, 4940);
   assert.equal(response.currency, "INR");
   assert.equal(response.primaryDefect, "WARP");
+  assert.equal(response.targetUse.CRACK.useClass, "advisory");
 });
 
 test("risk prediction reports missing plant/model output without inventing a result", async () => {

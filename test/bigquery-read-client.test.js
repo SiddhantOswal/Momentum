@@ -134,6 +134,40 @@ test("BigQuery read client rejects unsafe parameters before making a request", a
   assert.equal(fetchCalls, 0);
 });
 
+test("BigQuery read client binds a bounded string list as one ARRAY<STRING> parameter", async () => {
+  const bodies = [];
+  const client = createBigQueryReadClient({
+    projectId: "prepagent-hack",
+    tokenProvider: async () => "test-token",
+    fetchImpl: async (_url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return jsonResponse({ jobComplete: true, schema: { fields: [] }, rows: [], totalRows: "0" });
+    },
+  });
+  await client.query({
+    sql: "SELECT 'WARP' IN UNNEST(@optimizer_targets)",
+    parameters: { optimizer_targets: { type: "ARRAY<STRING>", value: ["WARP", "DELAM"] } },
+  });
+  assert.deepEqual(bodies[0].queryParameters, [{
+    name: "optimizer_targets",
+    parameterType: { type: "ARRAY", arrayType: { type: "STRING" } },
+    parameterValue: { arrayValues: [{ value: "WARP" }, { value: "DELAM" }] },
+  }]);
+
+  for (const value of [[], "WARP", ["WARP", 1], [""], ["x".repeat(65)], Array.from({ length: 17 }, () => "WARP")]) {
+    await assert.rejects(
+      client.query({ sql: "SELECT 1", parameters: { optimizer_targets: { type: "ARRAY<STRING>", value } } }),
+      { code: "INVALID_QUERY_PARAMETER" },
+    );
+  }
+  await assert.rejects(
+    client.query({ sql: "SELECT 1", parameters: { optimizer_targets: ["WARP"] } }),
+    { code: "INVALID_QUERY_PARAMETER" },
+    "a bare array is not guessed into a type",
+  );
+  assert.equal(bodies.length, 1);
+});
+
 test("BigQuery read client reports unfinished jobs without a job reference and oversized results explicitly", async () => {
   let payload = { jobComplete: false };
   const client = createBigQueryReadClient({

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FileUp, Plus, Sparkles, ArrowRight, Check, FileDown, Loader2, AlertTriangle } from "lucide-react";
-import { DEFECTS, conditionsPath, currentShift, formatMoney, formatNumber, getJson } from "../lib/api";
+import { DEFECTS, conditionsPath, currentShift, formatMoney, formatNumber, getJson, type Defect } from "../lib/api";
 import { useLive, timeAgo, type LiveLot } from "../lib/live";
 import { LEVERS, send, type Extraction, type ExtractedLine, type JobResult, type JobSheet, type LeverKey, type Levers } from "../lib/session";
 import { Empty, Panel, Tag } from "../components/ui";
@@ -58,7 +58,7 @@ function LotList({ lots, selected, onSelect, onNew }: { lots: LiveLot[]; selecte
                   <span className="truncate">{lot.orderId}</span><span className="text-faint">·</span><span className="num">{formatNumber(lot.quantity)} units</span>
                 </span>
                 <span className="flex items-center gap-2 text-[11.5px] text-faint">
-                  {lot.totalScrapPct !== undefined && <span className="num">{formatNumber(lot.totalScrapPct, 2)}% scrap{lot.primaryDefect ? ` · ${DEFECTS.find((d) => d.key === lot.primaryDefect)?.short}` : ""}</span>}
+                  {lot.totalScrapPct !== undefined && <span className="num">{formatNumber(lot.totalScrapPct, 2)}% scrap{lot.primaryDefect ? ` · ${DEFECTS.find((d) => d.key === lot.primaryDefect)?.short}` : ""}{excludedFromTotal(lot)}</span>}
                   <span className="ml-auto">{timeAgo(lot.updatedAt)}</span>
                 </span>
               </button>
@@ -253,13 +253,27 @@ function NewLot({ onPlanned }: { onPlanned: (r: JobResult, file: File) => void }
   );
 }
 
+// Advisory and abstain targets are left out of a lot's total (ARC-ML-03).
+function excludedFromTotal(lot: LiveLot) {
+  const left = DEFECTS.filter((d) => lot.lowConfidence?.some((k) => k === d.key) || lot.abstain?.some((k) => k === d.key));
+  return left.length ? ` · excludes ${left.map((d) => d.short).join(", ")}` : "";
+}
+
 function JobView({ result, onApproved }: { result: JobResult; onApproved: (sheet: JobSheet) => void }) {
   const sheet = result.jobSheet;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [asking, setAsking] = useState(false);
   const base = sheet.baseline.risk, best = sheet.recommended.risk;
-  const chart = DEFECTS.map((d) => ({ name: d.short, "Your plan": base.ratesPct[d.key], Recommended: best.ratesPct[d.key] }));
+  // Use classes from the acceptance record: advisory targets are labelled, abstain targets get no bar.
+  const useClass = (d: Defect) => best.targetUse?.[d]?.useClass;
+  const chart = DEFECTS.map((d) => ({
+    name: d.short + (useClass(d.key) === "advisory" ? " (low confidence)" : useClass(d.key) === "abstain" ? " (not shown)" : ""),
+    "Your plan": base.ratesPct[d.key], Recommended: best.ratesPct[d.key],
+  }));
+  const excluded = DEFECTS.filter((d) => best.targetUse && useClass(d.key) !== "optimizer").map((d) => d.short);
+  const totalNote = excluded.length ? `Excludes ${excluded.join(", ")}` : undefined;
+  const savingNote = `${formatNumber(Math.max(0, sheet.savings.kg), 1)} kg less scrap${excluded.length ? `; excludes ${excluded.join(", ")}` : ""}`;
   const approve = async () => {
     setBusy(true); setError(undefined);
     const r = await send<{ jobSheet: JobSheet }>(`/jobs/${encodeURIComponent(sheet.jobId)}/approve?lang=en&currency=INR`, {
@@ -281,9 +295,9 @@ function JobView({ result, onApproved }: { result: JobResult; onApproved: (sheet
           <p className="text-[12px] text-muted">{sheet.order.orderId} · {formatNumber(sheet.order.quantity)} units</p>
           <h2 className="mt-1 text-[20px] font-semibold">{sheet.order.itemCode}</h2>
         </div>
-        <Metric label="Scrap, your plan" value={`${formatNumber(base.totalScrapPct ?? 0, 2)}%`} />
-        <Metric label="Scrap, recommended" value={`${formatNumber(best.totalScrapPct ?? 0, 2)}%`} accent />
-        <Metric label="Predicted saving" value={formatMoney(Math.max(0, sheet.savings.inr), best.currency)} sub={`${formatNumber(Math.max(0, sheet.savings.kg), 1)} kg less scrap`} />
+        <Metric label="Scrap, your plan" value={`${formatNumber(base.totalScrapPct ?? 0, 2)}%`} sub={totalNote} />
+        <Metric label="Scrap, recommended" value={`${formatNumber(best.totalScrapPct ?? 0, 2)}%`} sub={totalNote} accent />
+        <Metric label="Predicted saving" value={formatMoney(Math.max(0, sheet.savings.inr), best.currency)} sub={savingNote} />
         <div className="ml-auto flex flex-col items-end gap-2">
           <Tag tone={approved ? "good" : "accent"}>{approved ? "Approved" : "Draft · needs approval"}</Tag>
           {result.confidence === "reduced" && <Tag tone="bad">Reduced confidence</Tag>}

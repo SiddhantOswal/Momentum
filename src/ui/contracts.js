@@ -3,8 +3,12 @@ const finite = (v) => Number.isFinite(v);
 const nonnegative = (v) => finite(v) && v >= 0;
 const validLevers = (value) => value && LEVER_FIELDS.every(([key,,type,min,max]) => type === 'number'
   ? finite(value[key]) && value[key] >= min && value[key] <= max : min.includes(value[key]));
+// An abstain target (ARC-ML-03) has no rate; every other target needs one.
+const abstains = (value, key) => value.targetUse?.[key]?.useClass === 'abstain';
 export function isRiskDisplay(value) {
-  return !!(value && value.ratesPct && Object.keys(DEFECT_NAMES).every((key) => finite(value.ratesPct[key]) && value.ratesPct[key] >= 0 && value.ratesPct[key] <= 25)
+  return !!(value && value.ratesPct && Object.keys(DEFECT_NAMES).every((key) => abstains(value, key)
+    ? value.ratesPct[key] === undefined
+    : finite(value.ratesPct[key]) && value.ratesPct[key] >= 0 && value.ratesPct[key] <= 25)
     && nonnegative(value.totalScrapKg) && nonnegative(value.scrapCost) && /^[A-Z]{3}$/.test(value.currency)
     && Object.hasOwn(DEFECT_NAMES, value.primaryDefect)
     && (value.totalScrapPct === undefined || nonnegative(value.totalScrapPct) && value.totalScrapPct <= 125));
