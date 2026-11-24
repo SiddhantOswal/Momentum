@@ -13,8 +13,9 @@ work="$(mktemp -d)"
 stage="$work/$name"
 mkdir -p "$stage/repo" "$stage/private" "$out"
 
-# A key, token or private key in committed work must never travel in a zip.
-if git -C "$root" grep -nIE 'AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|-----BEGIN ([A-Z]+ )?PRIVATE KEY-----|ya29\.[0-9A-Za-z_-]{20,}' arc/main -- . ':!docs/arc/delivery/handover' ':!test' >/dev/null; then
+# A key, token or private key in committed work must never travel in a zip. tools/prepare-release-snapshot.py is
+# excluded because it lists the key markers it searches for; it holds no key.
+if git -C "$root" grep -nIE 'AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|-----BEGIN ([A-Z]+ )?PRIVATE KEY-----|ya29\.[0-9A-Za-z_-]{20,}' arc/main -- . ':!docs/arc/delivery/handover' ':!test' ':!tools/prepare-release-snapshot.py' >/dev/null; then
   echo "A secret-like string was found in arc/main. Stopping." >&2; exit 1
 fi
 
