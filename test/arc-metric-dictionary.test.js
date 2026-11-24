@@ -57,3 +57,13 @@ test("the loader rejects entries that break the contract", () => {
   rejects("missing SQL file", (d) => { d.metrics[1].sqlFile = "sql/arc/nope.sql"; });
   assert.doesNotThrow(() => parseMetricDictionary(structuredClone(raw), readSql));
 });
+
+test("the loader rejects SQL that templates or concatenates values", () => {
+  const template = (sql) => (file) => (file === "sql/arc/catalog_item.sql" ? sql : readSql(file));
+  const clean = readSql("sql/arc/catalog_item.sql");
+  for (const injected of ["${itemCode}", "{{itemCode}}", "%s", "' || @item_code || '"]) {
+    const sql = `${clean.trimEnd().replace(/;$/, "")} AND box_style = '${injected}';`;
+    assert.throws(() => parseMetricDictionary(structuredClone(raw), template(sql)), /must not template/, injected);
+  }
+  assert.doesNotThrow(() => parseMetricDictionary(structuredClone(raw), template(clean)));
+});
