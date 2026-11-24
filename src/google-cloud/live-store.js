@@ -17,7 +17,9 @@ export const LiveLotSchema = z.object({
   status: z.enum(LOT_STATUSES),
   totalScrapPct: z.number().min(0).max(125).optional(),
   primaryDefect: z.enum(DEFECTS).optional(),
-  ratesPct: z.record(z.enum(DEFECTS), z.number().min(0).max(25)).optional(),
+  // Abstain targets carry no rate; low-confidence targets are the advisory ones (ARC-ML-03).
+  ratesPct: z.partialRecord(z.enum(DEFECTS), z.number().min(0).max(25)).optional(),
+  lowConfidence: z.array(z.enum(DEFECTS)).max(5).optional(),
   predictedSaving: z.number().min(0).optional(),
   changes: z.array(z.object({ lever: z.string().max(40), from: z.union([z.string().max(20), z.number()]), to: z.union([z.string().max(20), z.number()]) }).strict()).max(3).optional(),
   currency: z.string().length(3).optional(),

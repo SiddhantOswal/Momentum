@@ -76,3 +76,21 @@ test('the local mock demo never tells the user Gemini read the sample order', as
   const local=workflow.slice(workflow.indexOf('if (localSyntheticUI) {'),workflow.indexOf('// The authentication adapter'));
   assert.match(local,/"#evaluator-step-fill span"\)\.textContent = "Loads a sample order and fills the conditions and settings\. Sample output, no model call\."/);
 });
+
+test('the risk display accepts a missing rate only for an abstain target', () => {
+  const targetUse = Object.fromEntries(['WARP', 'DELAM', 'STRENGTH', 'PRINT', 'CRACK'].map((defect) => [
+    defect, { useClass: defect === 'CRACK' ? 'abstain' : 'optimizer', reason: 'fixture' },
+  ]));
+  const { CRACK: _crack, ...fourRates } = job.baseline.risk.ratesPct;
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates, targetUse }), true);
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, targetUse }), false, 'an abstain target must not carry a rate');
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates }), false, 'without use classes all five are required');
+  const advisory = { ...targetUse, CRACK: { useClass: 'advisory', reason: 'fixture' } };
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates, targetUse: advisory }), false);
+});
+
+test('the risk card labels from use classes: advisory is low confidence, abstain shows no number', async () => {
+  const source = await readFile(new URL('../src/ui/components.js', import.meta.url), 'utf8');
+  assert.match(source, /useClass === "advisory"\) label\.append\(node\("small", "low confidence, not counted in the total", "risk-caveat"\)\)/);
+  assert.match(source, /useClass === "abstain" \? "Not shown" : number\(risk\.ratesPct\[key\]\) \+ "%"/);
+});

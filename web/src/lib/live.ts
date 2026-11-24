@@ -4,7 +4,7 @@ import { ensureSession, getJson, type Defect } from "./api";
 export type LiveLot = {
   lotId: string; jobId?: string; orderId: string; itemCode: string; quantity: number;
   status: "planned" | "approved" | "running" | "done" | "blocked";
-  totalScrapPct?: number; primaryDefect?: Defect; ratesPct?: Partial<Record<Defect, number>>;
+  totalScrapPct?: number; primaryDefect?: Defect; ratesPct?: Partial<Record<Defect, number>>; lowConfidence?: Defect[];
   predictedSaving?: number; currency?: string; updatedAt: string;
   changes?: { lever: string; from: string | number; to: string | number }[];
 };

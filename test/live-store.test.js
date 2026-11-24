@@ -56,3 +56,18 @@ test("absent optional fields are dropped before writing (Firestore rejects undef
   for (const w of writes) assert.ok(Object.values(w.data).every((v) => v !== undefined), `${w.name} has no undefined values`);
   assert.equal("actor" in writes[1].data, false);
 });
+
+test("a live lot names its low-confidence targets and may omit an abstain target's rate", async () => {
+  const { liveLot } = await import("../src/commands/live-events.js");
+  const targetUse = Object.fromEntries(["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].map((defect) => [
+    defect, { useClass: { CRACK: "advisory", PRINT: "abstain" }[defect] ?? "optimizer", reason: "fixture" },
+  ]));
+  const risk = { ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, CRACK: 0.4 }, totalScrapPct: 4, primaryDefect: "WARP", currency: "INR", targetUse };
+  const built = liveLot({ jobId: "JOB-2", order: { orderId: "PO-2", itemCode: "SKU-2", quantity: 10 }, recommended: { risk } }, "planned");
+  assert.deepEqual(built.lowConfidence, ["CRACK"]);
+  const store = createLiveStore({ now: fixedNow });
+  assert.equal(await store.publish({ lot: built }), true);
+  const { targetUse: _none, ...legacyRisk } = risk;
+  const legacy = liveLot({ jobId: "JOB-3", order: { orderId: "PO-3", itemCode: "SKU-3", quantity: 10 }, recommended: { risk: legacyRisk } }, "planned");
+  assert.equal("lowConfidence" in legacy, false, "sheets stored before use classes add nothing");
+});
