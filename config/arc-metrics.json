@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "maximumBytesBilled": 52428800,
+  "note": "The metric dictionary behind the Arc query_metric tool. The model picks a metric ID and filter values. SQL, tables, units and labels come from this file and sql/arc/. Question numbers refer to the table in docs/arc/delivery/data/data-audit.md section 6.",
+  "metrics": [
+    {
+      "id": "model_holdout_r2",
+      "version": 1,
+      "enabled": true,
+      "questions": [1],
+      "description": "Holdout R2 and mean absolute error of the five defect models on the September 2026 modeled lots.",
+      "kind": "config",
+      "reader": "modelHoldout",
+      "params": [
+        { "name": "defect", "type": "enum", "values": ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"], "required": false }
+      ],
+      "columns": [
+        { "name": "defect", "type": "string" },
+        { "name": "r2", "type": "number", "unit": "R2 (unitless)" },
+        { "name": "maePp", "type": "number", "unit": "percentage points" },
+        { "name": "sampleCount", "type": "integer", "unit": "lots" },
+        { "name": "evaluationId", "type": "string" }
+      ],
+      "unit": "R2 (unitless) and percentage points",
+      "provenance": "model_estimate",
+      "label": "Modeled, tested on {sampleCount} lots",
+      "basis": "Holdout R2 on modeled lots, one out-of-time month. Not measured on plant data.",
+      "source": { "kind": "config", "ref": "config/model-acceptance.json" },
+      "insufficient": {
+        "when": "no_rows",
+        "missing": "No accepted model evaluation is recorded in config/model-acceptance.json for this defect."
+      },
+      "writerFields": ["defect", "r2", "maePp", "sampleCount"]
+    },
+    {
+      "id": "defect_history_at_humidity",
+      "version": 1,
+      "enabled": true,
+      "questions": [6],
+      "description": "How often a defect was the main problem in modeled lots within 10 points of a given humidity, and what those lots scrapped.",
+      "kind": "bigquery",
+      "sqlFile": "sql/arc/defect_history_at_humidity.sql",
+      "params": [
+        { "name": "defect", "type": "enum", "values": ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"], "required": true, "bind": "defect", "bigqueryType": "STRING" },
+        { "name": "ambientRhPct", "type": "number", "min": 0, "max": 100, "required": true, "bind": "ambient_rh_pct", "bigqueryType": "FLOAT64" }
+      ],
+      "columns": [
+        { "name": "defect", "type": "string" },
+        { "name": "lots_in_band", "type": "integer", "unit": "lots" },
+        { "name": "n_cases", "type": "integer", "unit": "lots" },
+        { "name": "avg_rate_when_main", "type": "number", "unit": "% of lot", "nullable": true },
+        { "name": "cost_when_main", "type": "number", "unit": "INR" },
+        { "name": "avg_rate_all_lots", "type": "number", "unit": "% of lot", "nullable": true }
+      ],
+      "unit": "lots, % of lot, INR",
+      "provenance": "synthetic",
+      "label": "Modeled records",
+      "basis": "Modeled lot history, 2024-10-01 to 2026-09-30. No measured lots.",
+      "source": { "kind": "table", "ref": "prepagent.lots" },
+      "insufficient": {
+        "when": "zero:n_cases",
+        "missing": "No modeled lot had this defect as its main problem within 10 points of this humidity. The modeled history covers 2024-10-01 to 2026-09-30 and holds no measured lots."
+      },
+      "writerFields": ["defect", "lots_in_band", "n_cases", "avg_rate_when_main", "cost_when_main", "avg_rate_all_lots"]
+    },
+    {
+      "id": "top_scrap_items",
+      "version": 1,
+      "enabled": true,
+      "questions": [13],
+      "description": "Items with the highest modeled scrap cost from 2025-10-01 to 2026-09-30.",
+      "kind": "bigquery",
+      "sqlFile": "sql/arc/top_scrap_items.sql",
+      "params": [
+        { "name": "limit", "type": "integer", "min": 1, "max": 10, "required": false, "default": 10, "bind": "limit", "bigqueryType": "INT64" }
+      ],
+      "columns": [
+        { "name": "item_code", "type": "string" },
+        { "name": "lots", "type": "integer", "unit": "lots" },
+        { "name": "avg_scrap_pct", "type": "number", "unit": "% of lot" },
+        { "name": "scrap_cost_12m", "type": "number", "unit": "currency column" },
+        { "name": "main_defect", "type": "string" },
+        { "name": "currency", "type": "string" }
+      ],
+      "unit": "lots, % of lot, currency",
+      "provenance": "synthetic",
+      "label": "Modeled records",
+      "basis": "Modeled lot history, twelve months to 2026-09-30. No measured lots.",
+      "source": { "kind": "table", "ref": "prepagent.lots" },
+      "insufficient": {
+        "when": "no_rows",
+        "missing": "The modeled lot history has no lots from 2025-10-01 to 2026-09-30."
+      },
+      "writerFields": ["item_code", "lots", "avg_scrap_pct", "scrap_cost_12m", "main_defect", "currency"]
+    },
+    {
+      "id": "catalog_item",
+      "version": 1,
+      "enabled": true,
+      "questions": [14],
+      "description": "The catalog specification of one item.",
+      "kind": "bigquery",
+      "sqlFile": "sql/arc/catalog_item.sql",
+      "params": [
+        { "name": "itemCode", "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,31}$", "required": true, "bind": "item_code", "bigqueryType": "STRING" }
+      ],
+      "columns": [
+        { "name": "item_code", "type": "string" },
+        { "name": "box_style", "type": "string", "nullable": true },
+        { "name": "length_mm", "type": "number", "unit": "mm", "nullable": true },
+        { "name": "width_mm", "type": "number", "unit": "mm", "nullable": true },
+        { "name": "height_mm", "type": "number", "unit": "mm", "nullable": true },
+        { "name": "ply", "type": "integer", "unit": "ply", "nullable": true },
+        { "name": "flute_profile", "type": "string", "nullable": true },
+        { "name": "top_liner_gsm", "type": "number", "unit": "g/m2", "nullable": true },
+        { "name": "flute_gsm", "type": "number", "unit": "g/m2", "nullable": true },
+        { "name": "inner_liner_gsm", "type": "number", "unit": "g/m2", "nullable": true },
+        { "name": "liner_bf", "type": "integer", "unit": "BF", "nullable": true },
+        { "name": "ink_colors", "type": "integer", "unit": "colors", "nullable": true },
+        { "name": "ink_coverage_pct", "type": "number", "unit": "% of area", "nullable": true }
+      ],
+      "unit": "mm, g/m2, BF, colors, % of area",
+      "provenance": "catalog",
+      "label": "From catalog",
+      "basis": "The 117-item plant catalog.",
+      "source": { "kind": "table", "ref": "prepagent.items" },
+      "insufficient": {
+        "when": "no_rows",
+        "missing": "No item with this code is in the 117-item catalog."
+      },
+      "writerFields": ["item_code", "box_style", "length_mm", "width_mm", "height_mm", "ply", "flute_profile", "top_liner_gsm", "flute_gsm", "inner_liner_gsm", "liner_bf", "ink_colors", "ink_coverage_pct"]
+    }
+  ]
+}
