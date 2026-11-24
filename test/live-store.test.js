@@ -65,8 +65,15 @@ test("a live lot names its low-confidence targets and may omit an abstain target
   const risk = { ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, CRACK: 0.4 }, totalScrapPct: 4, primaryDefect: "WARP", currency: "INR", targetUse };
   const built = liveLot({ jobId: "JOB-2", order: { orderId: "PO-2", itemCode: "SKU-2", quantity: 10 }, recommended: { risk } }, "planned");
   assert.deepEqual(built.lowConfidence, ["CRACK"]);
+  assert.deepEqual(built.abstain, ["PRINT"]);
   const store = createLiveStore({ now: fixedNow });
   assert.equal(await store.publish({ lot: built }), true);
+  const { DELAM: _delam, ...missingDelam } = built.ratesPct;
+  assert.equal(await store.publish({ lot: { ...built, ratesPct: missingDelam } }), false,
+    "a missing rate is allowed only for an abstain target");
+  assert.equal(await store.publish({ lot: { ...built, ratesPct: { ...built.ratesPct, PRINT: 1 } } }), false,
+    "an abstain target must not carry a rate");
+  assert.equal(await store.publish({ lot: { ...built, abstain: undefined } }), false);
   const { targetUse: _none, ...legacyRisk } = risk;
   const legacy = liveLot({ jobId: "JOB-3", order: { orderId: "PO-3", itemCode: "SKU-3", quantity: 10 }, recommended: { risk: legacyRisk } }, "planned");
   assert.equal("lowConfidence" in legacy, false, "sheets stored before use classes add nothing");

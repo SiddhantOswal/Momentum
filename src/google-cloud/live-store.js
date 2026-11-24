@@ -17,15 +17,28 @@ export const LiveLotSchema = z.object({
   status: z.enum(LOT_STATUSES),
   totalScrapPct: z.number().min(0).max(125).optional(),
   primaryDefect: z.enum(DEFECTS).optional(),
-  // Abstain targets carry no rate; low-confidence targets are the advisory ones (ARC-ML-03).
+  // Low-confidence targets are the advisory ones; abstain targets carry no rate (ARC-ML-03).
   ratesPct: z.partialRecord(z.enum(DEFECTS), z.number().min(0).max(25)).optional(),
   lowConfidence: z.array(z.enum(DEFECTS)).max(5).optional(),
+  abstain: z.array(z.enum(DEFECTS)).max(4).optional(),
   predictedSaving: z.number().min(0).optional(),
   changes: z.array(z.object({ lever: z.string().max(40), from: z.union([z.string().max(20), z.number()]), to: z.union([z.string().max(20), z.number()]) }).strict()).max(3).optional(),
   currency: z.string().length(3).optional(),
   updatedBy: z.string().max(120).optional(),
   updatedAt: z.string().datetime(),
-}).strict();
+}).strict().superRefine((lot, context) => {
+  if (!lot.ratesPct) return;
+  for (const defect of DEFECTS) {
+    const abstains = lot.abstain?.includes(defect) === true;
+    if (abstains === (lot.ratesPct[defect] !== undefined)) {
+      context.addIssue({
+        code: "custom",
+        path: ["ratesPct", defect],
+        message: abstains ? "An abstain target must not carry a rate." : "Only an abstain target may omit its rate.",
+      });
+    }
+  }
+});
 
 export const LiveEventSchema = z.object({
   type: z.enum(EVENT_TYPES),
