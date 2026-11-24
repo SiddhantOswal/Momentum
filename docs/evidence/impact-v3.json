@@ -1,0 +1,38 @@
+{
+  "kind": "impact-v3",
+  "generatedAt": "2026-11-25",
+  "approval": "Om, 2026-11-25, founder question G2",
+  "question": "Predicted September 2026 savings when the m2_* models choose settings with only optimizer targets in the objective (crack advisory, ARC-ML-03), scored with the plant rules",
+  "pipeline": [
+    "sql/impact_batch.sql with --parameter=optimizer_targets:ARRAY<STRING>:[\"WARP\",\"DELAM\",\"STRENGTH\",\"PRINT\"] (built from config/model-acceptance.json) -> prepagent.impact_recs_v3 (job impact_v3_1795551208, 73,400,320 bytes billed, 100.5 slot-seconds)",
+    "SELECT * FROM prepagent.impact_recs_v3 -> recs.json (219 rows, sha256 0f73246a954f38ed4091f3b5ef4a447f1faf8f087a076307d265a02cc08453b7)",
+    "node tools/data/impact.ts --cost-per-kg 53.3 with the regenerated history (seed 20261010) -> impact_lots.jsonl (sha256 25ff6982044bdfff981a2fd8ab07ac087718c68a411e7364e7fcf9ab6a30ba07); the plant rules count all five defects in the true outcome",
+    "bq load (schema of impact_lots_v2) -> prepagent.impact_lots_v3, 219 rows; sql/dash_kpis.sql reads it on arc/main"
+  ],
+  "lots": 219,
+  "previous": {
+    "tables": "impact_recs_v2 / impact_lots_v2 (crack in the objective)",
+    "netSavingInr": 7934,
+    "kgSaved": 149,
+    "scrapPctAfter": 6.36,
+    "lotsChanged": 217,
+    "lotsMadeWorse": 3,
+    "modelExpectedSavingInr": 7558
+  },
+  "current": {
+    "tables": "impact_recs_v3 / impact_lots_v3 (crack advisory)",
+    "netSavingInr": 7927,
+    "kgSaved": 149,
+    "scrapPctBefore": 7.06,
+    "scrapPctAfter": 6.36,
+    "lotsChanged": 218,
+    "lotsMadeWorse": 4,
+    "modelExpectedSavingInr": 7264
+  },
+  "notes": [
+    "One held-out monsoon month; do not annualise.",
+    "Modelled plant history scored with the generator's rules, not measured factory outcomes.",
+    "Leaving crack out of the objective changes the net saving by Rs 7 and one more lot is made worse; the model's own estimate stays below the scored saving.",
+    "The live revision momentum-00023-yaz still reads impact_lots_v2 until a release moves traffic."
+  ]
+}
