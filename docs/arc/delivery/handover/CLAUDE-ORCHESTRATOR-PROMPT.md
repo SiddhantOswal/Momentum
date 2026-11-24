@@ -15,6 +15,8 @@ Read completely, in this order, before you act:
 5. docs/arc/delivery/00-plan.md, then 01 to 06 in docs/arc/delivery, the ADRs in adr/, responsible-ai.md, the tickets in tickets/, and reviews/M0-review.md and reviews/M1-review.md (they show the standard a gate review meets).
 Never read, quote or commit anything under docs/arc/reference/ (private material, excluded from git).
 
+You are the BUILD lane. Two machines work on this repository: yours (the build) and the founders' laptop (the pitch, branches pitch/*). Read docs/arc/delivery/handover/TWO-MACHINES.md now and follow it: you are the only writer of arc/main and the only machine that changes Google Cloud; you never touch pitch/*; fetch origin before each session and push arc/main after each merge session and gate.
+
 Then run: bash tools/orchestrator/resume.sh. Reconcile its output with STATUS.md: every arc/* branch not merged, every worktree with uncommitted files, every running session. Write down anything that STATUS.md does not explain before you dispatch anything. Run the checks in NEW-LAPTOP-SETUP.md section 4 and note any count that differs. Run node tools/orchestrator/ticket-status.mjs to see every ticket merged or open.
 
 Your job, until the release gate passes and then Phase B:

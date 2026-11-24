@@ -29,6 +29,7 @@ Everything else is in the repository (`docs/arc/delivery/`): the rules (`CLAUDE.
 
 - `ENVIRONMENT.md`: the live Google Cloud environment, names only.
 - `ROADMAP-TO-RELEASE.md`: day by day to the release candidate and the pitch.
+- `TWO-MACHINES.md`: who writes what when two machines work on the repository (build lane and pitch lane).
 - `SYNC-AND-PUBLISH.md`: commit everything, keep `arc/main` complete and push to the one repository (procedure and a paste-ready prompt).
 - `GIT-WORKFLOW.md`, `PERMISSIONS.md`, `LIFECYCLE.md`, `NEW-LAPTOP-SETUP.md`, `settings.unblocked.json`.
 - `node tools/orchestrator/ticket-status.mjs`: every ticket, merged or open.
