@@ -44,18 +44,18 @@ The orchestrator can also start a session itself with the Codex command line, on
 ```
 # builder: its own worktree, write access to it, report saved to a file
 git worktree add /Users/siddhant/Developer/momentum-wt/<TICKET-ID> -b arc/<TICKET-ID>-<name> arc/main
-codex exec -m gpt-6.1-sol -C <worktree> -s workspace-write \
+codex exec -m gpt-6.2-sol -c model_reasoning_effort=medium -C <worktree> -s workspace-write \
   --add-dir /Users/siddhant/Developer/Momentum/.git \
   -o <scratch>/<ticket>-report.md "<the one-line prompt above>"
 
 # reviewer: read-only, on a detached checkout of the tip under review
-codex exec -m gpt-6.1-sol -C <detached checkout> -s read-only --ephemeral \
+codex exec -m gpt-6.2-sol -c model_reasoning_effort=medium -C <detached checkout> -s read-only --ephemeral \
   -o <scratch>/<n>-<role>-report.md "<one-line reviewer prompt>"
 ```
 
 Two rules for dispatch. Builders run in separate worktrees, never in the main checkout, so two builders cannot step on each other. Test runs use their own free ports (`test/helpers/server.js`), so suites can run at the same time.
 
-The default model in `~/.codex/config.toml` (`gpt-6.2-sol`) is not available on this account, so every command passes `-m gpt-6.1-sol` (checked with `codex debug models` on 2026-11-24). The founders may choose another listed model.
+Every command passes the model and the effort explicitly (`gpt-6.2-sol`, medium), so no session depends on a config default. Codex 0.172.0 lists `gpt-6.2-sol` (`codex debug models`); the earlier 0.164.0 did not.
 
 ## 4a. No code is lost
 
@@ -63,7 +63,7 @@ The default model in `~/.codex/config.toml` (`gpt-6.2-sol`) is not available on 
 - Worktrees live under `/Users/siddhant/Developer/momentum-wt/`, not in `/tmp`, so a reboot or cleanup cannot remove them.
 - Branches are never deleted until their merge into `arc/main` is recorded in STATUS. Abandoned work is recorded in STATUS and kept as a branch.
 - Everything that ships ends up on `arc/main`. The orchestrator checks at each milestone gate that `git branch --no-merged arc/main` lists only branches that STATUS explains.
-- Nothing is pushed yet. Until the founders name a backup remote, the orchestrator keeps a git bundle of `arc/*` after each gate (see STATUS).
+- The public `origin` (github.com/SiddhantOswal/Momentum) is never used for `arc/*`: the delivery records include security findings and design detail that must not be public (`CLAUDE.md` section 7). The backup is a git bundle of every `arc/*` branch written to `/Users/siddhant/Developer/momentum-backups/` after each merge session and each gate, and, once the founders create an empty private repository, a second remote named `backup` that receives `arc/*` after each gate, with the founders' approval for each push.
 
 ## 4b. Who reviews
 
