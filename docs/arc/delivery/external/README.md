@@ -43,17 +43,31 @@ The orchestrator can also start a session itself with the Codex command line, on
 
 ```
 # builder: its own worktree, write access to it, report saved to a file
-git worktree add ../momentum-<ticket> -b arc/<TICKET-ID>-<name> arc/main
-codex exec -C ../momentum-<ticket> -s workspace-write \
+git worktree add /Users/siddhant/Developer/momentum-wt/<TICKET-ID> -b arc/<TICKET-ID>-<name> arc/main
+codex exec -m gpt-6.1-sol -C <worktree> -s workspace-write \
   --add-dir /Users/siddhant/Developer/Momentum/.git \
   -o <scratch>/<ticket>-report.md "<the one-line prompt above>"
 
 # reviewer: read-only, on a detached checkout of the tip under review
-codex exec -C <scratch>/review-<n>-<role> -s read-only \
+codex exec -m gpt-6.1-sol -C <detached checkout> -s read-only --ephemeral \
   -o <scratch>/<n>-<role>-report.md "<one-line reviewer prompt>"
 ```
 
 Two rules for dispatch. Builders run in separate worktrees, never in the main checkout, so two builders cannot step on each other. Test runs use their own free ports (`test/helpers/server.js`), so suites can run at the same time.
+
+The default model in `~/.codex/config.toml` (`gpt-6.2-sol`) is not available on this account, so every command passes `-m gpt-6.1-sol` (checked with `codex debug models` on 2026-11-24). The founders may choose another listed model.
+
+## 4a. No code is lost
+
+- Every builder commits its work before it reports, and never leaves uncommitted changes in a worktree.
+- Worktrees live under `/Users/siddhant/Developer/momentum-wt/`, not in `/tmp`, so a reboot or cleanup cannot remove them.
+- Branches are never deleted until their merge into `arc/main` is recorded in STATUS. Abandoned work is recorded in STATUS and kept as a branch.
+- Everything that ships ends up on `arc/main`. The orchestrator checks at each milestone gate that `git branch --no-merged arc/main` lists only branches that STATUS explains.
+- Nothing is pushed yet. Until the founders name a backup remote, the orchestrator keeps a git bundle of `arc/*` after each gate (see STATUS).
+
+## 4b. Who reviews
+
+From 2026-11-24 the founders want builders and reviewers to be Codex sessions, and the Claude Code session to review only at a high level. The review roles run as fresh Codex sessions as above. The orchestrator then reads each report for fit with the packet, re-runs the full suite and the commit check on the merged result, spot-checks the claims that matter (hashes, counts, anything marked PASS that touches security, labels or approval), and merges. A report that does not hold up goes back to its session, and it is never accepted on trust.
 
 ## 5. What stays with the orchestrator
 
