@@ -110,15 +110,15 @@ Collect the reports into `docs/arc/delivery/reviews/M<n>-review.md` in the shape
 Local, reversible work needs no approval. Anything that changes Google Cloud does:
 
 1. Write the change record in `docs/arc/delivery/changes/<date>-<name>.md`: the exact command, the reason, the cost impact, the rollback, and how the result will be read back.
-2. Ask the founders one clear question (the record, your recommendation). Read-only `gcloud` and `bq` calls that cost nothing still go through the permission prompt: ask for them in a batch with the commands listed.
-3. Run it. New Cloud Run revisions deploy with `--no-traffic`, are verified on their tagged URL, and only then do you propose moving traffic; moving live traffic needs a founder yes. Keep the current live revision (`momentum-00023-yaz`, rollback `momentum-v2be-8`) until the replacement passes the release gate. Never delete a resource.
+2. Under the founders' standing approvals (`handover/PERMISSIONS.md`, 2026-11-24) no per-step yes is needed for the changes listed there; put a line in STATUS before you run it. Anything outside that list (spending beyond ₹10,000, raising a cap, deleting a resource, a push to the public origin) is not approved: ask.
+3. Run it. New Cloud Run revisions deploy with `--no-traffic`, are verified on their tagged URL, and only then do you propose moving traffic; moving live traffic is covered by the standing approval only after the ARC-M8-05 release gate is GO and the founder acceptance script has passed on that revision; before that, ask. Keep the current live revision (`momentum-00023-yaz`, rollback `momentum-v2be-8`) until the replacement passes the release gate. Never delete a resource.
 4. Read the result back, record it with the date, update STATUS.
 
 Pending cloud steps are listed in `queue.md` (the pitch secret, `GEMINI_BUDGET_LIMITS`, the `job_sheets` column, the labelled views, demo-day scaling, the billing budget, the release candidate deploy, the BigQuery dry-runs for ARC-M4-01).
 
 ## 6. Escalate to the founders
 
-Ask, one question at a time with options and a recommendation, only for: a founder decision (scope, money, a new risk), anything that needs Om, moving live traffic, spending beyond the estimate (budget: ₹10,000; daily caps ₹600 and ₹200), and a NO-GO you cannot fix in three rounds. Check `external/decisions-and-defaults.md` first: if a default is written for the situation, apply it and record that you did, rather than asking again.
+Ask, one question at a time with options and a recommendation, only for: a founder decision (scope, money, a new risk), anything that needs Om, moving live traffic before the release gate has passed, spending beyond the estimate (budget: ₹10,000; daily caps ₹600 and ₹200), and a NO-GO you cannot fix in three rounds. The standing approvals in `handover/PERMISSIONS.md` already cover the routine cloud steps. Check `external/decisions-and-defaults.md` first: if a default is written for the situation, apply it and record that you did, rather than asking again.
 
 ## 7. Pitfalls already met (each cost a round)
 
@@ -145,3 +145,25 @@ Cut, in this order, and record every cut as a decision: Tier B pages in `web/` t
 ## 9. Definition of done for a ticket
 
 Merged on `arc/main` with the suite green on the merged result; acceptance criteria each covered by a test that was seen to fail; independent QA done where Tier A; findings fixed or carried to a named ticket; labels and numbers traceable to a source; nothing hard-coded or local-only in a product path (live Google Cloud services are used, fakes only in unit tests); live checks recorded as NOT RUN with the ticket that owns them; STATUS updated; the backup refreshed.
+
+## 10. If the orchestrator is a Claude Code session
+
+The role agents in `.claude/agents/` are the builders and reviewers; they load as subagents (the `Agent` tool, `subagent_type` set to the role). They run on the same machine without the Codex sandbox: they can commit (the hooks run), start servers and run the full suite. So the loop is shorter: no commit plan, and the builder runs `npm test` itself; you still run the suite on the merged result.
+
+| Step | With Claude subagents |
+|---|---|
+| Builder | `Agent` with the role (for example `backend-engineer`), `run_in_background: true`, a prompt that points at the packet (`docs/arc/delivery/external/packets/<ticket>.md`), `CLAUDE.md` and `known-findings.md`, names the branch and worktree (create it with `tools/orchestrator/new-worktree.sh`, or tell the agent to), and says to commit in small commits, check `ps aux \| grep "[n]ode --test"` before test runs, and never kill other sessions' processes |
+| QA and reviewers | `Agent` with `qa-lead`, `code-reviewer`, `security-reviewer`, `ai-evals-reviewer`, `responsible-ai-reviewer`, `compliance-reviewer`, `copy-editor` or `verification-auditor`; read-only on the branch under review, in a scratch worktree; the report format of `external/README.md` section 6 |
+| Gate | `/review-gate <n>` (the number only: the command writes "M" in front, so "M1" produced a file named MM1), or start the eight yourself in one message |
+| Resume a stopped agent | `SendMessage` to its id; its work is saved. An agent that stopped on a usage limit (HTTP 429) continues after the reset time printed in its notice |
+| Outside sessions (optional) | `tools/orchestrator/codex-session.sh` when the Codex CLI is installed; see sections 3.2 and 3.3 |
+
+Pitfalls specific to Claude subagents:
+- A subagent returns one final report. Tell it to put the verdict and the numbers in that report. A notice saying it is "waiting on its own background work" may mean the report did not arrive: ask it to resend the verdict, or start a fresh one with the same brief.
+- An agent started with worktree isolation can begin on an old base. Tell it to run `git switch -C <branch> arc/main` first (or make the worktree yourself) and to confirm `git log --oneline -3`.
+- Never use `pkill -f "node --test"`: it kills other sessions' runs. Stop only your own processes.
+- Do not let two agents share one worktree or run Playwright at the same time (port 4182).
+- Brief every agent as a colleague who has not seen this conversation: the ticket, the files, the rules that matter, what was already decided, the report format and its length. A short command-style brief gives shallow work.
+- A reviewer must be a different agent from the builder. For a fix, resume the builder and re-check with a reviewer (a new one for a full second QA).
+- Keep your own context small: read reports, not transcripts; do not tail agent output files.
+
