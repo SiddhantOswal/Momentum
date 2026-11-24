@@ -428,7 +428,7 @@ type TurnListResponse = {
   "nextBefore": null }
 ```
 
-Cost: one Firestore query, at most 20 document reads per page, equality on the parent path and a single-field order that Firestore indexes by default (no composite index). Reading is not metered by the Gemini budget.
+Each page uses one Firestore query scoped to the parent path, with a single-field order that Firestore indexes by default. No composite index is required. A page with a requested size of N reads at most N + 1 documents. The extra document is read only to determine whether another page exists, and it is never returned in the response. Reading does not use the Gemini budget.
 
 ## 6. Failure modes the client must handle
 
