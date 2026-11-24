@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { validatePkbx0041Acceptance } from "../tools/validate-optimizer-acceptance.mjs";
+import { validateM2Acceptance, validatePkbx0041Acceptance } from "../tools/validate-optimizer-acceptance.mjs";
+
+const active = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8"));
+
+test("optimizer acceptance checks only the active m2 R2 evidence", () => {
+  const result = validateM2Acceptance(active);
+  assert.equal(result.ok, true);
+  assert.equal(result.differences.length, 0);
+  assert.deepEqual(result.models.map(({ defect, resource, r2 }) => ({ defect, resource, r2 })), [
+    { defect: "WARP", resource: "prepagent.m2_warp", r2: active.models[0].r2 },
+    { defect: "DELAM", resource: "prepagent.m2_delam", r2: active.models[1].r2 },
+    { defect: "STRENGTH", resource: "prepagent.m2_strength", r2: active.models[2].r2 },
+    { defect: "PRINT", resource: "prepagent.m2_print", r2: active.models[3].r2 },
+    { defect: "CRACK", resource: "prepagent.m2_crack", r2: active.models[4].r2 },
+  ]);
+});
 
 // Frozen observed response from the already-completed approved query. These
 // tests perform no BigQuery operation and do not stand in for cloud evidence.
