@@ -53,8 +53,14 @@ const SEASON: Record<number, [number, number, number, number]> = {
 
 // ───────────────────────── WINDOWS ─────────────────────────
 // "history" is the run that built prepagent.lots and must stay byte-identical, so its rows carry no extra fields.
+// The holdout has its own seed so it shares no random draws with the history the m2_* models were chosen on.
+export const HOLDOUT_SEED = 20261125;
 export const WINDOWS = {
   history: { seed: CONFIG.seed, startMonth: CONFIG.startMonth, months: CONFIG.months, lotPrefix: "LOT", rowLabels: null },
+  "holdout-2026-10-11": {
+    seed: HOLDOUT_SEED, startMonth: "2026-10", months: 2, lotPrefix: "HLD",
+    rowLabels: { provenance: "synthetic", label: "generated", dataset: "holdout-2026-10-11", generator_seed: HOLDOUT_SEED },
+  },
 } as const;
 export type WindowName = keyof typeof WINDOWS;
 export type GenerateOptions = { window?: WindowName; seed?: number; costPerKg?: number };
