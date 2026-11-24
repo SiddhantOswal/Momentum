@@ -20,3 +20,9 @@ test('the inline bootstrap ignores an invalid stored theme before React loads', 
   await expect(html).toHaveAttribute('data-theme', 'light');
   await expect(html).toHaveCSS('color-scheme', 'light');
 });
+
+test('the inline bootstrap keeps its theme variables local', async ({ page }) => {
+  await beforeReact(page);
+  const globals = await page.evaluate(() => [typeof systemTheme, typeof savedTheme]);
+  expect(globals).toEqual(['undefined', 'undefined']);
+});

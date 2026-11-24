@@ -9,10 +9,12 @@
     <title>Momentum · Production intelligence</title>
     <script>
       // Set the theme before first paint, even when storage is unavailable.
-      const systemTheme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-      let savedTheme;
-      try { savedTheme = localStorage.getItem("momentum-theme"); } catch {}
-      document.documentElement.dataset.theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : systemTheme;
+      {
+        const systemTheme = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        let savedTheme;
+        try { savedTheme = localStorage.getItem("momentum-theme"); } catch {}
+        document.documentElement.dataset.theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : systemTheme;
+      }
     </script>
   </head>
   <body>
