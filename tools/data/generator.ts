@@ -1,6 +1,10 @@
-// generator.ts — synthetic lot history for the Prep Agent
-// Run:  npx tsx generator.ts            (reads ./items.jsonl, writes ./out/*.jsonl)
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+// generator.ts: modelled lot history for Momentum, built on the plant's real item master.
+// Run:  node tools/data/generator.ts [--items items.jsonl] [--out out] [--window history] [--cost-per-kg 53.3]
+// See tools/data/README.md for the seed, assumptions, outputs and the recorded hashes.
+import { readFileSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 
 // ───────────────────────── CONFIG (edit after the plant inputs) ─────────────────────────
 export const CONFIG = {
@@ -10,7 +14,9 @@ export const CONFIG = {
   boxesPerLot: 600,               // monthly_qty / this ≈ lots per item per month
   skipMonthChance: 0.1,           // some items aren't ordered every month
   nightShiftShare: 0.3,
-  costPerKg: 45,                  // ₹ per kg of scrap (paper + gum + conversion)
+  // ₹ per kg of scrap (paper + gum + conversion). The founders' file said 45, but prepagent.lots and
+  // prepagent.impact_lots were built with 53.3, the cost_per_kg of PLANT-01 in prepagent.plants.
+  costPerKg: 53.3,
   currency: "INR",
   suppliers: [                    // weight, paper-type mix [VIRGIN, MIXED, RECYCLED]
     { id: "SUP-A", w: 30, mix: [0.3, 0.4, 0.3] },
@@ -45,6 +51,14 @@ const SEASON: Record<number, [number, number, number, number]> = {
   10: [50, 70, 18, 32], 11: [50, 70, 18, 32], 12: [30, 50, 10, 30],
 };
 
+// ───────────────────────── WINDOWS ─────────────────────────
+// "history" is the run that built prepagent.lots and must stay byte-identical, so its rows carry no extra fields.
+export const WINDOWS = {
+  history: { seed: CONFIG.seed, startMonth: CONFIG.startMonth, months: CONFIG.months, lotPrefix: "LOT", rowLabels: null },
+} as const;
+export type WindowName = keyof typeof WINDOWS;
+export type GenerateOptions = { window?: WindowName; seed?: number; costPerKg?: number };
+
 // ───────────────────────── TYPES ─────────────────────────
 type Level = "LOW" | "MED" | "HIGH";
 export type Item = {
@@ -72,18 +86,24 @@ function mulberry32(a: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(CONFIG.seed);
-const uni = (a: number, b: number) => a + (b - a) * rand();
-const normal = (m: number, sd: number) => {
-  const u = 1 - rand(), v = rand();
-  return m + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-};
+
+// The draw order inside generate() is what the recorded hashes depend on; reordering any call changes every lot after it.
+function createRandom(seed: number) {
+  const rand = mulberry32(seed);
+  const uni = (a: number, b: number) => a + (b - a) * rand();
+  const normal = (m: number, sd: number) => {
+    const u = 1 - rand(), v = rand();
+    return m + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+  const pick = <T extends string>(weights: Record<T, number>): T => {
+    let u = rand();
+    for (const [k, w] of Object.entries(weights) as [T, number][]) { if ((u -= w) <= 0) return k; }
+    return Object.keys(weights)[0] as T;
+  };
+  return { rand, uni, normal, pick };
+}
+
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
-const pick = <T extends string>(weights: Record<T, number>): T => {
-  let u = rand();
-  for (const [k, w] of Object.entries(weights) as [T, number][]) { if ((u -= w) <= 0) return k; }
-  return Object.keys(weights)[0] as T;
-};
 const r1 = (x: number) => Math.round(x * 10) / 10;
 const r2 = (x: number) => Math.round(x * 100) / 100;
 const r3 = (x: number) => Math.round(x * 1000) / 1000;
@@ -175,13 +195,13 @@ export function scrapRates(o: Order, c: Conditions, l: Levers, z: Latent = NO_LA
 }
 
 // Full outcome for one lot — also the "true" scorer for the impact number.
-export function trueScrap(o: Order, c: Conditions, l: Levers, z: Latent = NO_LATENT) {
+export function trueScrap(o: Order, c: Conditions, l: Levers, z: Latent = NO_LATENT, costPerKg: number = CONFIG.costPerKg) {
   const rates = scrapRates(o, c, l, z);
   const boxKg = (sheetAreaM2(o) * boardGsm(o)) / 1000;
   const totalPct = DEFECTS.reduce((s, d) => s + rates[d], 0);
   const totalKg = o.quantity * boxKg * (totalPct / 100);
   const primary = DEFECTS.reduce((a, b) => (rates[b] > rates[a] ? b : a));
-  return { rates, totalPct, boxKg, totalKg, cost: totalKg * CONFIG.costPerKg, primary };
+  return { rates, totalPct, boxKg, totalKg, cost: totalKg * costPerKg, primary };
 }
 
 // ───────────────────────── NOTES (replace with real operator remarks) ─────────────────────────
@@ -211,14 +231,19 @@ const NOTES: Record<(typeof DEFECTS)[number], string[]> = {
 };
 
 // ───────────────────────── GENERATE ─────────────────────────
-function main() {
-  const items: Item[] = readFileSync("items.jsonl", "utf8").trim().split("\n").map((l) => JSON.parse(l));
+export function generate(items: Item[], opts: GenerateOptions = {}) {
+  const win = WINDOWS[opts.window ?? "history"];
+  if (!win) throw new Error(`Unknown window "${opts.window}". Use one of: ${Object.keys(WINDOWS).join(", ")}`);
+  const costPerKg = opts.costPerKg ?? CONFIG.costPerKg;
+  if (!(Number.isFinite(costPerKg) && costPerKg > 0)) throw new Error(`costPerKg must be a positive number, got ${costPerKg}`);
+  const { rand, uni, normal, pick } = createRandom(opts.seed ?? win.seed);
+  const labels = win.rowLabels ?? {};
   const H = CONFIG.habits;
   const lots: any[] = [], feedback: any[] = [], truth: any[] = [];
-  const [y0, m0] = CONFIG.startMonth.split("-").map(Number);
+  const [y0, m0] = win.startMonth.split("-").map(Number);
   let n = 0;
 
-  for (let mi = 0; mi < CONFIG.months; mi++) {
+  for (let mi = 0; mi < win.months; mi++) {
     const year = y0 + Math.floor((m0 - 1 + mi) / 12), month = ((m0 - 1 + mi) % 12) + 1;
     const daysInMonth = new Date(year, month, 0).getDate();
     const [rhMin, rhMax, tMin, tMax] = SEASON[month];
@@ -260,8 +285,9 @@ function main() {
           noise: DEFECTS.map(() => Math.exp(normal(0, CONFIG.noiseSigma))),
           freak: rand() < CONFIG.freakChance ? Math.floor(rand() * 5) : -1,
         };
-        const out = trueScrap(order, cond, lev, latent);
-        const lot_id = `LOT-${String(n).padStart(6, "0")}`;
+        const out = trueScrap(order, cond, lev, latent, costPerKg);
+        // prepagent.lots prices the rounded kg (checked on five stored lots); the founders' file priced the unrounded kg.
+        const lot_id = `${win.lotPrefix}-${String(n).padStart(6, "0")}`;
 
         lots.push({
           lot_id, order_id: `PO-${String(year).slice(2)}${String(month).padStart(2, "0")}-${String(n).padStart(5, "0")}`,
@@ -273,9 +299,10 @@ function main() {
           sheet_area_m2: r3(sheetAreaM2(it)), box_weight_kg: r3(out.boxKg),
           rate_warp_pct: r3(out.rates.warp), rate_delam_pct: r3(out.rates.delam), rate_strength_pct: r3(out.rates.strength),
           rate_print_pct: r3(out.rates.print), rate_crack_pct: r3(out.rates.crack),
-          total_scrap_kg: r2(out.totalKg), scrap_cost: r2(out.cost), currency: CONFIG.currency, primary_defect: out.primary.toUpperCase(),
+          total_scrap_kg: r2(out.totalKg), scrap_cost: r2(r2(out.totalKg) * costPerKg), currency: CONFIG.currency, primary_defect: out.primary.toUpperCase(),
+          ...labels,
         });
-        truth.push({ lot_id, ...latent, noise: latent.noise.map(r3) });
+        truth.push({ lot_id, ...latent, noise: latent.noise.map(r3), ...labels });
 
         if (out.totalPct >= 8 && rand() < 0.2) {
           const options = NOTES[out.primary];
@@ -286,19 +313,20 @@ function main() {
             rate_print_pct: r3(out.rates.print), rate_crack_pct: r3(out.rates.crack),
             photo_uri: null, photo_defect: null, photo_confidence: null,
             override: false, operator_note: note, operator_note_en: note, note_lang: "en",
+            ...labels,
           });
         }
       }
     }
   }
-
-  mkdirSync("out", { recursive: true });
-  const dump = (f: string, rows: any[]) => writeFileSync(`out/${f}`, rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
-  dump("lots.jsonl", lots); dump("feedback.jsonl", feedback); dump("truth.jsonl", truth);
-  sanity(lots, feedback);
+  return { lots, feedback, truth };
 }
 
+export const toJsonl = (rows: any[]) => rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
+export const readItems = (path: string): Item[] => readFileSync(path, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+
 // ───────────────────────── SANITY CHECKS ─────────────────────────
+// Thresholds describe the full 24-month history; a two-month window is summarised instead.
 function sanity(lots: any[], feedback: any[]) {
   const tot = (l: any) => l.rate_warp_pct + l.rate_delam_pct + l.rate_strength_pct + l.rate_print_pct + l.rate_crack_pct;
   const totals = lots.map(tot);
@@ -327,4 +355,41 @@ function sanity(lots: any[], feedback: any[]) {
   console.log("Primary defect mix:", prim);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+export function windowSummary(lots: any[], feedback: any[]) {
+  const mean = (k: string, rows: any[]) => rows.reduce((s, l) => s + l[k], 0) / Math.max(1, rows.length);
+  const byMonth = new Map<string, any[]>();
+  for (const l of lots) byMonth.set(l.run_date.slice(0, 7), [...(byMonth.get(l.run_date.slice(0, 7)) ?? []), l]);
+  const rows = [...byMonth].sort(([a], [b]) => a.localeCompare(b)).map(([m, ls]) => {
+    const scrapPct = ls.reduce((s, l) => s + l.rate_warp_pct + l.rate_delam_pct + l.rate_strength_pct + l.rate_print_pct + l.rate_crack_pct, 0) / ls.length;
+    return { month: m, lots: ls.length, rhPct: r1(mean("ambient_rh_pct", ls)), tempC: r1(mean("ambient_temp_c", ls)),
+      moisturePct: r2(mean("paper_moisture_pct", ls)), scrapPct: r2(scrapPct), scrapKg: r1(ls.reduce((s, l) => s + l.total_scrap_kg, 0)) };
+  });
+  return { lots: lots.length, feedback: feedback.length, months: rows };
+}
+
+// ───────────────────────── CLI ─────────────────────────
+function main() {
+  const { values } = parseArgs({
+    options: {
+      items: { type: "string", default: "items.jsonl" },
+      out: { type: "string" },
+      window: { type: "string", default: "history" },
+      "cost-per-kg": { type: "string" },
+    },
+  });
+  const window = values.window as WindowName;
+  if (!(window in WINDOWS)) throw new Error(`Unknown --window "${values.window}". Use one of: ${Object.keys(WINDOWS).join(", ")}`);
+  const costPerKg = values["cost-per-kg"] === undefined ? CONFIG.costPerKg : Number(values["cost-per-kg"]);
+  const outDir = values.out ?? (window === "history" ? "out" : join("out", window));
+
+  const { lots, feedback, truth } = generate(readItems(values.items), { window, costPerKg });
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(join(outDir, "lots.jsonl"), toJsonl(lots));
+  writeFileSync(join(outDir, "feedback.jsonl"), toJsonl(feedback));
+  writeFileSync(join(outDir, "truth.jsonl"), toJsonl(truth));
+  console.log(`Window ${window}, seed ${WINDOWS[window].seed}, ₹${costPerKg} per kg, written to ${outDir}`);
+  if (window === "history") sanity(lots, feedback);
+  else console.log(JSON.stringify(windowSummary(lots, feedback), null, 2));
+}
+
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main();
