@@ -56,7 +56,7 @@
       "thinkingLevel": "LOW",
       "includeThoughts": false,
       "functionCallingMode": null,
-      "prompt": null
+      "prompt": "writer/v1"
     },
     "agent": {
       "model": "gemini-3.5-flash",
