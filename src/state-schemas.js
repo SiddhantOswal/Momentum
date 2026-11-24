@@ -220,8 +220,12 @@ export const ArcTurnDocSchema = z.object({
   inputFingerprint: Sha256HexSchema,
   input: ArcTurnInputSchema,
   answerText: z.string().max(1200).nullable(),
+  // An expired execution lease can move without changing an attempt's reservation.
+  reservationOwnerToken: uuid.optional(),
   summary: ArcTurnSummarySchema.nullable(),
   eventRange: z.object({ first: z.number().int().positive(), last: z.number().int().positive() }).strict().nullable(),
+  // Set when recordStatus is "failed", so a turn without a task run can still replay its reason (wire contract D3).
+  errorCode: z.string().max(64).nullable(),
 }).strict();
 
 export const StepStatusSchema = z.enum(["PENDING", "RUNNING", "SUCCEEDED", "FAILED",
@@ -236,6 +240,8 @@ export const TaskStepSchema = z.object({
   idempotencyKey: EffectKeySchema.nullable(),
   attempt: z.number().int().nonnegative().max(3),
   leaseOwner: uuid.nullable(),
+  reservationOwner: uuid.optional(),
+  geminiAttempts: z.number().int().nonnegative().optional(),
   leaseExpiresAt: TimestampSchema.nullable(),
   resultRef: ResultRefSchema.nullable(),
   waitingFor: WaitingForSchema.nullable(),

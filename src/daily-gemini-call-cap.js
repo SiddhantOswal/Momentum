@@ -7,6 +7,7 @@ const CAP_ENV = Object.freeze({
 
 const DEFAULT_CAP = 100;
 const DEFAULT_TIME_ZONE = "Asia/Kolkata";
+const REPLAY_MESSAGE = "This Gemini call was already reserved.";
 
 export class GeminiDailyCallCapError extends Error {
   constructor() {
@@ -25,9 +26,16 @@ const BUDGET_MESSAGES = Object.freeze({
   BUDGET_RESERVED_FOR_PITCH: "The Gemini attempts left today are held for the pitch.",
   BUDGET_COST_EXHAUSTED: "Today's Gemini spending limit is reached. Try after midnight IST.",
   BUDGET_WINDOW_BLOCKED: "Gemini eval runs are paused during the pitch window.",
+  BUDGET_TURN_EXHAUSTED: "This turn has used its Gemini attempts.",
 });
 
 export function geminiUsageFailure(error) {
+  if (error?.code === "BUDGET_TURN_EXHAUSTED") return {
+    ok: false, error: { code: "GEMINI_DAILY_CAP_EXCEEDED", budgetCode: error.code, message: BUDGET_MESSAGES[error.code] },
+  };
+  if (error?.code === "GEMINI_CALL_REPLAYED") return {
+    ok: false, error: { code: "GEMINI_CALL_REPLAYED", message: REPLAY_MESSAGE },
+  };
   if (error?.code === "GEMINI_DAILY_CAP_EXCEEDED" && Object.hasOwn(BUDGET_MESSAGES, error.budgetCode)) return {
     ok: false,
     error: {
@@ -141,14 +149,24 @@ export function withDailyGeminiCallCap(client, configuration, { now = () => Date
     if (store) {
       const dayKey = currentDay();
       const caller = currentGeminiCaller();
+      const reservationKey = caller?.nextReservationKey?.();
       const reservation = await store.reserveAttempt({
         dayKey, timeZone: configuration.timeZone, limit: configuration.limit, signal: args?.signal,
         role: args?.role,
-        budget: caller ? { principal: caller.principal, ipKey: caller.ipKey, ...args?.budget } : args?.budget,
+        budget: caller ? {
+          principal: caller.principal, ipKey: caller.ipKey, ...args?.budget,
+          ...(reservationKey === undefined ? {} : {
+            reservationKey, principal: caller.principal, ipKey: caller.ipKey,
+          }),
+        } : args?.budget,
       });
+      caller?.onReservation?.();
       // A disconnect after commit still consumes the attempt, but must not
       // start a provider call on behalf of an already cancelled request.
       args?.signal?.throwIfAborted();
+      if (reservation?.replayed === true) {
+        throw Object.assign(new Error(REPLAY_MESSAGE), { code: "GEMINI_CALL_REPLAYED" });
+      }
       if (currentDay() !== dayKey) {
         // Do not issue today's request against yesterday's reservation. Keep
         // the consumed slot and require a fresh request under today's key.

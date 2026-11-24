@@ -23,6 +23,16 @@ A session that built a branch never reviews it, and a reviewer session is always
 
 For tickets that touch security, AI behaviour, labels or copy, the matching reviewer role runs before the merge (see the ticket's "Owner" line), and the milestone gate repeats all of them.
 
+## 2a. QA tiers (founders, 2026-11-24)
+
+To save time and tokens without lowering quality, review effort follows risk:
+
+- **Tier A, independent QA before merge:** tickets that touch authentication, sessions, approval, budgets and limits, stored state, model calls, labels, or the Arc routes, tool registry, turn runner, J1 run, conditions with provenance and data answers. A fresh QA session verifies as in section 2 step 3.
+- **Tier B, no separate QA:** UI pages and states, copy, docs, wording, test-only changes and small refactors. The builder's self-check against `known-findings.md`, the commit hooks, the orchestrator's two full suite runs, and a scan for removed or loosened assertions replace it. The orchestrator also reads each Tier B diff at a high level. These tickets are reviewed in a batch (one QA session over the batch) at the end of their sub-milestone.
+- **Builders do not wait for QA.** A builder starts the next ticket on a branch stacked on the previous one while QA runs. A ticket merges when its QA returns; fixes go back to the builder in a packet that lists the findings.
+- **The milestone gate is unchanged:** all eight reviewers, at the end of each milestone, as `CLAUDE.md` section 5 requires.
+- Every packet states its tier and carries `known-findings.md`. The orchestrator can move a ticket up a tier when its diff shows risk.
+
 ## 3. The milestone gate
 
 At the end of each milestone, before the next one is opened, the orchestrator starts eight fresh reviewer sessions in parallel, each with `gate-packet-template.md` filled in for that milestone:
@@ -57,9 +67,13 @@ Two rules for dispatch. Builders run in separate worktrees, never in the main ch
 
 Every command passes the model and the effort explicitly (`gpt-6.2-sol`, medium), so no session depends on a config default. Codex 0.172.0 lists `gpt-6.2-sol` (`codex debug models`); the earlier 0.164.0 did not.
 
+## 4c. Sandbox
+
+Sessions run with `-s workspace-write` and **no network**. Tested on 2026-11-24: with network access on, a session can open local servers, but it can also reach GitHub and Google Cloud and read the gcloud credentials folder, so network stays off. With it off, `.git` is read-only and local servers cannot start, so builders hand back a commit plan and the orchestrator commits and runs the full suite (`external-agents.md` section 2a). Reviewer sessions cannot run the server-starting tests either: the orchestrator runs the full suite twice (once alongside a second run) before the review and puts the log paths in the packet, and reviewers run mutations on the in-process tests.
+
 ## 4a. No code is lost
 
-- Every builder commits its work before it reports, and never leaves uncommitted changes in a worktree.
+- A builder cannot commit inside its sandbox. It leaves its work in the worktree and writes `commit-plan.json`; the orchestrator applies it (`tools/apply-commit-plan.mjs`) straight away, so work never sits uncommitted for long. A worktree with changes the orchestrator has not committed is never removed.
 - Worktrees live under `/Users/siddhant/Developer/momentum-wt/`, not in `/tmp`, so a reboot or cleanup cannot remove them.
 - Branches are never deleted until their merge into `arc/main` is recorded in STATUS. Abandoned work is recorded in STATUS and kept as a branch.
 - Everything that ships ends up on `arc/main`. The orchestrator checks at each milestone gate that `git branch --no-merged arc/main` lists only branches that STATUS explains.
@@ -106,4 +120,5 @@ Reviewers do not invent findings. Each cites a line, a command or a document.
 - `roles/` one prompt per role, generated from `.claude/agents/`.
 - `packets/` one file per ticket or review, written by the orchestrator.
 - `packet-template.md` and `gate-packet-template.md`.
+- `known-findings.md` the checklist every builder runs before handing back.
 - `queue.md` the ordered list of remaining work and its parallel lanes.

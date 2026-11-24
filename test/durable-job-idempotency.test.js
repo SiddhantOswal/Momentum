@@ -46,7 +46,7 @@ function fakeJobSheets() {
 
 // One Cloud Run instance: its own service ports and Firestore client, sharing
 // the fake database and job_sheets table with every other instance.
-function startInstance({ fake, env = FLAG_ON, sheets, clock, gemini, holdPlanning }) {
+function startInstance({ fake, env = FLAG_ON, sheets, clock, gemini, holdPlanning, demoMode = false }) {
   const servicePorts = createConfiguredServicePorts({
     env,
     fetchImpl: fake.fetchImpl,
@@ -55,7 +55,7 @@ function startInstance({ fake, env = FLAG_ON, sheets, clock, gemini, holdPlannin
   const idempotency = selectJobIdempotencyStore({
     jobIdempotency: servicePorts.jobIdempotency,
     jobSheetPersistenceAvailable: true,
-    demoMode: false,
+    demoMode,
   });
   // The coordinator's explanation step is the Gemini attempt a replay must not repeat.
   const prepareJob = async ({ jobId }) => {
@@ -269,13 +269,13 @@ test("with the flag on and Firestore unreachable, job creation fails closed befo
   assert.equal(sheets.rows.length, 0);
 });
 
-test("with the flag off, /jobs keeps the process-local store and never calls Firestore", async () => {
+test("with the flag off, the offline demo replays jobs in memory without calling Firestore", async () => {
   for (const value of [undefined, "false", "TRUE", "1"]) {
     const fake = createFakeFirestore();
     const sheets = fakeJobSheets();
     const gemini = { attempts: 0 };
     const env = { PROJECT_ID: "prepagent-hack", ...(value === undefined ? {} : { USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: value }) };
-    const instance = startInstance({ fake, env, sheets, clock: clockAt(START), gemini });
+    const instance = startInstance({ fake, env, sheets, clock: clockAt(START), gemini, demoMode: true });
 
     assert.ok(instance.idempotency.store instanceof InMemoryIdempotencyStore);
     assert.equal(instance.idempotency.leaseMs, 30_000);
@@ -285,10 +285,25 @@ test("with the flag off, /jobs keeps the process-local store and never calls Fir
     assert.equal(gemini.attempts, 1);
     assert.equal(fake.calls.length, 0);
 
-    const otherInstance = startInstance({ fake, env, sheets, clock: clockAt(START), gemini });
+    const otherInstance = startInstance({ fake, env, sheets, clock: clockAt(START), gemini, demoMode: true });
     await plan(otherInstance);
     assert.equal(gemini.attempts, 2, "flag off: a second instance does not see the first one's claim");
   }
+});
+
+test("with the flag off outside demo mode, configured job persistence cannot use an in-memory store", async () => {
+  const fake = createFakeFirestore();
+  const sheets = fakeJobSheets();
+  const gemini = { attempts: 0 };
+  const env = { ...FLAG_ON, USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: "false" };
+  const instance = startInstance({ fake, env, sheets, clock: clockAt(START), gemini });
+
+  assert.equal(instance.idempotency.scope, "unavailable");
+  assert.equal(instance.idempotency.store, undefined);
+  assert.equal((await plan(instance)).error?.code, "SERVICE_UNAVAILABLE");
+  assert.equal(gemini.attempts, 0);
+  assert.equal(sheets.rows.length, 0);
+  assert.equal(fake.calls.length, 0);
 });
 
 test("the flag on without a Firestore store leaves job creation unavailable instead of falling back to memory", () => {

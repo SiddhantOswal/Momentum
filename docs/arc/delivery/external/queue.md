@@ -25,9 +25,9 @@ Re-run the QA and verification-audit reviews, collect `reviews/M1-review.md`, th
 
 | Order | Ticket | Depends on | Notes |
 |---|---|---|---|
-| 1 | ARC-M2-01 Arc routes and stores | M1-02, M1-05, wire contract | Partly built on branch `worktree-agent-a65409c978eed8e26` (store tests first); continue from it |
-| 2 | ARC-M2-02 tool registry | M2-01, M1-01 | `tool-registry` suite (12 assertions); no tool reaches approve |
-| 3 | ARC-M2-03 turn runner | M2-02, M1-08 | Run Gemini calls inside `runAsGeminiCaller` (carry-over from M1-17) |
+| 1 | ARC-M2-01 Arc routes and stores | M1-02, M1-05, wire contract | Merged (`21de95f`) |
+| 2 | ARC-M2-02 tool registry | M2-01, M1-01 | Merged (`53e2f6b`) |
+| 3 | ARC-M2-03 turn runner | M2-02, M1-08 | Merged (`bcbf47c`) |
 | 4 | ARC-M2-04 router and scope rules, ARC-M2-05 answer rendering and checks | M2-03 | Router sees only enums, numbers and IDs, no free text |
 | 5 | ARC-M2-06 event stream and resume | M2-01, M2-03, M1-07 | Two tabs reconnecting must not start a second run |
 | 6 | ARC-M2-07 offline eval harness and `npm run eval:offline` | M2-02 | Needs an owner for T1, T2, T9, T12, T14 suites |

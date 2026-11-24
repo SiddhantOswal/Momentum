@@ -4,6 +4,7 @@ import {jobSheetFixture} from '../fixtures/job-sheet.js';
 
 const runId='ec884530-a0df-4428-a5c1-c14149724ef9';
 const file='test/fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf';
+const revisionFingerprint='b'.repeat(64);
 const job={...jobSheetFixture,status:'DRAFT',recommended:{...jobSheetFixture.recommended,levers:{...jobSheetFixture.recommended.levers,rollTempC:170}},changes:[{lever:'rollTempC',from:165,to:170,reason:'Model comparison for the supplied inputs.'}]};
 const prediction={ok:true,source:'bigquery-ml',isRealModelPrediction:true,...job.baseline.risk,modelAcceptance:{status:'accepted'}};
 const optimization={ok:true,source:'bigquery-ml',isRealModelPrediction:true,baseline:job.baseline,best:job.recommended,changes:job.changes,savings:job.savings};
@@ -89,7 +90,7 @@ test('one persisted job request feeds analysis, then explicit review/approval/PD
     for(const [key,value] of Object.entries({reviewId:runId,reviewFingerprint:'a'.repeat(64),confirmedSourceLine:'true',conditionsConfirmed:'true',confirmedLineIndex:'1',confirmedItemCode:job.order.itemCode}))expect(form.get(key)).toBe(value);
     for(const [key,value] of Object.entries(job.baseline.levers))expect(form.get(key)).toBe(String(value));
     expect(form.has('prediction')).toBe(false);expect(form.has('finalLevers')).toBe(false);
-    await fulfill(route,{ok:true,durable:true,runId,jobSheet:job});
+    await fulfill(route,{ok:true,durable:true,runId,jobSheet:job,revision:{fingerprint:revisionFingerprint}});
   });
   await page.route('**/api/runs/*/events',route=>route.fulfill({contentType:'text/event-stream',body:'event: run.completed\ndata: '+JSON.stringify({id:runId+':1',runId,sequence:1,type:'run.completed'})+'\n\n'}));
   await page.locator('#prepare-job').click();await expect(page.locator('#screen-production-analysis')).toBeVisible();await expect(page.locator('#risk-metrics .risk-row')).toHaveCount(5);await expect(page.locator('#trace-events')).toContainText('Run completed');
@@ -97,7 +98,7 @@ test('one persisted job request feeds analysis, then explicit review/approval/PD
   await stage(page,3).click();await expect(page.locator('#stored-job-preview')).toBeVisible();
   await page.getByText('Manufacturing sequence and settings',{exact:true}).click();await expect(page.locator('.manufacturing-sequence tbody tr')).toHaveCount(9);await expect(page.locator('.manufacturing-sequence')).toContainText('170 °C');await expect(page.locator('.manufacturing-sequence caption')).toContainText('approval required');
   await labelEvidence(page);await page.screenshot({path:'test-results/evidence/shared-dashboard/job-draft-settings-fixture-1440.png',fullPage:true,animations:'disabled'});
-  await page.route('**/jobs/*/approve?*',route=>{approvals++;expect(route.request().postData()).toBeNull();const url=new URL(route.request().url());expect(url.searchParams.get('lang')).toBe('en');return fulfill(route,{ok:true,jobSheet:{...job,status:'APPROVED'}});});
+  await page.route('**/jobs/*/approve?*',route=>{approvals++;expect(route.request().postDataJSON()).toEqual({reviewConfirmed:true,revisionFingerprint});const url=new URL(route.request().url());expect(url.searchParams.get('lang')).toBe('en');return fulfill(route,{ok:true,jobSheet:{...job,status:'APPROVED'}});});
   await page.locator('#approval-form button').click();expect(approvals).toBe(0);await expect(page.locator('#approval-dialog')).toBeVisible();await page.locator('#confirm-approval').click();await expect(page.locator('#job-status-badge')).toContainText('APPROVED');expect(approvals).toBe(1);
   await page.route('**/jobs/*/card.pdf?*',route=>route.fulfill({contentType:'application/pdf',body:Buffer.from('%PDF-1.4 offline browser fixture')}));await page.locator('#stored-card-form button').click();await expect(page.locator('#stored-card-link')).toBeVisible();
   await labelEvidence(page);await page.screenshot({path:'test-results/evidence/shared-dashboard/job-card-fixture-1440.png',fullPage:true,animations:'disabled'});

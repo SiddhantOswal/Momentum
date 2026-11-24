@@ -468,6 +468,26 @@ test("Cloud Run status reports shared Firestore idempotency when its flag is on"
   }
 });
 
+test("offline demo status reports process-local idempotency with the Firestore flag off", async () => {
+  const { child } = await startServer({
+    USTAAD_ENABLE_DEMO_MODE: "true",
+    USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: "false",
+  });
+  try {
+    const response = await fetch(`http://127.0.0.1:${PORT}/api/status`);
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.executionMode, "demo");
+    assert.equal(payload.runtimeAvailability.jobCreationAvailable, true);
+    for (const section of [payload.runtimeAvailability, payload.integrations]) {
+      assert.equal(section.durableIdempotencyConfigured, false);
+      assert.equal(section.idempotencyScope, "process-local");
+    }
+  } finally {
+    await stopServer(child);
+  }
+});
+
 test("live decision routes reject missing or forged supervisor identity before validation or service calls", async () => {
   const { child } = await startServer({
     K_SERVICE: "prepagent",

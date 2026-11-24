@@ -56,6 +56,15 @@ The product runs on live Google Cloud services. Build for that.
 - **Make no Google Cloud change yourself.** If a ticket needs one (a deploy, a new index, a TTL policy, an IAM grant), write the command, the reason, the cost impact and the rollback in your hand-back. The delivery lead records it in STATUS and runs it after approval. New revisions deploy with `--no-traffic`. Never delete a resource.
 - **Never print, paste or commit secrets.** Do not read `.env` files.
 
+## 2a. How sessions run (from 2026-11-24, overrides section 3 where it differs)
+
+The orchestrator starts every session with `codex exec` in a sandbox that has **no network**. That is what guarantees an outside agent cannot push to GitHub or reach Google Cloud, Vertex AI, Gemini or BigQuery. Two consequences:
+
+- **You cannot commit.** The sandbox makes `.git` read-only. Leave your finished work in the worktree, uncommitted, and write `commit-plan.json` at the worktree root: an array of `{"message": "...", "files": ["..."]}`, one entry per small logical commit, in the order the commits should be made (tests before the code they test where that is natural, and any changed existing expectation in its own entry with the reason in the message). Each message is one line of at most 72 characters. The orchestrator applies it with `node tools/apply-commit-plan.mjs`, so the project hooks run on every commit. List every file you changed in some entry. Do not include `commit-plan.json` itself.
+- **You cannot open local servers.** Tests that start the app on a port fail with `EPERM` in your sandbox. Run the tests that do not need a server (`node --test test/<file>.test.js` for unit tests and in-process route tests), and say which tests you could not run. The orchestrator runs the full suite outside the sandbox after applying your plan and sends any failure back to you. Never try to get around the sandbox.
+
+Your hand-back (section 4) lists the commit plan instead of commit hashes, and marks the full `npm test` and the browser tests NOT RUN BY BUILDER; the orchestrator's counts are added to the record.
+
 ## 3. The engineering workflow for one ticket
 
 1. **Branch.** Branch from the latest `arc/main` as `arc/<TICKET-ID>-<short-name>`, for example `arc/ARC-M6-01-tokens`. Use a separate worktree, so you never disturb another agent's checkout:

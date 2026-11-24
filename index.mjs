@@ -25,6 +25,12 @@ import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.
 import { readServerPort } from "./src/runtime-config.js";
 import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
+import { isSampleDocument } from "./src/synthetic-po-allowlist.js";
+import { createArcRoutes } from "./src/arc/routes.js";
+import { createArcTurnRunner } from "./src/arc/turn-runner.js";
+import { createArcEventStore } from "./src/google-cloud/firestore-arc-event-store.js";
+import { createFirestoreArcSessionStore } from "./src/google-cloud/firestore-arc-session-store.js";
+import { createFirestoreArcTaskRunStore } from "./src/google-cloud/firestore-arc-task-run-store.js";
 import { streamSSE } from "hono/streaming";
 import { createLiveStore } from "./src/google-cloud/live-store.js";
 import { canApprove, initializeUserSessionAuth, SESSION_COOKIE } from "./src/user-session-auth.js";
@@ -119,12 +125,9 @@ const prepareJob = createJobCoordinator({
 const jobSheetPersistenceAvailable =
   servicePorts.availability.createDraftJobSheet === true &&
   servicePorts.availability.getStoredJobSheet === true;
-// Om's approved prototype contract keeps idempotency process-local.
-// USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY shares claims across Cloud Run
-// instances through Firestore instead (design 3.2).
+// Shared Firestore claims prevent two service instances from creating the same job.
 const jobIdempotency = selectJobIdempotencyStore({
   jobIdempotency: servicePorts.jobIdempotency,
-  jobSheetPersistenceAvailable,
   demoMode,
 });
 const idempotencyStore = jobIdempotency.store;
@@ -154,6 +157,17 @@ const lookupStoredJobSheet = createStoredJobSheetLookup({
   testOnly: executionMode !== "demo",
 });
 const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
+const isArcRequest = (c) => c.req.path === "/api/arc" || c.req.path.startsWith("/api/arc/");
+const limitRequestBody = bodyLimit({
+  maxSize: MAX_REQUEST_BODY_BYTES,
+  onError: (c) => c.json({
+    ok: false,
+    error: {
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Request body must not exceed 10 MiB.",
+    },
+  }, 413),
+});
 const resolveClientKey = createClientKeyResolver(process.env);
 const clientIpKey = (c) => createIpKeyDeriver(process.env.USTAAD_DEMO_SESSION_SIGNING_KEY)(resolveClientKey(c));
 // The code is read once from the Secret Manager value the service mounts as an env var, and only its digest is kept.
@@ -166,6 +180,11 @@ const apiRateLimit = createApiRateLimitMiddleware({
     const session = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
     return session.ok ? session.principal.sessionId : undefined;
   },
+});
+
+app.use("/api/arc/*", async (c, next) => {
+  c.header("Cache-Control", "no-store");
+  return next();
 });
 
 // Every Gemini call made while serving a request is charged to this session and address.
@@ -186,6 +205,8 @@ app.use("*", (c, next) => {
   return requestTimeout(c, next);
 });
 
+// Arc checks the global body limit before charging either rate-limit bucket.
+app.use("/api/arc/*", limitRequestBody);
 app.use("/api/*", apiRateLimit);
 app.use("/orders/*", apiRateLimit);
 app.use("/conditions/*", apiRateLimit);
@@ -199,16 +220,7 @@ app.use("/insights/*", apiRateLimit);
 app.use("/impact/*", apiRateLimit);
 app.use("/evidence/*", apiRateLimit);
 
-app.use("*", bodyLimit({
-  maxSize: MAX_REQUEST_BODY_BYTES,
-  onError: (c) => c.json({
-    ok: false,
-    error: {
-      code: "PAYLOAD_TOO_LARGE",
-      message: "Request body must not exceed 10 MiB.",
-    },
-  }, 413),
-}));
+app.use("*", (c, next) => isArcRequest(c) ? next() : limitRequestBody(c, next));
 
 function responseForResult(c, result) {
   const actor = c.get("verifiedSupervisorPrincipal");
@@ -427,12 +439,9 @@ app.get("/operator-ui.css", async (c) => {
   });
 });
 
-const sampleDocuments = new Set([
-  "PO1_ClientA_single_B1047.pdf", "PO2_ClientA_multiline.pdf", "PO3_ClientP_electronics_with_fitment.pdf", "PO4_ClientQ_ambiguous_set.pdf", "PO5_ClientB_scanned.jpg",
-]);
 app.get("/samples/:filename", async (c) => {
   const name = c.req.param("filename");
-  if (!sampleDocuments.has(name)) return c.notFound();
+  if (!isSampleDocument(name)) return c.notFound();
   const source = await readFile(new URL("./public/samples/" + name, import.meta.url));
   return c.body(source, 200, { "Content-Type": name.endsWith(".pdf") ? "application/pdf" : "image/jpeg", "Cache-Control": "public, max-age=86400" });
 });
@@ -570,6 +579,29 @@ app.use("/api/runs/*", async (c, next) => {
 });
 
 app.route("/api/runs", createTraceRoutes(durableTraces.registry, { store: durableTraces.store }));
+
+// USTAAD_ENABLE_ARC (exact "true") turns the Arc routes on; off, every /api/arc path answers 404 ARC_NOT_ENABLED.
+const arcEnabled = process.env.USTAAD_ENABLE_ARC === "true";
+const arcProjectId = process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT;
+const arcFirestore = arcEnabled && arcProjectId ? { projectId: arcProjectId } : null;
+const arcSessionStore = arcFirestore ? createFirestoreArcSessionStore(arcFirestore) : undefined;
+const arcTaskRunStore = arcFirestore ? createFirestoreArcTaskRunStore(arcFirestore) : undefined;
+const arcLotStore = servicePorts.lotRevisions.store;
+app.route("/api/arc", createArcRoutes({
+  enabled: arcEnabled,
+  commandDeps,
+  sessionStore: arcSessionStore,
+  taskRunStore: arcTaskRunStore,
+  lotStore: arcLotStore,
+  getIpKey: clientIpKey,
+  ...(arcFirestore && createArcTurnRunner({
+    sessionStore: arcSessionStore,
+    taskRunStore: arcTaskRunStore,
+    eventStore: createArcEventStore(arcFirestore),
+    lotStore: arcLotStore,
+    deps: commandDeps,
+  })),
+}));
 
 // One canonical application. Old dashboard bookmarks retain query/fragment state.
 for (const path of ["/dashboard", "/dashboard/", "/dasboard", "/dasboard/"]) {
@@ -842,6 +874,12 @@ app.post("/risk/optimize", async (c) => {
 app.post("/jobs", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
+  if (!idempotencyStore && (isCloudRun || jobSheetPersistenceAvailable || servicePorts.lotRevisions.enabled)) {
+    return commandResponse(c, {
+      ok: false,
+      error: { code: "SERVICE_UNAVAILABLE", message: "Job creation requires a shared idempotency store." },
+    });
+  }
   let form;
   try {
     form = await c.req.parseBody();
