@@ -108,7 +108,7 @@ export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}
         let leaseOwner;
         try {
           effect = key(state.step, validated.data);
-          if (spendsGemini) leaseOwner = leaseOwnerSchema.parse(state.step.leaseOwner);
+          if (spendsGemini) leaseOwner = leaseOwnerSchema.parse(state.step.reservationOwner ?? state.step.leaseOwner);
         } catch (error) {
           if (!(error instanceof z.ZodError)) throw error;
           return unavailable("The tool step has no valid effect claim.");
@@ -124,7 +124,13 @@ export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}
         const result = spendsGemini ? await runAsGeminiCaller({
           principal,
           ipKey,
-          nextReservationKey: () => `${effect}.${leaseOwner.replaceAll("-", "").slice(0, 12)}.${callIndex++}`,
+          onReservation: state.onReservation,
+          nextReservationKey: () => {
+            if (state.maxGeminiAttempts !== undefined && callIndex >= state.maxGeminiAttempts) {
+              throw Object.assign(new Error("This turn has used its Gemini attempts."), { code: "BUDGET_TURN_EXHAUSTED" });
+            }
+            return `${effect}.${leaseOwner.replaceAll("-", "").slice(0, 12)}.${callIndex++}`;
+          },
         }, execute) : await execute();
         if (name === "list_samples" && result.ok) sampleIds = result.samples.map(({ id }) => id);
         if (name === "list_approved_photos" && result.ok) {

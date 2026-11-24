@@ -26,9 +26,13 @@ const BUDGET_MESSAGES = Object.freeze({
   BUDGET_RESERVED_FOR_PITCH: "The Gemini attempts left today are held for the pitch.",
   BUDGET_COST_EXHAUSTED: "Today's Gemini spending limit is reached. Try after midnight IST.",
   BUDGET_WINDOW_BLOCKED: "Gemini eval runs are paused during the pitch window.",
+  BUDGET_TURN_EXHAUSTED: "This turn has used its Gemini attempts.",
 });
 
 export function geminiUsageFailure(error) {
+  if (error?.code === "BUDGET_TURN_EXHAUSTED") return {
+    ok: false, error: { code: "GEMINI_DAILY_CAP_EXCEEDED", budgetCode: error.code, message: BUDGET_MESSAGES[error.code] },
+  };
   if (error?.code === "GEMINI_CALL_REPLAYED") return {
     ok: false, error: { code: "GEMINI_CALL_REPLAYED", message: REPLAY_MESSAGE },
   };
@@ -156,6 +160,7 @@ export function withDailyGeminiCallCap(client, configuration, { now = () => Date
           }),
         } : args?.budget,
       });
+      caller?.onReservation?.();
       // A disconnect after commit still consumes the attempt, but must not
       // start a provider call on behalf of an already cancelled request.
       args?.signal?.throwIfAborted();
