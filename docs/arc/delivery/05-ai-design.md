@@ -63,7 +63,7 @@ Not in the registry, by design:
 
 Three reply functions exist only in the router's declarations and have no side effects: `reply_out_of_scope(suggestionIds[])`, `ask_clarification(field)` and `explain_cannot_approve()`. Their text is fixed copy; the model chooses only enum values.
 
-**IDs.** Tool arguments never take a free-form ID. The current lot, review and job come from session state. Where the model must choose (sample `PO1` to `PO5`, photo `1` to `10`, a job from this session's history), the argument is an enum built per turn from IDs that tools returned in this session (ADR-0001 item 2). The job enum comes from `jobIds` on the session record (at most 20, this session's jobs only; `04` I5).
+**IDs.** Tool arguments never take a free-form ID. The current lot, review and job come from session state. Where the model must choose (sample `PO1` to `PO5`, photo `1` to `10`, a job from this session's history), the argument is an enum built per turn from IDs that tools returned in this session (ADR-0001 item 2). The job enum comes from `jobIds` on the session record (at most 20, this session's jobs only; `04` I5). If an enum has no choices, its tool is omitted from both the Vertex declarations and `allowedFunctionNames`.
 
 ## 2. Turn loop
 
@@ -99,6 +99,8 @@ A typed data question costs 2 attempts: the router call in step 4d and the write
 Limits, all in `config/arc.json`, versioned: model calls per turn 2 (router, then the answer writer for a typed data question); the writer has no tools, so it cannot start a loop; function calls per router response 3; tool steps per turn 4, of which at most one may call Gemini (`read_order`, `plan_lot`, `diagnose_approved_photo`; a second is offered as a button), so a typed turn spends at most 3 attempts; tool result 256 KiB (from `gemini-function-runner.js`); history sent to the router: the summaries of the turns in `recentTurnIds` (at most 4), never raw tool output or typed text.
 
 `src/google-cloud/gemini-function-runner.js` is not reused as is: it requires the seven Blueprint tools in `AGENT_TOOLS` and allows 8 model rounds. Its call validation and result-size guard move into `src/arc/turn-runner.js`; a ticket decides whether the old runner is then deleted.
+
+A reservation replay within the same claim returns `GEMINI_CALL_REPLAYED` before calling the provider. ARC-M2-03 will use the step's effect key to read the stored effect. The reservation itself records the charge and does not contain the tool result.
 
 **Records (ADR-0002, `04` sections 2.5, 2.6 and 3.3).**
 

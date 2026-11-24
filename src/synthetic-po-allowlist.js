@@ -15,3 +15,15 @@ export function isApprovedSyntheticPurchaseOrder(bytes) {
   const digest = createHash("sha256").update(bytes).digest("hex");
   return APPROVED_FIXTURE_SHA256.has(digest);
 }
+
+export const SAMPLE_DOCUMENTS = Object.freeze({
+  PO1: "PO1_ClientA_single_B1047.pdf",
+  PO2: "PO2_ClientA_multiline.pdf",
+  PO3: "PO3_ClientP_electronics_with_fitment.pdf",
+  PO4: "PO4_ClientQ_ambiguous_set.pdf",
+  PO5: "PO5_ClientB_scanned.jpg",
+});
+
+export function isSampleDocument(filename) {
+  return Object.values(SAMPLE_DOCUMENTS).includes(filename);
+}

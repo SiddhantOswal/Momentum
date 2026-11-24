@@ -25,6 +25,7 @@ import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.
 import { readServerPort } from "./src/runtime-config.js";
 import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
+import { isSampleDocument } from "./src/synthetic-po-allowlist.js";
 import { createArcRoutes } from "./src/arc/routes.js";
 import { createFirestoreArcSessionStore } from "./src/google-cloud/firestore-arc-session-store.js";
 import { createFirestoreArcTaskRunStore } from "./src/google-cloud/firestore-arc-task-run-store.js";
@@ -436,12 +437,9 @@ app.get("/operator-ui.css", async (c) => {
   });
 });
 
-const sampleDocuments = new Set([
-  "PO1_ClientA_single_B1047.pdf", "PO2_ClientA_multiline.pdf", "PO3_ClientP_electronics_with_fitment.pdf", "PO4_ClientQ_ambiguous_set.pdf", "PO5_ClientB_scanned.jpg",
-]);
 app.get("/samples/:filename", async (c) => {
   const name = c.req.param("filename");
-  if (!sampleDocuments.has(name)) return c.notFound();
+  if (!isSampleDocument(name)) return c.notFound();
   const source = await readFile(new URL("./public/samples/" + name, import.meta.url));
   return c.body(source, 200, { "Content-Type": name.endsWith(".pdf") ? "application/pdf" : "image/jpeg", "Cache-Control": "public, max-age=86400" });
 });
