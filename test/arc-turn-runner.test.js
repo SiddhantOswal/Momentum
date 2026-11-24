@@ -699,3 +699,33 @@ test("a mixed message answers from the template, keeps the refusal line and skip
   assert.deepEqual([writes, attempts.size, turn.summary.writerOutcome, turn.summary.intent], [0, 1, "not_called", "reply_out_of_scope"]);
   assert.match(turn.answerText, /^Holdout R2 per model: .* That is not something Arc does\.$/);
 });
+
+test("a number in the typed question never becomes a fact the writer may repeat", { timeout: 2000 }, async () => {
+  const requests = [];
+  const { post, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status")] }),
+    writer: (request) => { requests.push(request); return { outcome: "shown", text: "Print scores 0.71." }; },
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Is 0.71 the print score?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([turn.summary.writerOutcome, turn.summary.fallbackReason], ["fallback", "UNGROUNDED_NUMBER"]);
+  assert.doesNotMatch(JSON.stringify(requests[0].data), /0\.71/);
+});
+
+test("when one of two data tools returns insufficient data the writer is skipped (spec 3.2)", { timeout: 2000 }, async () => {
+  let writes = 0;
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status"), modelCall("query_metric", { metric: "top_scrap_items", filters: {} })] }),
+    writer: () => { writes += 1; return { outcome: "shown", text: "Print scores 0.64." }; },
+    services: {
+      availability: { queryMetric: true },
+      queryMetric: async () => ({ ok: true, status: "insufficient_data", metric: "top_scrap_items", rows: [], rowCount: 0 }),
+    },
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Scores and top scrap items?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([writes, attempts.size, turn.summary.writerOutcome], [0, 1, "not_called"]);
+  assert.match(turn.answerText, /The modeled lot history has no lots from 2025-10-01 to 2026-09-30\.$/);
+});
