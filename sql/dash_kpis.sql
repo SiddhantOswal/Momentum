@@ -1,5 +1,6 @@
 -- dash_kpis.sql: the 4 headline numbers. Held-out month (Sep 2026) re-run with the agent's settings,
--- scored with the true factory rules (prepagent.impact_lots_v2: m2_* recommendations from impact_recs_v2, built by impact.ts). No params.
+-- scored with the true factory rules (prepagent.impact_lots_v3: m2_* recommendations from impact_recs_v3, whose
+-- objective counts only the optimizer targets, so crack is left out (ARC-ML-03); built by tools/data/impact.ts). No params.
 -- Do not annualize this held-out September monsoon-month estimate.
 SELECT
   COUNT(*) AS lots_scored,
@@ -11,4 +12,4 @@ SELECT
   ROUND(SUM(base_scrap_cost), 0) AS scrap_cost_before,
   ROUND(SUM(best_scrap_cost), 0) AS scrap_cost_after,
   ANY_VALUE(currency) AS currency
-FROM prepagent.impact_lots_v2;
+FROM prepagent.impact_lots_v3;

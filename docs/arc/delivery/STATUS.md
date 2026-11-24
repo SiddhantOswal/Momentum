@@ -108,7 +108,7 @@ Orchestrated by a Claude Code session on Om's laptop from the handover bundle (`
 ## Open founder questions
 
 Asked only when a ticket needs them.
-- 2026-11-25 (Om's session): G1, Gen AI trade-off: the writer now runs only for model-score and lot-status answers; other data answers are labelled templates until ARC-M4-04 rebuilds labelled blocks. Accept for the pitch, or prioritise ARC-M4-04? G2: rerun the impact batch without crack (`impact_recs_v3`, then `impact_lots_v3` and `dash_kpis.sql`): a BigQuery write, about 73 MB billed. G3: the PKBX0041 reference in `data/om-signoff-request.md` was computed with crack counted and must be recomputed before Om signs. G4: who runs the delivery from now (one orchestrator merging into `arc/main` at a time), and the private backup remote.
+- 2026-11-25 (Om's session): G1, Gen AI trade-off: the writer now runs only for model-score and lot-status answers; other data answers are labelled templates until ARC-M4-04 rebuilds labelled blocks. Accept for the pitch, or prioritise ARC-M4-04? G2 done 2026-11-25 with Om's approval: `impact_recs_v3` and `impact_lots_v3` built (73.4 MB billed), `dash_kpis.sql` reads v3 on `arc/main`; net saving ₹7,927 a month (was ₹7,934), 4 lots made worse (was 3); record `changes/2026-11-25-impact-v3.md`. G3: the PKBX0041 reference in `data/om-signoff-request.md` was computed with crack counted and must be recomputed before Om signs. G4: who runs the delivery from now (one orchestrator merging into `arc/main` at a time), and the private backup remote.
 - F2 remaining: the pitch slot time. Until it is known, the 80-attempt pitch reserve covers all of 4 December (SGT).
 - F4: whether Billing credits cover Vertex AI and Cloud Run (console check). Blocks the first cost-bearing cloud change.
 - D1: Om's sign-offs (ARC-M0-04). D2 answered 2026-11-25: `sid_pack.zip` is in `~/Downloads/Google AI Builder Cup/` on Om's laptop (ARC-M0-05 merged). D5: Phase B dates and plant profile.
@@ -123,7 +123,7 @@ Asked only when a ticket needs them.
 - Rehearsals and the pitch share one Gemini daily cap (300 on `momentum`, 100 on `prepagent`), which resets at midnight IST (02:30 Singapore). Both services count against the same Firestore day document.
 - `tools/validate-optimizer-acceptance.mjs` still checks against the October m_* values.
 - The shared Gemini counter can lock one service out for a day when `momentum` (300) and `prepagent` (100) disagree on the cap (`decodeCount`, design E7). Not yet seen live. Founder question F1.
-- Published September savings (₹7,934) and the dashboard KPIs counted crack; they no longer match the optimizer after ARC-ML-03 until the impact batch is rerun (G2).
+- The live revision still shows the September savings from `impact_lots_v2` (₹7,934, crack counted); `arc/main` shows `impact_lots_v3` (₹7,927). They converge when a release moves traffic.
 
 ## Decision log
 
@@ -179,3 +179,4 @@ Asked only when a ticket needs them.
 | 2026-11-25 | New tickets ARC-ML-01 to ARC-ML-04 and ARC-REL-01 (`tickets/ML-model-evidence.md`) answer the 23 Nov independent audit (M01, M02, M06) and the release config gap | Model claims must be defensible; arc/main must be deployable | Om; delivery lead |
 | 2026-11-25 | Crack is advisory: predicted, shown with a low-confidence label, never counted in totals or the optimizer objective | Holdout R² 0.11 on September and on fresh Oct-Nov lots; MAE no better than the replaced model | Om (from the plan) |
 | 2026-11-25 | Writer skips turns whose values cannot be shown with a code-set label (QA finding: unlabelled weather and history numbers) | CLAUDE.md section 3 provenance rule; narrows A3 until ARC-M4-04 | Tech lead; founders to confirm (G1) |
+| 2026-11-25 | Rerun the September impact batch without crack into new v3 tables; keep v1 and v2 tables | ARC-ML-03 changed the objective; G2 | Om |
