@@ -49,9 +49,11 @@
     ]
   },
   "rules": [
-    {"id": "approval.en.imperative", "kind": "approval", "questionExempt": true, "pattern": "^(?:(?:please|pls|kindly|just|now|ok(?:ay)?|and|then|so|go ahead and|go on and|can you|could you|would you|will you|i want you to|i need you to|i want to|i would like to|i'd like to|let me|let us|let's|you should|you must|you can)\\s+)*(?:approve|authori[sz]e|sign[ -]?off|rubber[ -]?stamp|green[ -]?light)\\b"},
+    {"id": "approval.en.imperative", "kind": "approval", "questionExempt": true, "pattern": "(?:^|[.;:!?,]\\s*)(?:(?:please|pls|kindly|just|now|ok(?:ay)?|and|then|so|go ahead and|go on and|can you|could you|would you|will you|i want you to|i need you to|i want to|i would like to|i'd like to|let me|let us|let's|you should|you must|you can)\\s+)*(?:approve|authori[sz]e|sign[ -]?off|rubber[ -]?stamp|green[ -]?light)\\b"},
     {"id": "approval.en.chained", "kind": "approval", "questionExempt": true, "pattern": "\\b(?:and|then|also|&)\\s+(?:then\\s+)?(?:approve|authori[sz]e|sign[ -]?off|rubber[ -]?stamp|green[ -]?light)\\b"},
-    {"id": "approval.en.mark", "kind": "approval", "questionExempt": true, "pattern": "\\b(?:mark|set|flag|record)\\s.{0,40}\\b(?:as|to)\\s+approved\\b"},
+    {"id": "approval.en.mark", "kind": "approval", "questionExempt": true, "pattern": "\\b(?:mark|set|flag|record)\\s.{0,40}\\b(?:as|to)\\s+approved\\b|\\bmark\\b.{0,40}\\b(?:as\\s+)?(?:approved|done|complete|completed|signed off)\\b"},
+    {"id": "approval.en.state", "kind": "approval", "questionExempt": true, "pattern": "\\b(?:get|make|have|set|put|turn|mark|flag|record|consider|treat)\\b[^?]{0,40}\\b(?:it|this|that|them|job|card|lot|plan|draft|status|as|to)\\b[\\s=]*approved\\b\\s*(?:now|please|asap|today|for me|already)?[.!]*$"},
+    {"id": "approval.en.permission", "kind": "approval", "questionExempt": true, "pattern": "\\byou (?:may|can|could|are allowed to|are authori[sz]ed to|have permission to)\\s+(?:now\\s+)?(?:approve|authori[sz]e|sign[ -]?off|rubber[ -]?stamp|green[ -]?light)\\b"},
     {"id": "approval.en.tick", "kind": "approval", "pattern": "\\b(?:tick|check|untick|uncheck|auto-?tick)\\s+(?:the |that |my )?(?:approval |confirmation |review )?(?:check ?box|tick ?box|box)\\b"},
     {"id": "approval.en.bypass", "kind": "approval", "pattern": "\\b(?:skip|bypass|ignore|disable|remove|get around|go around)\\s+(?:the |that )?(?:approval|confirmation|sign-?off|check ?box|tick ?box|human review)\\b"},
     {"id": "approval.hi.romanised", "kind": "approval", "pattern": "\\bapprove\\s+(?:kar|karo|kardo|kijiye)\\b"},

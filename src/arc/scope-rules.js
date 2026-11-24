@@ -45,8 +45,19 @@ const ScopeConfigSchema = z.object({
 
 const noReplyArgs = z.object({}).strict().optional();
 
+// Look-alike Cyrillic and Greek letters, folded to the Latin letter they imitate.
+const CONFUSABLES = Object.freeze({
+  "\u0430": "a", "\u0435": "e", "\u043e": "o", "\u0440": "p", "\u0441": "c", "\u0445": "x", "\u0443": "y",
+  "\u0456": "i", "\u0458": "j", "\u0455": "s", "\u03bf": "o", "\u03b1": "a", "\u03c1": "p", "\u03bd": "v", "\u03b5": "e",
+});
+const CONFUSABLE_CHARS = new RegExp(`[${Object.keys(CONFUSABLES).join("")}]`, "gu");
+// "a p p r o v e": four or more single letters separated by single spaces read as one word.
+const SPACED_LETTERS = /(?<![\p{L}\p{N}])\p{L}(?: \p{L}){3,}(?![\p{L}\p{N}])/gu;
+
 export function normalizeScopeText(text) {
-  return String(text ?? "").normalize("NFKC").replace(INVISIBLE, "").toLowerCase().replace(/\s+/gu, " ").trim();
+  return String(text ?? "").normalize("NFKC").replace(INVISIBLE, "").toLowerCase()
+    .replace(CONFUSABLE_CHARS, (letter) => CONFUSABLES[letter]).replace(/\s+/gu, " ").trim()
+    .replace(SPACED_LETTERS, (word) => word.replaceAll(" ", ""));
 }
 
 /**
