@@ -1,6 +1,6 @@
 # Arc delivery status
 
-Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
+Last updated: 2026-11-24. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## Done
 - Delivery folders created on branch `arc/m0-discovery`, cut from `v2` at `eb6eab9`. The work moved to `arc/setup` on 2026-11-23 for the first commit.
@@ -37,7 +37,7 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 - TTL policies: all 13 now ACTIVE (QA read-back).
 - Test runs: test processes left over from the usage-limit pause hung later `npm test` runs. After they were stopped, `npm test` on `arc/main` gives 650 of 650 in about 10 s. Practice from now on: stop stale `node --test` processes before a run.
 - ARC-M1-09 merged (`98b8ca1`): on Cloud Run the rate limit keys on the trusted `X-Forwarded-For` hop; the per-IP limit is 300 a minute (planned assertion change under `04` 5.4) plus 60 a minute per signed demo session; a forged cookie gets no session bucket. QA PASS (6 of 6 key mutations caught). The two-network live check is NOT RUN; it needs a deployed revision.
-- ARC-M1-12 and ARC-M1-14 merged (`723ce7a`): every Gemini call sends explicit `safetySettings` (four categories, `BLOCK_MEDIUM_AND_ABOVE`, `method: PROBABILITY`), `thinkingConfig` and a configured `toolConfig`; blocked results map to `GEMINI_SAFETY_BLOCKED`. Settings are in `config/arc-models.json`; prompts are in `prompts/` with versions. QA PASS: 12 of 12 mutations caught, prompts byte-identical, and the 3 live calls confirmed in Cloud Monitoring.
+- ARC-M1-12 and ARC-M1-14 merged (`723ce7a`): every Gemini call sends explicit `safetySettings` (four categories, `BLOCK_MEDIUM_AND_ABOVE`, `method: PROBABILITY`), `thinkingConfig` and a configured `toolConfig`; blocked results map to `GEMINI_SAFETY_BLOCKED`. Settings are in `config/arc-models.json`; prompts are in `prompts/` with versions. QA PASS: 12 of 12 mutations caught, prompts byte-identical, and the 3 live calls returned HTTP 200 (not re-checked in Cloud Monitoring).
 - `npm test` on `arc/main` `723ce7a`: 694 tests, 694 pass, 0 fail.
 
 - ARC-M1-18 merged (`7ff9866`): CONDITIONAL GO. AC1.22 and AC1.24 met; AC1.23 stays open until ARC-M1-21 stores the explanation source. ARC-M1-19 merged (`2bf594c`): CONDITIONAL GO, follow-ups in ARC-M1-23. ARC-M1-20 merged (`11a9926`): GO. `npm test` on `arc/main`: 705 of 705.
@@ -51,13 +51,13 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 - ARC-M1-10 merged (`6b09301`): `lot_heads` and `lot_revisions` with transactions, `PUT /lots/:lotId/conditions`, `GET /lots/:lotId`, the approve guard behind `USTAAD_ENFORCE_APPROVE_GUARD` (409 `REVISION_SUPERSEDED`), `lotId` in the job identity (key prefix v3, one planned assertion change in `test/durable-job-idempotency.test.js`), and both clients sending `reviewConfirmed` and `revisionFingerprint`. QA MERGE after one repair round (a stale draft could be approved after an edit during planning; fixed and re-checked, mutations fail in milliseconds to 1 s). `npm test` on `arc/main`: 913 of 913. Live Firestore and Playwright NOT RUN. Follow-ups: ARC-M1-25 (shared transaction loop), ARC-M1-26 (browser test of the approve body), ARC-M1-27 (compare conditions, not clocks). Guard 7b stays off until ARC-M8-05. Foreign-lot access stays 403 `DEMO_SCOPE_REQUIRED`.
 
+- **M1 gate: CONDITIONAL GO** (2026-11-24, `reviews/M1-review.md`, tip 2963b3e). Eight reviewers, all CONDITIONAL GO, no blocking finding. QA: `npm test` 913 of 913 on three runs, two at once and with `--test-concurrency=1`; 10 of 10 sampled mutations fail their tests. Verification audit: about 60 claims, 51 supported, no test count false; all 13 TTL policies ACTIVE (read-only). Evals NOT RUN (the harness is ARC-M2-07). New ticket ARC-M1-28 (live integration run of the durable stores, budget counters and the Vertex smoke call, in the ARC-M8-01 preflight).
+- Operating model for outside coding agents merged (`external/`: README, 16 role prompts, packet templates, queue). The Codex command line works with `-m gpt-6.1-sol`; `gpt-6.2-sol` is rejected on this account.
+
 ## In progress
 
 - ARC-M1-05 merged (`67602dc`; QA PASS, 19 of 20 mutations caught, the survivor closed by a test of `index.mjs` wiring) and ARC-M1-08 merged (`ea06073`; QA PASS, 29 of 30 caught, the survivor closed by a thinking-token cost test). `npm test` on `arc/main` after both: 760 of 760. Session and IP limits and the rupee overshoot are in the ARC-M1-17 AC.
 - ARC-M1-07 merged (`289b7da`) after QA repairs and a rebase that combined the Firestore test fake with M1-05's (one PATCH and DELETE handler; no assertion changed). A head status `incomplete` and the stream error `TRACE_INCOMPLETE` are in the design. Live Firestore NOT RUN. `npm test` on `arc/main`: 783 of 783. Residual gap in ARC-M1-24.
-- Building in parallel on `arc/main` worktrees: ARC-M1-22 (test ports), ARC-M1-17 (session issuance, pitch claim, session and IP into Gemini calls), ARC-M1-10 (lot revisions and approve guard). Outside agents: Codex on ARC-M6-01, Copilot on ARC-M1-16 (prompts given 2026-11-24).
-- External engineers (brief: `external-agents.md`): Codex builds the M6 frontend stream from ARC-M6-01; GitHub Copilot builds ARC-M1-16 (R² part only until Om signs off). Their branches go through the same QA, review gate and merge as the role agents.
-- After these: ARC-M1-17 (session issuance and pitch claim), ARC-M1-10 (lot revisions and approve guard), ARC-M1-16, ARC-M1-21, ARC-SETUP-02 (asks the founders before editing `scripts/quality/`), ARC-M1-13 (needs Node 22), then the M1 gate.
 
 ## Blocked
 
@@ -65,8 +65,9 @@ Last updated: 2026-11-23. Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## Next
 
-1. Finish the M0 gate: merge the round-2 repairs, then the reviewers re-check them.
-2. After M0 is GO: QA-verify and merge ARC-M1-15, resume and finish ARC-M1-01, then continue M1 in ticket order.
+1. M1 gate is CONDITIONAL GO (`reviews/M1-review.md`). Repair round by the owners for CR-1 and CR-2 first (before any M2 ticket merges), then the other conditions; the same reviewers re-check.
+2. Finish ARC-M2-01 (last Claude-built ticket), then hand the queue in `external/queue.md` to Codex builders and reviewers under `external/README.md`.
+3. M1 items still open: ARC-M1-13, M1-16 (Copilot), M1-21, M1-23 to M1-28, ARC-SETUP-02.
 
 ## Open founder questions
 
@@ -77,15 +78,14 @@ Asked only when a ticket needs them.
 
 ## Known risks
 
+- The `momentum` Cloud Run revision has none of the M1 flags on (no budget policy, no durable stores, no approve guard, no pitch secret). The M1 protections apply only when enabled (ARC-M8-05). Until then PO review state and trace state are per instance, and the approve checkbox is enforced by the UI only.
+- `getInsights` has no live adapter (ARC-M4-01, ARC-M4-05).
+- Superseded 2026-11-23: the 24.5 °C reference (8.2 kg, ₹437) is replaced by the 18.5 °C run (7.8 kg, ₹421). The tables in `data/PKBX0041-m2-rerun.md` and `data/stale-claims.md` that list 24.5 °C values as the "new value" move to the 18.5 °C figures after Om signs off.
+
 - Old PKBX0041 figures (100.4 to 83.0 kg, ₹925 from the 15 October m_* run; also 86% RH, 35 s viscosity and a strength trade-off) still appear in the README, `src/ui/workflow.js` `DEMO_LOT` and 15 design screens (list in `data/PKBX0041-m2-rerun.md`). The model-trust panels in the designs show the old R² values; the current values are 0.47, 0.52, 0.39, 0.64 and 0.11. Fixed by ARC-M6-09 and ARC-M6-19 after Om signs off.
 - Rehearsals and the pitch share one Gemini daily cap (300 on `momentum`, 100 on `prepagent`), which resets at midnight IST (02:30 Singapore). Both services count against the same Firestore day document.
-- PO review state is an in-memory Map with a 30-minute TTL. `momentum` now runs up to 4 instances. Session affinity is on, but it is best-effort, so a review can still be lost. Durable review state is needed.
-- The optimizer's code default byte limit (80 MiB, `readOptimizerQueryBudget` in `src/service-ports.js`) is below the 90 MiB each run is billed. Production works only because `USTAAD_OPTIMIZER_MAX_BYTES_BILLED` is set to 100 MiB. Needs a ticket.
 - `tools/validate-optimizer-acceptance.mjs` still checks against the October m_* values.
-- Superseded on 2026-11-23: the 24.5 °C reference (8.2 kg, ₹437) is replaced by the 18.5 °C run (7.8 kg, ₹421) in Done. The tables in `data/PKBX0041-m2-rerun.md` and `data/stale-claims.md` that list 24.5 °C values as the "new value" must move to the 18.5 °C figures after Om signs off.
-- `getInsights` has no live adapter, and `durableIdempotencyConfigured` is hard-coded `false` (`index.mjs:711`, `723`); turning either on is a code change (ARC-M1-05, ARC-M4-01).
 - The shared Gemini counter can lock one service out for a day when `momentum` (300) and `prepagent` (100) disagree on the cap (`decodeCount`, design E7). Not yet seen live. Founder question F1.
-- The `/jobs` fingerprint ignores conditions (design E6); fix in ARC-M1-03 before Arc calls `/jobs`.
 - The lot generator (`sid_pack.zip`, seed 20261010) is not in the repo (ARC-M0-05).
 
 ## Decision log
