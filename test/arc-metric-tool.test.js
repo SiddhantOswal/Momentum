@@ -98,3 +98,14 @@ test("a disabled metric is left out of the tool enum and its declaration", async
   assert.equal(tool.schema().safeParse({ metric: "catalog_item", filters: {} }).success, true);
   assert.deepEqual(tool.schema().shape.metric.options, ["model_holdout_r2", "defect_history_at_humidity", "catalog_item"]);
 });
+
+test("the tool schema and its declaration both enforce the item code pattern", () => {
+  const arc = registry(async () => ({ ok: true }));
+  const schema = arc.tools.query_metric.schema();
+  for (const itemCode of ["A' OR '1'='1", "a".repeat(33), "-A", ""]) {
+    assert.equal(schema.safeParse({ metric: "catalog_item", filters: { itemCode } }).success, false, itemCode);
+  }
+  assert.equal(schema.safeParse({ metric: "catalog_item", filters: { itemCode: "ITEM-A" } }).success, true);
+  const declared = arc.declarations()[0].functionDeclarations.find((fn) => fn.name === "query_metric");
+  assert.equal(declared.parameters.properties.filters.properties.itemCode.pattern, "^[A-Za-z0-9][A-Za-z0-9-]{0,31}$");
+});

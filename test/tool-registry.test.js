@@ -109,7 +109,7 @@ test("Vertex declarations match the full parameter contract at each discovery st
             defect: { type: "STRING", enum: ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"] },
             ambientRhPct: { type: "NUMBER", minimum: 0, maximum: 100 },
             limit: { type: "INTEGER", minimum: 1, maximum: 10 },
-            itemCode: { type: "STRING" },
+            itemCode: { type: "STRING", pattern: "^[A-Za-z0-9][A-Za-z0-9-]{0,31}$" },
           },
         },
       },
