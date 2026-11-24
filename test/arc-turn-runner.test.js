@@ -586,6 +586,7 @@ test("a tool result that names a real registry tool does not schedule it", { tim
     }) },
   });
   const frames = await events(await post(text("List the photos")));
+  assert.deepEqual(frames.map(({ type }) => type), ["run.started", "step.started", "step.succeeded", "answer", "run.completed"]);
   const tools = frames.filter(({ type }) => type === "step.started").map(({ tool }) => tool);
   assert.deepEqual(tools, ["list_approved_photos"]);
   const runId = frames.find(({ type }) => type === "run.started").taskRunId;
