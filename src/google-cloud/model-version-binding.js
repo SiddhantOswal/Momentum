@@ -67,6 +67,7 @@ export function createModelVersionBinding({
   tokenProvider,
   checkIntervalMs = bindingConfig.checkIntervalMs,
   requestTimeoutMs = bindingConfig.requestTimeoutMs,
+  maxVerifiedAgeMs = bindingConfig.maxVerifiedAgeMs,
   now = () => new Date(),
   log = (entry) => console.error(JSON.stringify(entry)),
 } = {}) {
@@ -77,14 +78,16 @@ export function createModelVersionBinding({
     throw new TypeError("Fetch and token providers must be functions.");
   }
   if (!Number.isSafeInteger(checkIntervalMs) || checkIntervalMs < 1000 ||
-      !Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1 || requestTimeoutMs >= checkIntervalMs) {
-    throw new TypeError("The model version check interval and timeout are out of range.");
+      !Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1 || requestTimeoutMs >= checkIntervalMs ||
+      !Number.isSafeInteger(maxVerifiedAgeMs) || maxVerifiedAgeMs <= checkIntervalMs) {
+    throw new TypeError("The model version check interval, timeout or maximum age is out of range.");
   }
   const targets = bindingTargets(modelAcceptance);
   const provideToken = tokenProvider ?? createCloudRunAccessTokenProvider({ fetchImpl });
   let results = new Map(targets.map((target) => [target.defect,
     { observed: null, state: "unchecked", checkedAt: null, reason: null }]));
   let lastCheckedAt = null;
+  let lastCheckedMs = null;
   let inFlight;
   let timer;
 
@@ -134,9 +137,11 @@ export function createModelVersionBinding({
         return { observed: null, state: "unverified", reason: error instanceof ModelReadFailure ? error.reason : "MODEL_READ_FAILED" };
       }
     }));
-    const checkedAt = now().toISOString();
+    const completed = now();
+    const checkedAt = completed.toISOString();
     results = new Map(targets.map((target, index) => [target.defect, { ...outcomes[index], checkedAt }]));
     lastCheckedAt = checkedAt;
+    lastCheckedMs = completed.getTime();
     const after = overallState(outcomes);
     if (after !== before) {
       log({
@@ -159,6 +164,10 @@ export function createModelVersionBinding({
     return inFlight;
   }
 
+  // Cloud Run throttles CPU between requests, so the interval timer may not have
+  // fired for a while. An old pass must not keep serving.
+  const isStale = () => lastCheckedMs !== null && now().getTime() - lastCheckedMs > maxVerifiedAgeMs;
+
   function snapshot() {
     const entries = targets.map((target) => {
       const result = results.get(target.defect);
@@ -172,7 +181,17 @@ export function createModelVersionBinding({
         ...(result.reason ? { reason: result.reason } : {}),
       };
     });
-    return { enforced: true, state: overallState(entries), checkIntervalMs, lastCheckedAt, targets: entries };
+    const stale = isStale();
+    const state = overallState(entries);
+    return {
+      enforced: true,
+      state: stale && state === "verified" ? "unverified" : state,
+      ...(stale ? { stale: true } : {}),
+      checkIntervalMs,
+      maxVerifiedAgeMs,
+      lastCheckedAt,
+      targets: entries,
+    };
   }
 
   function gate(operation) {
@@ -189,7 +208,7 @@ export function createModelVersionBinding({
         },
       };
     }
-    const unverified = failing((state) => state !== "match");
+    const unverified = isStale() ? targets.map((target) => target.defect) : failing((state) => state !== "match");
     if (unverified.length > 0) {
       return {
         ok: false,
@@ -208,7 +227,10 @@ export function createModelVersionBinding({
     snapshot,
     gate,
     guard(port, operation) {
-      return async (input) => gate(operation) ?? port(input);
+      return async (input) => {
+        if (isStale()) await check();
+        return gate(operation) ?? port(input);
+      };
     },
     start() {
       if (!timer) {

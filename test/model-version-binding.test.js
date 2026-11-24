@@ -271,3 +271,87 @@ test("the binding refuses an acceptance record it cannot bind", () => {
   assert.throws(() => createModelVersionBinding({ ...options(record), requestTimeoutMs: 0 }), TypeError);
   assert.throws(() => createModelVersionBinding({ ...options(record), projectId: "bad project" }), TypeError);
 });
+
+function clock(start = Date.parse("2026-11-25T08:00:00.000Z")) {
+  let current = start;
+  return { now: () => new Date(current), advance: (ms) => { current += ms; } };
+}
+
+test("a verified result older than the maximum age is unverified until a request checks again", { timeout: 2000 }, async () => {
+  assert.equal(bindingConfig.maxVerifiedAgeMs, 30 * 60 * 1000);
+  const time = clock();
+  const answers = acceptedEtags();
+  const fake = fakeModelsApi(answers);
+  const versions = binding(fake, { now: time.now });
+  const inner = servingPort();
+  const predict = versions.guard(inner.port, "Prediction");
+  await versions.check();
+  assert.equal(fake.calls.length, 5);
+
+  time.advance(bindingConfig.maxVerifiedAgeMs);
+  assert.equal(versions.gate("Prediction"), undefined, "exactly the maximum age is still fresh");
+  assert.deepEqual(await predict({ n: 1 }), { ok: true, served: true });
+  assert.equal(fake.calls.length, 5, "a fresh result needs no new read");
+
+  time.advance(1);
+  assert.deepEqual(versions.gate("Prediction"), {
+    ok: false,
+    error: {
+      code: MODEL_VERSION_UNVERIFIED,
+      message: "Prediction is blocked until the accepted model versions are confirmed in BigQuery.",
+      targets: ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"],
+    },
+  });
+  const stale = versions.snapshot();
+  assert.equal(stale.state, "unverified");
+  assert.equal(stale.stale, true);
+  assert.equal(stale.maxVerifiedAgeMs, bindingConfig.maxVerifiedAgeMs);
+  assert.equal(stale.lastCheckedAt, "2026-11-25T08:00:00.000Z");
+
+  assert.deepEqual(await predict({ n: 2 }), { ok: true, served: true }, "the request re-checks and then serves");
+  assert.equal(fake.calls.length, 10);
+  assert.equal(versions.snapshot().state, "verified");
+  assert.equal(versions.snapshot().stale, undefined);
+  assert.equal(versions.snapshot().lastCheckedAt, new Date(Date.parse("2026-11-25T08:00:00.000Z") + bindingConfig.maxVerifiedAgeMs + 1).toISOString());
+
+  time.advance(bindingConfig.maxVerifiedAgeMs + 1);
+  answers.m2_print = "cHJpbnQtcmV0cmFpbmVk";
+  const result = await predict({ n: 3 });
+  assert.equal(result.error.code, MODEL_VERSION_MISMATCH);
+  assert.deepEqual(result.error.targets, ["PRINT"]);
+  assert.deepEqual(inner.calls, [{ n: 1 }, { n: 2 }]);
+});
+
+test("stale requests share one check, and a failed or hung re-check stays unverified", { timeout: 2000 }, async () => {
+  const time = clock();
+  const answers = acceptedEtags();
+  const fake = fakeModelsApi(answers);
+  const versions = binding(fake, { now: time.now, requestTimeoutMs: 25, checkIntervalMs: 1000, maxVerifiedAgeMs: 5000 });
+  const inner = servingPort();
+  const predict = versions.guard(inner.port, "Prediction");
+  await versions.check();
+
+  time.advance(5001);
+  const [first, second] = await Promise.all([predict({}), predict({})]);
+  assert.deepEqual([first, second], [{ ok: true, served: true }, { ok: true, served: true }]);
+  assert.equal(fake.calls.length, 10, "two stale requests started one check");
+
+  time.advance(5001);
+  answers.m2_warp = 500;
+  assert.equal((await predict({})).error.code, MODEL_VERSION_UNVERIFIED);
+
+  time.advance(5001);
+  answers.m2_warp = () => new Promise(() => {});
+  const started = Date.now();
+  const hung = await predict({});
+  assert.ok(Date.now() - started < 1000, "the request-path check is bounded by the per-call timeout");
+  assert.equal(hung.error.code, MODEL_VERSION_UNVERIFIED);
+  assert.deepEqual(hung.error.targets, ["WARP"]);
+  assert.equal(inner.calls.length, 2);
+});
+
+test("the maximum age must be longer than the check interval", () => {
+  for (const maxVerifiedAgeMs of [bindingConfig.checkIntervalMs, 0, 1.5, undefined]) {
+    assert.throws(() => binding(fakeModelsApi(), { maxVerifiedAgeMs: maxVerifiedAgeMs ?? null }), TypeError, String(maxVerifiedAgeMs));
+  }
+});
