@@ -224,21 +224,31 @@ test("only one check runs at a time", { timeout: 2000 }, async () => {
   assert.equal(versions.snapshot().state, "verified");
 });
 
-test("start checks at once and again on every interval", { timeout: 2000 }, async (t) => {
+// Lets a check started by a mock-timer tick finish its token read and models.get calls.
+async function flushChecks() {
+  for (let i = 0; i < 10; i += 1) await new Promise(setImmediate);
+}
+
+test("start checks at once and again on every interval, and stop ends the interval", { timeout: 2000 }, async (t) => {
+  assert.equal(bindingConfig.checkIntervalMs, 10 * 60 * 1000);
   t.mock.timers.enable({ apis: ["setInterval"] });
   const fake = fakeModelsApi();
   const versions = binding(fake);
   await versions.start();
   assert.equal(fake.calls.length, 5);
   t.mock.timers.tick(bindingConfig.checkIntervalMs - 1);
-  assert.equal(fake.calls.length, 5);
+  await flushChecks();
+  assert.equal(fake.calls.length, 5, "no check before the interval has passed");
   t.mock.timers.tick(1);
-  await versions.check();
-  assert.equal(fake.calls.length, 10);
+  await flushChecks();
+  assert.equal(fake.calls.length, 10, "one check when the interval passes");
+  t.mock.timers.tick(bindingConfig.checkIntervalMs);
+  await flushChecks();
+  assert.equal(fake.calls.length, 15, "one check per interval");
   versions.stop();
   t.mock.timers.tick(bindingConfig.checkIntervalMs * 3);
-  assert.equal(fake.calls.length, 10);
-  assert.equal(bindingConfig.checkIntervalMs, 10 * 60 * 1000);
+  await flushChecks();
+  assert.equal(fake.calls.length, 15, "no check after stop");
 });
 
 test("the interval timer does not keep the process alive", { timeout: 10000 }, async () => {
