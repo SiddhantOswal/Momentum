@@ -40,3 +40,9 @@ Related: `05-ai-design.md` section 4; `data/data-audit.md` sections 6 and 7; ADR
 3. **Answer from the model's general knowledge with retrieved rows in context.** Numbers can drift from rows, and labels would come from model text.
 4. **Template-only answers, with no model-written text.** Proposed in this ADR's first draft: every number would be correct by construction, at one attempt per typed question. The founders chose written answers (A3, 2026-11-23) because typed questions get plain-language replies, and the numeric and ID checks with the template fallback keep the shown numbers grounded. Rejected by founder decision; the template remains the fallback.
 5. **Use `GET /insights/summary`.** Its adapter is not configured in production, and its owner and intended state are unknown (STATUS).
+
+## Amendment (2026-11-24, ARC-M4-01)
+
+- The metrics `defect_history_at_humidity` and `top_scrap_items` read `prepagent.lots` directly, as the existing dashboard SQL does. They move to the views P4 and P5 once ARC-M4-02 creates them.
+- `ambientRhPct` is accepted from 0 to 100, not 25 to 98 as decision 1 said. The wider range is bounded and harmless; a humidity with no nearby lots returns "insufficient data".
+- `query_metric` `defect_history_at_humidity` is the Arc answer path for defect history. `search_defect_history` stays for the dashboard and the photo "seen before" panel. Both use the humidity band in `src/humidity-band.js` (10 points).
