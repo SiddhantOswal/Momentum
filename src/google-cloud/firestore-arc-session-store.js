@@ -221,8 +221,9 @@ export function createFirestoreArcSessionStore({
      * Creates the turn record with an exists-false precondition and returns what to do with it:
      * claimed (new), takeover (the earlier owner's lease expired), replay (finished, same input),
      * in_progress (a live owner holds it) or conflict (the ID was used with other input).
+     * With `createIfAbsent: false` an unknown turn is `absent` and nothing is written.
      */
-    async claimTurn({ sessionId, clientTurnId, input, inputFingerprint, signal } = {}) {
+    async claimTurn({ sessionId, clientTurnId, input, inputFingerprint, createIfAbsent = true, signal } = {}) {
       check(SessionIdSchema, sessionId, "The session ID");
       check(TurnIdSchema, clientTurnId, "The turn ID");
       check(Sha256HexSchema, inputFingerprint, "The input fingerprint");
@@ -231,6 +232,7 @@ export function createFirestoreArcSessionStore({
         const instant = now();
         const read = await readTurn(sessionId, clientTurnId, signal);
         if (read === null) {
+          if (!createIfAbsent) return { outcome: "absent" };
           const fresh = newTurn(request, instant);
           if (!await db.create(turnPath(sessionId, clientTurnId), ArcTurnDocSchema, fresh, { timestamps: TURN_TIMESTAMPS, signal })) continue;
           try {

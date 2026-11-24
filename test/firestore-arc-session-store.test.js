@@ -280,3 +280,11 @@ test("a failed session update removes the new turn record so a retry is not stuc
   await assert.rejects(store.claimTurn(claimRequest()), { code: "SERVICE_UNAVAILABLE" });
   assert.equal(fake.documents.has(`arc_sessions/${SID}/turns/${TURN_A}`), false);
 });
+
+test("claimTurn with createIfAbsent false writes nothing for an unknown turn", async () => {
+  const fake = createFakeFirestore();
+  const store = await startedSession(fake);
+  const before = JSON.stringify([...fake.documents.entries()]);
+  assert.deepEqual(await store.claimTurn(claimRequest({ createIfAbsent: false })), { outcome: "absent" });
+  assert.equal(JSON.stringify([...fake.documents.entries()]), before);
+});
