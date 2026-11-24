@@ -28,7 +28,7 @@ for (const theme of ['dark', 'light']) {
     await expectTokens(root, {
       ...referenceColors(theme === 'light' ? '.m.lt' : '.m'),
       '--arc-font-body': "'Inter', system-ui, sans-serif",
-      '--arc-font-display': "'Inter Tight', 'Inter', sans-serif",
+      '--arc-font-display': "'Inter', sans-serif",
       '--arc-text-body': '15px',
       '--arc-leading-body': '1.4',
       '--arc-font-medium': '500',
@@ -56,7 +56,7 @@ for (const theme of ['dark', 'light']) {
     const interLoaded = await page.evaluate(async () => {
       const faces = await Promise.all([
         document.fonts.load('400 15px Inter', 'Momentum ₹'),
-        document.fonts.load('600 24px "Inter Tight"', 'Momentum ₹'),
+        document.fonts.load('600 24px Inter', 'Momentum ₹'),
       ]);
       return faces.every(group => group.length && group.every(face => face.status === 'loaded'));
     });
@@ -110,7 +110,7 @@ test('/app matches the approved title styles and numeric arrow font', async ({ p
 
   const pageTitle = page.getByRole('heading', { level: 1, name: 'Floor' });
   const cardTitle = page.getByRole('heading', { level: 2, name: /Scrap rate by month/ });
-  const displayFont = '"Inter Tight", Inter, sans-serif';
+  const displayFont = 'Inter, sans-serif';
   const titleStyles = {
     fontFamily: displayFont,
     fontWeight: '600',
@@ -130,7 +130,7 @@ test('/app matches the approved title styles and numeric arrow font', async ({ p
       arrow.id = id;
       arrow.textContent = '→';
       if (id === 'app-arrow') arrow.className = 'figure';
-      else arrow.style.cssText = `font:600 22px/28px 'Inter Tight', 'Inter', sans-serif;
+      else arrow.style.cssText = `font:600 22px/28px 'Inter', sans-serif;
         font-variant-numeric:tabular-nums;font-feature-settings:'tnum'`;
       main.append(arrow);
     }

@@ -1,7 +1,7 @@
 /* Shared values from the approved Main and Insights design HTML. */
 :root {
   --arc-font-body: 'Inter', system-ui, sans-serif;
-  --arc-font-display: 'Inter Tight', 'Inter', sans-serif;
+  --arc-font-display: 'Inter', sans-serif;
   --arc-text-body: 15px;
   --arc-leading-body: 1.4;
   --arc-font-medium: 500;
