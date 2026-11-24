@@ -241,9 +241,19 @@ test("prediction drops an abstain target from rates and band, and the fallback n
   assert.doesNotMatch(JSON.stringify(response), /1\.537|1\.637|1\.437/);
 
   const fallbackRequests = [];
-  const failingCombined = {
+  const fallback = await quietly(() =>
+    createRiskPredictionService({ bigquery: perDefectOnly(rates, fallbackRequests), modelAcceptance })(input));
+  assert.equal(fallback.ok, true, fallback.error?.message);
+  assert.deepEqual(fallbackRequests.slice(1).map((request) => request.parameters.defect), ["WARP", "DELAM", "STRENGTH", "PRINT"]);
+  assert.ok(fallbackRequests.slice(1).every((request) => !("optimizer_targets" in request.parameters)));
+  assert.equal(Object.hasOwn(fallback.ratesPct, "CRACK"), false);
+  assert.equal(fallback.totalScrapPct, 9.4);
+});
+
+function perDefectOnly(rates, requests = []) {
+  return {
     async query(request) {
-      fallbackRequests.push(request);
+      requests.push(request);
       if (request.parameters.optimizer_targets) throw new Error("combined job failed");
       const defect = request.parameters.defect;
       return {
@@ -256,17 +266,52 @@ test("prediction drops an abstain target from rates and band, and the fallback n
       };
     },
   };
+}
+
+async function quietly(run) {
   const logged = console.error;
   console.error = () => {};
-  let fallback;
-  try {
-    fallback = await createRiskPredictionService({ bigquery: failingCombined, modelAcceptance })(input);
-  } finally {
-    console.error = logged;
-  }
-  assert.equal(fallback.ok, true, fallback.error?.message);
-  assert.deepEqual(fallbackRequests.slice(1).map((request) => request.parameters.defect), ["WARP", "DELAM", "STRENGTH", "PRINT"]);
-  assert.ok(fallbackRequests.slice(1).every((request) => !("optimizer_targets" in request.parameters)));
-  assert.equal(Object.hasOwn(fallback.ratesPct, "CRACK"), false);
-  assert.equal(fallback.totalScrapPct, 9.4);
+  try { return await run(); } finally { console.error = logged; }
+}
+
+test("the per-defect fallback leaves advisory crack out of the total and the primary defect, even when it is highest", async () => {
+  const rates = { WARP: 3.423, DELAM: 2.98, STRENGTH: 1.167, PRINT: 1.828, CRACK: 6.5 };
+  const response = await quietly(() => createRiskPredictionService({ bigquery: perDefectOnly(rates), modelAcceptance: active })(input));
+  assert.equal(response.ok, true, response.error?.message);
+  assert.equal(response.partial, undefined);
+  assert.equal(response.ratesPct.CRACK, 6.5, "advisory crack is still returned");
+  assert.equal(response.totalScrapPct, 9.4);
+  assert.equal(response.totalScrapKg, round(LOT_BOARD_KG * 9.398 / 100, 1));
+  assert.equal(response.scrapCost, Math.round(LOT_BOARD_KG * 9.398 / 100 * COST_PER_KG));
+  assert.equal(response.primaryDefect, "WARP");
+});
+
+test("a partial fallback result covers only the available optimizer targets", async () => {
+  const rates = { WARP: 3.423, DELAM: 2.98, STRENGTH: 1.167, PRINT: 1.828, CRACK: 6.5 };
+  const flaky = perDefectOnly(rates);
+  const bigquery = { query: async (request) => {
+    if (request.parameters.defect === "WARP") throw new Error("warp model down");
+    return flaky.query(request);
+  } };
+  const response = await quietly(() => createRiskPredictionService({ bigquery, modelAcceptance: active })(input));
+  assert.equal(response.ok, true, response.error?.message);
+  assert.equal(response.partial, true);
+  assert.deepEqual(response.unavailableDefects, ["WARP"]);
+  assert.deepEqual(response.totalsCover, ["DELAM", "STRENGTH", "PRINT"]);
+  assert.equal(response.totalScrapPct, 5.98);
+  assert.equal(response.primaryDefect, "DELAM");
+});
+
+test("the optimizer refuses a row that names advisory crack as the primary defect", async () => {
+  const optimizer = fakeOptimizer(candidates({ crackA: 9, crackB: 9 }));
+  const bigquery = { query: async (request) => {
+    const result = await optimizer.query(request);
+    const primary = result.schema.fields.findIndex((field) => field.name === "primary_defect");
+    for (const row of result.rows) row.f[primary].v = "CRACK";
+    return result;
+  } };
+  const result = await createRiskOptimizationService({ bigquery, sql: SQL, modelAcceptance: active })(input);
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+  assert.match(result.error.message, /primary_defect/);
 });

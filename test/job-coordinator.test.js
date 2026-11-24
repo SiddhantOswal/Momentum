@@ -283,6 +283,50 @@ test("job coordinator blocks optimizer settings and change lists that disagree w
   });
 });
 
+test("job coordinator accepts a job where advisory crack has the highest rate and is left out of the total", async () => {
+  // The shipped use classes: crack advisory, the other four optimizer targets.
+  const { targetUse } = modelAcceptanceConfig;
+  assert.equal(targetUse.CRACK.useClass, "advisory");
+  const risk = {
+    ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, PRINT: 1, CRACK: 6 },
+    totalScrapPct: 5,
+    totalScrapKg: 12,
+    scrapCost: 120,
+    currency: "INR",
+    primaryDefect: "WARP",
+    targetUse,
+  };
+  const profile = (levers) => ({ levers, risk });
+  const optimization = {
+    baseline: profile(jobSheetFixture.baseline.levers),
+    best: profile(jobSheetFixture.baseline.levers),
+    changes: [],
+    savings: { kg: 0, inr: 0 },
+  };
+  const traceRegistry = createTraceRegistry({ idFactory: traceIdFactory() });
+  const ports = services({
+    predictRisk: async () => ({ ok: true, ...risk }),
+    optimizeRisk: async () => ({ ok: true, ...optimization }),
+    findSimilarRuns: async () => ({ ok: true, evidence: [] }),
+    explainRisk: async () => ({ ok: true, explanation: "Synthetic explanation from the test service." }),
+  });
+  const result = await createJobCoordinator({ services: ports, traceRegistry })(input());
+
+  assert.equal(result.ok, true, JSON.stringify(result.error));
+  assert.equal(result.jobSheet.recommended.risk.primaryDefect, "WARP");
+  assert.equal(result.jobSheet.recommended.risk.totalScrapPct, 5);
+  assert.deepEqual(result.jobSheet.recommended.risk.targetUse, targetUse);
+
+  // A total that counts crack, or crack as the primary defect, is refused under the same classes.
+  for (const wrong of [{ totalScrapPct: 11 }, { primaryDefect: "CRACK" }]) {
+    const blocked = await createJobCoordinator({
+      services: services({ predictRisk: async () => ({ ok: true, ...risk, ...wrong }) }),
+      traceRegistry: createTraceRegistry({ idFactory: traceIdFactory() }),
+    })(input());
+    assert.equal(blocked.blockedAt, "predictRisk", JSON.stringify(wrong));
+  }
+});
+
 test("job coordinator blocks internally inconsistent predicted rates before optimization", async () => {
   const traceRegistry = createTraceRegistry({ idFactory: traceIdFactory() });
   let optimizationCalls = 0;
