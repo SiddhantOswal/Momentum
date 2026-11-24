@@ -88,6 +88,25 @@ test("budget context stays private and a replayed key calls and charges once", a
   assert.equal(counterUnits(fake, "live_day_all_20261130"), 1);
 });
 
+test("distinct reservation keys each call Gemini and charge usage once", async () => {
+  const usageReport = { promptTokenCount: 1000, candidatesTokenCount: 500 };
+  const { fake, gemini, providerCalls } = setup({ provider: (args) => {
+    args.onUsage(usageReport);
+    return "ok";
+  } });
+  const generate = (reservationKey) => gemini.generateContent({
+    role: "router", contents: [], budget: { reservationKey, purpose: "arc_router" },
+  });
+
+  await assert.doesNotReject(() => generate("arc1.turn.0"));
+  await assert.doesNotReject(() => generate("arc1.turn.1"));
+  await assert.rejects(generate("arc1.turn.1"), { code: "GEMINI_CALL_REPLAYED" });
+
+  assert.equal(providerCalls.length, 2);
+  assert.equal(counterUnits(fake, "live_day_all_20261130"), 2);
+  assert.equal(counterUnits(fake, "live_cost_day_all_20261130"), 2 * attemptCostMicroInr("router", usageReport));
+});
+
 test("each response's usageMetadata is priced and added to the day's rupee spend", async () => {
   const usageReport = { promptTokenCount: 4000, candidatesTokenCount: 500, thoughtsTokenCount: 1500, totalTokenCount: 6000 };
   const { fake, gemini } = setup({ provider: (args) => { args.onUsage(usageReport); return "ok"; } });
