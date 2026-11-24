@@ -317,6 +317,15 @@ export function createArcTurnRunner({
         ? result : { ok: false, error: { code: "TOOL_RESULT_TOO_LARGE" } };
     }
 
+    const discoveredKind = { list_samples: "sampleIds", list_approved_photos: "photoIds" };
+    async function rememberDiscovered(name) {
+      const kind = discoveredKind[name];
+      if (!kind) return;
+      const ids = registry.discovered()[kind];
+      if (canonicalJson(ids) === canonicalJson(session.discovered?.[kind] ?? [])) return;
+      await sessionStore.recordDiscovered({ sessionId, kind, ids, signal });
+    }
+
     const data = [];
     const wantsWriter = !fixed && !reply && calls.some(({ name }) => dataTools.has(name)) &&
       !calls.some(({ name }) => name === "get_job" || name === "get_job_card");
@@ -334,6 +343,7 @@ export function createArcTurnRunner({
         await emit("step.succeeded", { ...fields, resultRef: step.resultRef });
         if (discoveryTools.has(name) || (wantsWriter && dataTools.has(name))) {
           const result = boundResult(await registry.execute(name, argsParsed.data, context));
+          if (result?.ok) await rememberDiscovered(name);
           if (dataReturned(name, result)) data.push({ tool: name, result });
         }
         continue;
@@ -376,6 +386,7 @@ export function createArcTurnRunner({
       }
       step = { ...step, status: "SUCCEEDED", resultRef: resultReference(name, argsParsed.data, result, principal), finishedAt: iso(now()) };
       await saveStep(index, step);
+      await rememberDiscovered(name);
       await emit("step.succeeded", { ...fields, resultRef: step.resultRef });
       if (dataReturned(name, result)) data.push({ tool: name, result });
     }

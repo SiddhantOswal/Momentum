@@ -164,6 +164,13 @@ export const BudgetReservationDocSchema = z.object({
   }
 });
 
+// IDs that list_samples and list_approved_photos returned in this session. They are what a later
+// turn may name, so they carry no text beyond the ID shape. photo-NN matches PhotoClassificationRequestSchema.
+export const DiscoveredIdsSchema = z.object({
+  sampleIds: z.array(z.string().regex(/^PO[1-9]$/)).max(5),
+  photoIds: z.array(z.string().regex(/^photo-\d{2}$/)).max(10),
+}).strict();
+
 export const ArcSessionDocSchema = z.object({
   ...base,
   sessionId: SessionIdSchema,
@@ -173,6 +180,8 @@ export const ArcSessionDocSchema = z.object({
   activeLotIds: z.array(LotIdSchema).max(5),
   // Newest last. The router may choose only from these job IDs.
   jobIds: z.array(DemoJobIdSchema).max(20),
+  // Absent on records written before this field existed; readers treat that as empty.
+  discovered: DiscoveredIdsSchema.optional(),
   activeTaskRunId: uuid.nullable(),
   // Oldest first; their summaries are the router's history.
   recentTurnIds: z.array(uuid).max(4),
