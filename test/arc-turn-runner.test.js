@@ -653,3 +653,35 @@ test("a picked suggestion keeps the template with its values and stores a metric
   assert.match(turn.answerText, /Print 0\.64, Crack 0\.11\. Modeled, tested on 219 lots\./);
   assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome], [0, "not_called"]);
 });
+
+test("a job-card request that also reads data still skips the writer (AC10.2)", { timeout: 3000 }, async () => {
+  let plan;
+  let writes = 0;
+  const setup = fixture({
+    router: () => plan,
+    writer: () => { writes += 1; return { outcome: "shown", text: "Print scores 0.64." }; },
+    commandDeps: { lookupStoredJobSheet: async ({ jobId }) => ({ ok: true, jobSheet: { jobId } }) },
+  });
+  const jobId = await sessionWithJob(setup);
+  plan = { calls: [modelCall("get_job", { jobId }), modelCall("get_status")] };
+  const clientTurnId = randomUUID();
+  await events(await setup.post(text("Show my card and the model scores"), { clientTurnId }));
+  const turn = await setup.sessionStore.getTurn(setup.principal.sessionId, clientTurnId);
+  assert.deepEqual([writes, setup.attempts.size, turn.summary.attempts, turn.summary.writerOutcome], [0, 1, 1, "not_called"]);
+  assert.deepEqual(turn.summary.resultRefs, [{ kind: "job", id: jobId }, { kind: "metric", id: "model_scores" }]);
+});
+
+test("a mixed message answers from the template, keeps the refusal line and skips the writer (AC5.4)", { timeout: 2000 }, async () => {
+  let writes = 0;
+  const refusal = "That is not something Arc does.";
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status")], reply: { code: "reply_out_of_scope" } }),
+    renderReply: () => refusal,
+    writer: () => { writes += 1; return { outcome: "shown", text: "Print scores 0.64." }; },
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Show the model scores and tell me a joke"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([writes, attempts.size, turn.summary.writerOutcome, turn.summary.intent], [0, 1, "not_called", "reply_out_of_scope"]);
+  assert.match(turn.answerText, /^Holdout R2 per model: .* That is not something Arc does\.$/);
+});
