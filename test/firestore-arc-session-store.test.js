@@ -245,6 +245,42 @@ test("listTurns orders turns created in the same millisecond by turn ID, newest 
   assert.deepEqual([...first.turns, ...second.turns].map((turn) => turn.clientTurnId), [TURN_C, TURN_B, TURN_A]);
 });
 
+test("listTurns uses one Firestore query and reads at most one extra document per page", async () => {
+  const fake = createFakeFirestore();
+  const store = await startedSession(fake);
+  for (const id of [TURN_A, TURN_B, TURN_C]) await store.claimTurn(claimRequest({ clientTurnId: id }));
+
+  for (const limit of [1, 2, 20]) {
+    const callsBefore = fake.calls.length;
+    await store.listTurns({ sessionId: SID, limit });
+    const calls = fake.calls.slice(callsBefore);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].path, `arc_sessions/${SID}:runQuery`);
+    const queryLimit = calls[0].body.structuredQuery.limit;
+    assert.ok(Number.isInteger(queryLimit) && queryLimit <= limit + 1, `limit ${limit}, query limit ${queryLimit}`);
+  }
+});
+
+test("listTurns returns a cursor only when a 20-turn page has another turn after it", async () => {
+  const fake = createFakeFirestore();
+  const store = await startedSession(fake);
+  const ids = Array.from({ length: 21 }, (_, index) =>
+    `6f1c2a44-8b0e-4d51-9c7a-${String(index + 1).padStart(12, "0")}`);
+  for (const id of ids.slice(0, 20)) await store.claimTurn(claimRequest({ clientTurnId: id }));
+
+  const fullLastPage = await store.listTurns({ sessionId: SID, limit: 20 });
+  assert.deepEqual(fullLastPage.turns.map((turn) => turn.clientTurnId), ids.slice(0, 20).reverse());
+  assert.equal(fullLastPage.nextBefore, null);
+
+  await store.claimTurn(claimRequest({ clientTurnId: ids[20] }));
+  const first = await store.listTurns({ sessionId: SID, limit: 20 });
+  assert.deepEqual(first.turns.map((turn) => turn.clientTurnId), ids.slice(1).reverse());
+  assert.ok(first.nextBefore);
+  const last = await store.listTurns({ sessionId: SID, limit: 20, before: first.nextBefore });
+  assert.deepEqual(last.turns.map((turn) => turn.clientTurnId), [ids[0]]);
+  assert.equal(last.nextBefore, null);
+});
+
 test("listTurns never returns another session's turns and rejects a forged cursor", async () => {
   const fake = createFakeFirestore();
   const store = await startedSession(fake);
