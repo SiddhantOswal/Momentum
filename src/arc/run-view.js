@@ -26,6 +26,7 @@ const RETRY_SAFE_CODES = new Set([
 ]);
 
 export const stepLabel = (tool) => STEP_LABELS[tool] ?? FALLBACK_LABEL;
+export const retrySafe = (code) => RETRY_SAFE_CODES.has(code);
 
 export function isStepResumable(step, instant) {
   return step.status === "PENDING" ||
@@ -46,7 +47,7 @@ function stepView(step) {
     attempt: step.attempt,
     waitingFor: step.waitingFor,
     errorCode: step.errorCode,
-    retrySafe: failed ? RETRY_SAFE_CODES.has(step.errorCode) : null,
+    retrySafe: failed ? retrySafe(step.errorCode) : null,
     resultRef: step.resultRef,
     startedAt: step.startedAt,
     finishedAt: step.finishedAt,

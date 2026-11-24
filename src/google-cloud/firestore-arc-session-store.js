@@ -254,6 +254,7 @@ export function createFirestoreArcSessionStore({
         if (Date.parse(doc.leaseExpiresAt) > instant) return { outcome: "in_progress", turn: doc };
         const taken = {
           ...doc,
+          reservationOwnerToken: doc.reservationOwnerToken ?? doc.ownerToken,
           ownerToken: randomUUID(),
           leaseExpiresAt: iso(instant + TURN_LEASE_MS),
           updatedAt: iso(instant),

@@ -9,8 +9,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
  */
 const callers = new AsyncLocalStorage();
 
-export function runAsGeminiCaller({ principal, ipKey, nextReservationKey }, work) {
-  return callers.run(Object.freeze({ principal, ipKey: ipKey ?? null, nextReservationKey }), work);
+export function runAsGeminiCaller({ principal, ipKey, nextReservationKey, onReservation }, work) {
+  return callers.run(Object.freeze({ principal, ipKey: ipKey ?? null, nextReservationKey, onReservation }), work);
 }
 
 export function currentGeminiCaller() {

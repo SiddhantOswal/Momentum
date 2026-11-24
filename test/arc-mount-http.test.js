@@ -81,6 +81,29 @@ test("with the flag on, an Arc route without the cookie is 401, and the per-sess
   }
 });
 
+test("with the flag on the turn route validates action params with the runner's rules before any store is read", async () => {
+  const { child, origin } = await start({ ...baseEnv, USTAAD_ENABLE_ARC: "true" });
+  try {
+    const issued = await fetch(origin + "/api/auth/demo-session", { method: "POST", headers: { Origin: origin } });
+    const cookie = issued.headers.get("set-cookie").split(";")[0];
+    const post = (input) => fetch(origin + "/api/arc/turns", {
+      method: "POST",
+      headers: { Origin: origin, Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ clientTurnId: crypto.randomUUID(), input }),
+    });
+    const strict = await post({ kind: "action", actionId: "get_status", params: { session: "foreign" } });
+    assert.equal(strict.status, 400);
+    assert.equal(strict.headers.get("cache-control"), "no-store");
+    const body = await strict.json();
+    assert.deepEqual([body.error.code, body.error.issues[0].field], ["VALIDATION_ERROR", "input.params.session"]);
+    const unknown = await post({ kind: "action", actionId: "approve_job" });
+    assert.equal(unknown.status, 400);
+    assert.equal((await unknown.json()).error.issues[0].code, "unknown_action");
+  } finally {
+    child.kill("SIGKILL");
+  }
+});
+
 test("with the flag on and no Google Cloud project, Arc is 503 SERVICE_UNAVAILABLE rather than not enabled", async () => {
   const { PROJECT_ID, ...withoutProject } = baseEnv;
   const { child, origin } = await start({ ...withoutProject, USTAAD_ENABLE_ARC: "true" });
