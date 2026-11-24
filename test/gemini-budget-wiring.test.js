@@ -76,12 +76,14 @@ test("budget-v2 charges budget_counters only and never gemini_daily_usage (F1)",
   assert.equal(parseDocument(BudgetReservationDocSchema, reservation[1]).purpose, "explanation");
 });
 
-test("the budget context is not sent to the provider, and a replayed key is charged once", async () => {
+test("budget context stays private and a replayed key calls and charges once", async () => {
   const { fake, gemini, providerCalls } = setup();
   const budget = { reservationKey: "arc1.turn.0", purpose: "arc_router" };
   await gemini.generateContent({ role: "router", contents: [], budget });
-  await gemini.generateContent({ role: "router", contents: [], budget });
-  assert.equal(providerCalls.length, 2);
+  await assert.rejects(gemini.generateContent({ role: "router", contents: [], budget }), {
+    code: "GEMINI_CALL_REPLAYED",
+  });
+  assert.equal(providerCalls.length, 1);
   assert.equal(providerCalls.some((args) => "budget" in args), false);
   assert.equal(counterUnits(fake, "live_day_all_20261130"), 1);
 });
