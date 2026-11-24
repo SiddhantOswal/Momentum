@@ -59,3 +59,10 @@ Spec J2 to J7; ADR-0009; data audit question table and proposals P1 to P5.
 - AC: a change record exists before the lifecycle rule is set. The `privacy-logging` suite fails if a photo byte or PO free-text string appears in a captured log.
 - Depends on: M5-02, M7-01. Owner: backend engineer; the compliance reviewer checks.
 - Test plan: a `gcloud storage buckets describe` read-back of the lifecycle rule in the change record, plus the `privacy-logging` suite.
+
+### ARC-M4-06 Backend answers with no owner: feature importance, revision record, Insights configuration (P1)
+- Goal: the ARC-M4-01 QA found three Arc questions with no owning ticket: Q2 (feature importance, from the `/risk/explanation` rows), Q16 (the revision record of a lot, from `lot_heads` and `lot_revisions`) and Q19 (Insights is not configured: the answer must say what is missing). Add a metric or tool for each, or record the answer as "insufficient data" with the missing item named.
+- AC: each question gets a grounded answer or an "insufficient data" answer, decided in code, with provenance labels; nothing is invented.
+- Depends on: M4-01, M1-10. Owner: data engineer and AI engineer.
+- Test plan: grounding cases with recorded tool results, and one `insufficient-data` case each.
+
