@@ -365,3 +365,35 @@ test("the maximum age must be longer than the check interval", () => {
     assert.throws(() => binding(fakeModelsApi(), { maxVerifiedAgeMs: maxVerifiedAgeMs ?? null }), TypeError, String(maxVerifiedAgeMs));
   }
 });
+
+test("the check log line names states and reasons but never the token", async () => {
+  const lines = [];
+  const answers = acceptedEtags();
+  let tokenFails = false;
+  const versions = binding(fakeModelsApi(answers), {
+    tokenProvider: async () => { if (tokenFails) throw new Error(`metadata refused ${TOKEN}`); return TOKEN; },
+    log: (entry) => lines.push(JSON.stringify(entry)),
+  });
+  await versions.check();
+  answers.m2_warp = "cmV0cmFpbmVkLXdhcnA=";
+  await versions.check();
+  tokenFails = true;
+  await versions.check();
+  tokenFails = false;
+  answers.m2_warp = ACCEPTED.WARP;
+  await versions.check();
+  assert.deepEqual(lines.map((line) => JSON.parse(line).state), ["verified", "mismatch", "unverified", "verified"],
+    "one line per change of overall state");
+  assert.ok(JSON.parse(lines[2]).targets.every((target) => target.reason === "IDENTITY_UNAVAILABLE"));
+  assert.deepEqual(JSON.parse(lines[1]), {
+    event: "model_version_check",
+    state: "mismatch",
+    targets: [
+      { defect: "WARP", state: "mismatch", reason: null }, { defect: "DELAM", state: "match", reason: null },
+      { defect: "STRENGTH", state: "match", reason: null }, { defect: "PRINT", state: "match", reason: null },
+      { defect: "CRACK", state: "match", reason: null },
+    ],
+  });
+  for (const line of lines) assert.equal(line.includes(TOKEN), false, line);
+  assert.equal(JSON.stringify(versions.snapshot()).includes(TOKEN), false);
+});
