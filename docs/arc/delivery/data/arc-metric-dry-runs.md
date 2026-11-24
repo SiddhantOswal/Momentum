@@ -21,13 +21,19 @@ All three are far under the 50 MiB cap. If a dry-run reports more than 50 MiB, s
 
 ```
 bq query --dry_run --use_legacy_sql=false --project_id=prepagent-hack --location=asia-south1 \
-  --parameter=defect:STRING:WARP --parameter=ambient_rh_pct:FLOAT64:63.5 \
+  --parameter=defect:STRING:WARP --parameter=ambient_rh_pct:FLOAT64:63.5 --parameter=band_pts:INT64:10 \
   "$(cat sql/arc/defect_history_at_humidity.sql)"
 ```
 
 Expected shape, one row of six columns: `defect` STRING, `lots_in_band` INT64, `n_cases` INT64, `avg_rate_when_main` FLOAT64 (null when `n_cases` is 0), `cost_when_main` FLOAT64, `avg_rate_all_lots` FLOAT64. Expected schema from a dry-run: those six fields in that order. Status: NOT RUN.
 
-Live check to run after approval: the same command without `--dry_run`, with `--maximum_bytes_billed=52428800`. Compare `n_cases` with `sql/seen_before.sql` for the same inputs, since both use the same humidity band and defect filter. Status: NOT RUN.
+Live check to run after approval: the same command without `--dry_run`, with `--maximum_bytes_billed=52428800`. Compare `n_cases` with `sql/seen_before.sql` for the same inputs (add `--parameter=band_pts:INT64:10`), since both use the same band predicate and defect filter. `sql/seen_before.sql` changed in ARC-M4-01: the band width is now the parameter `band_pts` and the redundant `CAST` is gone. Dry-run it too. The unit parity test cannot evaluate BigQuery SQL, so this live comparison is the real check. Status: NOT RUN.
+
+```
+bq query --dry_run --use_legacy_sql=false --project_id=prepagent-hack --location=asia-south1 \
+  --parameter=defect:STRING:WARP --parameter=ambient_rh_pct:FLOAT64:63.5 --parameter=band_pts:INT64:10 \
+  "$(cat sql/seen_before.sql)"
+```
 
 ## 2. `top_scrap_items`
 
