@@ -615,3 +615,30 @@ test("a tool result above the configured size fails the step", { timeout: 2000 }
   const last = frames.at(-1);
   assert.deepEqual([last.type, last.errorCode], ["step.failed", "TOOL_RESULT_TOO_LARGE"]);
 });
+
+test("terminal events are stored before the turn completes and the head is published after", { timeout: 2000 }, async () => {
+  let setup;
+  let during;
+  const probe = {};
+  const spy = {
+    ...Object.fromEntries(["getOrCreate", "claimTurn", "failTurn", "getTurn", "setActiveTaskRun"].map((name) =>
+      [name, (...args) => probe.store[name](...args)])),
+    async completeTurn(args) {
+      const path = (sequence) => `traces/${args.taskRunId}/trace_events/${sequence}`;
+      const run = await setup.request(`/api/arc/runs/${args.taskRunId}`);
+      during = {
+        lastSequence: (await run.json()).run.lastSequence,
+        answerStored: setup.fake.documents.has(path(4)), completedStored: setup.fake.documents.has(path(5)),
+      };
+      return probe.store.completeTurn(args);
+    },
+  };
+  setup = fixture();
+  probe.store = setup.sessionStore;
+  const clientTurnId = randomUUID();
+  const frames = await events(await setup.post(action("get_status"), { clientTurnId, runner: setup.create({ sessionStore: spy }) }));
+  assert.deepEqual(during, { lastSequence: 3, answerStored: true, completedStored: true });
+  const runId = frames[0].taskRunId;
+  const run = await (await setup.request(`/api/arc/runs/${runId}`)).json();
+  assert.deepEqual([run.run.lastSequence, run.run.status], [5, "COMPLETED"]);
+});
