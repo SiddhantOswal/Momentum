@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { PdfFontUnavailableError, renderJobSheetPdf } from "../src/job-sheet-pdf.js";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
@@ -235,13 +236,8 @@ function withTargetUse(targetUse, ratesPct = { WARP: 2, DELAM: 1, STRENGTH: 1, P
     recommended: { ...jobSheetFixture.recommended, risk: risk(jobSheetFixture.recommended) },
   };
 }
-const crackAdvisory = {
-  WARP: { useClass: "optimizer", reason: "Warp reason." },
-  DELAM: { useClass: "optimizer", reason: "Delam reason." },
-  STRENGTH: { useClass: "optimizer", reason: "Strength reason." },
-  PRINT: { useClass: "optimizer", reason: "Print reason." },
-  CRACK: { useClass: "advisory", reason: "Holdout R2 0.11." },
-};
+// The shipped use classes and reasons.
+const crackAdvisory = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8")).targetUse;
 
 test("job card shows the use class per defect and labels advisory crack as low confidence", async () => {
   const renderedText = extractBuiltInFontText(await renderJobSheetPdf(withTargetUse(crackAdvisory)));
@@ -249,8 +245,9 @@ test("job card shows the use class per defect and labels advisory crack as low c
   assert.doesNotMatch(renderedText, /low confidence in monsoon|under monsoon conditions/);
   assert.equal(renderedText.match(/\(covers WARP, DELAM, STRENGTH, PRINT\)/g)?.length, 3, "both totals and the savings");
   assert.match(renderedText, /Model use per defect/);
-  assert.match(renderedText, /WARP: counts toward the totals and the recommendation\. Warp reason\./);
-  assert.match(renderedText, /CRACK: advisory, low confidence; shown for information, not used for the totals or the\s?recommendation\. Holdout R2 0\.11\./);
+  assert.match(renderedText, /WARP: counts toward the totals and the recommendation\. Model fit on 219 modelled September 2026\s?lots: 0\.47 \(R²\)/);
+  assert.match(renderedText, /CRACK: advisory, low confidence; shown for information, not used for the totals or the\s?recommendation\. Model fit on 219 modelled September 2026 lots: 0\.11 \(R²\), too weak to choose\s?settings/);
+  assert.doesNotMatch(renderedText, /Holdout R2/);
 });
 
 test("job card prints no number for an abstain target", async () => {

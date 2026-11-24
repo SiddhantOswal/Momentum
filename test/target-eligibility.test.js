@@ -14,10 +14,14 @@ test("the active config gives crack the advisory class and the other four the op
   assert.deepEqual(Object.fromEntries(DEFECTS.map((defect) => [defect, targetUse[defect].useClass])), {
     WARP: "optimizer", DELAM: "optimizer", STRENGTH: "optimizer", PRINT: "optimizer", CRACK: "advisory",
   });
-  assert.match(targetUse.CRACK.reason, /R2 0\.11/);
+  assert.match(targetUse.CRACK.reason, /too weak to choose settings/);
   for (const defect of DEFECTS) {
     const model = active.models.find((entry) => entry.defect === defect);
-    assert.match(targetUse[defect].reason, new RegExp(`R2 ${model.r2.toFixed(2)}`), `${defect} reason cites its holdout R2`);
+    // One plain phrasing for every target; it names the lots as modelled, not measured.
+    assert.match(targetUse[defect].reason,
+      new RegExp(`^Model fit on ${active.holdout.sampleCount} modelled September 2026 lots: ${model.r2.toFixed(2)} \\(R²\\)`),
+      `${defect} reason cites its holdout fit`);
+    assert.doesNotMatch(targetUse[defect].reason, /\bholdout\b|\bR2\b|accura/i);
   }
 });
 

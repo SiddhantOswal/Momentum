@@ -33,23 +33,23 @@
   "targetUse": {
     "WARP": {
       "useClass": "optimizer",
-      "reason": "Holdout R2 0.47 on the September 2026 lots, above the model it replaces (0.40)."
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.47 (R²), up from 0.40 for the model it replaces."
     },
     "DELAM": {
       "useClass": "optimizer",
-      "reason": "Holdout R2 0.52 on the September 2026 lots, above the model it replaces (0.50)."
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.52 (R²), up from 0.50 for the model it replaces."
     },
     "STRENGTH": {
       "useClass": "optimizer",
-      "reason": "Holdout R2 0.39 on the September 2026 lots, above the model it replaces (0.30)."
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.39 (R²), up from 0.30 for the model it replaces."
     },
     "PRINT": {
       "useClass": "optimizer",
-      "reason": "Holdout R2 0.64 on the September 2026 lots, above the model it replaces (0.61)."
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.64 (R²), up from 0.61 for the model it replaces."
     },
     "CRACK": {
       "useClass": "advisory",
-      "reason": "Holdout R2 0.11 on the September 2026 lots: too little skill to choose settings, so it is shown as low confidence only."
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.11 (R²), too weak to choose settings, so it is shown as low confidence only."
     }
   },
   "models": [
