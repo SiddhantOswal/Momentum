@@ -1,4 +1,4 @@
-// Synthetic acceptance evidence used only by isolated adapter tests.
+// Synthetic m2 acceptance evidence used only by isolated adapter tests.
 // It is not evidence about the deployed BigQuery ML model versions.
 export const acceptedModelSetFixture = Object.freeze({
   status: "accepted",
@@ -10,10 +10,10 @@ export const acceptedModelSetFixture = Object.freeze({
   currentModelVersions: Object.freeze({ WARP: "test-version-1", DELAM: "test-version-1", STRENGTH: "test-version-1", PRINT: "test-version-1", CRACK: "test-version-1" }),
   featureImportanceReviewed: true,
   models: Object.freeze([
-    ["WARP", 0.61], ["DELAM", 0.67], ["STRENGTH", 0.47], ["PRINT", 0.75], ["CRACK", 0.30],
+    ["WARP", 0.4682], ["DELAM", 0.5194], ["STRENGTH", 0.388], ["PRINT", 0.6404], ["CRACK", 0.1081],
   ].map(([defect, r2]) => Object.freeze({
     defect,
-    resource: `prepagent.m_${defect.toLowerCase()}`,
+    resource: `prepagent.m2_${defect.toLowerCase()}`,
     modelVersion: "test-version-1",
     r2,
     sampleCount: 100,
