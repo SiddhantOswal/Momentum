@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @import "./arc-fonts.css";
+@import "./components/arc-panel.css";
 
 :root, .arc-kraft, .arc-glass {
   --panel: var(--cd);
