@@ -47,6 +47,7 @@ const MetricSchema = z.strictObject({
   unit: text,
   provenance: z.enum(PROVENANCE),
   label: text,
+  labelFallback: text.optional(),
   basis: text,
   source: z.strictObject({ kind: z.enum(["table", "view", "config"]), ref: text }),
   insufficient: z.strictObject({
@@ -84,6 +85,9 @@ function checkMetric(metric, readSql) {
     if (param.default !== undefined && (param.default < param.min || param.default > param.max)) {
       throw new TypeError(`Metric ${metric.id} parameter ${param.name} default is out of range.`);
     }
+  }
+  if (/\{\w+\}/.test(metric.label) && !metric.labelFallback) {
+    throw new TypeError(`Metric ${metric.id} has a label placeholder and no labelFallback.`);
   }
   if (metric.kind === "config") {
     if (!metric.reader || metric.sqlFile || bound.length > 0) {

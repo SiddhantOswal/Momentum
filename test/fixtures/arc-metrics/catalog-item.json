@@ -1,0 +1,107 @@
+{
+  "fixtureKind": "synthetic",
+  "jobComplete": true,
+  "schema": {
+    "fields": [
+      {
+        "name": "item_code",
+        "type": "STRING"
+      },
+      {
+        "name": "box_style",
+        "type": "STRING"
+      },
+      {
+        "name": "length_mm",
+        "type": "STRING"
+      },
+      {
+        "name": "width_mm",
+        "type": "STRING"
+      },
+      {
+        "name": "height_mm",
+        "type": "STRING"
+      },
+      {
+        "name": "ply",
+        "type": "STRING"
+      },
+      {
+        "name": "flute_profile",
+        "type": "STRING"
+      },
+      {
+        "name": "top_liner_gsm",
+        "type": "STRING"
+      },
+      {
+        "name": "flute_gsm",
+        "type": "STRING"
+      },
+      {
+        "name": "inner_liner_gsm",
+        "type": "STRING"
+      },
+      {
+        "name": "liner_bf",
+        "type": "STRING"
+      },
+      {
+        "name": "ink_colors",
+        "type": "STRING"
+      },
+      {
+        "name": "ink_coverage_pct",
+        "type": "STRING"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "f": [
+        {
+          "v": "ITEM-A"
+        },
+        {
+          "v": "RSC"
+        },
+        {
+          "v": "300"
+        },
+        {
+          "v": "200"
+        },
+        {
+          "v": "150"
+        },
+        {
+          "v": "5"
+        },
+        {
+          "v": "BC"
+        },
+        {
+          "v": "150"
+        },
+        {
+          "v": "120"
+        },
+        {
+          "v": "120"
+        },
+        {
+          "v": "18"
+        },
+        {
+          "v": "2"
+        },
+        {
+          "v": "35.5"
+        }
+      ]
+    }
+  ],
+  "totalRows": "1",
+  "totalBytesProcessed": "1048576"
+}

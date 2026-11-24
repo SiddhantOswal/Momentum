@@ -24,6 +24,7 @@
       "unit": "R2 (unitless) and percentage points",
       "provenance": "model_estimate",
       "label": "Modeled, tested on {sampleCount} lots",
+      "labelFallback": "Modeled, holdout evaluation not available",
       "basis": "Holdout R2 on modeled lots, one out-of-time month. Not measured on plant data.",
       "source": { "kind": "config", "ref": "config/model-acceptance.json" },
       "insufficient": {
