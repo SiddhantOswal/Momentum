@@ -99,6 +99,22 @@ test("Vertex declarations match the full parameter contract at each discovery st
       },
       required: ["defect", "ambientRhPct"],
     },
+    query_metric: {
+      type: "OBJECT",
+      properties: {
+        metric: { type: "STRING", enum: ["model_holdout_r2", "defect_history_at_humidity", "top_scrap_items", "catalog_item"] },
+        filters: {
+          type: "OBJECT",
+          properties: {
+            defect: { type: "STRING", enum: ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"] },
+            ambientRhPct: { type: "NUMBER", minimum: 0, maximum: 100 },
+            limit: { type: "INTEGER", minimum: 1, maximum: 10 },
+            itemCode: { type: "STRING" },
+          },
+        },
+      },
+      required: ["metric", "filters"],
+    },
   };
   function assertContract(arc, allowed, context) {
     const expectedNames = names.filter((name) => Object.hasOwn(parameters, name));
