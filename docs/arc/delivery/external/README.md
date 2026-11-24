@@ -57,9 +57,13 @@ Two rules for dispatch. Builders run in separate worktrees, never in the main ch
 
 Every command passes the model and the effort explicitly (`gpt-6.2-sol`, medium), so no session depends on a config default. Codex 0.172.0 lists `gpt-6.2-sol` (`codex debug models`); the earlier 0.164.0 did not.
 
+## 4c. Sandbox
+
+Sessions run with `-s workspace-write` and **no network**. Tested on 2026-11-24: with network access on, a session can open local servers, but it can also reach GitHub and Google Cloud and read the gcloud credentials folder, so network stays off. With it off, `.git` is read-only and local servers cannot start, so builders hand back a commit plan and the orchestrator commits and runs the full suite (`external-agents.md` section 2a). Reviewer sessions cannot run the server-starting tests either: the orchestrator runs the full suite twice (once alongside a second run) before the review and puts the log paths in the packet, and reviewers run mutations on the in-process tests.
+
 ## 4a. No code is lost
 
-- Every builder commits its work before it reports, and never leaves uncommitted changes in a worktree.
+- A builder cannot commit inside its sandbox. It leaves its work in the worktree and writes `commit-plan.json`; the orchestrator applies it (`tools/apply-commit-plan.mjs`) straight away, so work never sits uncommitted for long. A worktree with changes the orchestrator has not committed is never removed.
 - Worktrees live under `/Users/siddhant/Developer/momentum-wt/`, not in `/tmp`, so a reboot or cleanup cannot remove them.
 - Branches are never deleted until their merge into `arc/main` is recorded in STATUS. Abandoned work is recorded in STATUS and kept as a branch.
 - Everything that ships ends up on `arc/main`. The orchestrator checks at each milestone gate that `git branch --no-merged arc/main` lists only branches that STATUS explains.
