@@ -74,7 +74,7 @@ async function freePort() {
   return port;
 }
 
-async function startApp(googleApisOrigin) {
+async function startApp(googleApisOrigin, extraEnv = {}) {
   const port = await freePort();
   const child = spawn(process.execPath, ["--import", preload, "index.mjs"], {
     cwd: appDirectory,
@@ -92,6 +92,7 @@ async function startApp(googleApisOrigin) {
       USTAAD_ENABLE_BIGQUERY_WRITES: "true",
       USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: "true",
       TEST_GOOGLE_APIS_ORIGIN: googleApisOrigin,
+      ...extraEnv,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -110,7 +111,7 @@ async function stopApp(app) {
   await exited;
 }
 
-function planRequest(app, cookie) {
+function planRequest(app, cookie, origin = app.origin) {
   const form = new FormData();
   const fields = {
     orderId: "TEST-PO-HTTP-1", paperType: "VIRGIN", paperSupplier: "SUPPLIER-TEST",
@@ -124,9 +125,47 @@ function planRequest(app, cookie) {
   return fetch(`${app.origin}/jobs`, {
     method: "POST",
     body: form,
-    headers: { Origin: app.origin, Cookie: cookie, "Idempotency-Key": "http-replay-0001" },
+    headers: { Origin: origin, Cookie: cookie, "Idempotency-Key": "http-replay-0001" },
   });
 }
+
+test("Cloud Run rejects authenticated job creation when Firestore idempotency is disabled", async () => {
+  const google = await startFakeGoogleApis();
+  let app;
+  try {
+    const origin = "https://momentum.example";
+    app = await startApp(google.origin, {
+      K_SERVICE: "prepagent",
+      USTAAD_PUBLIC_ORIGIN: origin,
+      USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: "false",
+      USTAAD_ENABLE_LOT_REVISIONS: "true",
+    });
+    const session = await fetch(`${app.origin}/api/auth/demo-session`, {
+      method: "POST", headers: { Origin: origin },
+    });
+    assert.equal(session.status, 200);
+    const cookie = session.headers.get("set-cookie").split(";")[0];
+
+    const response = await planRequest(app, cookie, origin);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), {
+      ok: false,
+      error: { code: "SERVICE_UNAVAILABLE", message: "Job creation requires a shared idempotency store." },
+    });
+    assert.equal(google.firestore.calls.length, 0);
+
+    const status = await (await fetch(`${app.origin}/api/status`)).json();
+    assert.equal(status.runtimeAvailability.jobSheetPersistenceAvailable, true);
+    assert.equal(status.runtimeAvailability.jobCreationAvailable, false);
+    for (const section of [status.runtimeAvailability, status.integrations]) {
+      assert.equal(section.durableIdempotencyConfigured, false);
+      assert.equal(section.idempotencyScope, "unavailable");
+    }
+  } finally {
+    await stopApp(app);
+    await new Promise((resolve) => google.server.close(resolve));
+  }
+});
 
 test("index.mjs routes /jobs through the Firestore store: a replay on a second app process returns the stored job", async () => {
   const google = await startFakeGoogleApis();

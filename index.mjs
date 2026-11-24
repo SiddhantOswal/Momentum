@@ -119,12 +119,9 @@ const prepareJob = createJobCoordinator({
 const jobSheetPersistenceAvailable =
   servicePorts.availability.createDraftJobSheet === true &&
   servicePorts.availability.getStoredJobSheet === true;
-// Om's approved prototype contract keeps idempotency process-local.
-// USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY shares claims across Cloud Run
-// instances through Firestore instead (design 3.2).
+// Shared Firestore claims prevent two service instances from creating the same job.
 const jobIdempotency = selectJobIdempotencyStore({
   jobIdempotency: servicePorts.jobIdempotency,
-  jobSheetPersistenceAvailable,
   demoMode,
 });
 const idempotencyStore = jobIdempotency.store;
@@ -842,6 +839,12 @@ app.post("/risk/optimize", async (c) => {
 app.post("/jobs", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
+  if (!idempotencyStore && (isCloudRun || jobSheetPersistenceAvailable || servicePorts.lotRevisions.enabled)) {
+    return commandResponse(c, {
+      ok: false,
+      error: { code: "SERVICE_UNAVAILABLE", message: "Job creation requires a shared idempotency store." },
+    });
+  }
   let form;
   try {
     form = await c.req.parseBody();
