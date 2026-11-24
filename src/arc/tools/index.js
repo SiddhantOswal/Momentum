@@ -45,14 +45,14 @@ function effectKey(step, args) {
 }
 
 function vertexSchema(schema) {
-  // Empty Zod enums emit { not: {} }. Vertex's parameters schema does not
-  // express this constraint. The allow-list excludes these declarations.
-  if (schema.not) return { type: "STRING" };
+  // Vertex cannot express the impossible schema Zod emits for an empty enum.
+  if (schema.not) return null;
   const { type, properties, required, enum: values, minimum, maximum, format } = schema;
+  const fields = properties && Object.entries(properties).map(([name, value]) => [name, vertexSchema(value)]);
+  if (fields?.some(([, field]) => field === null)) return null;
   return {
     type: type.toUpperCase(),
-    ...(properties && { properties: Object.fromEntries(Object.entries(properties)
-      .map(([name, value]) => [name, vertexSchema(value)])) }),
+    ...(fields && { properties: Object.fromEntries(fields) }),
     ...(required && { required }),
     ...(values && { enum: values }),
     ...(minimum !== undefined && { minimum }),
@@ -136,17 +136,21 @@ export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}
     })];
   })));
 
+  const declarableTools = () => Object.values(tools).flatMap((tool) => {
+    const parameters = vertexSchema(z.toJSONSchema(tool.schema()));
+    return parameters === null ? [] : [{ tool, parameters }];
+  });
+
   return Object.freeze({
     tools,
     declarations: () => [{
-      functionDeclarations: Object.values(tools).map(({ name, description, schema }) => ({
-        name, description, parameters: vertexSchema(z.toJSONSchema(schema())),
+      functionDeclarations: declarableTools().map(({ tool: { name, description }, parameters }) => ({
+        name, description, parameters,
       })),
     }],
-    allowedFunctionNames: (context = {}) => Object.values(tools)
-      .filter((tool) => !tool.codeOnly && !tool.precondition(context) &&
-        !Object.values(tool.schema().shape).some((field) => Array.isArray(field.options) && field.options.length === 0))
-      .map(({ name }) => name),
+    allowedFunctionNames: (context = {}) => declarableTools()
+      .filter(({ tool }) => !tool.codeOnly && !tool.precondition(context))
+      .map(({ tool }) => tool.name),
     execute(name, args, context) {
       if (typeof name !== "string" || !Object.hasOwn(tools, name)) {
         return failure(400, "VALIDATION_ERROR", "Unknown Arc tool.");
