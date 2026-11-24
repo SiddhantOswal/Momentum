@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Factory, Layers, ScanSearch, TrendingUp, BrainCircuit, Sun, Moon } from "lucide-react";
 import type { Screen, Theme } from "../lib/useApp";
+import { ArcLauncher, ArcPanel } from "./ArcPanel";
 
 const NAV: { key: Screen; label: string; Icon: typeof Factory }[] = [
   { key: "floor", label: "Floor", Icon: Factory },
@@ -23,6 +24,26 @@ export function Shell({ screen, go, theme, toggleTheme, title, subtitle, status,
   screen: Screen; go: (s: Screen) => void; theme: Theme; toggleTheme: () => void;
   title: string; subtitle?: string; status?: ReactNode; children: ReactNode;
 }) {
+  const arcPanel = useRef<HTMLDialogElement>(null);
+  const [arcOpen, setArcOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  function toggleArc() {
+    const panel = arcPanel.current;
+    if (!panel) return;
+    if (panel.open) {
+      panel.close();
+    } else {
+      panel.showModal();
+      setArcOpen(true);
+    }
+  }
+
+  function resetArc() {
+    setArcOpen(false);
+    setShowHistory(false);
+  }
+
   return (
     <div className="flex min-h-full">
       <nav aria-label="Main" className="sticky top-0 flex h-screen w-16 shrink-0 flex-col items-center border-r border-line bg-[var(--sb)]">
@@ -53,12 +74,15 @@ export function Shell({ screen, go, theme, toggleTheme, title, subtitle, status,
               <h1 className="arc-page-title truncate">{title}</h1>
               {subtitle && <p className="hidden truncate text-[13px] text-muted md:block">{subtitle}</p>}
             </div>
-            <span className="mono hidden text-[11px] tracking-[0.2em] text-faint sm:block">MOMENTUM</span>
+            <ArcLauncher open={arcOpen} onToggle={toggleArc} />
+            <span className="mono ml-auto hidden text-[11px] tracking-[0.2em] text-faint lg:block">MOMENTUM</span>
           </div>
           {status}
         </header>
         <main id="main" className="flex-1 px-[var(--arc-content-padding)] py-5">{children}</main>
       </div>
+      <ArcPanel ref={arcPanel} hostTitle={title} showHistory={showHistory}
+        onToggleHistory={() => setShowHistory(history => !history)} onClose={resetArc} />
     </div>
   );
 }
