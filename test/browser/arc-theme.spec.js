@@ -152,7 +152,7 @@ test('/app matches the approved title styles and numeric arrow font', async ({ p
     return fonts;
   }
   const referenceGlyph = await glyphFont('#reference-arrow');
-  expect(referenceGlyph).toEqual([expect.objectContaining({ glyphCount: 1, isCustomFont: false })]);
+  expect(referenceGlyph).toEqual([expect.objectContaining({ familyName: 'Inter', glyphCount: 1, isCustomFont: true })]);
   expect(await glyphFont('#app-arrow')).toEqual(referenceGlyph);
 
   const headingKeys = [...Object.keys(titleStyles), 'fontSize', 'lineHeight', 'letterSpacing'];
