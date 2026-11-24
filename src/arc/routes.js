@@ -2,9 +2,8 @@
  * The `/api/arc` sub-app (wire contract `06-arc-wire-contract.md`, ARC-M2-01).
  *
  * Owned here: the session read, the run read, the turn claim with its 409 and
- * replay cases, and the two turn reads. The turn runner (ARC-M2-03) and the
- * stored-event replay, event stream and resume (ARC-M2-06) plug in through
- * `runTurn` and `readEvents`; nothing for those routes is mounted yet.
+ * replay cases, and the two turn reads. The turn runner supplies live and
+ * replayed turn streams. The follow and resume routes arrive in ARC-M2-06.
  *
  * Order of checks: the global body limit and per-IP limiter run before this
  * app, then the flag (404 before any auth), same-origin on writes (403),
@@ -20,9 +19,11 @@ import { authorizeSupervisor } from "../commands/authorize.js";
 import { validationFailure } from "../commands/validation.js";
 import { isDemoPrincipal } from "../hackathon-demo-auth.js";
 import { FirestoreRestError } from "../google-cloud/firestore-rest.js";
+import { REQUEST_SIGNAL_CONTEXT_KEY } from "../request-guardrails.js";
 import { SESSION_COOKIE } from "../user-session-auth.js";
 import { canonicalJson } from "./canonical-json.js";
 import { isRunResumable, runView, turnView } from "./run-view.js";
+import { frame, streamHeaders } from "./turn-stream.js";
 
 const DEMO_COOKIE = "__Host-ustaad-demo";
 const PRINCIPAL_KEY = "arcPrincipal";
@@ -100,15 +101,10 @@ function storedInput(input) {
   };
 }
 
-function frame(event) {
-  const id = event.sequence > 0 ? `id: ${event.sequence}\n` : "";
-  return `${id}event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
-}
-
 function streamOf(events, headers) {
   return new Response(events.map(frame).join(""), {
     status: 200,
-    headers: { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store", ...headers },
+    headers: { ...streamHeaders, ...headers },
   });
 }
 
@@ -127,6 +123,9 @@ export function createArcRoutes({
   taskRunStore,
   lotStore,
   actionIds = [],
+  validateAction,
+  getIpKey,
+  readLastSequence,
   runTurn,
   readEvents,
   now = Date.now,
@@ -223,13 +222,15 @@ export function createArcRoutes({
   app.get("/runs/:taskRunId", requireEmptyQuery, async (c) => {
     const owned = await ownedRun(c);
     if (owned.response) return owned.response;
-    return c.json({ ok: true, run: runView(owned.run, { instant: now() }) });
+    const lastSequence = await readLastSequence?.(owned.run, { signal: c.req.raw.signal });
+    return c.json({ ok: true, run: runView(owned.run, { instant: now(), lastSequence }) });
   });
 
   app.post("/turns", requireEmptyQuery, bodyLimit({
     maxSize: MAX_BODY_BYTES,
     onError: (c) => fail(c, 413, "PAYLOAD_TOO_LARGE", "The request body is too large."),
   }), async (c) => {
+    const startedAt = performance.now();
     let body;
     try {
       body = await c.req.json();
@@ -242,14 +243,29 @@ export function createArcRoutes({
     if (input.kind === "action" && !knownActions.has(input.actionId)) {
       return json(c, 400, validationFailure([{ field: "input.actionId", path: ["input", "actionId"], code: "unknown_action", message: "This action is not available." }]));
     }
+    if (input.kind === "action" && validateAction) {
+      const params = validateAction(input);
+      if (!params.success) {
+        const issues = issuesFrom(params.error).map((issue) => {
+          const path = ["input", "params", ...issue.path];
+          return { ...issue, path, field: path.join(".") };
+        });
+        return json(c, 400, validationFailure(issues, "The action parameters are not valid."));
+      }
+    }
     if (!storesConfigured) return storesUnavailable(c);
     const principal = principalOf(c);
     const { stored, fingerprint } = storedInput(input);
-    await sessionStore.getOrCreate({ sessionId: principal.sessionId, sessionExpiresAt: new Date(principal.expiresAt * 1000).toISOString() });
+    const signal = c.req.raw.signal;
+    const requestSignal = c.get(REQUEST_SIGNAL_CONTEXT_KEY);
+    const claimSignal = requestSignal ? AbortSignal.any([signal, requestSignal]) : signal;
+    const session = await sessionStore.getOrCreate({
+      sessionId: principal.sessionId, sessionExpiresAt: new Date(principal.expiresAt * 1000).toISOString(), signal: claimSignal,
+    });
     // Without a runner a new turn cannot be served, so none is recorded; a stored turn can still be replayed or refused.
     const claim = await sessionStore.claimTurn({
       sessionId: principal.sessionId, clientTurnId, input: stored, inputFingerprint: fingerprint,
-      createIfAbsent: typeof runTurn === "function",
+      createIfAbsent: typeof runTurn === "function", signal: claimSignal,
     });
 
     if (claim.outcome === "absent") {
@@ -263,7 +279,7 @@ export function createArcRoutes({
     if (claim.outcome === "replay") {
       let events;
       if (claim.turn.taskRunId === null) events = unstoredReplay(claim.turn);
-      else if (typeof readEvents === "function") events = await readEvents({ sessionId: principal.sessionId, turn: claim.turn });
+      else if (typeof readEvents === "function") events = await readEvents({ sessionId: principal.sessionId, turn: claim.turn, signal: claimSignal });
       else return fail(c, 503, "SERVICE_UNAVAILABLE", "Arc cannot replay this turn's events on this deployment yet.");
       return streamOf(events, { "Arc-Turn": "replayed" });
     }
@@ -271,7 +287,7 @@ export function createArcRoutes({
     let response;
     try {
       response = await runTurn({
-        sessionId: principal.sessionId, principal, turn: claim.turn, input, signal: c.req.raw.signal,
+        sessionId: principal.sessionId, principal, session, ipKey: getIpKey?.(c), turn: claim.turn, input, signal, startedAt,
       });
     } catch (error) {
       await sessionStore.failTurn({

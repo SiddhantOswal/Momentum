@@ -27,6 +27,8 @@ import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
 import { isSampleDocument } from "./src/synthetic-po-allowlist.js";
 import { createArcRoutes } from "./src/arc/routes.js";
+import { createArcTurnRunner } from "./src/arc/turn-runner.js";
+import { createArcEventStore } from "./src/google-cloud/firestore-arc-event-store.js";
 import { createFirestoreArcSessionStore } from "./src/google-cloud/firestore-arc-session-store.js";
 import { createFirestoreArcTaskRunStore } from "./src/google-cloud/firestore-arc-task-run-store.js";
 import { streamSSE } from "hono/streaming";
@@ -579,15 +581,26 @@ app.use("/api/runs/*", async (c, next) => {
 app.route("/api/runs", createTraceRoutes(durableTraces.registry, { store: durableTraces.store }));
 
 // USTAAD_ENABLE_ARC (exact "true") turns the Arc routes on; off, every /api/arc path answers 404 ARC_NOT_ENABLED.
-// The turn runner and the event routes arrive with ARC-M2-03 and ARC-M2-06.
 const arcEnabled = process.env.USTAAD_ENABLE_ARC === "true";
 const arcProjectId = process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT;
+const arcFirestore = arcEnabled && arcProjectId ? { projectId: arcProjectId } : null;
+const arcSessionStore = arcFirestore ? createFirestoreArcSessionStore(arcFirestore) : undefined;
+const arcTaskRunStore = arcFirestore ? createFirestoreArcTaskRunStore(arcFirestore) : undefined;
+const arcLotStore = servicePorts.lotRevisions.store;
 app.route("/api/arc", createArcRoutes({
   enabled: arcEnabled,
   commandDeps,
-  sessionStore: arcEnabled && arcProjectId ? createFirestoreArcSessionStore({ projectId: arcProjectId }) : undefined,
-  taskRunStore: arcEnabled && arcProjectId ? createFirestoreArcTaskRunStore({ projectId: arcProjectId }) : undefined,
-  lotStore: servicePorts.lotRevisions.store,
+  sessionStore: arcSessionStore,
+  taskRunStore: arcTaskRunStore,
+  lotStore: arcLotStore,
+  getIpKey: clientIpKey,
+  ...(arcFirestore && createArcTurnRunner({
+    sessionStore: arcSessionStore,
+    taskRunStore: arcTaskRunStore,
+    eventStore: createArcEventStore(arcFirestore),
+    lotStore: arcLotStore,
+    deps: commandDeps,
+  })),
 }));
 
 // One canonical application. Old dashboard bookmarks retain query/fragment state.
