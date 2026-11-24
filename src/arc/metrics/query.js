@@ -74,14 +74,18 @@ function isInsufficient(metric, rows) {
   return kind === "zero" && rows.every((row) => row[column] === 0);
 }
 
-function describe(metric, values, labelValues = {}) {
+/** The entry's chip text with its placeholders filled, or its fallback when a value is missing. */
+export function metricLabel(metric, labelValues = {}) {
   const resolved = metric.label.replace(/\{(\w+)\}/g, (_, key) => String(labelValues[key] ?? "\u0000"));
-  const label = resolved.includes("\u0000") ? metric.labelFallback : resolved;
+  return resolved.includes("\u0000") ? metric.labelFallback : resolved;
+}
+
+function describe(metric, values, labelValues = {}) {
   return {
     metric: metric.id,
     unit: metric.unit,
     provenance: metric.provenance,
-    label,
+    label: metricLabel(metric, labelValues),
     basis: metric.basis,
     source: { kind: metric.source.kind, ref: metric.source.ref },
     columns: metric.columns.map(({ name, unit }) => ({ name, unit: unit ?? null })),

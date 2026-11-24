@@ -1,115 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { Hono } from "hono";
-import { createArcRoutes } from "../src/arc/routes.js";
-import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "../src/daily-gemini-call-cap.js";
-import { createFirestoreArcSessionStore } from "../src/google-cloud/firestore-arc-session-store.js";
-import { createFirestoreTraceStore } from "../src/google-cloud/firestore-trace-store.js";
-import { createFirestoreArcTaskRunStore } from "../src/google-cloud/firestore-arc-task-run-store.js";
-import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
-import { readGeminiBudgetConfig } from "../src/gemini-budget-config.js";
-import { budgetCapStore, createFirestoreBudgetStore } from "../src/google-cloud/firestore-budget-store.js";
-import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
-import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
-import { createFakeFirestore, FAKE_PROJECT_ID } from "./fixtures/fake-firestore.js";
-
-async function loadNewModule(path) {
-  try {
-    return await import(path);
-  } catch (error) {
-    if (error.code !== "ERR_MODULE_NOT_FOUND" || error.url !== new URL(path, import.meta.url).href) throw error;
-    return {};
-  }
-}
-
-const [runnerModule, { createArcEventStore }] = await Promise.all([
-  loadNewModule("../src/arc/turn-runner.js"),
-  loadNewModule("../src/google-cloud/firestore-arc-event-store.js"),
-]);
-
-const auth = createHackathonDemoAuthenticator({
-  mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "a".repeat(64),
-});
-const ipKey = "a".repeat(16);
-const modelCall = (name, args = {}) => ({ name, args });
-const privateText = "Private customer text from the document.";
-const privatePrompt = "Internal system instruction used by the adapter.";
-
-function fixture({ router, writer, preRoute, readToolEffect, services = {}, commandDeps = {}, budgetLimits = {}, ip = ipKey, ...ports } = {}) {
-  assert.equal(typeof runnerModule.createArcTurnRunner, "function", "Arc turn runner must exist");
-  const fake = createFakeFirestore();
-  let time = Date.now();
-  const now = () => time;
-  const clock = (ms) => { time += ms; };
-  const options = { projectId: FAKE_PROJECT_ID, fetchImpl: fake.fetchImpl, tokenProvider: async () => "test", now };
-  const sessionStore = createFirestoreArcSessionStore(options);
-  const taskRunStore = createFirestoreArcTaskRunStore(options);
-  const eventStore = createArcEventStore(options);
-  const attempts = new Map();
-  const reservations = [];
-  const budgetFirestore = fakeFirestore();
-  const { limits } = readGeminiBudgetConfig({
-    USTAAD_GEMINI_BUDGET_POLICY: "budget-v2",
-    GEMINI_BUDGET_LIMITS: JSON.stringify({
-      pool: "live", dayLimit: 300, sessionDayLimit: 40, ipDayLimit: 120, minuteLimit: 20, sessionMinuteLimit: 6,
-      ...budgetLimits,
-    }),
-  });
-  const budget = createFirestoreBudgetStore({ ...options, fetchImpl: budgetFirestore.fetchImpl, limits });
-  const store = budgetCapStore({
-    ...budget,
-    async reserve(request) {
-      const result = await budget.reserve(request);
-      reservations.push({ key: request.reservationKey, replayed: result.replayed ?? false });
-      if (result.ok && !result.replayed) attempts.set(request.reservationKey, request);
-      return result;
-    },
-  });
-  const geminiCap = readDailyGeminiCallCapConfig({});
-  const cookie = auth.issue();
-  const principal = auth.authenticate(cookie).principal;
-  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, servicePorts: services, modelAcceptanceConfig, ...commandDeps };
-  const create = (overrides = {}) => runnerModule.createArcTurnRunner({
-    sessionStore, taskRunStore, eventStore, deps, now, geminiCap, attemptStore: store,
-    router, writer, preRoute, readToolEffect, ...ports, ...overrides,
-  });
-  function request(path, requestOptions, runner = create()) {
-    const app = new Hono();
-    app.route("/api/arc", createArcRoutes({ enabled: true, commandDeps: deps, sessionStore, taskRunStore,
-      ...runner, getIpKey: () => ip }));
-    return app.request(`http://localhost${path}`, {
-      ...requestOptions, headers: { Cookie: `__Host-ustaad-demo=${cookie}`, Origin: "http://localhost" },
-    });
-  }
-  function post(input, { runner, clientTurnId = randomUUID(), signal } = {}) {
-    return request("/api/arc/turns", {
-      method: "POST", body: JSON.stringify({ clientTurnId, input }), signal,
-    }, runner);
-  }
-  return {
-    create, post, request, attempts, reservations, budget, principal, sessionStore, taskRunStore, fake, clock, geminiCap,
-    store, legacyTraceStore: createFirestoreTraceStore(options),
-  };
-}
-
-function text(text) { return { kind: "text", text }; }
-function action(actionId, params) { return { kind: "action", actionId, params }; }
-
-async function events(response, accepted = "accepted") {
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get("arc-turn"), accepted);
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.match(response.headers.get("content-type"), /^text\/event-stream/);
-  return (await response.text()).split("\n\n").filter((frame) => frame.includes("data: "))
-    .map((frame) => {
-      const lines = frame.split("\n");
-      const data = JSON.parse(lines.find((line) => line.startsWith("data: ")).slice(6));
-      assert.ok(lines.includes(`event: ${data.type}`));
-      assert.equal(lines.find((line) => line.startsWith("id: ")), data.sequence ? `id: ${data.sequence}` : undefined);
-      return data;
-    });
-}
+import { withDailyGeminiCallCap } from "../src/daily-gemini-call-cap.js";
+import {
+  action, arcConfig, events, fixture, ipKey, modelCall, privatePrompt, privateText, text,
+} from "./fixtures/arc-turn-runner.js";
 
 test("buttons, exact suggestion text and deterministic refusals use no Gemini attempts", { timeout: 2000 }, async () => {
   const { post, attempts } = fixture({
@@ -235,7 +130,7 @@ async function interruptedPhotoRun({ readEffect }) {
       },
     },
     config: {
-      ...runnerModule.arcConfig,
+      ...arcConfig,
       actions: { check_photo: { kind: "photo_check", calls: [
         modelCall("list_approved_photos"), modelCall("diagnose_approved_photo", { photoId: "photo-01" }), modelCall("get_status"),
       ] } },
@@ -287,25 +182,39 @@ test("a restart with no stored step effect fails closed and charges nothing more
   assert.equal(setup.reservations.filter(({ replayed }) => replayed).length, 1);
 });
 
-test("live weather and nonempty defect history qualify for the writer", { timeout: 2000 }, async () => {
-  for (const tool of ["get_weather", "search_defect_history"]) {
-    const { post, attempts } = fixture({
-      router: () => ({ calls: [modelCall(tool, tool === "get_weather" ? {} : { defect: "CRACK", ambientRhPct: 60 })] }),
-      writer: ({ data }) => {
-        assert.equal(data[0].tool, tool);
-        return { outcome: "shown", text: "Arc found matching data." };
-      },
+const unlabelledCases = [
+  ["get_weather", {}, "What is the humidity at the plant?", /^Pune weather record: humidity 60% and temperature 22 °C\. Weather record\. Public weather record, not a plant sensor\.$/],
+  ["search_defect_history", { defect: "CRACK", ambientRhPct: 60 }, "Have we seen cracking at 60% humidity?",
+    /^Crack was the main problem in 2 modeled lots at similar humidity\. Modeled records\. They come from modeled history, not measured production\.$/],
+];
+
+for (const [tool, args, question, template] of unlabelledCases) {
+  test(`a typed ${tool} question shows the labelled template, not written text, and no Gemini chip`, { timeout: 2000 }, async () => {
+    let writes = 0;
+    const logged = [];
+    const setup = fixture({
+      router: () => ({ calls: [modelCall(tool, args)] }),
+      writer: () => { writes += 1; return { outcome: "shown", text: "It is 60%." }; },
+      log: (entry) => logged.push(entry),
       services: { findSeenBefore: async () => ({ ok: true, caseCount: 2 }) },
       commandDeps: {
         now: Date.now,
         weatherCache: { get: () => null, set() {} },
-        weatherProvider: async () => ({ ok: true, ambientRhPct: 60, ambientTempC: 22 }),
+        weatherProvider: async () => ({ ok: true, ambientRhPct: 60, ambientTempC: 22, location: "Pune" }),
       },
     });
-    await events(await post(text("What do the records say?")));
-    assert.equal(attempts.size, 2, tool);
-  }
-});
+    const clientTurnId = randomUUID();
+    await events(await setup.post(text(question), { clientTurnId }));
+    const response = await setup.request(`/api/arc/turns/${clientTurnId}`);
+    const { turn } = await response.json();
+    assert.match(turn.answer.text, template);
+    assert.doesNotMatch(turn.answer.text, /Generated by Gemini/);
+    assert.deepEqual([turn.answer.generatedByGemini, turn.answer.writerOutcome], [false, "fallback"]);
+    const stored = await setup.sessionStore.getTurn(setup.principal.sessionId, clientTurnId);
+    assert.deepEqual([stored.summary.fallbackReason, stored.summary.attempts, writes, setup.attempts.size], ["LABEL_NOT_REBUILDABLE", 1, 0, 1]);
+    assert.deepEqual(logged, [{ event: "arc_answer_fallback", reason: "LABEL_NOT_REBUILDABLE" }]);
+  });
+}
 
 test("a denied writer reservation keeps the template and counts only charged attempts", { timeout: 2000 }, async () => {
   const { post, attempts, sessionStore, principal } = fixture({
@@ -327,7 +236,7 @@ test("a denied writer reservation keeps the template and counts only charged att
 test("a fixed plan above the tool-step limit runs no tools", { timeout: 2000 }, async () => {
   const { post, attempts } = fixture({
     config: {
-      ...runnerModule.arcConfig,
+      ...arcConfig,
       actions: { list_photos: { kind: "photo_check", calls: Array.from({ length: 5 }, () => modelCall("list_approved_photos")) } },
     },
     services: { getApprovedPhotos: () => assert.fail("the plan is over the limit") },
@@ -439,7 +348,7 @@ test("one metered step cannot charge above the configured attempt cap", { timeou
   let client;
   const setup = fixture({
     config: {
-      ...runnerModule.arcConfig,
+      ...arcConfig,
       maxGeminiAttempts: 1,
       actions: { check_photo: { kind: "photo_check", calls: [
         modelCall("list_approved_photos"), modelCall("diagnose_approved_photo", { photoId: "photo-01" }),
@@ -465,7 +374,7 @@ test("one metered step cannot charge above the configured attempt cap", { timeou
 test("a plan with two Gemini-spending tool steps runs no tools", { timeout: 2000 }, async () => {
   const { post, attempts } = fixture({
     config: {
-      ...runnerModule.arcConfig,
+      ...arcConfig,
       actions: { check_photos: { kind: "photo_check", calls: [
         modelCall("diagnose_approved_photo", { photoId: "photo-01" }), modelCall("diagnose_approved_photo", { photoId: "photo-02" }),
       ] } },
@@ -569,7 +478,7 @@ test("the router sees earlier turn summaries and never earlier typed text", { ti
 
 test("a step that outlives the request budget ends the stream with REQUEST_TIMEOUT", { timeout: 2000 }, async () => {
   const setup = fixture({
-    config: { ...runnerModule.arcConfig, requestTimeoutMs: 60 },
+    config: { ...arcConfig, requestTimeoutMs: 60 },
     services: { getApprovedPhotos: () => new Promise(() => {}) },
   });
   const frames = await events(await setup.post(action("list_approved_photos")));
@@ -609,7 +518,7 @@ test("a rate-limit block sends retryAfterSeconds live and omits it on replay", {
 
 test("a tool result above the configured size fails the step", { timeout: 2000 }, async () => {
   const { post } = fixture({
-    config: { ...runnerModule.arcConfig, maxToolResultBytes: 64 },
+    config: { ...arcConfig, maxToolResultBytes: 64 },
     services: { getApprovedPhotos: async () => ({ ok: true, photos: [{ id: "photo-01", note: "x".repeat(200) }] }) },
   });
   const frames = await events(await post(action("list_approved_photos")));
@@ -650,4 +559,173 @@ test("typed text without a router fails with SERVICE_UNAVAILABLE and spends noth
   assert.deepEqual(frames.map(({ type, sequence, errorCode }) => [type, sequence, errorCode]), [["run.failed", 0, "SERVICE_UNAVAILABLE"]]);
   assert.equal(attempts.size, 0);
   assert.equal(reservations.length, 0);
+});
+
+async function sessionWithJob(setup) {
+  const { sessionStore, principal } = setup;
+  await sessionStore.getOrCreate({ sessionId: principal.sessionId, sessionExpiresAt: new Date(Date.now() + 3600_000).toISOString() });
+  const jobId = `JOB-HACK-${principal.sessionId}-${"0a".repeat(20)}`;
+  await sessionStore.recordJob({ sessionId: principal.sessionId, jobId });
+  return jobId;
+}
+
+test("a typed job-card request never calls the writer and costs 1 attempt (AC10.2)", { timeout: 3000 }, async () => {
+  for (const tool of ["get_job", "get_job_card"]) {
+    let plan;
+    const setup = fixture({
+      router: () => plan,
+      writer: () => assert.fail("job-card retrieval must not call the writer"),
+      commandDeps: { lookupStoredJobSheet: async ({ jobId }) => ({ ok: true, jobSheet: { jobId, status: "APPROVED" } }) },
+      services: { getJobCard: async () => ({ ok: true, bytes: new Uint8Array([37, 80, 68, 70]), contentType: "application/pdf" }) },
+    });
+    const jobId = await sessionWithJob(setup);
+    plan = { calls: [modelCall(tool, { jobId })] };
+    const clientTurnId = randomUUID();
+    const frames = await events(await setup.post(text("Show the card for my last job"), { clientTurnId }));
+    assert.equal(frames.at(-1).type, "run.completed", tool);
+    const turn = await setup.sessionStore.getTurn(setup.principal.sessionId, clientTurnId);
+    assert.equal(setup.attempts.size, 1, tool);
+    assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome, turn.summary.fallbackReason], [1, "not_called", null], tool);
+    assert.equal(turn.answerText, "Here is the job card from this session.");
+    assert.deepEqual(turn.summary.resultRefs, [{ kind: tool === "get_job" ? "job" : "card", id: jobId }]);
+  }
+});
+
+test("a refusal chosen by the router never calls the writer and costs 1 attempt", { timeout: 2000 }, async () => {
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [], reply: { code: "reply_out_of_scope", args: {} } }),
+    renderReply: () => "That is not something Arc does.",
+    writer: () => assert.fail("a refusal must not call the writer"),
+  });
+  const clientTurnId = randomUUID();
+  const frames = await events(await post(text("Where is the nearest mall?"), { clientTurnId }));
+  assert.deepEqual(frames.map(({ type, sequence }) => [type, sequence]), [["answer", 0]]);
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([turn.summary.intent, turn.summary.attempts, turn.summary.writerOutcome], ["reply_out_of_scope", 1, "not_called"]);
+  assert.equal(attempts.size, 1);
+});
+
+test("a typed question that ends as insufficient data shows the dictionary text and skips the writer", { timeout: 2000 }, async () => {
+  const missing = "The modeled lot history has no lots from 2025-10-01 to 2026-09-30.";
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("query_metric", { metric: "top_scrap_items", filters: {} })] }),
+    writer: () => assert.fail("insufficient data must not call the writer"),
+    services: {
+      availability: { queryMetric: true },
+      queryMetric: async () => ({ ok: true, status: "insufficient_data", metric: "top_scrap_items", missing: "Model text that must not show.", rows: [], rowCount: 0 }),
+    },
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Which items scrapped most this year?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.equal(turn.answerText, missing);
+  assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome], [1, "not_called"]);
+  assert.deepEqual(turn.summary.resultRefs, [{ kind: "metric", id: "no_data.top_scrap_items" }]);
+  assert.equal(attempts.size, 1);
+});
+
+test("a writer safety block shows the template, counts the fallback and logs the reason code only", { timeout: 2000 }, async () => {
+  const logged = [];
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status")] }),
+    writer: () => { throw Object.assign(new Error("Gemini withheld its answer."), { code: "GEMINI_SAFETY_BLOCKED" }); },
+    log: (entry) => logged.push(entry),
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Can I trust the models?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome, turn.summary.fallbackReason], [2, "fallback", "GEMINI_SAFETY_BLOCKED"]);
+  assert.match(turn.answerText, /^Holdout R2 per model: Warp 0\.47, Delamination 0\.52, Strength 0\.39, Print 0\.64, Crack 0\.11\./);
+  assert.deepEqual(turn.summary.versions, { config: "arc-v1", models: "arc-models-v1", writer: "writer/v1" });
+  assert.deepEqual(logged, [{ event: "arc_answer_fallback", reason: "GEMINI_SAFETY_BLOCKED" }]);
+  assert.equal(attempts.size, 2);
+});
+
+test("a template that fails its own check is replaced, keeps no values and skips the writer", { timeout: 2000 }, async () => {
+  const logged = [];
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status")] }),
+    renderTemplate: () => "Warp scores 0.99.",
+    writer: () => assert.fail("an unchecked template must not call the writer"),
+    log: (entry) => logged.push(entry),
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Can I trust the models?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.equal(turn.answerText, "Arc could not check this answer against its sources, so it is not shown. Try a suggested question, or ask again in different words.");
+  assert.deepEqual([turn.summary.resultRefs, turn.summary.writerOutcome], [[], "not_called"]);
+  assert.deepEqual(logged, [{ event: "arc_answer_fallback", reason: "TEMPLATE_UNCHECKED" }]);
+  assert.equal(attempts.size, 1);
+});
+
+test("a picked suggestion keeps the template with its values and stores a metric reference", { timeout: 2000 }, async () => {
+  const { post, sessionStore, principal } = fixture({ writer: () => assert.fail("a button never calls the writer") });
+  const clientTurnId = randomUUID();
+  const frames = await events(await post(action("get_status"), { clientTurnId }));
+  assert.deepEqual(frames.find(({ type }) => type === "step.succeeded").resultRef, { kind: "metric", id: "model_scores" });
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.match(turn.answerText, /Print 0\.64, Crack 0\.11\. Modeled, tested on 219 lots\./);
+  assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome], [0, "not_called"]);
+});
+
+test("a job-card request that also reads data still skips the writer (AC10.2)", { timeout: 3000 }, async () => {
+  let plan;
+  let writes = 0;
+  const setup = fixture({
+    router: () => plan,
+    writer: () => { writes += 1; return { outcome: "shown", text: "Print scores 0.64." }; },
+    commandDeps: { lookupStoredJobSheet: async ({ jobId }) => ({ ok: true, jobSheet: { jobId } }) },
+  });
+  const jobId = await sessionWithJob(setup);
+  plan = { calls: [modelCall("get_job", { jobId }), modelCall("get_status")] };
+  const clientTurnId = randomUUID();
+  await events(await setup.post(text("Show my card and the model scores"), { clientTurnId }));
+  const turn = await setup.sessionStore.getTurn(setup.principal.sessionId, clientTurnId);
+  assert.deepEqual([writes, setup.attempts.size, turn.summary.attempts, turn.summary.writerOutcome], [0, 1, 1, "not_called"]);
+  assert.deepEqual(turn.summary.resultRefs, [{ kind: "job", id: jobId }, { kind: "metric", id: "model_scores" }]);
+});
+
+test("a mixed message answers from the template, keeps the refusal line and skips the writer (AC5.4)", { timeout: 2000 }, async () => {
+  let writes = 0;
+  const refusal = "That is not something Arc does.";
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status")], reply: { code: "reply_out_of_scope" } }),
+    renderReply: () => refusal,
+    writer: () => { writes += 1; return { outcome: "shown", text: "Print scores 0.64." }; },
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Show the model scores and tell me a joke"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([writes, attempts.size, turn.summary.writerOutcome, turn.summary.intent], [0, 1, "not_called", "reply_out_of_scope"]);
+  assert.match(turn.answerText, /^Holdout R2 per model: .* That is not something Arc does\.$/);
+});
+
+test("a number in the typed question never becomes a fact the writer may repeat", { timeout: 2000 }, async () => {
+  const requests = [];
+  const { post, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status")] }),
+    writer: (request) => { requests.push(request); return { outcome: "shown", text: "Print scores 0.71." }; },
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Is 0.71 the print score?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([turn.summary.writerOutcome, turn.summary.fallbackReason], ["fallback", "UNGROUNDED_NUMBER"]);
+  assert.doesNotMatch(JSON.stringify(requests[0].data), /0\.71/);
+});
+
+test("when one of two data tools returns insufficient data the writer is skipped (spec 3.2)", { timeout: 2000 }, async () => {
+  let writes = 0;
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status"), modelCall("query_metric", { metric: "top_scrap_items", filters: {} })] }),
+    writer: () => { writes += 1; return { outcome: "shown", text: "Print scores 0.64." }; },
+    services: {
+      availability: { queryMetric: true },
+      queryMetric: async () => ({ ok: true, status: "insufficient_data", metric: "top_scrap_items", rows: [], rowCount: 0 }),
+    },
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Scores and top scrap items?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([writes, attempts.size, turn.summary.writerOutcome], [0, 1, "not_called"]);
+  assert.match(turn.answerText, /The modeled lot history has no lots from 2025-10-01 to 2026-09-30\.$/);
 });

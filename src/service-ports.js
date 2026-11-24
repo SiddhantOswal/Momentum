@@ -522,8 +522,9 @@ export function createConfiguredServicePorts({
       } : {}),
     }),
     conditionGuard,
-    // The router client takes its model and region from config/arc-models.json, not from GEMINI_MODEL or
-    // VERTEX_LOCATION. The runner wraps it in the budget store, so it is handed over unwrapped.
+    // The router and the answer writer share this client. Each role takes its model and region from
+    // config/arc-models.json, not from GEMINI_MODEL or VERTEX_LOCATION. The runner wraps it in the
+    // budget store, so it is handed over unwrapped.
     arcGemini: Object.freeze(allowed && projectId ? {
       attemptStore: geminiUsage.store,
       dailyCap: geminiDailyCap,

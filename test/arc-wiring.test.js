@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createConfiguredServicePorts, createServicePorts } from "../src/service-ports.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
+import { events, fixture, text } from "./fixtures/arc-turn-runner.js";
 
 async function loadNewModule(path) {
   try {
@@ -21,7 +24,9 @@ const liveEnv = {
   GEMINI_MODEL: "gemini-3.5-flash", VERTEX_LOCATION: "us-central1", REGION: "us-central1",
 };
 
-function ports(env, vertexRequests = []) {
+const routedToStatus = () => ({ role: "model", parts: [{ functionCall: { name: "get_status", args: {} } }] });
+
+function ports(env, vertexRequests = [], respond = routedToStatus) {
   const budget = fakeFirestore();
   return createConfiguredServicePorts({
     env,
@@ -29,8 +34,9 @@ function ports(env, vertexRequests = []) {
     tokenProvider: async () => "test",
     fetchImpl: async (url, init) => {
       if (String(url).includes("aiplatform")) {
-        vertexRequests.push({ url: String(url), body: JSON.parse(init.body) });
-        return Response.json({ candidates: [{ content: { role: "model", parts: [{ functionCall: { name: "get_status", args: {} } }] }, finishReason: "STOP" }] });
+        const body = JSON.parse(init.body);
+        vertexRequests.push({ url: String(url), body });
+        return Response.json({ candidates: [{ content: respond(body), finishReason: "STOP" }] });
       }
       return budget.fetchImpl(url, init);
     },
@@ -87,4 +93,35 @@ test("index.mjs hands the Arc turn runner the model ports", async () => {
   const source = await readFile(new URL("../index.mjs", import.meta.url), "utf8");
   const block = source.slice(source.indexOf("createArcTurnRunner({"), source.indexOf("}));", source.indexOf("createArcTurnRunner({")));
   assert.match(block, /\.\.\.createArcModelPorts\(servicePorts/);
+});
+
+test("with live ports a typed data question is routed, written and checked instead of SERVICE_UNAVAILABLE", { timeout: 3000 }, async () => {
+  const requests = [];
+  const written = "Print scores the highest R2, 0.64, on 219 modeled lots.";
+  const live = createArcModelPorts(ports(liveEnv, requests, (body) => body.tools
+    ? routedToStatus() : { role: "model", parts: [{ text: written }] }));
+  assert.equal(typeof live.writer, "function");
+  assert.equal(typeof live.renderTemplate, "function");
+  const setup = fixture({ router: live.router, writer: live.writer, renderTemplate: live.renderTemplate });
+  const clientTurnId = randomUUID();
+  const frames = await events(await setup.post(text("How far can I trust the models?"), { clientTurnId }));
+  assert.equal(frames.at(-1).type, "run.completed");
+  const turn = await setup.sessionStore.getTurn(setup.principal.sessionId, clientTurnId);
+  assert.deepEqual([turn.answerText, turn.summary.writerOutcome, turn.summary.attempts], [written, "shown", 2]);
+  assert.equal(requests.length, 2);
+  const [, writer] = requests;
+  assert.match(writer.url, /^https:\/\/asia-south1-aiplatform\.googleapis\.com\/.*\/models\/gemini-3\.5-flash:generateContent$/);
+  assert.equal(writer.body.tools, undefined, "the writer declares no tools");
+  const prompt = readFileSync(new URL("../prompts/writer/v1/system.txt", import.meta.url), "utf8").replace(/\n$/, "");
+  assert.deepEqual(writer.body.systemInstruction, { parts: [{ text: prompt }] });
+  const sent = JSON.parse(writer.body.contents[0].parts[0].text);
+  assert.deepEqual(Object.keys(sent), ["question", "facts"]);
+  assert.equal(sent.question, "How far can I trust the models?");
+  assert.doesNotMatch(writer.body.contents[0].parts[0].text, /prepagent\.m2_|modelVersion|bqjob_/, "only writer fields leave the tool result");
+});
+
+test("without the live-call opt-in the model ports have no writer", () => {
+  const none = createArcModelPorts(createServicePorts({}));
+  assert.equal(none.writer, undefined);
+  assert.equal(typeof none.renderTemplate, "function");
 });

@@ -1,7 +1,7 @@
 // failure-handling (RAI-7, threshold T14). Seven faults on each of the five
 // generative paths, scored against evals/failure-handling/expected.json, which is
 // written by hand from spec J11 and design section 6. The writer path uses a
-// stand-in writer port over the real Vertex client until ARC-M2-05 builds the writer.
+// stand-in writer port over the real Vertex client, not createArcWriter (see suites.json).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
@@ -109,8 +109,8 @@ const paths = {
   },
 };
 
-// Writer output that is not valid JSON is caught by the writer's own checks, which arrive with ARC-M2-05;
-// the stand-in passes text through, so that case is listed as not built instead of run here.
+// The writer returns plain text, so it has no invalid-JSON case; text that fails a check is
+// tested in numeric-fidelity and grounding. The case stays listed as not built here.
 const notBuilt = new Set(["writer:invalid_json"]);
 
 for (const [path, run] of Object.entries(paths)) {

@@ -3,6 +3,8 @@
  * Internal fields (leases, keys, hashes, versions, session IDs) never leave here.
  */
 
+import { answerBlocks } from "./answer-blocks.js";
+
 // Fixed loading labels, one per tool (05 section 6, G1).
 const STEP_LABELS = Object.freeze({
   read_order: "Reading the order",
@@ -72,24 +74,24 @@ function inputView(input) {
   return input.kind === "text" ? { kind: "text", text: input.text } : { kind: "action", actionId: input.actionId };
 }
 
-// Blocks are rebuilt from resultRefs by ARC-M2-05; until then an answer carries its text and label only.
-function answerView(turn, { withBlocks }) {
+// The chip follows the stored writer outcome only, so a template, a fallback or a refusal never carries it.
+function answerView(turn, { withBlocks, blocksFor }) {
   if (turn.recordStatus !== "complete") return null;
   const writerOutcome = turn.summary?.writerOutcome ?? "not_called";
   const generatedByGemini = writerOutcome === "shown";
   return withBlocks
-    ? { text: turn.answerText, generatedByGemini, writerOutcome, blocks: [] }
+    ? { text: turn.answerText, generatedByGemini, writerOutcome, blocks: blocksFor(turn.summary) }
     : { text: turn.answerText, generatedByGemini };
 }
 
-export function turnView(turn, { withBlocks = true } = {}) {
+export function turnView(turn, { withBlocks = true, blocksFor = answerBlocks } = {}) {
   return {
     clientTurnId: turn.clientTurnId,
     taskRunId: turn.taskRunId,
     status: turn.recordStatus,
     createdAt: turn.createdAt,
     input: inputView(turn.input),
-    answer: answerView(turn, { withBlocks }),
+    answer: answerView(turn, { withBlocks, blocksFor }),
     errorCode: turn.errorCode,
   };
 }

@@ -286,7 +286,7 @@ function sentences(text) {
   return text.trim().split(/(?<=[.!?])(?:\s+|$)/).filter(Boolean);
 }
 
-function sentenceCount(text) {
+export function sentenceCount(text) {
   return sentences(text).length;
 }
 
@@ -374,7 +374,7 @@ function attributionSummary(rows, baseline, best, advisory = []) {
 // The prompt asks Gemini to disclaim causation; a negated disclaimer ("do not imply causal
 // links", "not proof of cause and effect", "neither establishes a causal effect") is not a claim.
 const NEGATED_CAUSATION = /\b(?:not|no|never|neither|nor|without|rather than|instead of)\b[^.!?]{0,60}?\b(?:cause[- ]and[- ]effect|causal(?:ity|ly)?(?:\s+(?:links?|relationships?|effects?|claims?|connections?|inferences?))?|causation)\b/gi;
-function withoutNegatedCausation(text) {
+export function withoutNegatedCausation(text) {
   return text.replace(NEGATED_CAUSATION, " ");
 }
 
@@ -394,11 +394,11 @@ function numericClaims(text) {
   return text.match(/[-+]?\d+(?:\.\d+)?/g) ?? [];
 }
 
-function containsCausalClaim(text) {
+export function containsCausalClaim(text) {
   return /\b(?:cause[sd]?|causing|causal(?:ly)?|because of|due to|leads? to|result(?:s|ing)? (?:in|from)|drives?|proves?|demonstrates?)\b|\b(?:increases?|decreases?|raises?|lowers?|worsens?|improves?)(?:\s+\w+){0,3}\s+\b(?:risk|scrap|defect|prediction|rate)\b/i.test(text);
 }
 
-function containsUnverifiedOutcomeClaim(text) {
+export function containsUnverifiedOutcomeClaim(text) {
   const outcome = String.raw`(?:actual(?:\s+observed)?|measured|real[- ]world)\s+(?:factory\s+|production\s+)?outcomes?`;
   const assertions = text.replace(new RegExp(String.raw`\b(?:not|rather than|instead of)\s+${outcome}\b`, "gi"), " ");
   return new RegExp(String.raw`\b${outcome}\b`, "i").test(assertions);

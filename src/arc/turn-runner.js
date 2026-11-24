@@ -1,12 +1,16 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import arcConfig from "../../config/arc.json" with { type: "json" };
+import { arcModelSettings } from "../arc-model-settings.js";
 import { geminiUsageFailure, withDailyGeminiCallCap } from "../daily-gemini-call-cap.js";
 import { runAsGeminiCaller } from "../gemini-caller-context.js";
 import { unavailable } from "../google-cloud/firestore-arc-client.js";
 import { TURN_LEASE_MS } from "../google-cloud/firestore-arc-session-store.js";
 import { demoOwnsJob, demoOwnsLot } from "../hackathon-demo-auth.js";
 import { IpKeySchema, ResultRefSchema, ToolNameSchema } from "../state-schemas.js";
+import { answerBlocks } from "./answer-blocks.js";
+import { checkGrounding, checkWriterText } from "./answer-checks.js";
+import { UNCHECKED_TEXT, factsFor, metricRef, renderTemplate as renderAnswerTemplate } from "./answer-render.js";
 import { canonicalJson } from "./canonical-json.js";
 import { retrySafe, stepLabel } from "./run-view.js";
 import { createToolRegistry } from "./tools/index.js";
@@ -76,7 +80,7 @@ function resultReference(tool, args, result, principal) {
   if (["get_job", "plan_lot"].includes(tool) && demoOwnsJob(principal, jobId)) ref = { kind: "job", id: jobId };
   const lotId = result.lot?.lotId;
   if (["get_lot", "set_conditions"].includes(tool) && demoOwnsLot(principal, lotId)) ref = { kind: "lot", id: lotId };
-  const parsed = ResultRefSchema.safeParse(ref);
+  const parsed = ResultRefSchema.safeParse(ref ?? metricRef(tool, args, result));
   return parsed.success ? parsed.data : null;
 }
 
@@ -101,12 +105,14 @@ function eventView(run, event) {
  * The model ports each dispatch one request and report provider usage via onUsage.
  * readModelEffect resolves the checked result by its reservation key. readToolEffect
  * resolves a command result by its session and effect key, never by model-supplied ID.
- * The answer ports supply trusted copy or text already checked against its sources.
+ * renderReply and renderTemplate supply code-written copy. Writer text is checked
+ * here against the same turn's facts before it is stored, so a writer port cannot
+ * put an unchecked number or ID in front of the user.
  */
 export function createArcTurnRunner({
   sessionStore, taskRunStore, eventStore, lotStore, deps, config = arcConfig, now = Date.now,
-  preRoute, router, writer, renderReply, renderTemplate = ({ replyText }) => replyText ?? "Arc finished the requested steps.",
-  attemptStore, geminiCap, readModelEffect, readToolEffect,
+  preRoute, router, writer, renderReply, renderTemplate = renderAnswerTemplate,
+  attemptStore, geminiCap, readModelEffect, readToolEffect, log = () => {},
 }) {
   const actionIds = Object.keys(config.actions);
   const generate = ({ role, request, reservationKey, signal, onUsage }) =>
@@ -198,7 +204,7 @@ export function createArcTurnRunner({
           intent: summary.intent ?? null, tools: summary.tools ?? [], resultRefs: summary.resultRefs ?? [],
           attempts, writerOutcome: outcome?.outcome ?? "not_called",
           fallbackReason: outcome?.outcome === "fallback" ? safeCode(outcome.reason) : null,
-          versions: { config: config.version },
+          versions: { config: config.version, ...summary.versions },
         },
       });
       if (!saved.ok) throw unavailable("The Arc turn lease changed.");
@@ -326,7 +332,16 @@ export function createArcTurnRunner({
       await sessionStore.recordDiscovered({ sessionId, kind, ids, signal });
     }
 
+    // Facts are the projected results the template, the writer and the checks share.
     const data = [];
+    let writable = false;
+    let unlabelled = false;
+    function collect(name, args, result, ref) {
+      const facts = factsFor({ tool: name, args, result });
+      if (facts) data.push(facts);
+      if (facts && dataReturned(name, result)) writable = true;
+      if (facts && !answerBlocks.rebuildable(ref)) unlabelled = true;
+    }
     const wantsWriter = !fixed && !reply && calls.some(({ name }) => dataTools.has(name)) &&
       !calls.some(({ name }) => name === "get_job" || name === "get_job_card");
     for (const [index, { name, args }] of calls.entries()) {
@@ -341,10 +356,10 @@ export function createArcTurnRunner({
       if (step.status === "SUCCEEDED") {
         await emit("step.started", fields);
         await emit("step.succeeded", { ...fields, resultRef: step.resultRef });
-        if (discoveryTools.has(name) || (wantsWriter && dataTools.has(name))) {
+        if (discoveryTools.has(name) || dataTools.has(name)) {
           const result = boundResult(await registry.execute(name, argsParsed.data, context));
           if (result?.ok) await rememberDiscovered(name);
-          if (dataReturned(name, result)) data.push({ tool: name, result });
+          collect(name, argsParsed.data, result, step.resultRef);
         }
         continue;
       }
@@ -388,7 +403,7 @@ export function createArcTurnRunner({
       await saveStep(index, step);
       await rememberDiscovered(name);
       await emit("step.succeeded", { ...fields, resultRef: step.resultRef });
-      if (dataReturned(name, result)) data.push({ tool: name, result });
+      collect(name, argsParsed.data, result, step.resultRef);
     }
 
     const summary = {
@@ -396,15 +411,36 @@ export function createArcTurnRunner({
       tools: run.steps.map(({ tool }) => tool),
       resultRefs: run.steps.flatMap(({ resultRef }) => resultRef ? [resultRef] : []),
     };
-    const template = answerTextSchema.parse(await renderTemplate({ ...summary, data, replyText }));
+    let template = answerTextSchema.parse(await renderTemplate({ ...summary, data, replyText }));
+    // The template meets the same grounding rule as the writer; the reply line is fixed copy from config.
+    const unchecked = Boolean(checkGrounding(template, replyText ? [...data, { fixedCopy: replyText }] : data));
+    if (unchecked) {
+      log({ event: "arc_answer_fallback", reason: "TEMPLATE_UNCHECKED" });
+      template = UNCHECKED_TEXT;
+      summary.resultRefs = [];
+    }
     let outcome;
-    if (wantsWriter && data.length && typeof writer === "function") {
+    const insufficient = data.some(({ status }) => status === "insufficient_data");
+    // A value whose card cannot be rebuilt later (weather, BigQuery reads) would sit under the written
+    // text with no label, so the template, which states its labels in words, is shown instead.
+    if (wantsWriter && writable && !insufficient && !unchecked && unlabelled) {
+      outcome = { outcome: "fallback", reason: "LABEL_NOT_REBUILDABLE" };
+      log({ event: "arc_answer_fallback", reason: outcome.reason });
+    } else if (wantsWriter && writable && !insufficient && !unchecked && typeof writer === "function") {
+      const { settingsVersion, promptVersion } = arcModelSettings.generation("writer");
+      summary.versions = { models: settingsVersion, ...(promptVersion && { writer: promptVersion }) };
       try {
-        const parsed = writerSchema.safeParse(await model("writer", { question: normalizedText, data, template }));
-        outcome = parsed.success ? parsed.data : { outcome: "fallback", reason: "INVALID_WRITER_RESULT" };
+        const parsed = writerSchema.safeParse(await model("writer", { question: normalizedText, data }));
+        if (!parsed.success) outcome = { outcome: "fallback", reason: "INVALID_WRITER_RESULT" };
+        else if (parsed.data.outcome === "fallback") outcome = parsed.data;
+        else {
+          const reason = checkWriterText(parsed.data.text, data);
+          outcome = reason ? { outcome: "fallback", reason } : parsed.data;
+        }
       } catch (error) {
         outcome = { outcome: "fallback", reason: safeCode(error?.budgetCode ?? error?.code) };
       }
+      if (outcome.outcome === "fallback") log({ event: "arc_answer_fallback", reason: safeCode(outcome.reason) });
     }
     const saved = await taskRunStore.save({ ...run, status: "COMPLETED" }, { signal });
     if (!saved.ok) throw unavailable("The Arc run changed.");
