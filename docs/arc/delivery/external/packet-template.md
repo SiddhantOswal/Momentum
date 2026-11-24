@@ -30,5 +30,11 @@ Each acceptance criterion, how you will meet it, the files you will touch, and t
 ## Cloud needs
 <none, or the change request to write: command, reason, cost, rollback>
 
+## QA tier
+Tier A (independent QA before merge) or Tier B (batched; see `external/README.md` section 2a), and why.
+
+## Known findings
+Check your work against `docs/arc/delivery/external/known-findings.md` before handing back, and say so in the hand-back.
+
 ## Review after the build
 QA lead; also <security-reviewer | ai-evals-reviewer | responsible-ai-reviewer | copy-editor>, because <reason>.
