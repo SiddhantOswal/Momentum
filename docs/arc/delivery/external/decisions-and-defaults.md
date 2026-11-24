@@ -36,6 +36,7 @@ On 2026-11-24 the founders granted the orchestrator standing permissions and app
 | Backup remote | Founders (push approval is standing once they name a private remote) | Local git bundles only. Never use the public `origin`. If the founders create a private repository, add it as a second remote named `backup` and push `arc/*` after each gate, with their approval for each push. |
 | Photo retention period (ARC-M5-04) | Founders | 7 days with a TTL, as for the other stored records, until decided. |
 | Phase B dates and plant profile (D5) | Founders | Phase B stays unstarted until the finals are over. |
+| The founder acceptance run (ARC-M8-04) | Founders (optional) | The orchestrator runs the 17 steps itself, in a browser, on the tagged revision, records `reviews/acceptance-<date>.md` labelled "run by the orchestrator", and does not wait for a manual founder run. |
 | The CLAUDE.md nits ("Nucleas", a blank line, "V2") | Founders | Leave as they are. |
 | The commit author email before the first push | Founders | No push, so nothing to do. |
 | Node 22 for ARC-M1-13 | Approved (installing tools is standing) | Install Node 22 when the P0 work allows, record a Node 22 run of the weather test, and close the ticket as not reproducible if 10 full runs pass. |

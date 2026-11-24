@@ -35,6 +35,7 @@ else
 fi
 
 bash "$root/tools/orchestrator/resume.sh" > "$stage/STATE.txt" 2>&1 || true
+node "$root/tools/orchestrator/ticket-status.mjs" > "$stage/TICKETS.txt" 2>&1 || true
 
 {
   echo "# Manifest"
