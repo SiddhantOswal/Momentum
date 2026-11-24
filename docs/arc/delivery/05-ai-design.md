@@ -198,16 +198,16 @@ Details in ADR-0010. A later step can only make the outcome stricter (ADR-0001 i
    - IDs: `orderProfile.itemCode`, `resolvedItemCode`, `confirmedItemCode` and `candidates`, each only when it equals an item code in the 117-item catalog; the sample ID (`PO1` to `PO5`).
 
    Never sent to the router: `orderId`, `customerId`, `paperSupplier`, `extractedItemCode`, `purchaseOrderDocument` (`poNumber`, `buyer`, `deliveryDate`), `sourceDocumentUri` and any field not in the list. From a photo diagnosis the router sees the defect label (one of the five), the confidence number and the photo ID, never `visibleSigns` or other text. A field added to the extraction schema stays out until this list names it. An injection tripwire (regex over extracted strings and photo `visibleSigns`) logs `arc_injection_tripwire` with field name and pattern ID only. It does not change behaviour, so injected text cannot block a lot either.
-6. **Output validation and safety blocks.** zod on every function call and every structured response. A `finishReason` of `SAFETY` or a `promptFeedback.blockReason` is never shown as an answer (RAI-5). It maps to `VERTEX_SAFETY_BLOCKED`, and each path has its own message (copy proposals for G2):
+6. **Output validation and safety blocks.** zod on every function call and every structured response. A `finishReason` of `SAFETY` or a `promptFeedback.blockReason` is never shown as an answer (RAI-5). It maps to `GEMINI_SAFETY_BLOCKED` (the code the Vertex client raises since ARC-M1-14), and each path has its own message. The words are the spec's (J11, the safety-block row; copy proposals for G2), and none is the J5 refusal text (AC11.12):
 
    | Path | What Arc does | On screen |
    |---|---|---|
-   | Router | No tool runs | "Arc cannot help with that message. Ask about your lots, data, models, defects or job cards." with the in-scope suggestions of J5 |
-   | Answer writer | The template answer is shown; no retry call | The template answer, with the note "Gemini did not write a summary for this answer. The values below come from Arc's records." |
-   | Order extraction | No review is stored | "Gemini would not read this order, so nothing was filled in. Choose another approved sample." No Retry |
-   | Plan explanation | The explanation-failed branch of J1 (G3): the saved numbers stay and approval is held | "Gemini would not write the explanation for this plan. The numbers are saved and approval is on hold." with Retry explanation and Hold this lot |
-   | Photo diagnosis | No result is stored | "Gemini would not check this photo. Nothing was stored. Try another photo." No Retry |
-7. **Answer checks.** On the writer's text: zod (1 to 3 sentences, no markup), numeric fidelity, tools-only IDs, and wording rules reused from `risk-evidence-service.js` (no causal claims, no "measured", "actual" or "saved" for modeled values, no pass or fail verdict on model scores). Any failure, a truncated response or a writer error shows the template rendering with no error message (AC11.2) and logs `arc_answer_fallback` with the reason code only; a safety block adds the note in step 6. There is no retry call. The template itself passes the same numeric and ID checks; if it fails, Arc shows "Arc could not check this answer against its sources, so it is not shown. Try a suggested question, or ask again in different words." and no values.
+   | Router | No tool runs | "Gemini blocked this message, so Arc did not act on it. Rephrase it, or use the buttons." |
+   | Answer writer | The template answer is shown; no retry call | The template answer, with no error message, as for any writer failure (spec 3.2, AC11.2) |
+   | Order extraction | No review is stored | "Gemini blocked this order, so it was not read. Nothing was stored." No Retry |
+   | Plan explanation | The explanation-failed branch of J1 (G3): the saved numbers stay and approval is held | "Gemini blocked the explanation. The numbers are kept and approval is on hold." with Retry explanation and Hold this lot |
+   | Photo diagnosis | No result is stored | "Gemini blocked this photo, so it was not checked. Try another photo." No Retry |
+7. **Answer checks.** On the writer's text: zod (1 to 3 sentences, no markup), numeric fidelity, tools-only IDs, and wording rules reused from `risk-evidence-service.js` (no causal claims, no "measured", "actual" or "saved" for modeled values, no pass or fail verdict on model scores). Any failure, a truncated response or a writer error shows the template rendering with no error message (AC11.2) and logs `arc_answer_fallback` with the reason code only; a safety block is handled the same way. There is no retry call. The template itself passes the same numeric and ID checks; if it fails, Arc shows "Arc could not check this answer against its sources, so it is not shown. Try a suggested question, or ask again in different words." and no values.
 8. **Approval protection.** No approve tool; `plan_lot` preconditions; approve route checks `reviewConfirmed` and the fingerprint (ADR-0003).
 9. **Cost limits.** Every Gemini call goes through the ADR-0004 budget API; Arc adds a per-session limit on typed turns and reports the remaining count in `GET /api/status`.
 
@@ -239,7 +239,7 @@ Events are emitted only when a real state changes, and each step event names the
 | `VERTEX_UNAVAILABLE` | `step.failed` | "Arc could not reach Gemini. Try again." | Yes |
 | `VERTEX_GENERATION_FAILED` (HTTP 429, 500, 503) | `step.failed` | "Gemini did not answer this time. Try again." | Yes |
 | `VERTEX_INVALID_RESPONSE`, `VERTEX_INVALID_JSON`, `VERTEX_EMPTY_RESPONSE`, `VERTEX_OUTPUT_TRUNCATED` | `step.failed` | "Gemini's reply could not be used. Try again." | Yes |
-| `VERTEX_SAFETY_BLOCKED` (new, ARC-M1-14) | `step.failed` | One message per path, in section 5, step 6 | Per path |
+| `GEMINI_SAFETY_BLOCKED` (ARC-M1-14) | `step.failed`; `run.failed` on the router path | One message per path, in section 5, step 6 | Per path |
 | `REQUEST_TIMEOUT` | `step.failed` | "This step did not finish within 60 s. Your confirmed inputs are kept. Try again." | Yes |
 | `BIGQUERY_UNAVAILABLE` | `step.failed` | "The data could not be read. Try again." | Yes |
 | `SERVICE_UNAVAILABLE` | `step.failed` | "Arc could not read or save its records. Nothing was changed. Try again." | Yes |
@@ -248,6 +248,8 @@ Events are emitted only when a real state changes, and each step event names the
 | `GEMINI_DAILY_CAP_EXCEEDED` with `BUDGET_SESSION_EXHAUSTED` | `step.blocked` | "This session has used its Gemini limit for today. Buttons still work." | No |
 | `GEMINI_DAILY_CAP_EXCEEDED` with `BUDGET_RATE_LIMITED` | `step.blocked` | "Too many typed messages in one minute. Wait {retryAfterSeconds} s, or use the buttons." | After the wait |
 | `BUDGET_UNAVAILABLE` | `step.blocked` | "Arc could not check its Gemini limit, so it did not call Gemini. Buttons still work. Try again." | Yes |
+| `BUDGET_TURN_EXHAUSTED` | `step.blocked` | "This message has used all the Gemini calls one message can make. Buttons still work. Send a new message to continue." | No |
+| `GEMINI_CALL_REPLAYED` | `step.blocked`; `run.failed` on the router path | "This step was interrupted, and Arc stopped so it would not call Gemini twice. Nothing new was saved. Send your message again." | No; a new message |
 | Expired order review (code named in `04` section 3) | `step.blocked` | "This order review has expired. Read the order again." | No; Read the order |
 | `REVISION_SUPERSEDED`, `REVISION_FINGERPRINT_MISMATCH` | `step.blocked` | "This revision was replaced. Open the current revision to approve it." | No |
 | `APPROVAL_IN_PROGRESS`, `IN_PROGRESS` | `step.blocked` | "This step is already running in another tab. Arc will show the result here." | No |
