@@ -147,6 +147,7 @@ export function getStatus(_input, {
     },
     isRealModelPrediction: false,
     modelAcceptance: modelScores(undefined, { modelAcceptanceConfig }),
+    ...(servicePorts.modelVersions ? { modelVersions: servicePorts.modelVersions.snapshot() } : {}),
     localCapabilities: [
       "purchase-order field validation",
       "run-condition validation",

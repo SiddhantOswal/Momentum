@@ -20,6 +20,7 @@ import { createRiskPredictionService } from "./google-cloud/risk-prediction-serv
 import { createWeatherProviderFromEnv } from "./google-cloud/weather-service.js";
 import { createConditionGuard } from "./condition-guard.js";
 import { createRiskOptimizationService } from "./google-cloud/risk-optimization-service.js";
+import { createModelVersionBinding } from "./google-cloud/model-version-binding.js";
 import {
   createRiskExplanationService,
   createSeenBeforeService,
@@ -160,6 +161,7 @@ export function createServicePorts(adapters = {}) {
     // Resolves humidity/temperature fallbacks and checks paper moisture against
     // the plant's recorded ranges before any prediction (src/condition-guard.js).
     conditionGuard: adapters.conditionGuard ?? createConditionGuard(),
+    ...(adapters.modelVersions ? { modelVersions: adapters.modelVersions } : {}),
   });
 }
 
@@ -587,6 +589,14 @@ export function createConfiguredServicePorts({
       adapters.findSeenBefore = createSeenBeforeService({ bigquery });
       adapters.findSimilarRuns = createSimilarRunsService({ bigquery });
     }
+  }
+  // Audit M01: only the exact value "true" binds prediction and optimization to the accepted etags.
+  if (projectId && env.USTAAD_ENFORCE_MODEL_VERSIONS === "true") {
+    const modelVersions = createModelVersionBinding({ projectId, modelAcceptance, fetchImpl, tokenProvider });
+    adapters.modelVersions = modelVersions;
+    if (adapters.predictRisk) adapters.predictRisk = modelVersions.guard(adapters.predictRisk, "Prediction");
+    if (adapters.optimizeRisk) adapters.optimizeRisk = modelVersions.guard(adapters.optimizeRisk, "Optimization");
+    modelVersions.start();
   }
 
   if (projectId && bucket && env.USTAAD_ENABLE_JOB_STORAGE === "true" &&
