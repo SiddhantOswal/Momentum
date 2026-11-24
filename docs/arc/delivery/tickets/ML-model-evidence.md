@@ -31,3 +31,9 @@ Added 2026-11-25 by Om's session. They answer the model findings of the 23 Nov i
 - AC: at startup and every 10 minutes, the service reads each `m2_*` model's etag from the BigQuery models API (metadata only, no query cost) and compares it with `currentModelVersions` in `config/model-acceptance.json`. A mismatch or a read failure makes prediction and optimization return 503 `MODEL_VERSION_MISMATCH` or `MODEL_VERSION_UNVERIFIED`, and `/api/status` reports which target failed. The check is behind `USTAAD_ENFORCE_MODEL_VERSIONS` (exact "true"); off means today's behaviour.
 - Depends on: nothing. Owner: backend engineer.
 - Test plan: service tests with a fake models API for match, mismatch, read failure and recovery.
+
+### ARC-REL-01 Ship every runtime config file (P0, found 2026-11-25)
+- Goal: an image built from `arc/main` starts. `.dockerignore` and `tools/prepare-release-snapshot.py` list config files one by one and leave out `config/arc.json`, `config/arc-scope.json` and `config/arc-metrics.json`, which Arc modules import when the server loads.
+- AC: both lists include every config file the server reads; a test scans `index.mjs` and `src/` for `config/*.json` references and fails if any is missing from either list; the server starts from a copy of only the files the Dockerfile would ship.
+- Depends on: nothing. Owner: backend engineer.
+- Test plan: the scan test; removing one entry fails it; a start-up test from the shipped file set.
