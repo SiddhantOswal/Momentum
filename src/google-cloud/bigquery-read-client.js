@@ -1,4 +1,4 @@
-const BIGQUERY_API = "https://bigquery.googleapis.com/bigquery/v2";
+export const BIGQUERY_API = "https://bigquery.googleapis.com/bigquery/v2";
 const CLOUD_RUN_METADATA_TOKEN_URL =
   "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
 

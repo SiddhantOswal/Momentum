@@ -242,6 +242,7 @@ function resultResponse(c, result) {
 
   const status = result.error?.code === "GEMINI_DAILY_CAP_EXCEEDED" ? 429
     : result.error?.code === "SERVICE_UNAVAILABLE" ? 503
+    : result.error?.code === "MODEL_VERSION_MISMATCH" || result.error?.code === "MODEL_VERSION_UNVERIFIED" ? 503
     : result.error?.code === "NOT_FOUND" ? 404
       : result.error?.code === "CONFLICT" || result.error?.code === "IDEMPOTENCY_IN_PROGRESS" ? 409
         : 400;
