@@ -186,3 +186,8 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - Depends on: M8-01. Owner: backend engineer and release manager; the orchestrator runs the cloud steps after a change record and a founder yes.
 - Test plan: the scripted run itself, with raw output kept in the record.
 
+### ARC-M1-29 Two stale browser specs on `arc/main` (P1, found 2026-11-24)
+- Goal: `test/browser/dashboard.spec.js:85` expects the approve request to have no body, but ARC-M1-10 made the dashboard send `reviewConfirmed` and `revisionFingerprint`; `test/browser/frontend.spec.js:323` has a non-empty errors list. Both fail on plain `arc/main`, and the M1 gate marked Playwright NOT RUN, so no one saw them.
+- AC: both specs pass for the right reason (the approve spec asserts the body carries `reviewConfirmed: true` and a revision fingerprint); the cause of the second failure is written down; `npm run test:ui` passes in full.
+- Depends on: M1-10. Owner: backend engineer. Test plan: the browser suite plus a mutation (the dashboard stops sending the body).
+
