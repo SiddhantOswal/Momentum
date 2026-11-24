@@ -46,7 +46,7 @@
       "thinkingLevel": "MINIMAL",
       "includeThoughts": false,
       "functionCallingMode": "ANY",
-      "prompt": null
+      "prompt": "router/v1"
     },
     "writer": {
       "model": "gemini-3.5-flash",
