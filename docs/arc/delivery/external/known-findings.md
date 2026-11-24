@@ -17,3 +17,5 @@ Every builder checks its work against this list before handing back. Each line i
 13. **Cost-bearing paths.** Say what each new Firestore read, BigQuery query or Gemini call costs, and the cap that bounds it.
 14. **Claims.** Every number in the hand-back comes from a run you did. Anything you could not run is NOT RUN with the reason, and a cloud or live check is never claimed as passing.
 15. **Contract and design.** The wire contract, the design records and the ADRs are the authority. If code and contract disagree, fix everything else and report the disagreement; do not stop the whole packet, and do not choose quietly.
+16. **Orchestrator-owned files.** Never edit `docs/arc/delivery/STATUS.md`, the decision log, `external/queue.md` or the review files under `reviews/`; the orchestrator keeps them. Put what you learned in your hand-back. Edit design records and tickets only where your packet says to.
+
