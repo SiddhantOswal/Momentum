@@ -133,6 +133,8 @@ export function createServicePorts(adapters = {}) {
     geminiUsage: adapters.geminiUsage ?? Object.freeze({ sharedCounterConfigured: false, liveConnectivityVerified: false }),
     jobIdempotency: adapters.jobIdempotency ?? Object.freeze({ durableRequested: false }),
     lotRevisions: adapters.lotRevisions ?? Object.freeze({ enabled: false, enforceGuard: false, store: undefined }),
+    // What the Arc turn runner needs to meter and send its router call. Empty unless live calls are permitted.
+    arcGemini: adapters.arcGemini ?? Object.freeze({}),
     extractOrder: adapters.extractOrder ?? unavailable("extractOrder"),
     extractOrderForReview: adapters.extractOrderForReview ?? unavailable("extractOrderForReview"),
     confirmPurchaseOrderReview: adapters.confirmPurchaseOrderReview ?? unavailable("confirmPurchaseOrderReview"),
@@ -514,6 +516,13 @@ export function createConfiguredServicePorts({
       } : {}),
     }),
     conditionGuard,
+    // The router client takes its model and region from config/arc-models.json, not from GEMINI_MODEL or
+    // VERTEX_LOCATION. The runner wraps it in the budget store, so it is handed over unwrapped.
+    arcGemini: Object.freeze(allowed && projectId ? {
+      attemptStore: geminiUsage.store,
+      dailyCap: geminiDailyCap,
+      routerClient: createVertexGeminiClient({ projectId, fetchImpl, tokenProvider }),
+    } : {}),
   };
   if (env.USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY === "true") {
     adapters.jobIdempotency = Object.freeze({

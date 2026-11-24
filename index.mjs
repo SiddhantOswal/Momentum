@@ -26,6 +26,7 @@ import { readServerPort } from "./src/runtime-config.js";
 import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
 import { isSampleDocument } from "./src/synthetic-po-allowlist.js";
+import { createArcModelPorts } from "./src/arc/model-ports.js";
 import { createArcRoutes } from "./src/arc/routes.js";
 import { createArcTurnRunner } from "./src/arc/turn-runner.js";
 import { createArcEventStore } from "./src/google-cloud/firestore-arc-event-store.js";
@@ -600,6 +601,7 @@ app.route("/api/arc", createArcRoutes({
     eventStore: createArcEventStore(arcFirestore),
     lotStore: arcLotStore,
     deps: commandDeps,
+    ...createArcModelPorts(servicePorts, { log: (entry) => console.error(JSON.stringify(entry)) }),
   })),
 }));
 
