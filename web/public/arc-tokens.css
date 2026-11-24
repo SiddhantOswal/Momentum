@@ -1,0 +1,160 @@
+/* Shared values from the approved Main and Insights design HTML. */
+:root {
+  --arc-font-body: 'Inter', system-ui, sans-serif;
+  --arc-font-display: 'Inter', sans-serif;
+  --arc-text-body: 15px;
+  --arc-leading-body: 1.4;
+  --arc-font-medium: 500;
+  --arc-font-semibold: 600;
+  --arc-font-bold: 700;
+  --arc-text-page-title: 28px;
+  --arc-leading-page-title: 34px;
+  --arc-tracking-page-title: -0.4px;
+  --arc-text-card-title: 17px;
+  --arc-leading-card-title: 24px;
+  --arc-tracking-card-title: -0.1px;
+  --arc-text-hero-title: 36px;
+  --arc-leading-hero-title: 42px;
+  --arc-tracking-hero-title: -0.8px;
+  --arc-text-key-value: 24px;
+  --arc-leading-key-value: 28px;
+  --arc-text-action: 16px;
+  --arc-sidebar-width: 232px;
+  --arc-topbar-height: 56px;
+  --arc-content-padding: 24px;
+  --arc-grid-column: 82px;
+  --arc-grid-gap: 16px;
+  --arc-card-padding: 20px;
+  --arc-radius-card: 12px;
+  --arc-radius-control: 10px;
+  --arc-radius-chip: 6px;
+  --arc-accent-ink: #18110E;
+}
+
+:root, [data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121519;
+  --sb: #0B0D10;
+  --cd: #1A1E23;
+  --rz: #21262C;
+  --ln: #2A3038;
+  --ln2: #3A434D;
+  --tx: #EAEDF0;
+  --mu: #A3ACB6;
+  --dim: #7B8590;
+  --ac: #E8664F;
+  --ok: #5FBF98;
+  --wn: #E3A340;
+  --bd: #F0707A;
+  --inv: #111;
+  --ct: #F3A394;
+  --g1: #4E9E7F;
+  --g2: #6A7683;
+  --pap: #D8C6A3;
+  --bar0: #4A5460;
+  --stg: #0E1013;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #EEF0F2;
+  --sb: #E3E6E9;
+  --cd: #FFFFFF;
+  --rz: #E5E8EB;
+  --ln: #D5DADF;
+  --ln2: #B3BCC5;
+  --tx: #14181C;
+  --mu: #46515C;
+  --dim: #66717C;
+  --ac: #E8664F;
+  --ok: #1F7A58;
+  --wn: #8F5A00;
+  --bd: #B8333F;
+  --inv: #FFFFFF;
+  --ct: #B23F2A;
+  --g1: #1F7A58;
+  --g2: #7E8995;
+  --pap: #B38D52;
+  --bar0: #8F99A4;
+  --stg: #F6F4EE;
+}
+
+.arc-kraft {
+  --cd: #D7C39A;
+  --rz: rgba(255,255,255,.38);
+  --bg: rgba(255,255,255,.42);
+  --ln: rgba(31,24,16,.22);
+  --ln2: rgba(31,24,16,.4);
+  --tx: #1F1810;
+  --mu: rgba(31,24,16,.76);
+  --dim: rgba(31,24,16,.68);
+  --ok: #14573C;
+  --wn: #6E4200;
+  --bd: #9C2430;
+  --ct: #9E3320;
+  --bar0: rgba(31,24,16,.3);
+  --g1: #14573C;
+  --g2: rgba(31,24,16,.4);
+  --inv: #D7C39A;
+}
+
+[data-theme="light"] .arc-glass {
+  --tx: #EAEDF0;
+  --mu: #C3CBD3;
+  --dim: #9AA4AE;
+  --ln: #3A434D;
+  --ln2: #55606B;
+  --ok: #5FBF98;
+  --wn: #E3A340;
+}
+
+.arc-machine {
+  --rail: #D7DBDF;
+  --belt: #14171A;
+  --crate: #656B72;
+  --crate2: #4A4F55;
+  --arm: #767C83;
+  --arm2: #AEB4BA;
+  --unit: #E4E7EA;
+}
+
+[data-theme="light"] .arc-machine {
+  --rail: #FFFFFF;
+  --belt: #1B1F23;
+  --crate: #848B93;
+  --crate2: #69707A;
+  --arm: #8B929A;
+  --arm2: #BDC3CA;
+  --unit: #FFFFFF;
+}
+
+.arc-main-machine {
+  --h-st: #0B0D10;
+  --h-belt: #262B32;
+  --h-rail: #8A929B;
+  --h-rail2: #6C747D;
+  --h-rail3: #565D66;
+  --h-ln: rgba(255,255,255,.1);
+  --h-top: #D3A66B;
+  --h-sd: #B4854C;
+  --h-ed: #926838;
+  --h-metal: #6F7780;
+  --h-metal2: #9AA3AC;
+  --h-metal3: #4C535B;
+  --h-gnd: #14181C;
+  --h-gl: rgba(255,255,255,.1);
+}
+
+[data-theme="light"] .arc-main-machine {
+  --h-st: #E7E3DA;
+  --h-belt: #2A2F35;
+  --h-rail: #CFD4D9;
+  --h-rail2: #B0B7BE;
+  --h-rail3: #98A0A8;
+  --h-ln: rgba(255,255,255,.1);
+  --h-gnd: #F3F0E9;
+  --h-gl: rgba(20,24,28,.12);
+  --h-metal: #8E969F;
+  --h-metal2: #B9C0C7;
+  --h-metal3: #6D757E;
+}
