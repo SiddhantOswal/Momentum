@@ -16,6 +16,7 @@
   "notes": [
     "One held-out monsoon month; do not annualise.",
     "Scored with the generator's rules for modelled plant history, not measured factory outcomes.",
-    "The previous models' own estimate (Rs 8,021) was above the scored saving (Rs 7,320); the new models' estimate (Rs 7,558) is below the scored saving (Rs 7,934)."
+    "The previous models' own estimate (Rs 8,021) was above the scored saving (Rs 7,320); the new models' estimate (Rs 7,558) is below the scored saving (Rs 7,934).",
+    "Both September runs here (impact_recs and impact_recs_v2) counted crack in the optimizer objective. Since ARC-ML-03, crack is advisory and the objective sums only the four optimizer targets; these figures are pending a rerun of sql/impact_batch.sql into prepagent.impact_recs_v3 (NOT RUN)."
   ]
 }
