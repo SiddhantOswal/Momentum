@@ -4,8 +4,10 @@ import { readFile } from "node:fs/promises";
 import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
-import { withDailyGeminiCallCap } from "../src/daily-gemini-call-cap.js";
-import { budgetCapStore } from "../src/google-cloud/firestore-budget-store.js";
+import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "../src/daily-gemini-call-cap.js";
+import { createApprovedPhotoService } from "../src/google-cloud/approved-photo-service.js";
+import { budgetCapStore, createFirestoreBudgetStore } from "../src/google-cloud/firestore-budget-store.js";
+import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
 
 const module = await import("../src/arc/tools/index.js").catch((error) => {
   if (error.code !== "ERR_MODULE_NOT_FOUND" || !error.url?.endsWith("/src/arc/tools/index.js")) throw error;
@@ -52,15 +54,116 @@ test("the complete registry supplies strict schemas, preconditions, keys and exe
   assert.equal((await arc.execute("get_status", {})).ok, true);
 });
 
-test("Vertex declarations are generated from the same schemas", async () => {
-  const arc = registry();
-  await arc.execute("list_samples", {});
-  const [{ functionDeclarations }] = arc.declarations();
-  assert.deepEqual(functionDeclarations.map(({ name }) => name), Object.keys(arc.tools));
-  for (const { name, description } of functionDeclarations) assert.equal(description, arc.tools[name].description);
-  const sample = functionDeclarations.find(({ name }) => name === "read_order").parameters;
-  assert.deepEqual(sample.properties.sampleId.enum, arc.tools.read_order.schema().shape.sampleId.options);
-  assert.deepEqual(sample.required, ["sampleId"]);
+test("Vertex declarations match the full parameter contract at each discovery state", { timeout: 2000 }, async (t) => {
+  const reviewId = step.taskRunId;
+  const line = { itemCode: "B1047", quantity: 10 };
+  const deps = {
+    ...orderDeps,
+    runWriteEffect: async (_claim, run) => run(),
+    servicePorts: {
+      extractOrderForReview: async () => ({ ok: true, reviewId, lines: [line] }),
+      getApprovedPhotos: async () => ({ ok: true, photos: [{ id: "photo-01" }, { id: "photo-03" }] }),
+    },
+  };
+  const empty = { type: "OBJECT", properties: {} };
+  const parameters = {
+    get_status: empty,
+    list_samples: empty,
+    get_weather: empty,
+    set_conditions: {
+      type: "OBJECT",
+      properties: {
+        conditions: {
+          type: "OBJECT",
+          properties: {
+            runDate: { type: "STRING", format: "date" },
+            shift: { type: "STRING", enum: ["DAY", "NIGHT"] },
+            ambientRhPct: { type: "NUMBER", minimum: 0, maximum: 100 },
+            ambientTempC: { type: "NUMBER" },
+            paperMoisturePct: { type: "NUMBER", minimum: 0, maximum: 20 },
+          },
+        },
+      },
+      required: ["conditions"],
+    },
+    plan_lot: empty,
+    retry_explanation: empty,
+    get_lot: empty,
+    list_next_actions: empty,
+    list_approved_photos: empty,
+    search_defect_history: {
+      type: "OBJECT",
+      properties: {
+        defect: { type: "STRING", enum: ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"] },
+        ambientRhPct: { type: "NUMBER", minimum: 0, maximum: 100 },
+      },
+      required: ["defect", "ambientRhPct"],
+    },
+  };
+  function assertContract(arc, allowed, context) {
+    const expectedNames = names.filter((name) => Object.hasOwn(parameters, name));
+    assert.deepEqual(arc.declarations(), [{
+      functionDeclarations: expectedNames.map((name) => ({
+        name, description: arc.tools[name].description, parameters: parameters[name],
+      })),
+    }]);
+    assert.deepEqual(arc.allowedFunctionNames(context), names.filter((name) => allowed.includes(name)));
+  }
+
+  const arc = registry({ session: { ...session, activeLotIds: [], jobIds: [] }, deps });
+  const initial = ["get_status", "list_samples", "get_weather", "list_next_actions",
+    "list_approved_photos", "search_defect_history"];
+  await t.test("nothing discovered", () => assertContract(arc, initial));
+
+  await t.test("one order read", async () => {
+    assert.equal((await arc.execute("list_samples", {})).ok, true);
+    assert.deepEqual(await arc.execute("read_order", { sampleId: "PO1" }, { step }), {
+      ok: true, reviewId, lines: [line],
+    });
+    parameters.read_order = {
+      type: "OBJECT", properties: { sampleId: { type: "STRING", enum: ["PO1", "PO2", "PO3", "PO4", "PO5"] } },
+      required: ["sampleId"],
+    };
+    const sample = arc.declarations()[0].functionDeclarations.find(({ name }) => name === "read_order").parameters;
+    assert.deepEqual(sample.properties.sampleId.enum, arc.tools.read_order.schema().shape.sampleId.options);
+    assertContract(arc, [...initial, "read_order"]);
+  });
+
+  const lot = { lotId, ownerSessionId: principal.sessionId, reviewId, orderRef: line };
+  const confirmedOrder = { ...line, lineIndex: 0, reviewId, reviewFingerprint: "b".repeat(64) };
+  const context = { lot, confirmedOrder };
+  const chosen = [...initial, "read_order", "get_lot", "set_conditions", "diagnose_approved_photo"];
+  const chosenSession = { ...session, jobIds: [] };
+  await t.test("lines chosen", async () => {
+    const withLot = registry({ session: chosenSession, deps });
+    assert.equal((await withLot.execute("list_samples", {})).ok, true);
+    assert.equal((await withLot.execute("list_approved_photos", {})).ok, true);
+    parameters.diagnose_approved_photo = {
+      type: "OBJECT", properties: { photoId: { type: "STRING", enum: ["photo-01", "photo-03"] } },
+      required: ["photoId"],
+    };
+    assertContract(withLot, chosen, context);
+  });
+
+  await t.test("a draft present", async () => {
+    const withDraft = registry({ session: { ...session, jobIds: [jobId, foreignJob] }, deps });
+    assert.equal((await withDraft.execute("list_samples", {})).ok, true);
+    assert.equal((await withDraft.execute("list_approved_photos", {})).ok, true);
+    const job = { type: "STRING", enum: [jobId] };
+    parameters.get_job = { type: "OBJECT", properties: { jobId: job }, required: ["jobId"] };
+    parameters.get_job_card = {
+      type: "OBJECT",
+      properties: {
+        lang: { type: "STRING", enum: ["en"] },
+        currency: { type: "STRING", enum: ["INR", "JPY", "KRW", "CNY", "IDR", "SGD", "AUD", "THB", "PHP", "MYR", "USD"] },
+        jobId: job,
+      },
+      required: ["jobId"],
+    };
+    assertContract(withDraft, [...chosen, "get_job", "get_job_card"], {
+      ...context, lot: { ...lot, stage: "draft_review", jobId },
+    });
+  });
 });
 
 test("approval names and inherited object properties never select a tool", async () => {
@@ -225,12 +328,61 @@ test("effect keys are canonical and absent on reads without model spend", () => 
   const expected = `arc1.6f1c2a448b0e4d519c7a3e5d1b7f0a21.read_order.0.${hash.slice(0, 16)}`;
   for (const name of names) {
     const keyed = ["read_order", "set_conditions", "plan_lot", "retry_explanation", "diagnose_approved_photo"].includes(name);
-    assert.equal(arc.tools[name].key(step, args), keyed ? expected : null);
     if (keyed) {
+      assert.notEqual(arc.tools[name].key(step, { conditions: { shift: "DAY", ambientRhPct: 43 } }),
+        arc.tools[name].key(step, args), `${name} must key different argument values separately`);
       assert.equal(arc.tools[name].key(step, { conditions: { ambientRhPct: 42, shift: "DAY" } }), expected);
       assert.notEqual(arc.tools[name].key({ ...step, attempt: 1 }, args), expected);
     }
+    assert.equal(arc.tools[name].key(step, args), keyed ? expected : null);
   }
+});
+
+test("concurrent photo dispatches under one claim reserve and call Gemini once", { timeout: 2000 }, async () => {
+  const fake = fakeFirestore();
+  const now = () => Date.parse("2026-11-24T06:00:00Z");
+  const budget = createFirestoreBudgetStore({
+    projectId: "prepagent-hack", fetchImpl: fake.fetchImpl, tokenProvider: async () => "test-token", now,
+    limits: { pool: "live", dayLimit: 300, sessionDayLimit: 40, ipDayLimit: 120,
+      minuteLimit: 20, sessionMinuteLimit: 6, dayCostCapInr: 600 },
+  });
+  const providerCalls = [];
+  const provider = {
+    generateContent: () => assert.fail("Unexpected provider method"),
+    generateJson: async (args) => { providerCalls.push(args); return { label: "WARP" }; },
+  };
+  const gemini = withDailyGeminiCallCap(provider, readDailyGeminiCallCapConfig({}),
+    { store: budgetCapStore(budget), now });
+  const bytes = await readFile(new URL("./fixtures/synthetic_POs/PO5_ClientB_scanned.jpg", import.meta.url));
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const photos = Array.from({ length: 10 }, (_, index) => ({
+    id: `photo-${String(index + 1).padStart(2, "0")}`,
+    name: `photos/photos/warp/warp_${String(index + 1).padStart(3, "0")}.jpg`,
+    generation: "1", size: bytes.length, sha256,
+  }));
+  const service = createApprovedPhotoService({
+    gemini, model: "test-provider-double", inventory: { bucket: "prepagent-hack-data", photos },
+    storage: {
+      getMetadata: async ({ name }) => ({ name, generation: "1", size: bytes.length, contentType: "image/jpeg" }),
+      download: async () => ({ bytes, contentType: "image/jpeg" }),
+    },
+  });
+  const arc = registry({ deps: { servicePorts: {
+    getApprovedPhotos: service.list, classifyApprovedPhoto: service.classify,
+  } } });
+  assert.equal((await arc.execute("list_approved_photos", {})).ok, true);
+
+  const dispatch = () => arc.execute("diagnose_approved_photo", { photoId: "photo-01" }, {
+    step: { ...step, stepId: "diagnose_approved_photo" },
+  });
+  const results = await Promise.all([dispatch(), dispatch()]);
+  assert.equal(providerCalls.length, 1);
+  assert.deepEqual(results.filter(({ ok }) => ok).map(({ label }) => label), ["WARP"]);
+  assert.deepEqual(results.filter(({ ok }) => !ok), [{
+    ok: false, error: { code: "GEMINI_CALL_REPLAYED", message: "This Gemini call was already reserved." },
+  }]);
+  const reservations = [...fake.docs.keys()].filter((name) => name.includes("/budget_reservations/"));
+  assert.equal(reservations.length, 1);
 });
 
 test("photo execution reserves Gemini spend for the verified session, IP and step", async () => {
