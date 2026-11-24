@@ -605,3 +605,13 @@ test("a rate-limit block sends retryAfterSeconds live and omits it on replay", {
   assert.deepEqual([replay.type, replay.errorCode, replay.retrySafe], ["step.blocked", "BUDGET_RATE_LIMITED", true]);
   assert.equal("retryAfterSeconds" in replay, false);
 });
+
+test("a tool result above the configured size fails the step", { timeout: 2000 }, async () => {
+  const { post } = fixture({
+    config: { ...runnerModule.arcConfig, maxToolResultBytes: 64 },
+    services: { getApprovedPhotos: async () => ({ ok: true, photos: [{ id: "photo-01", note: "x".repeat(200) }] }) },
+  });
+  const frames = await events(await post(action("list_approved_photos")));
+  const last = frames.at(-1);
+  assert.deepEqual([last.type, last.errorCode], ["step.failed", "TOOL_RESULT_TOO_LARGE"]);
+});
