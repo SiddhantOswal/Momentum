@@ -139,7 +139,7 @@ export function createFirestoreTraceStore({
       }
       const head = parseDocument(TraceHeadDocSchema, payload);
       if (head.runId !== runId) throw unavailable("Firestore returned a different trace head.");
-      return head;
+      return head.kind === "job_preparation" ? head : null;
     },
 
     async readEventsAfter(runId, sequence = 0, { signal } = {}) {
