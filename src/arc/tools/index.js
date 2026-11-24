@@ -58,7 +58,7 @@ function vertexSchema(schema) {
     ...(minimum !== undefined && { minimum }),
     ...(maximum !== undefined && { maximum }),
     ...(format && { format }),
-    ...(pattern && { pattern }),
+    ...(pattern && !format && { pattern }),
   };
 }
 
