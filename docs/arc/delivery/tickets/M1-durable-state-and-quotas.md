@@ -180,3 +180,9 @@ Design: `04-technical-design.md` sections 2 to 5; ADR-0002, ADR-0003, ADR-0004. 
 - Depends on: M1-10. Owner: backend engineer.
 - Test plan: a store test with a frozen clock that fails on the old comparison.
 
+### ARC-M1-28 Live integration run of the M1 state and budget (P0, before release, ARC-M8-01 preflight)
+- Goal: every M1 Firestore, budget and Vertex behaviour was tested on fakes only (M1 gate QA-1). Run the durable stores, fencing, `budget_counters`, session and IP limits, the lot transactions and the Vertex smoke call (`thinkingLevel`, `generateJson` with `fileData`) against real services on a tagged no-traffic revision.
+- AC: a recorded run, labelled "eval run, not the live service", with the command, the revision tag and the observed output for each item, and any failure raised as a ticket. The approve guard (7b) is exercised on that revision.
+- Depends on: M8-01. Owner: backend engineer and release manager; the orchestrator runs the cloud steps after a change record and a founder yes.
+- Test plan: the scripted run itself, with raw output kept in the record.
+
