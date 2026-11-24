@@ -70,12 +70,14 @@ test("defect_history_at_humidity binds typed parameters and returns labelled row
   assert.equal(result.label, "Modeled records");
   assert.deepEqual(result.source, { kind: "table", ref: "prepagent.lots" });
   assert.equal(result.columns.find((c) => c.name === "cost_when_main").unit, "INR");
+  assert.equal(result.bytesProcessed, 1048576);
   const [{ body }] = requests;
   assert.equal(body.query, dictionary.metrics[1].sql);
   assert.equal(body.parameterMode, "NAMED");
   assert.deepEqual(body.queryParameters, [
     { name: "defect", parameterType: { type: "STRING" }, parameterValue: { value: "WARP" } },
     { name: "ambient_rh_pct", parameterType: { type: "FLOAT64" }, parameterValue: { value: "63.5" } },
+    { name: "band_pts", parameterType: { type: "INT64" }, parameterValue: { value: "10" } },
   ]);
   assert.equal(body.query.includes("63.5"), false);
 });

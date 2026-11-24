@@ -1,4 +1,5 @@
 import { BigQueryReadError, createBigQueryReadClient } from "../../google-cloud/bigquery-read-client.js";
+import { HUMIDITY_BAND_POINTS } from "../../humidity-band.js";
 import { METRIC_BYTE_CAP, loadMetricDictionary } from "./dictionary.js";
 
 const fail = (status, code, message) => ({ ok: false, status, error: { code, message } });
@@ -51,6 +52,8 @@ function decodeRows(metric, result) {
   }
   return rows;
 }
+
+const constantValues = { humidityBandPoints: HUMIDITY_BAND_POINTS };
 
 const readers = {
   modelHoldout(values, { modelAcceptance }) {
@@ -123,6 +126,9 @@ export function createMetricQueryService({
     } else {
       const parameters = Object.fromEntries(metric.params.filter((p) => read.values[p.name] !== undefined)
         .map((p) => [p.bind, { type: p.bigqueryType, value: read.values[p.name] }]));
+      for (const constant of metric.constants ?? []) {
+        parameters[constant.bind] = { type: constant.bigqueryType, value: constantValues[constant.ref] };
+      }
       let result;
       try {
         result = await client.query({ sql: metric.sql, parameters, signal });

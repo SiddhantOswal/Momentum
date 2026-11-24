@@ -37,7 +37,7 @@ test("each SQL file uses exactly the parameters its entry declares and has no te
   for (const metric of loadMetricDictionary().metrics.filter((m) => m.kind === "bigquery")) {
     const sql = readSql(metric.sqlFile);
     const used = [...new Set([...sql.replace(/--[^\n]*/g, "").matchAll(/@([A-Za-z_]\w*)/g)].map((m) => m[1]))].sort();
-    assert.deepEqual(used, metric.params.map((p) => p.bind).sort(), metric.id);
+    assert.deepEqual(used, [...metric.params, ...(metric.constants ?? [])].map((p) => p.bind).sort(), metric.id);
     assert.equal(/\$\{|\{\{|%s|\|\|/.test(sql), false, `${metric.id} must not template or concatenate`);
     assert.equal(metric.sql, sql, `${metric.id} loads its SQL file as written`);
   }

@@ -45,6 +45,9 @@
         { "name": "defect", "type": "enum", "values": ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"], "required": true, "bind": "defect", "bigqueryType": "STRING" },
         { "name": "ambientRhPct", "type": "number", "min": 0, "max": 100, "required": true, "bind": "ambient_rh_pct", "bigqueryType": "FLOAT64" }
       ],
+      "constants": [
+        { "bind": "band_pts", "bigqueryType": "INT64", "ref": "humidityBandPoints" }
+      ],
       "columns": [
         { "name": "defect", "type": "string" },
         { "name": "lots_in_band", "type": "integer", "unit": "lots" },

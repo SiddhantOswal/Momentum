@@ -1,6 +1,7 @@
 -- seen_before.sql: "Have we seen this before?" for a defect (e.g. from a photo) in similar weather.
--- Params: defect (STRING: WARP | DELAM | STRENGTH | PRINT | CRACK), ambient_rh_pct (FLOAT64)
--- Looks at all past lots within +/-10 points of humidity:
+-- Params: defect (STRING: WARP | DELAM | STRENGTH | PRINT | CRACK), ambient_rh_pct (FLOAT64),
+--   band_pts (INT64, the humidity band width from src/humidity-band.js)
+-- Looks at all past lots within band_pts points of humidity:
 --   n_cases          = lots where this defect was the main problem
 --   good_runs        = average settings of the best 25% of lots for this defect (lowest rate)
 --   bad_runs         = average settings of the worst 25% (highest rate)
@@ -13,7 +14,7 @@ WITH band AS (
       WHEN 'STRENGTH' THEN l.rate_strength_pct WHEN 'PRINT' THEN l.rate_print_pct
       ELSE l.rate_crack_pct END AS r
   FROM prepagent.lots l
-  WHERE ABS(l.ambient_rh_pct - CAST(@ambient_rh_pct AS FLOAT64)) <= 10
+  WHERE ABS(l.ambient_rh_pct - @ambient_rh_pct) <= @band_pts
 ),
 q AS (SELECT APPROX_QUANTILES(r, 4) AS qs FROM band),
 grouped AS (

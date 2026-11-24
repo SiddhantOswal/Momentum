@@ -1,19 +1,20 @@
 -- defect_history_at_humidity.sql: modeled lots within 10 points of a humidity, for one defect.
--- Params: defect (STRING: WARP | DELAM | STRENGTH | PRINT | CRACK), ambient_rh_pct (FLOAT64)
--- Reads prepagent.lots only. The band logic matches sql/seen_before.sql.
+-- Params: defect (STRING: WARP | DELAM | STRENGTH | PRINT | CRACK), ambient_rh_pct (FLOAT64),
+--   band_pts (INT64, from src/humidity-band.js, bound by code, not by the model)
+-- Reads prepagent.lots only. The band predicate is the same text as in sql/seen_before.sql.
 WITH band AS (
   SELECT
-    primary_defect,
-    scrap_cost,
+    l.primary_defect,
+    l.scrap_cost,
     CASE @defect
-      WHEN 'WARP' THEN rate_warp_pct
-      WHEN 'DELAM' THEN rate_delam_pct
-      WHEN 'STRENGTH' THEN rate_strength_pct
-      WHEN 'PRINT' THEN rate_print_pct
-      ELSE rate_crack_pct
+      WHEN 'WARP' THEN l.rate_warp_pct
+      WHEN 'DELAM' THEN l.rate_delam_pct
+      WHEN 'STRENGTH' THEN l.rate_strength_pct
+      WHEN 'PRINT' THEN l.rate_print_pct
+      ELSE l.rate_crack_pct
     END AS r
-  FROM prepagent.lots
-  WHERE ABS(ambient_rh_pct - @ambient_rh_pct) <= 10
+  FROM prepagent.lots l
+  WHERE ABS(l.ambient_rh_pct - @ambient_rh_pct) <= @band_pts
 )
 SELECT
   @defect AS defect,

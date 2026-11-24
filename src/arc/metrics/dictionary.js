@@ -43,6 +43,9 @@ const MetricSchema = z.strictObject({
   sqlFile: z.string().regex(/^sql\/arc\/[a-z0-9_]+\.sql$/).optional(),
   reader: z.enum(["modelHoldout"]).optional(),
   params: z.array(ParamSchema),
+  constants: z.array(z.strictObject({
+    bind: name, bigqueryType: z.enum(["INT64", "FLOAT64", "STRING"]), ref: z.enum(["humidityBandPoints"]),
+  })).optional(),
   columns: z.array(ColumnSchema).min(1),
   unit: text,
   provenance: z.enum(PROVENANCE),
@@ -70,7 +73,7 @@ function sqlParameters(sql) {
 }
 
 function checkMetric(metric, readSql) {
-  const bound = metric.params.map((p) => p.bind).filter(Boolean).sort();
+  const bound = [...metric.params.map((p) => p.bind), ...(metric.constants ?? []).map((c) => c.bind)].filter(Boolean).sort();
   if (new Set(metric.params.map((p) => p.name)).size !== metric.params.length) {
     throw new TypeError(`Metric ${metric.id} repeats a parameter name.`);
   }
