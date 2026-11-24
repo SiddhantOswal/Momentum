@@ -47,7 +47,7 @@ function effectKey(step, args) {
 function vertexSchema(schema) {
   // Vertex cannot express the impossible schema Zod emits for an empty enum.
   if (schema.not) return null;
-  const { type, properties, required, enum: values, minimum, maximum, format } = schema;
+  const { type, properties, required, enum: values, minimum, maximum, format, pattern } = schema;
   const fields = properties && Object.entries(properties).map(([name, value]) => [name, vertexSchema(value)]);
   if (fields?.some(([, field]) => field === null)) return null;
   return {
@@ -58,6 +58,7 @@ function vertexSchema(schema) {
     ...(minimum !== undefined && { minimum }),
     ...(maximum !== undefined && { maximum }),
     ...(format && { format }),
+    ...(pattern && !format && { pattern }),
   };
 }
 

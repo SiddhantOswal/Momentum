@@ -359,6 +359,7 @@ test("seen-before validates the recognized defect and maps historical aggregates
   assert.deepEqual(request.parameters, {
     defect: "DELAM",
     ambient_rh_pct: { type: "FLOAT64", value: 86 },
+    band_pts: { type: "INT64", value: 10 },
   });
   assert.equal(request.signal, signal);
   assert.equal(result.ok, true);

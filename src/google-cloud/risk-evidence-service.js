@@ -10,6 +10,7 @@ import {
   RunConditionsSchema,
   SimilarRunSchema,
 } from "../schemas.js";
+import { HUMIDITY_BAND_POINTS } from "../humidity-band.js";
 import { BigQueryReadError } from "./bigquery-read-client.js";
 import { geminiUsageFailure } from "../daily-gemini-call-cap.js";
 import { arcModelSettings } from "../arc-model-settings.js";
@@ -612,6 +613,7 @@ export function createSeenBeforeService({ bigquery, sql } = {}) {
         parameters: {
           defect: request.data.defect,
           ambient_rh_pct: { type: "FLOAT64", value: request.data.ambientRhPct },
+          band_pts: { type: "INT64", value: HUMIDITY_BAND_POINTS },
         },
         signal: input.signal,
       });

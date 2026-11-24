@@ -1,0 +1,102 @@
+{
+  "fixtureKind": "synthetic",
+  "jobComplete": true,
+  "schema": {
+    "fields": [
+      {
+        "name": "item_code",
+        "type": "STRING"
+      },
+      {
+        "name": "lots",
+        "type": "STRING"
+      },
+      {
+        "name": "avg_scrap_pct",
+        "type": "STRING"
+      },
+      {
+        "name": "scrap_cost_12m",
+        "type": "STRING"
+      },
+      {
+        "name": "main_defect",
+        "type": "STRING"
+      },
+      {
+        "name": "currency",
+        "type": "STRING"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "f": [
+        {
+          "v": "ITEM-A"
+        },
+        {
+          "v": "41"
+        },
+        {
+          "v": "7.12"
+        },
+        {
+          "v": "18400"
+        },
+        {
+          "v": "WARP"
+        },
+        {
+          "v": "INR"
+        }
+      ]
+    },
+    {
+      "f": [
+        {
+          "v": "ITEM-B"
+        },
+        {
+          "v": "38"
+        },
+        {
+          "v": "6.80"
+        },
+        {
+          "v": "17100"
+        },
+        {
+          "v": "DELAM"
+        },
+        {
+          "v": "INR"
+        }
+      ]
+    },
+    {
+      "f": [
+        {
+          "v": "ITEM-C"
+        },
+        {
+          "v": "35"
+        },
+        {
+          "v": "6.01"
+        },
+        {
+          "v": "15950"
+        },
+        {
+          "v": "PRINT"
+        },
+        {
+          "v": "INR"
+        }
+      ]
+    }
+  ],
+  "totalRows": "3",
+  "totalBytesProcessed": "1048576"
+}

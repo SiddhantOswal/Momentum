@@ -1,0 +1,63 @@
+{
+  "fixtureKind": "synthetic",
+  "jobComplete": true,
+  "schema": {
+    "fields": [
+      {
+        "name": "item_code",
+        "type": "STRING"
+      },
+      {
+        "name": "box_style",
+        "type": "STRING"
+      },
+      {
+        "name": "length_mm",
+        "type": "STRING"
+      },
+      {
+        "name": "width_mm",
+        "type": "STRING"
+      },
+      {
+        "name": "height_mm",
+        "type": "STRING"
+      },
+      {
+        "name": "ply",
+        "type": "STRING"
+      },
+      {
+        "name": "flute_profile",
+        "type": "STRING"
+      },
+      {
+        "name": "top_liner_gsm",
+        "type": "STRING"
+      },
+      {
+        "name": "flute_gsm",
+        "type": "STRING"
+      },
+      {
+        "name": "inner_liner_gsm",
+        "type": "STRING"
+      },
+      {
+        "name": "liner_bf",
+        "type": "STRING"
+      },
+      {
+        "name": "ink_colors",
+        "type": "STRING"
+      },
+      {
+        "name": "ink_coverage_pct",
+        "type": "STRING"
+      }
+    ]
+  },
+  "rows": [],
+  "totalRows": "0",
+  "totalBytesProcessed": "1048576"
+}

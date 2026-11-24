@@ -1,0 +1,58 @@
+{
+  "fixtureKind": "synthetic",
+  "jobComplete": true,
+  "schema": {
+    "fields": [
+      {
+        "name": "defect",
+        "type": "STRING"
+      },
+      {
+        "name": "lots_in_band",
+        "type": "STRING"
+      },
+      {
+        "name": "n_cases",
+        "type": "STRING"
+      },
+      {
+        "name": "avg_rate_when_main",
+        "type": "STRING"
+      },
+      {
+        "name": "cost_when_main",
+        "type": "STRING"
+      },
+      {
+        "name": "avg_rate_all_lots",
+        "type": "STRING"
+      }
+    ]
+  },
+  "rows": [
+    {
+      "f": [
+        {
+          "v": "WARP"
+        },
+        {
+          "v": "412"
+        },
+        {
+          "v": "57"
+        },
+        {
+          "v": "1.84"
+        },
+        {
+          "v": "31250"
+        },
+        {
+          "v": "0.92"
+        }
+      ]
+    }
+  ],
+  "totalRows": "1",
+  "totalBytesProcessed": "1048576"
+}

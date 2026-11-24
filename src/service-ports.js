@@ -4,6 +4,7 @@ import vertexConfig from "../config/gcp-vertex-ai.json" with { type: "json" };
 import storageConfig from "../config/gcp-storage.json" with { type: "json" };
 import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
 import { createCloudStorageClient } from "./google-cloud/storage-client.js";
+import { createMetricQueryService } from "./arc/metrics/query.js";
 import { createBigQueryReadClient } from "./google-cloud/bigquery-read-client.js";
 import { createItemCatalogService } from "./google-cloud/item-catalog-service.js";
 import { createCurrentConditionsService } from "./google-cloud/current-conditions-service.js";
@@ -64,6 +65,7 @@ const requirements = {
   saveFeedback: "BigQuery, Cloud Storage photo uploads, and note translation are not configured.",
   getInsights: "BigQuery historical lot and feedback data are not configured.",
   getImpactSummary: "The four live Impact dashboard queries are not configured.",
+  queryMetric: "The Arc metric queries are not enabled.",
   getLotOrder: "BigQuery lot-to-order association lookup is not configured.",
 };
 
@@ -124,6 +126,7 @@ export function createServicePorts(adapters = {}) {
     createDraftJobSheet: typeof adapters.createDraftJobSheet === "function",
     getInsights: typeof adapters.getInsights === "function",
     getImpactSummary: typeof adapters.getImpactSummary === "function",
+    queryMetric: typeof adapters.queryMetric === "function",
   });
   return Object.freeze({
     availability,
@@ -151,6 +154,7 @@ export function createServicePorts(adapters = {}) {
     getLotOrder: adapters.getLotOrder ?? unavailable("getLotOrder"),
     getInsights: adapters.getInsights ?? unavailable("getInsights"),
     getImpactSummary: adapters.getImpactSummary ?? unavailable("getImpactSummary"),
+    queryMetric: adapters.queryMetric ?? unavailable("queryMetric"),
     // Resolves humidity/temperature fallbacks and checks paper moisture against
     // the plant's recorded ranges before any prediction (src/condition-guard.js).
     conditionGuard: adapters.conditionGuard ?? createConditionGuard(),
@@ -532,6 +536,11 @@ export function createConfiguredServicePorts({
       enforceGuard: approveGuardEnforced,
       store: projectId ? createFirestoreLotStore({ projectId, fetchImpl, tokenProvider }) : undefined,
     });
+  }
+  if (projectId && env.USTAAD_ENABLE_ARC_METRICS === "true") {
+    adapters.queryMetric = createMetricQueryService({
+      projectId, location: region, fetchImpl, tokenProvider, modelAcceptance,
+    }).queryMetric;
   }
   if (projectId) {
     adapters.getLotOrder = createLotAssociationService({ bigquery, projectId });
