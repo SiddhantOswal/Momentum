@@ -120,5 +120,8 @@ Reviewers do not invent findings. Each cites a line, a command or a document.
 - `roles/` one prompt per role, generated from `.claude/agents/`.
 - `packets/` one file per ticket or review, written by the orchestrator.
 - `packet-template.md` and `gate-packet-template.md`.
+- `ORCHESTRATOR.md` the runbook for whoever orchestrates (the loop, the gate, cloud changes, escalation, pitfalls, usage limits).
+- `decisions-and-defaults.md` what is decided and the default for every open item.
+- `handover-prompt.md` the prompt that starts a successor orchestrator.
 - `known-findings.md` the checklist every builder runs before handing back.
 - `queue.md` the ordered list of remaining work and its parallel lanes.
