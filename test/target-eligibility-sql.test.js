@@ -66,8 +66,21 @@ test("predict.sql totals and primary defect cover only optimizer targets and sti
   assert.equal(raw.slice(0, raw.indexOf("\nw  AS (")).replace(/--[^\n]*/g, "").includes("@optimizer_targets"), false);
 });
 
+test("impact_batch.sql sums only optimizer targets and writes a new table beside the published ones", () => {
+  const sql = executable("impact_batch.sql");
+  for (const target of TARGETS) {
+    const column = `predicted_rate_${target.toLowerCase()}_pct`;
+    const uses = sql.match(new RegExp(`\\b${column}\\b`, "g")) ?? [];
+    assert.equal(uses.length, 1, `${column} appears only in the gated objective`);
+    assert.match(sql, new RegExp(`IF\\('${target}' IN UNNEST\\(@optimizer_targets\\), [^\\n]*${column}`));
+  }
+  assert.match(sql, /CREATE TABLE prepagent\.impact_recs_v3 AS/);
+  assert.doesNotMatch(sql, /impact_recs(_v2)?\b(?!_v3)/);
+  assert.doesNotMatch(sql, /CREATE\s+OR\s+REPLACE/i);
+});
+
 test("no query spells out the target set; it always arrives as the bound parameter", () => {
-  for (const name of ["optimize.sql", "predict.sql"]) {
+  for (const name of ["optimize.sql", "predict.sql", "impact_batch.sql"]) {
     const sql = executable(name);
     assert.doesNotMatch(sql, /\[\s*'(?:WARP|DELAM|STRENGTH|PRINT|CRACK)'/, `${name} has no literal target list`);
     assert.doesNotMatch(sql, /\{\{|\$\{/, `${name} has no template placeholders`);
