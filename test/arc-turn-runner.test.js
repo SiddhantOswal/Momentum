@@ -642,3 +642,11 @@ test("terminal events are stored before the turn completes and the head is publi
   const run = await (await setup.request(`/api/arc/runs/${runId}`)).json();
   assert.deepEqual([run.run.lastSequence, run.run.status], [5, "COMPLETED"]);
 });
+
+test("typed text without a router fails with SERVICE_UNAVAILABLE and spends nothing", { timeout: 2000 }, async () => {
+  const { post, attempts, reservations } = fixture();
+  const frames = await events(await post(text("Can I trust the models?")));
+  assert.deepEqual(frames.map(({ type, sequence, errorCode }) => [type, sequence, errorCode]), [["run.failed", 0, "SERVICE_UNAVAILABLE"]]);
+  assert.equal(attempts.size, 0);
+  assert.equal(reservations.length, 0);
+});
