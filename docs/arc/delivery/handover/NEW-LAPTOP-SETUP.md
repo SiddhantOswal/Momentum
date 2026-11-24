@@ -21,9 +21,10 @@ unzip momentum-arc-handover-<date>.zip && cd momentum-arc-handover-<date>
 git clone repo/momentum-arc.bundle ~/Developer/Momentum
 cd ~/Developer/Momentum
 git checkout arc/main
-git remote remove origin          # the bundle is only a transfer; the delivery never pushes to the public repository
 git bundle verify ../momentum-arc-handover-<date>/repo/momentum-arc.bundle   # optional: checks the transfer
 ```
+
+`origin` now points at the bundle file. Leave it: the commit check needs `origin/v2` (Om's last commit, `eb6eab9`) to tell his commits from ours, and a push to a file path cannot reach the public repository. Never add the public GitHub URL as a remote; if the founders name a private backup repository, add it as a second remote called `backup`.
 
 The bundle holds every branch (`arc/*`, `v2`, `main`) with full history. Branches that are not merged into `arc/main` hold work in progress; `tools/orchestrator/resume.sh` lists them. Never delete a branch until STATUS says its merge is recorded.
 
