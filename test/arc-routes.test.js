@@ -477,3 +477,11 @@ test("routes owned by ARC-M2-06 are not mounted yet", async () => {
   assert.equal((await send(app, "GET", `/api/arc/runs/${id}/events`, { session })).status, 404);
   assert.equal((await send(app, "POST", `/api/arc/runs/${id}/resume`, { session, body: {} })).status, 404);
 });
+
+test("enabled without Firestore stores is 503 SERVICE_UNAVAILABLE, a different state from not enabled", async () => {
+  const app = new Hono();
+  app.route("/api/arc", createArcRoutes({ enabled: true, commandDeps }));
+  const response = await send(app, "GET", "/api/arc/session", { session: newSession() });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error.code, "SERVICE_UNAVAILABLE");
+});

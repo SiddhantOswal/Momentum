@@ -138,6 +138,9 @@ export function createArcRoutes({
   app.use("*", async (c, next) => {
     if (enabled !== true) return fail(c, 404, "ARC_NOT_ENABLED", "Arc is not enabled on this deployment.");
     c.header("Cache-Control", "no-store");
+    if (!sessionStore || !taskRunStore) {
+      return fail(c, 503, "SERVICE_UNAVAILABLE", "Arc could not read or save its records. Nothing was changed.");
+    }
     return next();
   });
 

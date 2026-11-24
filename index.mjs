@@ -25,6 +25,9 @@ import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.
 import { readServerPort } from "./src/runtime-config.js";
 import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
+import { createArcRoutes } from "./src/arc/routes.js";
+import { createFirestoreArcSessionStore } from "./src/google-cloud/firestore-arc-session-store.js";
+import { createFirestoreArcTaskRunStore } from "./src/google-cloud/firestore-arc-task-run-store.js";
 import { streamSSE } from "hono/streaming";
 import { createLiveStore } from "./src/google-cloud/live-store.js";
 import { canApprove, initializeUserSessionAuth, SESSION_COOKIE } from "./src/user-session-auth.js";
@@ -570,6 +573,18 @@ app.use("/api/runs/*", async (c, next) => {
 });
 
 app.route("/api/runs", createTraceRoutes(durableTraces.registry, { store: durableTraces.store }));
+
+// USTAAD_ENABLE_ARC (exact "true") turns the Arc routes on; off, every /api/arc path answers 404 ARC_NOT_ENABLED.
+// The turn runner and the event routes arrive with ARC-M2-03 and ARC-M2-06.
+const arcEnabled = process.env.USTAAD_ENABLE_ARC === "true";
+const arcProjectId = process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT;
+app.route("/api/arc", createArcRoutes({
+  enabled: arcEnabled,
+  commandDeps,
+  sessionStore: arcEnabled && arcProjectId ? createFirestoreArcSessionStore({ projectId: arcProjectId }) : undefined,
+  taskRunStore: arcEnabled && arcProjectId ? createFirestoreArcTaskRunStore({ projectId: arcProjectId }) : undefined,
+  lotStore: servicePorts.lotRevisions.store,
+}));
 
 // One canonical application. Old dashboard bookmarks retain query/fragment state.
 for (const path of ["/dashboard", "/dashboard/", "/dasboard", "/dasboard/"]) {
