@@ -1,0 +1,46 @@
+{
+  "source": "Written by hand from 02-product-spec.md J11 (table, AC11.1 to AC11.3, AC11.12) and 05-ai-design.md section 6. GEMINI_SAFETY_BLOCKED replaces VERTEX_SAFETY_BLOCKED per the tech-lead decision recorded in ARC-M2-05 (carry-over 2).",
+  "labelledBy": "AI engineer, ARC-M2-07",
+  "labelledOn": "2026-11-25",
+  "codes": {
+    "http_429": "VERTEX_GENERATION_FAILED",
+    "http_500": "VERTEX_GENERATION_FAILED",
+    "http_503": "VERTEX_GENERATION_FAILED",
+    "timeout": "VERTEX_UNAVAILABLE",
+    "safety_block": "GEMINI_SAFETY_BLOCKED",
+    "invalid_json": ["VERTEX_INVALID_RESPONSE", "VERTEX_INVALID_JSON"],
+    "cap_reached": "GEMINI_DAILY_CAP_EXCEEDED"
+  },
+  "providerRequests": {
+    "cap_reached": 0,
+    "default": 1,
+    "explanationRetry": 2
+  },
+  "paths": {
+    "router": {
+      "rule": "J11: no tool runs. The turn fails with the mapped code; nothing from Gemini is shown. Every attempt that reached Vertex AI counts.",
+      "event": "run.failed",
+      "attempts": 1,
+      "cap_reached": { "event": "answer", "attempts": 0, "rule": "J11: checked before any model call, so no call is made; typed messages are blocked." }
+    },
+    "extraction": {
+      "rule": "J11: order read, no review stored.",
+      "ok": false
+    },
+    "explanation": {
+      "rule": "J11 and J1 'Explanation fails twice': the numbers are kept, and the text is the code-written attribution summary, never Gemini text.",
+      "ok": true,
+      "source": "bigquery-ml-attribution-summary"
+    },
+    "writer": {
+      "rule": "J11 and AC11.2: the template answer is shown with no error message, and the turn counts exactly 2 attempts.",
+      "writerOutcome": "fallback",
+      "attempts": 2,
+      "cap_reached": { "attempts": 1, "fallbackReason": "BUDGET_SESSION_EXHAUSTED", "rule": "05 section 6: GEMINI_DAILY_CAP_EXCEEDED with BUDGET_SESSION_EXHAUSTED. The writer reservation is denied, so only the router attempt counts." }
+    },
+    "photo": {
+      "rule": "J11: photo, no result stored.",
+      "ok": false
+    }
+  }
+}

@@ -36,10 +36,10 @@ export async function freePort() {
 
 // The OS can hand the port to another process between freePort() and the
 // child binding it, so a child that exits before printing is retried on a new port.
-async function attempt(env, timeoutMs, entry) {
+async function attempt(env, timeoutMs, entry, cwd) {
   const port = await freePort();
   const child = spawn(process.execPath, [entry], {
-    cwd: ROOT,
+    cwd,
     env: { ...env, PORT: String(port) },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -62,12 +62,12 @@ async function attempt(env, timeoutMs, entry) {
   return { failure: `port ${port}: ${outcome.reason}${stderr ? `: ${stderr.trim().slice(0, 500)}` : ""}` };
 }
 
-export async function startIndexServer(env, { timeoutMs = STARTUP_TIMEOUT_MS, entry = "index.mjs" } = {}) {
+export async function startIndexServer(env, { timeoutMs = STARTUP_TIMEOUT_MS, entry = "index.mjs", cwd = ROOT } = {}) {
   const failures = [];
   const startGeneration = generation;
   for (let i = 0; i < MAX_ATTEMPTS; i += 1) {
     if (generation !== startGeneration) throw new Error("Backend start abandoned: helper was stopped");
-    const result = await attempt(env, timeoutMs, entry);
+    const result = await attempt(env, timeoutMs, entry, cwd);
     if (result.child) return { ...result, attempts: i + 1 };
     failures.push(result.failure);
   }

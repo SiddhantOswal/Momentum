@@ -1,0 +1,10 @@
+{
+  "models": "m",
+  "dataset": "prepagent-hack.prepagent",
+  "lotsFile": "/private/tmp/m005-holdout-2026-10-11/lots.jsonl",
+  "lotsSha256": "9a34dc5eb238597b24e27c8ba5201b869d60a9017f5e5f4556c22d4afb3215da",
+  "lots": 451,
+  "jobId": "job_9RLGcq7hzUxSE-t9bB0eY4nG3vL4",
+  "totalBytesProcessed": "160636",
+  "totalBytesBilled": "52428800"
+}
