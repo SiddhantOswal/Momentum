@@ -592,3 +592,16 @@ test("a tool result that names a real registry tool does not schedule it", { tim
   assert.deepEqual((await taskRunStore.get(runId)).steps.map(({ tool }) => tool), ["list_approved_photos"]);
   assert.equal(attempts.size, 1);
 });
+
+test("a rate-limit block sends retryAfterSeconds live and omits it on replay", { timeout: 2000 }, async () => {
+  const setup = fixture({
+    services: { getApprovedPhotos: async () => { throw Object.assign(new Error("limited"), { code: "GEMINI_DAILY_CAP_EXCEEDED", budgetCode: "BUDGET_RATE_LIMITED", retryAfterSeconds: 7 }); } },
+  });
+  const clientTurnId = randomUUID();
+  const live = await events(await setup.post(action("list_approved_photos"), { clientTurnId }));
+  const blocked = live.at(-1);
+  assert.deepEqual([blocked.type, blocked.errorCode, blocked.retrySafe, blocked.retryAfterSeconds], ["step.blocked", "BUDGET_RATE_LIMITED", true, 7]);
+  const replay = (await events(await setup.post(action("list_approved_photos"), { clientTurnId }), "replayed")).at(-1);
+  assert.deepEqual([replay.type, replay.errorCode, replay.retrySafe], ["step.blocked", "BUDGET_RATE_LIMITED", true]);
+  assert.equal("retryAfterSeconds" in replay, false);
+});
