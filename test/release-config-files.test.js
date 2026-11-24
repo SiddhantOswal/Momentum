@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import test from "node:test";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import test, { afterEach } from "node:test";
 import { fileURLToPath } from "node:url";
+import { startIndexServer, stopAllStarted } from "./helpers/server.js";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const STARTUP_TEST_TIMEOUT_MS = 30000;
+
+afterEach(stopAllStarted);
 
 const read = (relative) => readFileSync(join(ROOT, relative), "utf8");
 
@@ -92,5 +97,50 @@ test("every prompt named in config/arc-models.json ships with the image and the 
   assert.deepEqual(excluding, [], ".dockerignore excludes prompt files");
   for (const id of ids) {
     assert.ok(existsSync(join(ROOT, "prompts", id, "system.txt")), `prompts/${id}/system.txt is missing`);
+  }
+});
+
+function rootNodeModules() {
+  for (let directory = ROOT; ; directory = dirname(directory)) {
+    if (existsSync(join(directory, "node_modules", "hono", "package.json"))) return join(directory, "node_modules");
+    assert.notEqual(dirname(directory), directory, "node_modules not found above the repository");
+  }
+}
+
+// Only files that both lists ship reach a release image: the snapshot tool
+// decides what is uploaded and .dockerignore decides what the build copies.
+function buildShippedTree(destination) {
+  const allowlist = dockerignoreConfigAllowlist();
+  const { rootFiles, configFiles, directories } = snapshotLists();
+  for (const source of dockerCopySources()) {
+    if (source === "config") {
+      mkdirSync(join(destination, "config"));
+      for (const name of configFiles.filter((file) => allowlist.includes(file))) {
+        cpSync(join(ROOT, "config", name), join(destination, "config", name));
+      }
+      continue;
+    }
+    assert.ok(rootFiles.includes(source) || directories.includes(source),
+      `the Dockerfile copies ${source}, which the release snapshot does not include`);
+    cpSync(join(ROOT, source), join(destination, source), { recursive: true });
+  }
+  // The image runs npm ci --omit=dev; linking the installed tree stands in for it without a network.
+  symlinkSync(rootNodeModules(), join(destination, "node_modules"), "dir");
+}
+
+test("the server starts from only the files a release image ships", { timeout: STARTUP_TEST_TIMEOUT_MS }, async () => {
+  const destination = mkdtempSync(join(tmpdir(), "momentum-shipped-"));
+  try {
+    buildShippedTree(destination);
+    const { port, startupMessage } = await startIndexServer(
+      { PATH: process.env.PATH, NODE_ENV: "production" },
+      { entry: join(destination, "index.mjs"), cwd: destination },
+    );
+    assert.equal(startupMessage, `Momentum production prep running at http://localhost:${port}`);
+    const response = await fetch(`http://127.0.0.1:${port}/health`);
+    assert.equal(response.status, 200);
+  } finally {
+    await stopAllStarted();
+    rmSync(destination, { recursive: true, force: true });
   }
 });
