@@ -566,3 +566,14 @@ test("the router sees earlier turn summaries and never earlier typed text", { ti
   assert.deepEqual(seen[1], [(await sessionStore.getTurn(principal.sessionId, first)).summary]);
   assert.doesNotMatch(JSON.stringify(seen), /approved photos please/);
 });
+
+test("a step that outlives the request budget ends the stream with REQUEST_TIMEOUT", { timeout: 2000 }, async () => {
+  const setup = fixture({
+    config: { ...runnerModule.arcConfig, requestTimeoutMs: 60 },
+    services: { getApprovedPhotos: () => new Promise(() => {}) },
+  });
+  const frames = await events(await setup.post(action("list_approved_photos")));
+  assert.deepEqual(frames.map(({ type }) => type), ["run.started", "step.started", "stream.error"]);
+  assert.equal(frames.at(-1).code, "REQUEST_TIMEOUT");
+  assert.equal("sequence" in frames.at(-1), false);
+});
