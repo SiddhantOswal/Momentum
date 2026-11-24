@@ -39,6 +39,9 @@ const TurnRequestSchema = z.object({
       kind: z.literal("action"),
       actionId: ActionIdSchema,
       params: z.record(z.string().max(64), z.union([z.string().max(MAX_PARAMS_BYTES), z.number().finite(), z.boolean()]))
+        .superRefine((params, ctx) => {
+          if (Object.hasOwn(params, "sessionId")) ctx.addIssue({ code: "unrecognized_keys", keys: ["sessionId"] });
+        })
         .refine((params) => Buffer.byteLength(JSON.stringify(params)) <= MAX_PARAMS_BYTES, "params must be at most 2 KiB")
         .optional(),
     }).strict(),
@@ -75,6 +78,11 @@ function parse(schema, input, message) {
   return parsed.success
     ? { ok: true, data: parsed.data }
     : { ok: false, failure: validationFailure(issuesFrom(parsed.error), message) };
+}
+
+function requireEmptyQuery(c, next) {
+  const query = parse(EmptyQuerySchema, c.req.queries(), "This route takes no query string.");
+  return query.ok ? next() : c.json(query.failure, 400);
 }
 
 function sha256(value) {
@@ -132,15 +140,14 @@ export function createArcRoutes({
 } = {}) {
   const app = new Hono();
   const knownActions = new Set(actionIds);
+  const storesConfigured = Boolean(sessionStore && taskRunStore);
   const json = (c, status, body) => c.json(body, status);
   const fail = (c, status, code, message, extra) => json(c, status, errorBody(code, message, extra));
+  const storesUnavailable = (c) => fail(c, 503, "SERVICE_UNAVAILABLE", "Arc could not read or save its records. Nothing was changed.");
 
   app.use("*", async (c, next) => {
-    if (enabled !== true) return fail(c, 404, "ARC_NOT_ENABLED", "Arc is not enabled on this deployment.");
     c.header("Cache-Control", "no-store");
-    if (!sessionStore || !taskRunStore) {
-      return fail(c, 503, "SERVICE_UNAVAILABLE", "Arc could not read or save its records. Nothing was changed.");
-    }
+    if (enabled !== true) return fail(c, 404, "ARC_NOT_ENABLED", "Arc is not enabled on this deployment.");
     return next();
   });
 
@@ -166,15 +173,12 @@ export function createArcRoutes({
   });
 
   app.onError((error, c) => {
-    if (error instanceof FirestoreRestError) {
-      return fail(c, 503, "SERVICE_UNAVAILABLE", "Arc could not read or save its records. Nothing was changed.");
-    }
+    if (error instanceof FirestoreRestError) return storesUnavailable(c);
     console.error(JSON.stringify({ event: "arc_route_error", name: error?.name, code: error?.code }));
     return fail(c, 500, "INTERNAL_ERROR", "Arc could not complete the request.");
   });
 
   const principalOf = (c) => c.get(PRINCIPAL_KEY);
-  const queryOf = (c) => c.req.queries();
   const singleValues = (query) => Object.fromEntries(Object.entries(query).map(([key, values]) => [key, values.length === 1 ? values[0] : values]));
 
   async function ownedRun(c) {
@@ -182,6 +186,7 @@ export function createArcRoutes({
     if (!id.success) {
       return { response: json(c, 400, validationFailure([{ field: "taskRunId", path: ["taskRunId"], code: "invalid_format", message: "The run ID must be a UUID." }])) };
     }
+    if (!storesConfigured) return { response: storesUnavailable(c) };
     const run = await taskRunStore.get(id.data);
     // Another session's run answers like a missing one, so IDs cannot be probed.
     if (run === null || run.sessionId !== principalOf(c).sessionId) {
@@ -190,9 +195,8 @@ export function createArcRoutes({
     return { run };
   }
 
-  app.get("/session", async (c) => {
-    const query = parse(EmptyQuerySchema, singleValues(queryOf(c)), "This route takes no query string.");
-    if (!query.ok) return json(c, 400, query.failure);
+  app.get("/session", requireEmptyQuery, async (c) => {
+    if (!storesConfigured) return storesUnavailable(c);
     const principal = principalOf(c);
     const session = await sessionStore.getOrCreate({
       sessionId: principal.sessionId,
@@ -223,13 +227,13 @@ export function createArcRoutes({
     });
   });
 
-  app.get("/runs/:taskRunId", async (c) => {
+  app.get("/runs/:taskRunId", requireEmptyQuery, async (c) => {
     const owned = await ownedRun(c);
     if (owned.response) return owned.response;
     return c.json({ ok: true, run: runView(owned.run, { instant: now() }) });
   });
 
-  app.post("/turns", bodyLimit({
+  app.post("/turns", requireEmptyQuery, bodyLimit({
     maxSize: MAX_BODY_BYTES,
     onError: (c) => fail(c, 413, "PAYLOAD_TOO_LARGE", "The request body is too large."),
   }), async (c) => {
@@ -245,6 +249,7 @@ export function createArcRoutes({
     if (input.kind === "action" && !knownActions.has(input.actionId)) {
       return json(c, 400, validationFailure([{ field: "input.actionId", path: ["input", "actionId"], code: "unknown_action", message: "This action is not available." }]));
     }
+    if (!storesConfigured) return storesUnavailable(c);
     const principal = principalOf(c);
     const { stored, fingerprint } = storedInput(input);
     await sessionStore.getOrCreate({ sessionId: principal.sessionId, sessionExpiresAt: new Date(principal.expiresAt * 1000).toISOString() });
@@ -288,8 +293,9 @@ export function createArcRoutes({
   });
 
   app.get("/turns", async (c) => {
-    const query = parse(ListQuerySchema, singleValues(queryOf(c)), "The history query is not valid.");
+    const query = parse(ListQuerySchema, singleValues(c.req.queries()), "The history query is not valid.");
     if (!query.ok) return json(c, 400, query.failure);
+    if (!storesConfigured) return storesUnavailable(c);
     const page = await sessionStore.listTurns({
       sessionId: principalOf(c).sessionId, limit: query.data.limit ?? 10, before: query.data.before,
     });
@@ -299,13 +305,15 @@ export function createArcRoutes({
     return c.json({ ok: true, turns: page.turns.map((turn) => turnView(turn, { withBlocks: false })), nextBefore: page.nextBefore });
   });
 
-  app.get("/turns/:clientTurnId", async (c) => {
+  app.get("/turns/:clientTurnId", requireEmptyQuery, async (c) => {
     const id = TurnIdSchema.safeParse(c.req.param("clientTurnId"));
     if (!id.success) {
       return json(c, 400, validationFailure([{ field: "clientTurnId", path: ["clientTurnId"], code: "invalid_format", message: "The turn ID must be a UUID." }]));
     }
+    if (!storesConfigured) return storesUnavailable(c);
     const turn = await sessionStore.getTurn(principalOf(c).sessionId, id.data);
     if (turn === null) return fail(c, 404, "NOT_FOUND", "The turn was not found or has expired.");
+    if (turn.recordStatus === "in_progress") c.header("Retry-After", String(IN_PROGRESS_RETRY_SECONDS));
     return c.json({ ok: true, turn: turnView(turn) });
   });
 
