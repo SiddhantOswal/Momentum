@@ -546,3 +546,110 @@ test("typed text without a router fails with SERVICE_UNAVAILABLE and spends noth
   assert.equal(attempts.size, 0);
   assert.equal(reservations.length, 0);
 });
+
+async function sessionWithJob(setup) {
+  const { sessionStore, principal } = setup;
+  await sessionStore.getOrCreate({ sessionId: principal.sessionId, sessionExpiresAt: new Date(Date.now() + 3600_000).toISOString() });
+  const jobId = `JOB-HACK-${principal.sessionId}-${"0a".repeat(20)}`;
+  await sessionStore.recordJob({ sessionId: principal.sessionId, jobId });
+  return jobId;
+}
+
+test("a typed job-card request never calls the writer and costs 1 attempt (AC10.2)", { timeout: 3000 }, async () => {
+  for (const tool of ["get_job", "get_job_card"]) {
+    let plan;
+    const setup = fixture({
+      router: () => plan,
+      writer: () => assert.fail("job-card retrieval must not call the writer"),
+      commandDeps: { lookupStoredJobSheet: async ({ jobId }) => ({ ok: true, jobSheet: { jobId, status: "APPROVED" } }) },
+      services: { getJobCard: async () => ({ ok: true, bytes: new Uint8Array([37, 80, 68, 70]), contentType: "application/pdf" }) },
+    });
+    const jobId = await sessionWithJob(setup);
+    plan = { calls: [modelCall(tool, { jobId })] };
+    const clientTurnId = randomUUID();
+    const frames = await events(await setup.post(text("Show the card for my last job"), { clientTurnId }));
+    assert.equal(frames.at(-1).type, "run.completed", tool);
+    const turn = await setup.sessionStore.getTurn(setup.principal.sessionId, clientTurnId);
+    assert.equal(setup.attempts.size, 1, tool);
+    assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome, turn.summary.fallbackReason], [1, "not_called", null], tool);
+    assert.equal(turn.answerText, "Here is the job card from this session.");
+    assert.deepEqual(turn.summary.resultRefs, [{ kind: tool === "get_job" ? "job" : "card", id: jobId }]);
+  }
+});
+
+test("a refusal chosen by the router never calls the writer and costs 1 attempt", { timeout: 2000 }, async () => {
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [], reply: { code: "reply_out_of_scope", args: {} } }),
+    renderReply: () => "That is not something Arc does.",
+    writer: () => assert.fail("a refusal must not call the writer"),
+  });
+  const clientTurnId = randomUUID();
+  const frames = await events(await post(text("Where is the nearest mall?"), { clientTurnId }));
+  assert.deepEqual(frames.map(({ type, sequence }) => [type, sequence]), [["answer", 0]]);
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([turn.summary.intent, turn.summary.attempts, turn.summary.writerOutcome], ["reply_out_of_scope", 1, "not_called"]);
+  assert.equal(attempts.size, 1);
+});
+
+test("a typed question that ends as insufficient data shows the dictionary text and skips the writer", { timeout: 2000 }, async () => {
+  const missing = "The modeled lot history has no lots from 2025-10-01 to 2026-09-30.";
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("query_metric", { metric: "top_scrap_items", filters: {} })] }),
+    writer: () => assert.fail("insufficient data must not call the writer"),
+    services: {
+      availability: { queryMetric: true },
+      queryMetric: async () => ({ ok: true, status: "insufficient_data", metric: "top_scrap_items", missing: "Model text that must not show.", rows: [], rowCount: 0 }),
+    },
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Which items scrapped most this year?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.equal(turn.answerText, missing);
+  assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome], [1, "not_called"]);
+  assert.deepEqual(turn.summary.resultRefs, [{ kind: "metric", id: "no_data.top_scrap_items" }]);
+  assert.equal(attempts.size, 1);
+});
+
+test("a writer safety block shows the template, counts the fallback and logs the reason code only", { timeout: 2000 }, async () => {
+  const logged = [];
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status")] }),
+    writer: () => { throw Object.assign(new Error("Gemini withheld its answer."), { code: "GEMINI_SAFETY_BLOCKED" }); },
+    log: (entry) => logged.push(entry),
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Can I trust the models?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome, turn.summary.fallbackReason], [2, "fallback", "GEMINI_SAFETY_BLOCKED"]);
+  assert.match(turn.answerText, /^Holdout R2 per model: Warp 0\.47, Delamination 0\.52, Strength 0\.39, Print 0\.64, Crack 0\.11\./);
+  assert.deepEqual(turn.summary.versions, { config: "arc-v1", models: "arc-models-v1", writer: "writer/v1" });
+  assert.deepEqual(logged, [{ event: "arc_answer_fallback", reason: "GEMINI_SAFETY_BLOCKED" }]);
+  assert.equal(attempts.size, 2);
+});
+
+test("a template that fails its own check is replaced, keeps no values and skips the writer", { timeout: 2000 }, async () => {
+  const logged = [];
+  const { post, attempts, sessionStore, principal } = fixture({
+    router: () => ({ calls: [modelCall("get_status")] }),
+    renderTemplate: () => "Warp scores 0.99.",
+    writer: () => assert.fail("an unchecked template must not call the writer"),
+    log: (entry) => logged.push(entry),
+  });
+  const clientTurnId = randomUUID();
+  await events(await post(text("Can I trust the models?"), { clientTurnId }));
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.equal(turn.answerText, "Arc could not check this answer against its sources, so it is not shown. Try a suggested question, or ask again in different words.");
+  assert.deepEqual([turn.summary.resultRefs, turn.summary.writerOutcome], [[], "not_called"]);
+  assert.deepEqual(logged, [{ event: "arc_answer_fallback", reason: "TEMPLATE_UNCHECKED" }]);
+  assert.equal(attempts.size, 1);
+});
+
+test("a picked suggestion keeps the template with its values and stores a metric reference", { timeout: 2000 }, async () => {
+  const { post, sessionStore, principal } = fixture({ writer: () => assert.fail("a button never calls the writer") });
+  const clientTurnId = randomUUID();
+  const frames = await events(await post(action("get_status"), { clientTurnId }));
+  assert.deepEqual(frames.find(({ type }) => type === "step.succeeded").resultRef, { kind: "metric", id: "model_scores" });
+  const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
+  assert.match(turn.answerText, /Print 0\.64, Crack 0\.11\. Modeled, tested on 219 lots\./);
+  assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome], [0, "not_called"]);
+});

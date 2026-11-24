@@ -2,9 +2,11 @@
 // Every number and ID in answer text must come from the same turn's tool
 // results. The facts below are written by hand, not produced by Arc.
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { checkGrounding, checkWriterText } from "../src/arc/answer-checks.js";
-import { factsFor, renderTemplate } from "../src/arc/answer-render.js";
+import { factsFor } from "../src/arc/answer-render.js";
+import { events, fixture, modelCall, text } from "../test/fixtures/arc-turn-runner.js";
 
 const scores = {
   tool: "get_status", label: "Modeled, tested on 219 lots",
@@ -75,3 +77,30 @@ test("a number from purchase order text fails because the order never becomes a 
   assert.equal(checkWriterText("The order is for 5000 boxes.", facts), "UNGROUNDED_NUMBER");
   assert.equal(checkWriterText("The lot has not been planned yet.", facts), null);
 });
+
+// Through the turn runner: the check runs before anything is stored or shown.
+async function writtenTurn(written) {
+  const setup = fixture({ router: () => ({ calls: [modelCall("get_status")] }), writer: () => ({ outcome: "shown", text: written }) });
+  const clientTurnId = randomUUID();
+  await events(await setup.post(text("How far can I trust the models?"), { clientTurnId }));
+  return { turn: await setup.sessionStore.getTurn(setup.principal.sessionId, clientTurnId), attempts: setup.attempts.size };
+}
+const TEMPLATE_START = /^Holdout R2 per model: Warp 0\.47, Delamination 0\.52, Strength 0\.39, Print 0\.64, Crack 0\.11\./;
+
+test("a grounded written answer is shown and stored as the writer's", { timeout: 3000 }, async () => {
+  const written = "Print scores the highest R2, 0.64, on 219 modeled lots.";
+  const { turn, attempts } = await writtenTurn(written);
+  assert.deepEqual([turn.answerText, turn.summary.writerOutcome, turn.summary.fallbackReason, attempts], [written, "shown", null, 2]);
+});
+
+for (const [name, written, reason] of [
+  ["a written number the tools did not return shows the template and counts the fallback", "Print scores 0.71 on 219 modeled lots.", "UNGROUNDED_NUMBER"],
+  ["a written ID the tools did not return shows the template and counts the fallback", "Print scores 0.64; see PKBX0099.", "UNGROUNDED_ID"],
+]) {
+  test(name, { timeout: 3000 }, async () => {
+    const { turn, attempts } = await writtenTurn(written);
+    assert.match(turn.answerText, TEMPLATE_START);
+    assert.deepEqual([turn.summary.writerOutcome, turn.summary.fallbackReason, turn.summary.attempts, attempts], ["fallback", reason, 2, 2]);
+    assert.doesNotMatch(JSON.stringify(turn), /0\.71|PKBX0099/);
+  });
+}
