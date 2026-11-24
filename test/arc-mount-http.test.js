@@ -29,11 +29,12 @@ async function assertRateLimited(response, limit) {
   });
 }
 
-async function assertOversized(origin, cookie) {
+async function assertOversized(origin, cookie, signal) {
   const response = await fetch(origin + "/api/arc/turns", {
     method: "POST",
     headers: { Origin: origin, ...(cookie ? { Cookie: cookie } : {}) },
     body: Buffer.alloc(10 * 1024 * 1024 + 1),
+    signal,
   });
   assert.equal(response.status, 413);
   assert.equal(response.headers.get("cache-control"), "no-store");
@@ -101,17 +102,17 @@ test("with the flag on and no Google Cloud project, Arc is 503 SERVICE_UNAVAILAB
   }
 });
 
-test("the Arc global body limit runs before the IP rate limit and feature flag", async () => {
+test("the Arc global body limit runs before the IP rate limit and feature flag", { timeout: 15_000 }, async ({ signal }) => {
   const { child, origin } = await start(baseEnv);
   try {
-    await assertOversized(origin);
+    await assertOversized(origin, undefined, signal);
     for (let n = 0; n < 300; n += 1) {
-      const response = await fetch(origin + "/api/arc/session");
+      const response = await fetch(origin + "/api/arc/session", { signal });
       assert.equal(response.status, 404);
       await response.arrayBuffer();
     }
-    await assertRateLimited(await fetch(origin + "/api/arc/session"), 300);
-    await assertOversized(origin);
+    await assertRateLimited(await fetch(origin + "/api/arc/session", { signal }), 300);
+    await assertOversized(origin, undefined, signal);
   } finally {
     child.kill("SIGKILL");
   }
