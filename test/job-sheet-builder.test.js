@@ -92,3 +92,20 @@ test("builder does not silently omit malformed evidence or accept more than the 
   assert.equal(excessive.ok, false);
   assert.ok(excessive.error.issues.some((issue) => issue.field === "evidence"));
 });
+
+test("the use classes on the optimizer result reach the draft and survive the BigQuery row", async () => {
+  const { mapJobSheetFromBigQuery, mapJobSheetToBigQuery } = await import("../src/bigquery-mapper.js");
+  const targetUse = Object.fromEntries(["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].map((defect) => [
+    defect, { useClass: defect === "CRACK" ? "advisory" : "optimizer", reason: `${defect} reason.` },
+  ]));
+  const withUse = (profile) => ({ ...profile, risk: { ...profile.risk, targetUse } });
+  const result = buildDraftJobSheet(input({
+    optimization: { ...optimization, baseline: withUse(optimization.baseline), best: withUse(optimization.best) },
+  }));
+  assert.equal(result.ok, true, JSON.stringify(result.error));
+  assert.deepEqual(result.jobSheet.recommended.risk.targetUse, targetUse);
+  const row = mapJobSheetToBigQuery(result.jobSheet, {
+    plantId: "PLANT-SYNTHETIC-001", createdAt: "2026-11-25T00:00:00.000Z", savingsCost: 0, currency: "INR",
+  });
+  assert.deepEqual(mapJobSheetFromBigQuery(row).recommended.risk.targetUse, targetUse);
+});
