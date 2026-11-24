@@ -359,8 +359,8 @@ test('hackathon participants share one genuine-action UI with explicit demo acto
   await page.locator('#stored-card-form button').click();
   await expect(page.locator('#stored-card-link')).toBeVisible();
   expect(reservations).toBe(1);
-  await page.getByRole('link',{name:'Impact',exact:true}).click();
   await page.route('**/impact/summary',route=>fulfill(route,impact));
+  await page.getByRole('link',{name:'Impact',exact:true}).click();
   await page.locator('#load-impact').click();
   await expect(page.locator('#impact-content')).toBeVisible();
   await expect(page.locator('#impact-coverage')).toContainText('Predicted savings on a held-out month');
