@@ -1,19 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 
 /**
- * In-memory fake IdempotencyStore for offline testing and single-instance
- * development. This store is NOT durable across process restarts, does NOT
- * coordinate across application replicas, and MUST NOT be used as the
- * production persistence mechanism. It implements the same atomic
- * claim/complete/release contract as a real shared-store adapter so that all
- * guardrail logic, conflict handling, and retry paths can be fully tested
- * offline.
- *
- * Shared-store blocker: a real production adapter requires an atomic
- * compare-and-swap operation against a durable, globally consistent backend
- * (e.g., a BigQuery row insert with a UNIQUE constraint or a Cloud Firestore
- * conditional write). The interface below is the adapter contract; only the
- * backing storage needs to change.
+ * For offline demos and unit tests only. Claims disappear on restart and
+ * cannot prevent duplicate jobs across service instances.
  */
 export class InMemoryIdempotencyStore {
   #records = new Map();
@@ -226,18 +215,16 @@ export const PROCESS_LOCAL_LEASE_MS = 30_000;
 export const SHARED_LEASE_MS = 130_000;
 
 /**
- * Chooses the `/jobs` idempotency store. With USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY
- * the Firestore store is used or nothing is: a missing store leaves job
- * creation unavailable rather than falling back to one instance's memory.
+ * An explicit Firestore request requires the shared store even in demo mode.
  */
-export function selectJobIdempotencyStore({ jobIdempotency, jobSheetPersistenceAvailable, demoMode } = {}) {
+export function selectJobIdempotencyStore({ jobIdempotency, demoMode } = {}) {
   if (jobIdempotency?.durableRequested === true) {
     const store = jobIdempotency.store;
     return Object.freeze(typeof store?.claim === "function"
       ? { store, leaseMs: SHARED_LEASE_MS, scope: "shared-firestore" }
       : { store: undefined, leaseMs: SHARED_LEASE_MS, scope: "unavailable" });
   }
-  return Object.freeze(jobSheetPersistenceAvailable || demoMode
+  return Object.freeze(demoMode === true
     ? { store: new InMemoryIdempotencyStore({ leaseMs: PROCESS_LOCAL_LEASE_MS }), leaseMs: PROCESS_LOCAL_LEASE_MS, scope: "process-local" }
     : { store: undefined, leaseMs: PROCESS_LOCAL_LEASE_MS, scope: "unavailable" });
 }

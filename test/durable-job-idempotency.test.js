@@ -291,6 +291,21 @@ test("with the flag off, the offline demo replays jobs in memory without calling
   }
 });
 
+test("with the flag off outside demo mode, configured job persistence cannot use an in-memory store", async () => {
+  const fake = createFakeFirestore();
+  const sheets = fakeJobSheets();
+  const gemini = { attempts: 0 };
+  const env = { ...FLAG_ON, USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: "false" };
+  const instance = startInstance({ fake, env, sheets, clock: clockAt(START), gemini });
+
+  assert.equal(instance.idempotency.scope, "unavailable");
+  assert.equal(instance.idempotency.store, undefined);
+  assert.equal((await plan(instance)).error?.code, "SERVICE_UNAVAILABLE");
+  assert.equal(gemini.attempts, 0);
+  assert.equal(sheets.rows.length, 0);
+  assert.equal(fake.calls.length, 0);
+});
+
 test("the flag on without a Firestore store leaves job creation unavailable instead of falling back to memory", () => {
   for (const demoMode of [false, true]) {
     const idempotency = selectJobIdempotencyStore({
