@@ -30,7 +30,8 @@
 .m .op .mb.p { background: var(--ac); color: #18110E; }
 :root[data-theme="light"] .m .op .mb.p { color: #1B0F0B; }
 .m .op .mb.s { border-color: var(--ln2); color: var(--tx); background: transparent; }
-.m .op .mb[aria-disabled="true"] { cursor: not-allowed; }
+/* Unavailable until ARC-M6-13: the design's colours, faded, so nothing looks ready to use. */
+.m .op .mb[aria-disabled="true"] { cursor: not-allowed; opacity: .45; }
 .m .op .mb:focus-visible, .m .op .rd:focus-within, .m .op-close:focus-visible { outline: 2px solid var(--ac); outline-offset: 3px; }
 .m .op-nc { margin-top: 10px; font-size: 14px; line-height: 1.45; color: var(--tx); display: flex; gap: 8px; align-items: flex-start; }
 .m .op-nc .pv { flex: none; }

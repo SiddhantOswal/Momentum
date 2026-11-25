@@ -58,7 +58,7 @@ export async function findReadableJob(lots: LiveLot[], signal: AbortSignal): Pro
   return { ok: false, reason: "other-sessions" };
 }
 
-export const cardPdfPath =(jobId: string) => `/jobs/${encodeURIComponent(jobId)}/card.pdf`;
+export const cardPdfPath = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/card.pdf`;
 
 const TRACE_READ_MS = 5000;
 

@@ -3,7 +3,7 @@ import { ThemeSwitch } from "../components/Frame";
 import { Chip, Icon, IdleMark, ProvenanceChip } from "../components/m";
 import { LEVERS, type LeverKey } from "../lib/session";
 import type { Theme } from "../lib/useApp";
-import { cardPdfPath, findReadableJob, pageParam, readJob, readLots, type JobRead } from "./prepflow/records";
+import { cardPdfPath, findReadableJob, pageParam, readJob, readLotHead, readLots, type JobRead } from "./prepflow/records";
 import "./operator/operator.css";
 
 // Labels and units as Operator-Phone writes them.
@@ -31,7 +31,14 @@ const SEARCH_FAILURES = {
   failed: "The stored card could not be read.",
 } as const;
 
-type Load = { state: "loading" } | { state: "missing"; text: string } | { state: "ready"; job: JobRead };
+// `currentJobId` is the lot head's current job, when the head could be read; it alone proves "latest".
+type Load = { state: "loading" } | { state: "missing"; text: string } | { state: "ready"; job: JobRead; currentJobId?: string | null };
+
+async function withHead(job: JobRead, signal: AbortSignal): Promise<Load> {
+  if (!job.revision?.lotId) return { state: "ready", job };
+  const head = await readLotHead(job.revision.lotId, signal);
+  return { state: "ready", job, currentJobId: head.ok ? head.data.lot.currentJobId : undefined };
+}
 
 /** The job named by `?job=`, or else the newest approved lot on the floor view. */
 function useOperatorJob(): Load {
@@ -47,7 +54,11 @@ function useOperatorJob(): Load {
         if (!lots.ok) return setLoad({ state: "missing", text: "The lot list could not be read, so no card can be shown." });
         const found = await findReadableJob(lots.data.lots.filter((lot) => lot.status === "approved"), signal);
         if (signal.aborted) return;
-        if (found.ok) return setLoad({ state: "ready", job: found.job });
+        if (found.ok) {
+          const ready = await withHead(found.job, signal);
+          if (!signal.aborted) setLoad(ready);
+          return;
+        }
         return setLoad({ state: "missing", text: SEARCH_FAILURES[found.reason] });
       }
       const read = await readJob(jobId, signal);
@@ -55,14 +66,15 @@ function useOperatorJob(): Load {
       if (!read.ok) {
         return setLoad({ state: "missing", text: READ_FAILURES[read.status ?? 0] ?? "The stored card could not be read." });
       }
-      setLoad({ state: "ready", job: read.data });
+      const ready = await withHead(read.data, signal);
+      if (!signal.aborted) setLoad(ready);
     })();
     return () => controller.abort();
   }, []);
   return load;
 }
 
-/** What a button shows when its backend (ARC-M6-13) does not exist: nothing is sent. */
+/** Shown beside each button whose backend (ARC-M6-13) does not exist yet: the button sends nothing. */
 function NotConnectedNote({ id, text }: { id: string; text: string }) {
   return <p className="op-nc" id={id} role="status"><ProvenanceChip kind="not-connected" /><span>{text}</span></p>;
 }
@@ -76,13 +88,14 @@ const NOTES: [string, string][] = [
 const RECORDS = ["Card received", "Settings used", "Quality measured"];
 const MISMATCH_KINDS = ["A setting value", "The lot or board", "A unit", "Machine cannot reach value"];
 
-function CardView({ job, onReport }: { job: JobRead; onReport: () => void }) {
-  const [receiptTried, setReceiptTried] = useState(false);
+function CardView({ job, currentJobId, onReport }: { job: JobRead; currentJobId?: string | null; onReport: () => void }) {
   const noteId = useId();
   const { jobSheet: sheet, revision } = job;
   const approved = sheet.status !== "DRAFT";
-  const latest = revision?.status === "APPROVED";
-  const replaced = revision?.status === "SUPERSEDED";
+  const headKnown = currentJobId !== undefined;
+  const latest = revision?.status === "APPROVED" && headKnown && currentJobId === sheet.jobId;
+  const overtaken = approved && headKnown && currentJobId !== sheet.jobId;
+  const replaced = revision?.status === "SUPERSEDED" || revision?.status === "FAILED";
   const changed = new Map(sheet.changes.map((change) => [change.lever, change]));
   const order = [...LEVERS.filter(({ key }) => changed.has(key)), ...LEVERS.filter(({ key }) => !changed.has(key))];
   const first = LEVERS.find(({ key }) => changed.has(key));
@@ -102,8 +115,10 @@ function CardView({ job, onReport }: { job: JobRead; onReport: () => void }) {
       <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
         {replaced
           ? <span className="sx bd"><Icon name="bad" />Replaced by a newer revision</span>
-          : approved
-            ? <span className="sx ok"><Icon name="ok" />{latest ? "Approved, latest revision" : "Approved"}</span>
+          : overtaken
+            ? <span className="sx wn"><Icon name="warn" />Approved, not the latest revision</span>
+            : approved
+              ? <span className="sx ok"><Icon name="ok" />{latest ? "Approved, latest revision" : "Approved"}</span>
             : <span className="sx wn"><Icon name="warn" />Draft, not approved</span>}
       </div>
       {approved && <div className="lb" style={{ fontSize: 13.5, marginTop: 4 }}>Approved in a demo session. Not a named supervisor.</div>}
@@ -134,8 +149,8 @@ function CardView({ job, onReport }: { job: JobRead; onReport: () => void }) {
               })}
             </ul>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-              <button type="button" className="mb p" aria-disabled="true" aria-describedby={receiptTried ? noteId : undefined} onClick={() => setReceiptTried(true)}>I received this card</button>
-              {receiptTried && <NotConnectedNote id={noteId} text="Receipts are not recorded yet. Nothing was sent." />}
+              <button type="button" className="mb p" aria-disabled="true" aria-describedby={noteId}>I received this card</button>
+              <NotConnectedNote id={noteId} text="Receipts are not recorded yet. This button sends nothing." />
               <button type="button" className="mb s" onClick={onReport}>Report a mismatch</button>
             </div>
           </>
@@ -157,7 +172,6 @@ function CardView({ job, onReport }: { job: JobRead; onReport: () => void }) {
 /** The mismatch form. Its text stays in this page: no route stores it yet (ARC-M6-13). */
 function MismatchSheet({ title, onClose, headingRef }: { title: string; onClose: () => void; headingRef: RefObject<HTMLHeadingElement | null> }) {
   const [kind, setKind] = useState(MISMATCH_KINDS[0]);
-  const [tried, setTried] = useState(false);
   const ids = useId();
   return (
     <section className="ph2 op-sheet" aria-labelledby={`${ids}-h`}>
@@ -184,10 +198,10 @@ function MismatchSheet({ title, onClose, headingRef }: { title: string; onClose:
         <label className="q" htmlFor={`${ids}-text`}>What do you see?</label>
         <textarea id={`${ids}-text`} className="op-text" placeholder="Type what you see" maxLength={500} />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
-          <button type="button" className="mb p" aria-disabled="true" aria-describedby={tried ? `${ids}-nc` : undefined} onClick={() => setTried(true)}>Send to supervisor</button>
-          <button type="button" className="mb s" aria-disabled="true" aria-describedby={tried ? `${ids}-nc` : undefined} onClick={() => setTried(true)}>Stop and call supervisor</button>
+          <button type="button" className="mb p" aria-disabled="true" aria-describedby={`${ids}-nc`}>Send to supervisor</button>
+          <button type="button" className="mb s" aria-disabled="true" aria-describedby={`${ids}-nc`}>Stop and call supervisor</button>
         </div>
-        {tried && <NotConnectedNote id={`${ids}-nc`} text="Mismatch reports are not connected yet. Nothing was sent. Tell your supervisor in person." />}
+        <NotConnectedNote id={`${ids}-nc`} text="Mismatch reports are not connected yet. These buttons send nothing. Tell your supervisor in person." />
       </form>
       <div className="lb" style={{ fontSize: 13.5, lineHeight: 1.5, marginTop: 16 }}>A mismatch report does not change the card.</div>
     </section>
@@ -229,7 +243,7 @@ export function Operator({ theme, toggleTheme }: { theme: Theme; toggleTheme: ()
             <p className="lb" style={{ margin: "12px 0 0", fontSize: 15, lineHeight: 1.5 }}>{load.text}</p>
           </>
         )}
-        {job && <CardView job={job} onReport={() => { reportRef.current = true; setSheetOpen(true); if (sheetOpen) headingRef.current?.focus(); }} />}
+        {job && <CardView job={job} currentJobId={load.state === "ready" ? load.currentJobId : undefined} onReport={() => { reportRef.current = true; setSheetOpen(true); if (sheetOpen) headingRef.current?.focus(); }} />}
       </section>
       {canReport && sheetOpen && <MismatchSheet title={title} onClose={() => setSheetOpen(false)} headingRef={headingRef} />}
     </main>
