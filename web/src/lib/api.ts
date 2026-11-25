@@ -14,13 +14,18 @@ export function ensureSession() {
   return session;
 }
 
+/** Drops the remembered session and opens a new one, for a request that came back 401. */
+export function renewSession() {
+  session = undefined;
+  return ensureSession();
+}
+
 async function request<T>(path: string, init?: RequestInit, retried = false): Promise<Result<T>> {
   try {
     const response = await fetch(path, { credentials: "same-origin", ...init, headers: { Accept: "application/json", ...init?.headers } });
     // No session yet (or it expired): open one and try once more.
     if (response.status === 401 && !retried) {
-      session = undefined;
-      await ensureSession();
+      await renewSession();
       return request<T>(path, init, true);
     }
     const body = await response.json().catch(() => undefined);

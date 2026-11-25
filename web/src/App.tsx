@@ -1,26 +1,40 @@
-import { Shell } from "./components/Shell";
-import { StatusStrip } from "./components/StatusStrip";
-import { Empty } from "./components/ui";
-import { Floor } from "./screens/Floor";
-import { Lots } from "./screens/Lots";
-import { Defects } from "./screens/Defects";
-import { useScreen, useTheme, type Screen } from "./lib/useApp";
+import type { ComponentType } from "react";
+import { Frame } from "./components/Frame";
+import { useRoute, type RouteId } from "./lib/routes";
+import { useTheme } from "./lib/useApp";
+import { Home } from "./pages/Home";
+import { Insights } from "./pages/Insights";
+import { NewLotApprove } from "./pages/NewLotApprove";
+import { NewLotConditions } from "./pages/NewLotConditions";
+import { NewLotOrder } from "./pages/NewLotOrder";
+import { NewLotSettings } from "./pages/NewLotSettings";
+import { Operator } from "./pages/Operator";
+import { PhotoDiagnosis } from "./pages/PhotoDiagnosis";
+import { Planning } from "./pages/Planning";
+import { PlantExplorer } from "./pages/PlantExplorer";
+import { PrepFlow } from "./pages/PrepFlow";
 
-const TITLES: Record<Screen, { title: string; subtitle: string }> = {
-  floor: { title: "Floor", subtitle: "Pune plant · live view of Line 1" },
-  lots: { title: "Lots", subtitle: "Plan, review and approve production lots" },
-  defects: { title: "Defects", subtitle: "Diagnose a defect and find what fixed it before" },
-  impact: { title: "Impact", subtitle: "Scrap, savings and sustainability" },
-  models: { title: "Models", subtitle: "How each defect model performs" },
+const PAGES: Record<Exclude<RouteId, "operator">, ComponentType> = {
+  "home": Home,
+  "new-lot/order": NewLotOrder,
+  "new-lot/conditions": NewLotConditions,
+  "new-lot/settings": NewLotSettings,
+  "new-lot/approve": NewLotApprove,
+  "explorer": PlantExplorer,
+  "prep-flow": PrepFlow,
+  "insights": Insights,
+  "photo": PhotoDiagnosis,
+  "planning": Planning,
 };
 
 export function App() {
-  const { screen, go } = useScreen();
+  const route = useRoute();
   const { theme, toggle } = useTheme();
-  const { title, subtitle } = TITLES[screen];
+  if (route.id === "operator") return <div className="m"><Operator theme={theme} toggleTheme={toggle} /></div>;
+  const Page = PAGES[route.id];
   return (
-    <Shell screen={screen} go={go} theme={theme} toggleTheme={toggle} title={title} subtitle={subtitle} status={<StatusStrip />}>
-      {screen === "floor" ? <Floor /> : screen === "lots" ? <Lots /> : screen === "defects" ? <Defects /> : <div className="panel p-6"><Empty title={`${title} is being built`} hint="Coming in the next build." /></div>}
-    </Shell>
+    <Frame route={route} theme={theme} toggleTheme={toggle}>
+      <Page key={route.id} />
+    </Frame>
   );
 }
