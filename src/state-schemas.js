@@ -306,6 +306,8 @@ export const LotHeadDocSchema = z.object({
     orderId: z.string(),
     itemCode: z.string(),
     quantity: z.number().int().positive(),
+    // The review line the operator confirmed; part of the job identity, so Arc plans with the same line.
+    lineIndex: z.number().int().nonnegative().optional(),
   }).strict().nullable(),
   draftConditions: z.array(ProvenancedValueSchema).max(5),
   conditionsFingerprint: Sha256HexSchema.nullable(),
