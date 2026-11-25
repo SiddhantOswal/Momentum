@@ -97,7 +97,7 @@ function TrustCard({ risk }: { risk: Risk }) {
             const use = risk.targetUse?.[key]?.useClass;
             const low = use === "advisory";
             return (
-              <div role="row" key={key} className="tb" style={{ minHeight: 46, gridTemplateColumns: "130px 1fr 90px 210px" }}>
+              <div role="row" key={key} className="tb" style={{ minHeight: 46, gridTemplateColumns: "130px 1fr 70px 240px" }}>
                 <span role="cell" style={{ fontWeight: 600 }}>{defectLabel(key)}</span>
                 <span role="cell" className="tr2" aria-hidden="true">
                   {model?.r2 != null && <i style={{ width: barWidth(model.r2), background: low ? "var(--bd)" : "var(--g2)" }} />}

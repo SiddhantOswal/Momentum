@@ -41,7 +41,7 @@
 .m .nl .lgd { width: 28px; height: 16px; border: 1.5px solid var(--wn); border-radius: 6px; flex: none; }
 
 /* order context inputs on the Purchase order card */
-.m .nl .ctx { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; margin-top: 14px; }
+.m .nl .ctx { display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 10px; margin-top: 14px; }
 .m .nl .ctx label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--mu); }
 .m .nl .ctx .fld input, .m .nl .ctx .fld select { font-size: 15px; }
 

@@ -110,10 +110,16 @@ export const kg = (value: number) => formatNumber(value, 1);
 export const money = (value: number, currency = "INR") => formatMoney(value, currency);
 export const pct = (value: number) => `${formatNumber(value, 2)}%`;
 
-export function timeText(iso: string) {
+function formatted(iso: string, options: Intl.DateTimeFormatOptions) {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString("en-IN", options);
 }
+/** The reading time, with the day only when it is not today. */
+export function timeText(iso: string) {
+  const today = new Date(iso).toDateString() === new Date().toDateString();
+  return formatted(iso, today ? { hour: "2-digit", minute: "2-digit", hour12: false } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+export const dateText = (iso: string) => formatted(iso, { day: "numeric", month: "short", year: "numeric" });
 
 /** A labelled input in the design's field style. An amber outline marks a value still to enter. */
 export function FieldInput({ id, value, onChange, onCommit, placeholder, unit, required, invalid, inputMode, type = "text", describedBy, label }: {

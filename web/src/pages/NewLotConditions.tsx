@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Banner, Button, ButtonLink, Card } from "../components/m";
 import { LEVERS, type LeverKey } from "../lib/session";
 import { loadPlantReading, loadWeather, planLot, recordConditionEdit } from "./newlot/actions";
-import { FieldInput, FieldSelect, IdsBar, LEVEL_OPTIONS, leverLabel, NewLotPage, StatusIcon, timeText, Toasts, useToasts } from "./newlot/parts";
+import { FieldInput, FieldSelect, IdsBar, LEVEL_OPTIONS, leverLabel, NewLotPage, StatusIcon, dateText, timeText, Toasts, useToasts } from "./newlot/parts";
 import { CONDITION_FIELDS, getLot, updateLot, useLot, type ConditionKey, type FieldSource, type LotState } from "./newlot/store";
 
 const SHIFTS = [{ value: "DAY", label: "Day" }, { value: "NIGHT", label: "Night" }];
@@ -38,7 +38,7 @@ function sourceText(source: FieldSource | undefined, filled: boolean) {
   if (!filled) return "Required";
   if (!source || source.kind === "operator") return "Entered by operator";
   if (source.kind === "weather") return `Weather record, ${source.location ?? "Pune"}, ${timeText(source.observedAt)}`;
-  return source.simulated ? `Last stored plant reading, simulated, ${timeText(source.recordedAt)}` : `Last stored plant reading, ${timeText(source.recordedAt)}`;
+  return `Last plant reading, ${dateText(source.recordedAt)}${source.simulated ? ", simulated" : ""}`;
 }
 
 function ConditionsCard({ lot, onToast }: { lot: LotState; onToast: ReturnType<typeof useToasts>["show"] }) {
