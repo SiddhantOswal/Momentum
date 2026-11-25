@@ -442,6 +442,7 @@ for (const theme of ['dark', 'light']) {
       await expect(panel.getByRole('heading', { name: 'Check a defect' })).toBeVisible();
       await expect(panel.getByRole('tab', { name: 'Photo diagnosis' })).toHaveAttribute('aria-selected', 'true');
       await expect(panel.getByText('Approved photo 1 of 10')).toBeVisible();
+      await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toHaveAttribute('placeholder', 'Tell Arc what to change');
       await expect(panel.getByText('Approved reference photo', { exact: true })).toBeVisible();
       await expect(panel.getByText('Uploaded photo', { exact: true })).toBeVisible();
       await expect(panel.getByText(/Uploading your own photo is not connected/)).toBeVisible();
