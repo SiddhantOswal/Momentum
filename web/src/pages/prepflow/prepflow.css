@@ -1,0 +1,95 @@
+/* Preparation Flow, ported from docs/arc/design/source/html/{dark,light}/Prep-Flow*.html. */
+
+.m .pf-page .sm4 { display: grid; grid-template-columns: repeat(4, 1fr); }
+.m .pf-page .sm4 > div { padding: 0 20px; border-left: 1px solid var(--ln); min-width: 0; }
+.m .pf-page .sm4 > div:first-child { border-left: 0; padding-left: 0; }
+.m .pf-page .sm4 .lb { font-size: 13px; }
+.m .pf-page .sm4 .sv { font: 600 20px var(--arc-font-display); margin-top: 2px; overflow-wrap: anywhere; }
+
+.m .pf-page .pf-legend { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+
+/* The flow drawing: 1128 x 440 at the design width, with zones and nodes placed as drawn. */
+.m .pf-page .pf-wrap { container-type: inline-size; }
+.m .pf-page .pf { position: relative; height: 440px; margin: 0; padding: 0; list-style: none; }
+.m .pf-page .pf-arrows { position: absolute; left: 0; top: 0; pointer-events: none; }
+.m .pf-page .zn { position: absolute; top: 0; height: 440px; border: 1px solid var(--ln); border-radius: 12px; background: var(--bg); }
+.m .pf-page .zn.z0 { left: 0; width: 340px; }
+.m .pf-page .zn.z1 { left: 380px; width: 368px; }
+.m .pf-page .zn.z2 { left: 788px; width: 340px; }
+.m .pf-page .zh { height: 44px; border-bottom: 1px solid var(--ln); display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 14px; }
+.m .pf-page .zh h3 { margin: 0; font: 600 16px var(--arc-font-display); }
+.m .pf-page .zf { position: absolute; left: 14px; right: 14px; bottom: 12px; font-size: 13px; line-height: 1.4; color: var(--mu); border-top: 1px solid var(--ln); padding-top: 10px; }
+.m .pf-page .zn ol { margin: 0; padding: 0; list-style: none; }
+.m .pf-page .nd { position: absolute; border: 1px solid var(--ln2); border-radius: 10px; background: var(--rz); padding: 9px 11px; text-align: left; width: 140px; height: 124px; }
+.m .pf-page .nd .nr { display: flex; justify-content: space-between; align-items: center; font: 600 12px var(--arc-font-body); color: var(--dim); }
+.m .pf-page .nd .nt { font: 600 15px/20px var(--arc-font-display); margin-top: 3px; }
+.m .pf-page .nd .ns { font-size: 12.5px; line-height: 1.35; color: var(--mu); margin-top: 2px; }
+.m .pf-page .nd .nk { font-size: 12px; font-weight: 600; color: var(--dim); margin-top: 4px; }
+.m .pf-page .nd.cur { border: 2px solid var(--ac); padding: 8px 10px; }
+.m .pf-page .nd.cur.w { border-color: var(--wn); }
+.m .pf-page .nd.cur.b { border-color: var(--bd); }
+.m .pf-page .nd.pd { border-style: dashed; background: transparent; }
+.m .pf-page .nd .sx svg { width: 15px; height: 15px; }
+.m .pf-page .nd .pf-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); display: block; }
+/* Positions are the design's, less the zone's 1 px border. */
+.m .pf-page .nd.s1, .m .pf-page .nd.s7 { left: 13px; top: 59px; }
+.m .pf-page .nd.s2, .m .pf-page .nd.s8 { left: 185px; top: 59px; }
+.m .pf-page .nd.s3, .m .pf-page .nd.s9 { left: 185px; top: 207px; }
+.m .pf-page .nd.s4 { left: 13px; top: 185px; width: 170px; height: 168px; }
+.m .pf-page .nd.s5 { left: 211px; top: 207px; }
+.m .pf-page .nd.s6 { left: 211px; top: 59px; }
+.m .pf-page .pt { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: .02em; border: 1px solid var(--ln2); color: var(--mu); }
+.m .pf-page .pt i { width: 7px; height: 7px; border-radius: 50%; display: block; }
+.m .pf-page .pt.ok i { background: var(--ok); } .m .pf-page .pt.wn i { background: var(--wn); }
+.m .pf-page .pt.bd i { background: var(--bd); } .m .pf-page .pt.dim i { background: var(--dim); }
+.m .pf-page .pts { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
+
+.m .pf-page .ul { margin: 4px 0 0; padding: 0; list-style: none; }
+.m .pf-page .ul li { padding: 8px 0; border-top: 1px solid var(--ln); font-size: 15px; display: flex; gap: 10px; align-items: flex-start; }
+.m .pf-page .ck { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; line-height: 1.4; padding: 11px 0; border-top: 1px solid var(--ln); }
+.m .pf-page .pf-col .ck:first-child { border-top: 0; }
+.m .pf-page .ck i { flex: none; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--ln2); display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.m .pf-page .cks { margin: 0; padding: 0; list-style: none; }
+
+/* Toasts (Prep-Flow-Held, Prep-Flow-Partial). */
+.m .pf-page .tsts { position: fixed; right: 24px; top: 68px; width: 400px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: 10px; z-index: 30; pointer-events: none; }
+.m .pf-page .tst { display: flex; pointer-events: auto; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--cd); border: 1px solid var(--ln2); border-left-width: 4px; box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: pf-tin .35s ease-out .25s both; }
+:root[data-theme="light"] .m .pf-page .tst { box-shadow: 0 12px 28px -12px rgba(20,24,28,.35); }
+.m .pf-page .tst.wn { border-left-color: var(--wn); } .m .pf-page .tst.bd { border-left-color: var(--bd); }
+.m .pf-page .tst > svg { width: 22px; height: 22px; flex: none; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.m .pf-page .tst.wn > svg { stroke: var(--wn); } .m .pf-page .tst.bd > svg { stroke: var(--bd); }
+.m .pf-page .tst div { flex: 1; min-width: 0; }
+.m .pf-page .tst b { display: block; font: 600 16px/22px var(--arc-font-display); }
+.m .pf-page .tst span { display: block; font-size: 14px; line-height: 20px; color: var(--mu); }
+.m .pf-page .tst .x { flex: none; width: 32px; height: 32px; border: 0; border-radius: 10px; background: transparent; color: var(--mu); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.m .pf-page .tst .x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+@keyframes pf-tin { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .m .pf-page .tst { animation: none; } }
+
+/* Below the design width the drawing becomes three columns, then one, with the steps in order. */
+@container (max-width: 1127px) {
+  .m .pf-page .pf { height: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .m .pf-page .pf-arrows { display: none; }
+  .m .pf-page .zn { position: static; height: auto; width: auto !important; display: flex; flex-direction: column; }
+  .m .pf-page .zn ol { display: flex; flex-direction: column; gap: 10px; padding: 14px; flex: 1; }
+  .m .pf-page .nd { position: static; width: auto !important; height: auto !important; }
+  .m .pf-page .zf { position: static; margin: 0 14px 12px; }
+}
+@container (max-width: 719px) {
+  .m .pf-page .pf { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1023px) {
+  .m .pf-page .sm4 { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
+  .m .pf-page .sm4 > div:nth-child(3) { border-left: 0; padding-left: 0; }
+  .m .pf-page .pf-legend { gap: 12px; }
+}
+@media (max-width: 560px) {
+  .m .pf-page .sm4 { grid-template-columns: minmax(0, 1fr); }
+  .m .pf-page .sm4 > div { border-left: 0; padding-left: 0; }
+}
+
+.m .pf-page .pf-card { padding: 16px; }
+.m .pf-page .pf-card > .ct { padding: 0 4px; flex-wrap: wrap; }
+.m .pf-page .pf-col { display: flex; flex-direction: column; }
+.m .pf-page .pf-act { margin-top: 14px; }
+.m .pf-page .pf-act .bt { width: 100%; }
