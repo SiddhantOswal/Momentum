@@ -14,7 +14,8 @@ const pct = (value: number, of: number) => `${(value / of) * 100}%`;
 /** The illustrated line with its five stations, the plan's changes as callouts and the stage tabs. */
 export function StageMap({ plan, selected, onSelect }: { plan?: PlanView; selected: StageId; onSelect: (stage: StageId) => void }) {
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const changes = [...(plan?.changes ?? [])].sort((a, b) => stageOf(a.lever) - stageOf(b.lever));
+  // A plan holds at most three changes; never draw more callouts than there are places for.
+  const changes = [...(plan?.changes ?? [])].sort((a, b) => stageOf(a.lever) - stageOf(b.lever)).slice(0, CALLOUT.lefts.length);
   const stage = STAGES.find((s) => s.id === selected)!;
   const rh = plan?.rh;
 

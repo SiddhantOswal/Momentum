@@ -8,7 +8,7 @@ export type StageId = 1 | 2 | 3 | 4 | 5;
 /**
  * The five stations of the illustrated line and the plan settings each one owns. Unwind has no
  * setting in the plan. The illustration has no print station, so print speed sits with Cut,
- * the last station before the board leaves the line; Om to confirm this grouping.
+ * the last station before the board leaves the line.
  */
 export const STAGES: { id: StageId; name: string; levers: LeverKey[] }[] = [
   { id: 1, name: "Unwind", levers: [] },
@@ -21,6 +21,10 @@ export const STAGES: { id: StageId; name: string; levers: LeverKey[] }[] = [
 export const stageOf = (lever: LeverKey) => STAGES.find((stage) => stage.levers.includes(lever))!.id;
 
 const LEVER_META = Object.fromEntries(LEVERS.map((lever) => [lever.key, lever])) as Record<LeverKey, (typeof LEVERS)[number]>;
+
+// A setting this page does not know has no station and no label, so it is left out rather than drawn wrong.
+const knownChanges = <T extends { lever: string }>(changes: T[] = []) =>
+  changes.filter((change) => Object.hasOwn(LEVER_META, change.lever)) as unknown as Change[];
 
 export const leverLabel = (lever: LeverKey) => LEVER_META[lever].label;
 
@@ -102,7 +106,7 @@ export function useCurrentPlan(): PlanState {
         if (!job.ok) return setState({ kind: "error", message: job.error });
         const sheet = job.data.jobSheet;
         return setState({ kind: "plan", plan: {
-          source: "session", itemCode: sheet.order.itemCode, changes: sheet.changes, levers: sheet.recommended.levers,
+          source: "session", itemCode: sheet.order.itemCode, changes: knownChanges(sheet.changes), levers: sheet.recommended.levers,
           rh: { value: sheet.conditions.ambientRhPct, confirmed: sheet.conditions.supervisorConfirmed === true },
         } });
       }
@@ -111,15 +115,14 @@ export function useCurrentPlan(): PlanState {
       if (!floor.ok) return setState({ kind: "error", message: floor.error });
       const lot = newestFloorLot(floor.data.lots ?? []);
       if (!lot) return setState({ kind: "none" });
-      const known = (lot.changes ?? []).filter((change): change is Change => Object.hasOwn(LEVER_META, change.lever));
-      setState({ kind: "plan", plan: { source: "floor", itemCode: lot.itemCode, changes: known } });
+      setState({ kind: "plan", plan: { source: "floor", itemCode: lot.itemCode, changes: knownChanges(lot.changes) } });
     })();
     return () => controller.abort();
   }, []);
   return state;
 }
 
-export type ModelScore = { defect: string; r2: number; sampleCount?: number };
+export type ModelScore = { defect: string; r2: number | null; sampleCount?: number | null };
 
 /** Model scores from `/api/status`. Only `r2` and `sampleCount` are read; the retired pass levels are not. */
 export function useModelScores(): ModelScore[] | "loading" | "error" {

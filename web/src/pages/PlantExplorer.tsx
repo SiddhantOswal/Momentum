@@ -84,7 +84,7 @@ function StageCard({ plan, stage }: { plan: PlanState; stage: StageId }) {
 
 function ModelWatch() {
   const scores = useModelScores();
-  const print = Array.isArray(scores) ? scores.find((score) => score.defect === "PRINT") : undefined;
+  const print = Array.isArray(scores) ? scores.find((score) => score.defect === "PRINT" && typeof score.r2 === "number") : undefined;
   return (
     <Card title="Model watch" className="pe-watch-card">
       <div className="pe-watch">
@@ -99,7 +99,7 @@ function ModelWatch() {
             {scores === "loading" && "Reading the model scores."}
             {scores === "error" && "The model scores could not be read."}
             {Array.isArray(scores) && (print
-              ? `${print.r2.toFixed(2)} on ${print.sampleCount === undefined ? "the held-out" : print.sampleCount} test lots`
+              ? `${print.r2!.toFixed(2)} on ${typeof print.sampleCount === "number" ? print.sampleCount : "the held-out"} test lots`
               : "No score recorded for this model.")}
           </div>
         </div>
