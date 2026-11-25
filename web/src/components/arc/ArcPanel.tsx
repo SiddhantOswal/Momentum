@@ -229,8 +229,10 @@ export function ArcPanel({ hostName, conversation, onClose }: { hostName: string
   };
 
   const latest = exchanges.at(-1);
+  // An approved card has nothing left to change, so the receipt asks for the next task, as its design does.
   const onLot = Boolean(latest?.steps.some((step) => LOT_TOOLS.has(step.tool)));
-  const placeholder = !exchanges.length ? "Tell Arc what you need" : onLot ? "Tell Arc what to change" : "Ask a follow-up";
+  const placeholder = !exchanges.length || (onLot && workingOn?.stage === "Approved") ? "Tell Arc what you need"
+    : onLot ? "Tell Arc what to change" : "Ask a follow-up";
 
   return (
     <aside id="arc-panel" className="arcp" role="dialog" aria-label="Arc by Momentum">

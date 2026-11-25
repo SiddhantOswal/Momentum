@@ -308,6 +308,7 @@ for (const theme of ['dark', 'light']) {
       await expect(panel.getByRole('link', { name: 'Open PDF' })).toHaveAttribute('href', `/jobs/${JOB_ID}/card.pdf`);
       await expect(panel.getByText('5-ply BC, 1,300 boxes')).toBeVisible();
       await expect(panel.locator('.cl')).toContainText('Approved');
+      await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toHaveAttribute('placeholder', 'Tell Arc what you need');
     });
 
     test('Arc-Lot-Replaced: a superseded revision cannot be approved', async ({ page }) => {
