@@ -1,0 +1,63 @@
+/* Plant Explorer, ported from docs/arc/design/source/html/{dark,light}/Plant-Explorer.html.
+   Positions on the line are kept as fractions of the 768 x 512 illustration so the markers
+   and callouts stay on their stations when the card is narrower than the design. */
+
+.m .pe-map { position: relative; display: flex; flex-direction: column; }
+.m .pe-bar { height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--ln); }
+.m .pe-stage { position: relative; flex: 1; min-height: 0; background: #07080A; display: flex; flex-direction: column; }
+.m .pe-art { position: relative; width: 100%; aspect-ratio: 768 / 512; flex: none; }
+.m .pe-art img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.m .pe-art svg.pe-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.m .pe-fill { flex: 1; min-height: 72px; }
+
+.m .gl { background: rgba(22,26,31,.58); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border: 1px solid rgba(255,255,255,.17); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 18px 36px -20px rgba(0,0,0,.8); border-radius: 12px; color: var(--tx); }
+:root[data-theme="light"] .m .gl { --tx: #EAEDF0; --mu: #C3CBD3; --dim: #9AA4AE; --ln: #3A434D; --ln2: #55606B; --ok: #5FBF98; --wn: #E3A340; }
+
+.m .pe-callouts { position: absolute; inset: 0; pointer-events: none; }
+.m .pe-call { position: absolute; top: 14px; width: 28.4%; min-height: 70px; padding: 10px 14px; }
+.m .pe-call.sel { border-color: rgba(232,102,79,.7); }
+.m .pe-call .lb { font-size: 13px; }
+.m .pe-call .n { font-size: 22px; line-height: 30px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+.m .pe-call .n span { font-size: 15px; color: var(--mu); font-weight: 500; }
+
+.m .pe-floor { position: absolute; right: 16px; bottom: 8px; min-width: 236px; height: 56px; padding: 6px 14px; }
+.m .pe-floor .lb { font-size: 13px; }
+.m .pe-floor .n { font-size: 18px; line-height: 28px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+.m .pe-floor .n span { font-size: 13px; color: var(--mu); font-weight: 500; }
+
+.m .pe-mk { position: absolute; width: 32px; height: 32px; margin: -16px 0 0 -16px; border-radius: 50%; background: #14171B; border: 1.5px solid rgba(255,255,255,.55); display: flex; align-items: center; justify-content: center; font: 700 13px var(--arc-font-body); color: #fff; box-shadow: 0 6px 14px -4px rgba(0,0,0,.8); }
+.m .pe-mk.sel { background: var(--ac); border-color: var(--ac); color: #18110E; }
+
+.m .pe-tabs { display: grid; grid-template-columns: repeat(5, 1fr); flex: none; }
+.m .pe-tab { height: 56px; display: flex; align-items: center; justify-content: center; gap: 10px; font: 600 15px var(--arc-font-body); color: var(--mu); background: transparent; border: 0; border-top: 1px solid var(--ln); border-right: 1px solid var(--ln); position: relative; cursor: pointer; padding: 0 8px; }
+.m .pe-tab:last-child { border-right: 0; }
+.m .pe-tab b { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ln2); display: flex; align-items: center; justify-content: center; font-size: 11px; flex: none; }
+.m .pe-tab[aria-selected="true"] { background: var(--rz); color: var(--tx); }
+.m .pe-tab[aria-selected="true"]:before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 3px; background: var(--ac); }
+.m .pe-tab[aria-selected="true"] b { background: var(--ac); border-color: var(--ac); color: #18110E; }
+.m .pe-tab:focus-visible { outline-offset: -3px; }
+
+.m .pe-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.m .pe-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; border-top: 1px solid var(--ln); }
+.m .pe-row .k { font-size: 15px; font-weight: 600; }
+.m .pe-row .lb { font-size: 13px; }
+.m .pe-row .n { font-size: 22px; font-weight: 600; white-space: nowrap; }
+.m .pe-note { font-size: 12.5px; margin-top: 6px; }
+.m .pe-msg { margin: 0; padding: 12px 0; border-top: 1px solid var(--ln); font-size: 15px; line-height: 1.5; color: var(--mu); }
+.m .pe-chp { height: 32px; padding: 0 11px; border: 1px solid var(--ln2); border-radius: 10px; display: inline-flex; align-items: center; font-size: 14px; font-weight: 600; color: var(--mu); }
+.m .pe-watch { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--ln); }
+.m .pe-watch .sx { margin-top: 2px; }
+.m .pe-watch b { display: block; font-size: 15px; font-weight: 600; }
+.m .pe-watch .lb { font-size: 13px; }
+
+/* Phone width and 200% zoom: the callouts leave the picture and stack under it. */
+@media (max-width: 767px) {
+  .m .pe-bar { height: auto; min-height: 48px; flex-wrap: wrap; padding: 10px 16px; }
+  .m .pe-callouts { position: static; display: flex; flex-direction: column; padding-bottom: 12px; }
+  .m .pe-callouts .pe-call, .m .pe-callouts .pe-floor { position: static; width: auto; min-width: 0; height: auto; margin: 8px 12px 0; }
+  .m .pe-art svg.pe-lines { display: none; }
+  .m .pe-fill { display: none; }
+  .m .pe-tabs { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+  .m .pe-tab { border-bottom: 1px solid var(--ln); }
+}
+.m .pe-watch-card { flex: 1; }
