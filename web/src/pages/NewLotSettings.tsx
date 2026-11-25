@@ -91,7 +91,7 @@ function TrustCard({ risk }: { risk: Risk }) {
   return (
     <Card span={12} title="How far to trust this" meta={lots ? `Tested on ${formatNumber(lots)} lots.` : scores ? "Held-out test." : "Loading the model scores"}>
       {scores && (
-        <div role="table" aria-label="Model fit scores" className="scroll">
+        <div role="table" aria-label="Model fit scores" className="rt trust">
           {DEFECTS.map(({ key }) => {
             const model = scores.models.find((entry) => entry.defect === key);
             const use = risk.targetUse?.[key]?.useClass;

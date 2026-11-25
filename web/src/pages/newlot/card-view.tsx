@@ -50,7 +50,7 @@ export function CardSettings({ sheet, columns, dim, trailing }: {
   sheet: JobSheet; columns: string; dim?: boolean; trailing: (changed: boolean) => ReactNode;
 }) {
   return (
-    <div role="table" aria-label="Settings on the card" className="scroll">
+    <div role="table" aria-label="Settings on the card" className="rt card">
       <div role="row" className="tb h" style={{ gridTemplateColumns: columns, minHeight: 30 }}>
         <span role="columnheader" className="th">Setting</span><span role="columnheader" className="th">Run with</span>
         <span role="columnheader" className="th"><span className="sr-only">Entered</span></span>

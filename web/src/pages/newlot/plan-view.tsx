@@ -37,7 +37,7 @@ export function ExcludedNote({ risk }: { risk: Risk }) {
 export function ChangesTable({ changes, withChip = true, rowHeight = 52 }: { changes: Change[]; withChip?: boolean; rowHeight?: number }) {
   const columns = withChip ? "1fr 130px 150px 100px" : "1fr 120px 140px";
   return (
-    <div role="table" aria-label="Settings that change" className="scroll">
+    <div role="table" aria-label="Settings that change" className="rt chg">
       <div role="row" className="tb h" style={{ gridTemplateColumns: columns, minHeight: 30 }}>
         <span role="columnheader" className="th">Setting</span><span role="columnheader" className="th">Entered</span>
         <span role="columnheader" className="th">Recommended</span>{withChip && <span role="columnheader" className="th"><span className="sr-only">Change</span></span>}

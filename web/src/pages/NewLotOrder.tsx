@@ -164,7 +164,7 @@ function SourceCard({ lot }: { lot: LotState }) {
   const byGemini = extraction.source === "vertex-gemini" && extraction.isRealModelPrediction;
   return (
     <Card span={6} title="Source" meta={lot.lineIndex === undefined ? "Pick a line" : `Line ${lot.lineIndex + 1} is selected`}>
-      <div className="po scroll">
+      <div className="po">
         <div className="hd"><b>PURCHASE ORDER</b><span style={{ fontSize: 13 }}>{document?.poNumber ?? "No PO number read"}</span></div>
         <div style={{ fontSize: 13, marginTop: 2 }}>{document?.buyer ?? "No customer read"}</div>
         <div className="row h" aria-hidden="true"><span>LINE</span><span>ITEM CODE</span><span>CATALOG</span><span>QTY</span></div>
