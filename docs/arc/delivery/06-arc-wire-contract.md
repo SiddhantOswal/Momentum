@@ -144,6 +144,7 @@ Rules:
 - A Gemini safety block (`finishReason` `SAFETY` or a `promptFeedback.blockReason`, RAI-5) has the `errorCode` `GEMINI_SAFETY_BLOCKED`, and `retrySafe` is false. On the router path no tool runs and the turn ends with `run.failed` (`sequence: 0`, no task run); the client shows "Gemini blocked this message, so Arc did not act on it. Rephrase it, or use the buttons." and never the J5 refusal text (spec J11, AC11.12). On a tool step that calls Gemini it arrives as `step.failed` with that path's string from `05` section 5, step 6. An answer-writer block is not an event: the turn completes with the template answer and `writerOutcome` `fallback`.
 - `retryAfterSeconds` appears only on `BUDGET_RATE_LIMITED` and comes from the budget response. It is not in the stored event, so a replay omits it and the UI shows the same string without the number (decision D8).
 - `step.waiting_for_user` carries the same `waitingFor` as the step. `approve` is terminal for Arc: no later event moves the lot forward until the user presses Approve in the client (`04` 2.6, 4.4).
+- A fixed action that hands over to the person ends with one extra step that runs no tool. Its `tool` is what the person does next (`confirm_order`, `confirm_conditions` or `approve`), and it is sent only as `step.waiting_for_user`. The turn then ends with `answer` and no `run.completed`; the run's status is `WAITING_FOR_USER` (ARC-M3-01, decision D15).
 - Step events carry the state of the `04` enum that they record. `PENDING` and `SKIPPED` are stored and never sent.
 - No percentage, no time estimate, no step shown before it starts, and no model tokens (ADR-0011 decision 3 and rejected alternative 5). The `label` is the only progress text.
 - Event data holds no answer text, no tool result and no order-derived string (SH-SE-3).
@@ -293,6 +294,19 @@ type TurnRequest = {                         // strict: any other key is 400 VAL
 
 `actionId` values are the fixed plans in `config/arc.json` (ARC-M2-03). An `actionId` not in that list is 400 `VALIDATION_ERROR` with issue code `unknown_action`. The server validates `params` against the action's own strict schema.
 
+Actions that take `params` (ARC-M3-01; `src/arc/action-params.js`). Every other action takes none, and any key it is sent is 400. An unknown or extra key is 400 before a turn is claimed.
+
+| `actionId` | `params` | Steps | Ends with |
+|---|---|---|---|
+| `read_sample_order` | `{ sampleId: "PO1" \| "PO2" \| "PO3" \| "PO4" \| "PO5" }` | `read_order` | `step.waiting_for_user` `confirm_order` |
+| `confirm_order` | `{ reviewId: Uuid; lineIndex: number }` (0 to 99) | `confirm_order` | `step.waiting_for_user` `confirm_conditions` |
+| `confirm_conditions` | `{ runDate: "YYYY-MM-DD"; shift: "DAY" \| "NIGHT"; ambientRhPct; ambientTempC; paperMoisturePct; paperMoistureSource: "confirmed" \| "example"; sfSpeedMpm; rollTempC; gumApplication: "LOW" \| "MED" \| "HIGH"; gumViscositySec; pastingPressure: "LOW" \| "MED" \| "HIGH"; dryingHours; printSpeedSpm }` | `confirm_conditions`, `plan_lot` | `step.waiting_for_user` `approve` |
+
+- `read_sample_order` reads the server's own copy of the sample with the order context New Lot sends for it (`SAMPLE_ORDER_CONTEXT`). The review ID is derived from the step's effect key, so a resumed step finds the stored review and does not call Gemini again.
+- `confirm_order` reads the stored review of this session and takes the item code, quantity and order ID from it. The line must be matched to one catalog item and have a quantity. It opens a lot (`LOT-HACK-<sessionId>-<12 hex>`, derived from the effect key) at stage `conditions` and adds it to the session's `activeLots`.
+- `confirm_conditions` works on the session's newest lot. It saves the five conditions through the command behind `PUT /lots/:lotId/conditions`, labelled "Confirmed by operator", or "Example value" for paper moisture kept at the 7.3% example (any other value with `example` is refused). It then runs `plan_lot`, the command behind `POST /jobs`, with the planned settings from `params` and the order the server rebuilds from the lot and the stored review: item, quantity, line, review fingerprint, order context, and the file read again from the sample the review came from. The job is added to the session's `jobIds`.
+- No typed text, suggestion text, router output or order content can run `confirm_order` or `confirm_conditions`: they are never declared to Gemini, never in its allowed names, and a suggestion that names an action with `params` goes to the router like any message. Approval stays `POST /jobs/:id/approve`, called only by the Approve button.
+
 Responses:
 
 | Case | Status | Body |
@@ -329,6 +343,23 @@ Replays and follows a run's events (section 3.4).
 ### 4.6 `GET /api/arc/turns` and `GET /api/arc/turns/:clientTurnId`
 
 New in this addendum, for the history panel (G9) and the answer read (section 5). They share the path of the POST route. Amends I1 by two read routes (decision D1).
+
+### 4.7 `GET /api/arc/reviews/:reviewId`
+
+The stored order review behind a `read_order` step, for the review card (ARC-M3-01, decision D13).
+
+- Auth: cookie session, flag check, rate limit. The review must belong to the cookie's session; a missing, expired or other-session review is 404 `NOT_FOUND`. A path that is not a UUID, or any query key, is 400. A review store fault is 503 `SERVICE_UNAVAILABLE`.
+
+```ts
+type ReviewResponse = { ok: true; review: {
+  reviewId: Uuid; expiresAt: IsoTime;
+  readByGemini: boolean;                     // set by code from the extraction record
+  lines: { lineIndex: number; sourcePage: number | null; itemCode: string | null; quantity: number | null;
+    status: "MATCHED" | "AMBIGUOUS" | "UNKNOWN_CODE" | "MISSING_ITEM_CODE" | "MISSING_QTY" | "MALFORMED" }[];
+} };
+```
+
+`itemCode` is the catalog item for a matched line and null otherwise. The buyer, PO number, delivery date, operator context and any item code the catalog did not match are never returned (section 5.2).
 
 ## 5. Reading answers and history
 
@@ -444,6 +475,10 @@ Each page uses one Firestore query scoped to the parent path, with a single-fiel
 | Two tabs | 409 `IN_PROGRESS`, or resume reason `RUNNING_ELSEWHERE` | Follow `GET .../events`; both tabs show the same events |
 | Gemini cap reached | `step.blocked` with a `BUDGET_*` code | G2 string; buttons that need no Gemini call stay enabled |
 | Retry after a failed step | New `clientTurnId`, same action | The `attempt` of the step rises (`04` 3.3) |
+| Order review expired, missing or another session's | `step.blocked` or `run.failed` with `ORDER_REVIEW_EXPIRED` | "This order review has expired. Read the order again." |
+| Line not matched to one catalog item with a quantity | `step.blocked` with `ORDER_LINE_NOT_CONFIRMABLE` | "This line is not matched to one catalog item with a quantity, so Arc cannot confirm it. Read the order again or use New Lot." |
+| Stored review not read from an approved sample | `run.failed` with `ORDER_SAMPLE_REQUIRED` | "Arc reads the approved sample orders only. Choose PO1 to PO5." |
+| No confirmed order in the session | `run.failed` with `LOT_NOT_FOUND` or `CONFIRMATION_REQUIRED` | "Arc has no lot in this session yet. Read an order and confirm it first." or "Confirm the order and the conditions first." |
 
 Retry behaviour on the server: a turn or resume is idempotent by `clientTurnId` and by effect key, so a repeated request replays and spends nothing. Quotas: the per-IP limiter (`04` 5.4), the Gemini budget (`04` 5.2) and the 1,000-character text limit. Cost per day at demo load: these routes add Firestore reads and writes only. At the 20 events per J1 run that `ADR-0011` estimates (not measured) and about 10 runs, the estimate is a few hundred small writes a day; the Firestore quota and the cost are not checked here, and M2-08 measures the writes. Rollback: set `USTAAD_ENABLE_ARC` off; the routes then answer 404 `ARC_NOT_ENABLED` and the dashboard is unaffected (`04` 3.5 step 9).
 
@@ -475,6 +510,9 @@ For founder review. Each has the alternative rejected.
 | D10 | Flag off is 404 `ARC_NOT_ENABLED`, checked before authentication. | 503: it reads as a transient fault and invites retries. 404 with the default body: no stable `code` for the UI. |
 | D11 | The turn list returns no `blocks`; the single-turn route returns them. | Blocks in the list: a page of 20 would re-render up to 160 result references for a panel that shows one line each. |
 | D12 | `actionId` shape and `params` limits are fixed here (string; scalar values; at most 2 KiB); the action list lives in `config/arc.json` (M2-03). | Free-form `params` objects: they would reach the strict per-action schema without a size bound. |
+| D13 | ARC-M3-01: one more read route, `GET /api/arc/reviews/:reviewId`, returns the stored review's lines to the review card. Amends I1. | Reading the lines from the `read_order` result in the client: no event or turn read carries a tool result (section 5.2), so the client never had them. A `reference` block with the lines: blocks are rebuilt on every turn read, and a review expires after 30 minutes. |
+| D14 | ARC-M3-01: `confirm_conditions` takes flat params (the five conditions, `paperMoistureSource` and the seven settings), as D12 requires. | The build packet's nested `{ conditions, sources, levers }`: nested objects are refused by the turn route's params schema (D12). The fields and their meaning are the same. |
+| D15 | ARC-M3-01: a fixed action that hands over to the person adds one step that runs no tool and is sent only as `step.waiting_for_user`; the turn ends with `answer` and no `run.completed`. | Marking the last tool step as waiting: it succeeded, and its result reference would be lost. Ending with `run.completed`: the run is paused for the person, not finished. |
 
 ## 9. Items for a founder decision
 
@@ -494,6 +532,7 @@ Checked against `tickets/M2-tool-registry-and-orchestration.md` and `tickets/M6-
 | `GET /api/arc/turns`, `GET /api/arc/turns/:clientTurnId` | ARC-M2-01 (turn read and pagination), ARC-M2-05 (`AnswerView` and blocks, the Gemini flag) | ARC-M6-02 (history clock, G9), ARC-M6-04 (answer, refusal, no-data screens) |
 | `GET /api/arc/runs/:taskRunId/events` | ARC-M2-06 | ARC-M6-03 (loading and failure states), ARC-M6-02 (reconnect) |
 | `POST /api/arc/runs/:taskRunId/resume` | ARC-M2-06 | ARC-M6-03 |
+| `GET /api/arc/reviews/:reviewId` | ARC-M3-01 | ARC-M3-01 (Arc-Lot-Review card) |
 | Flag off: `ARC_NOT_ENABLED` | ARC-M2-01 | ARC-M6-02 (not-connected state) |
 
 Contradictions found in the tickets and fixed by minimal edits in this branch:

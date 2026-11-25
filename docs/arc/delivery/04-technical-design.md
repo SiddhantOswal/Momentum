@@ -414,7 +414,8 @@ export const LotHeadDocSchema = z.object({
   lotId,
   ownerSessionId: sessionId,
   reviewId: uuid.nullable(),
-  orderRef: z.object({ orderId: z.string(), itemCode: z.string(), quantity: z.number().int().positive() }).nullable(),
+  orderRef: z.object({ orderId: z.string(), itemCode: z.string(), quantity: z.number().int().positive(),
+    lineIndex: z.number().int().nonnegative().optional() }).nullable(),   // lineIndex: the review line confirmed in Arc (ARC-M3-01)
   draftConditions: z.array(ProvenancedValueSchema).max(5),
   conditionsFingerprint: sha256Hex.nullable(),
   currentRevision: z.number().int().nonnegative(),   // 0 = never planned
