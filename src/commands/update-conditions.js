@@ -13,6 +13,8 @@ const SOURCES = {
   example: { provenance: "synthetic_example", label: "Example value", confirmed: false },
 };
 const BY_ROLE = "Supervisor session";
+// The paper moisture pre-fill (founder decision, 2026-11-22). A different value is the operator's own and cannot carry the example label.
+export const PAPER_MOISTURE_EXAMPLE_PCT = 7.3;
 
 const ConditionsRequestSchema = z.object({
   conditions: z.array(z.object({
@@ -37,6 +39,8 @@ const ConditionsRequestSchema = z.object({
     }
     if (entry.source === "example" && entry.field !== "paperMoisturePct") {
       ctx.addIssue({ code: "custom", path: ["conditions", index, "source"], message: "Only paper moisture has an example value." });
+    } else if (entry.source === "example" && entry.value !== PAPER_MOISTURE_EXAMPLE_PCT) {
+      ctx.addIssue({ code: "custom", path: ["conditions", index, "source"], message: "Only the example value can be labelled as an example." });
     }
   });
 });

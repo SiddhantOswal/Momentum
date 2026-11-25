@@ -111,6 +111,7 @@ test("every guard branch of the conditions command refuses before writing", asyn
     ["bad shift", { lotId, body: { conditions: [typed("shift", "EVENING")] } }, deps, 400, "VALIDATION_ERROR"],
     ["bad date", { lotId, body: { conditions: [typed("runDate", "04/12/2026")] } }, deps, 400, "VALIDATION_ERROR"],
     ["example on humidity", { lotId, body: { conditions: [{ field: "ambientRhPct", value: 60, source: "example" }] } }, deps, 400, "VALIDATION_ERROR"],
+    ["example label on a moisture the operator entered", { lotId, body: { conditions: [{ field: "paperMoisturePct", value: 8.1, source: "example" }] } }, deps, 400, "VALIDATION_ERROR"],
   ];
   for (const [name, input, context, status, code] of refusals) {
     const result = await updateLotConditions(input, context);
