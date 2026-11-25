@@ -157,7 +157,7 @@ function Comparison({ lot, plan }: { lot: LotState; plan: PlanResult }) {
           <ExplainPanel lot={lot} />
         </Card>
         <NotConnected span={8} title="Constraints for this comparison"
-          missing="Typed constraints, such as keeping a setting as entered, are not connected yet. The search may change any of the seven settings.">
+          missing="Typed constraints, such as keeping a setting as entered, are not connected yet. The search may change up to three of the seven settings.">
           <div className="lb" style={{ fontSize: 13, marginTop: 10 }}>The system calculates and checks. A person approves.</div>
         </NotConnected>
         <TradeOffCard plan={plan} />
