@@ -214,6 +214,15 @@ export function ArcPanel({ hostName, conversation, onClose }: { hostName: string
     if (!showHistory) bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
   }, [exchanges, showHistory]);
 
+  // A button that sends a turn is often removed or disabled by that turn (a starter row, Read this
+  // order, Try again). Focus then lands on the page body, so it is brought back to the message box.
+  useEffect(() => {
+    if (!busy) return;
+    const active = document.activeElement;
+    const panel = inputRef.current?.closest("#arc-panel");
+    if (!panel?.contains(active) || (active as HTMLButtonElement | null)?.disabled) inputRef.current?.focus();
+  }, [busy]);
+
   const screen: ArcScreen = useMemo(() => ({
     send: (input, asked) => { setShowHistory(false); void send(input, asked); },
     busy, setWorkingOn,

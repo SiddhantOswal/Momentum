@@ -565,6 +565,103 @@ test('a rate-limited step offers Try again only after the wait, and then as a ne
   expect(posts[1].clientTurnId).not.toBe(posts[0].clientTurnId);
 });
 
+async function toApproveCard(page) {
+  const panel = await openArc(page);
+  await type(panel, 'Plan the lot');
+  await panel.getByRole('button', { name: 'Prepare job-card draft' }).click();
+  await panel.getByRole('checkbox', { name: 'I reviewed the settings and limits on this card.' }).check();
+  return panel;
+}
+
+test('two clicks on Approve in one task send one approve request', async ({ page }) => {
+  await mockTurns(page, [planToJob]);
+  const approvals = [];
+  await page.route(/\/jobs\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, jobSheet: DRAFT, revision: REVISION })));
+  await page.route(/\/jobs\/[^/]+\/approve$/, async (route) => {
+    approvals.push(route.request().postDataJSON());
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return route.fulfill(json(200, { ok: true, agent: 'approveJob', jobSheet: APPROVED, cardUri: APPROVED.cardUri }));
+  });
+  const panel = await toApproveCard(page);
+  await panel.getByRole('button', { name: 'Approve job card' }).evaluate((button) => { button.click(); button.click(); });
+  await expect(panel.getByRole('heading', { name: 'Job card approved' })).toBeVisible();
+  expect(approvals).toHaveLength(1);
+});
+
+test('APPROVAL_IN_PROGRESS reads the job again and shows what the record says', async ({ page }) => {
+  await mockTurns(page, [planToJob]);
+  const reads = [];
+  await page.route(/\/jobs\/[^/]+$/, (route) => {
+    reads.push(route.request().url());
+    return route.fulfill(json(200, { ok: true, jobSheet: reads.length < 2 ? DRAFT : APPROVED, revision: REVISION }));
+  });
+  const approvals = [];
+  await page.route(/\/jobs\/[^/]+\/approve$/, (route) => {
+    approvals.push(route.request().postDataJSON());
+    return route.fulfill(json(409, { ok: false, error: { code: 'APPROVAL_IN_PROGRESS', message: 'This draft is already being approved. Wait for the result.' } }));
+  });
+  const panel = await toApproveCard(page);
+  await panel.getByRole('button', { name: 'Approve job card' }).click();
+  await expect(panel.getByRole('status').filter({ hasText: 'Checking the job card' })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Job card approved' })).toBeVisible({ timeout: 6000 });
+  expect(approvals).toHaveLength(1);
+  expect(reads).toHaveLength(2);
+  await expect(panel.getByText(/Arc will show the result here/)).toHaveCount(0);
+});
+
+test('APPROVAL_IN_PROGRESS with the draft still unapproved promises nothing', async ({ page }) => {
+  await mockTurns(page, [planToJob]);
+  const approvals = await mockJob(page, { approve: json(409, { ok: false, error: { code: 'APPROVAL_IN_PROGRESS', message: 'x' } }) });
+  const panel = await toApproveCard(page);
+  await panel.getByRole('button', { name: 'Approve job card' }).click();
+  await expect(panel.getByRole('alert')).toHaveText('An approval for this card is already being processed. Check the job card before trying again.', { timeout: 6000 });
+  await expect(panel.getByText(/Arc will show the result here/)).toHaveCount(0);
+  await expect(panel.getByRole('heading', { name: 'Approve the job card' })).toBeVisible();
+  expect(approvals).toHaveLength(1);
+});
+
+test('the keyboard path from Prepare to Approve keeps focus in the panel', async ({ page }) => {
+  await mockTurns(page, [planToJob]);
+  const approvals = await mockJob(page);
+  const panel = await openArc(page);
+  await type(panel, 'Plan the lot');
+  await panel.getByRole('button', { name: 'Prepare job-card draft' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel.getByRole('heading', { name: 'Approve the job card' })).toBeFocused();
+
+  await panel.getByRole('button', { name: 'Revise' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel.getByRole('heading', { name: 'Compare the two plans' })).toBeFocused();
+  await panel.getByRole('button', { name: 'Prepare job-card draft' }).focus();
+  await page.keyboard.press('Enter');
+  await panel.getByRole('button', { name: 'Keep draft' }).focus();
+  await page.keyboard.press('Enter');
+  const kept = panel.getByRole('status').filter({ hasText: 'Draft kept.' });
+  await expect(kept).toBeFocused();
+  await kept.getByRole('button', { name: 'Review it again' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel.getByRole('heading', { name: 'Approve the job card' })).toBeFocused();
+
+  // From the heading, Tab reaches the tick box first, then Approve.
+  await page.keyboard.press('Tab');
+  await expect(panel.getByRole('checkbox', { name: 'I reviewed the settings and limits on this card.' })).toBeFocused();
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Tab');
+  await expect(panel.getByRole('button', { name: 'Approve job card' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(panel.getByRole('heading', { name: 'Job card approved' })).toBeFocused();
+  expect(approvals).toHaveLength(1);
+});
+
+test('a starter row that sends a turn leaves focus in the message box', async ({ page }) => {
+  await mockTurns(page, [{ events: (id) => oneStep(id, { tool: 'list_samples', kind: 'lot_preparation' }) }]);
+  const panel = await openArc(page);
+  await panel.getByRole('button', { name: /^New lot/ }).focus();
+  await page.keyboard.press('Enter');
+  await expect(panel.getByRole('heading', { name: 'Choose the purchase order' })).toBeVisible();
+  await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toBeFocused();
+});
+
 test('Arc-Phone: a full-width sheet at 375 px with no sideways scroll, and approval is still a tick plus a button', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await mockTurns(page, [planToJob]);

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { formatMoney, formatNumber } from "../../lib/api";
 import {
   approveJobCard, arcWords, getJobRecord, getLotRecord, jobCardPdfPath,
@@ -62,6 +62,10 @@ function tradeOffLine(job: StoredJob): string | null {
 }
 
 const SOURCE_WORDS: Record<string, string> = { "manual-entry": "entered by the operator", "simulated-sensor": "from the simulated sensor" };
+
+// After APPROVAL_IN_PROGRESS the card reads the job once more after this wait.
+const APPROVAL_RECHECK_MS = 3000;
+const APPROVAL_STILL_RUNNING = "An approval for this card is already being processed. Check the job card before trying again.";
 
 /** Arc-Lot-Source: choose one of the approved sample orders after list_samples succeeds. */
 export function LotSource({ problem }: { problem?: StepProblem }) {
@@ -278,19 +282,39 @@ function Approve({ job, revision, onApproved, onReplaced, onRevise, onKeep }: {
   job: StoredJob; revision?: RevisionBlock; onApproved: (job: StoredJob) => void; onReplaced: () => void; onRevise: () => void; onKeep: () => void;
 }) {
   const [reviewed, setReviewed] = useState(false);
-  const [state, setState] = useState<{ pending: boolean; words: string | null }>({ pending: false, words: null });
+  const [state, setState] = useState<{ pending: string | null; words: string | null }>({ pending: null, words: null });
+  // State updates land after the click's task, so a second click in the same task would still see
+  // pending as false; the ref closes that gap and keeps it to one request.
+  const inFlight = useRef(false);
   const fingerprint = revision?.fingerprint ?? null;
   const tradeOff = tradeOffLine(job);
   const { ambientRhPct, paperMoisturePct, conditionSource } = job.conditions;
 
+  // Another request holds the approval lease. The card is read once more after a short wait, and
+  // shows what the stored record says; it never claims a result it has not read.
+  const recheck = async () => {
+    setState({ pending: "Checking the job card", words: null });
+    await new Promise((resolve) => setTimeout(resolve, APPROVAL_RECHECK_MS));
+    const read = await getJobRecord(job.jobId);
+    if (read.ok && read.data.revision?.status === "SUPERSEDED") return onReplaced();
+    if (read.ok && read.data.jobSheet.status !== "DRAFT") return onApproved(read.data.jobSheet);
+    setState({ pending: null, words: APPROVAL_STILL_RUNNING });
+  };
+
   // The only caller of the approve route. It does nothing unless the reviewer ticked the box.
   const approve = async () => {
-    if (!reviewed || !fingerprint || state.pending) return;
-    setState({ pending: true, words: null });
-    const result = await approveJobCard(job.jobId, fingerprint);
-    if (result.ok) return onApproved(result.data.jobSheet);
-    if (result.code === "REVISION_SUPERSEDED" || result.code === "REVISION_FINGERPRINT_MISMATCH") return onReplaced();
-    setState({ pending: false, words: result.code === "CONFLICT" ? "Only a draft can be approved. This card is no longer a draft." : arcWords(result.code) });
+    if (!reviewed || !fingerprint || inFlight.current) return;
+    inFlight.current = true;
+    setState({ pending: "Storing the PDF", words: null });
+    try {
+      const result = await approveJobCard(job.jobId, fingerprint);
+      if (result.ok) return onApproved(result.data.jobSheet);
+      if (result.code === "REVISION_SUPERSEDED" || result.code === "REVISION_FINGERPRINT_MISMATCH") return onReplaced();
+      if (result.code === "APPROVAL_IN_PROGRESS") return await recheck();
+      setState({ pending: null, words: result.code === "CONFLICT" ? "Only a draft can be approved. This card is no longer a draft." : arcWords(result.code) });
+    } finally {
+      inFlight.current = false;
+    }
   };
 
   return (
@@ -308,16 +332,16 @@ function Approve({ job, revision, onApproved, onReplaced, onRevise, onKeep }: {
         <div className="kvr2"><span>Data</span><div>Humidity {formatNumber(ambientRhPct, 1)}% and paper moisture {formatNumber(paperMoisturePct, 1)}%, {SOURCE_WORDS[conditionSource ?? ""] ?? "source not recorded"}.</div></div>
         <div className="kvr2"><span>Approver</span><div>Supervisor session, demo access. This approval is simulated.</div></div>
       </section>
-      <ReviewCheck checked={reviewed} disabled={state.pending || !fingerprint} onChange={setReviewed}>I reviewed the settings and limits on this card.</ReviewCheck>
+      <ReviewCheck checked={reviewed} disabled={Boolean(state.pending) || !fingerprint} onChange={setReviewed}>I reviewed the settings and limits on this card.</ReviewCheck>
       {!fingerprint && <Problem words={arcWords("REVISION_NOT_REGISTERED")} />}
       {state.words && <Problem words={state.words} />}
       <div className="row">
-        <Button disabled={!reviewed || !fingerprint || state.pending} onClick={approve}>Approve job card</Button>
-        <Button variant="secondary" disabled={state.pending} onClick={onRevise}>Revise</Button>
-        <Button variant="secondary" disabled={state.pending} onClick={onKeep}>Keep draft</Button>
+        <Button disabled={!reviewed || !fingerprint || Boolean(state.pending)} onClick={approve}>Approve job card</Button>
+        <Button variant="secondary" disabled={Boolean(state.pending)} onClick={onRevise}>Revise</Button>
+        <Button variant="secondary" disabled={Boolean(state.pending)} onClick={onKeep}>Keep draft</Button>
       </div>
       {state.pending
-        ? <Loading>Storing the PDF</Loading>
+        ? <Loading>{state.pending}</Loading>
         : <div className="lb" style={{ fontSize: 13, lineHeight: 1.45 }}>After approval Momentum stores the PDF. Nothing runs on the machine.</div>}
     </>
   );
@@ -387,18 +411,21 @@ const FIELD_NAMES: Record<string, { name: string; step: string }> = {
 function Replaced({ job, revision }: { job: StoredJob; revision: RevisionBlock }) {
   const [lot, setLot] = useState<LotRecord | null>(null);
   const [kept, setKept] = useState(false);
+  const alertRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const controller = new AbortController();
     void getLotRecord(revision.lotId, controller.signal).then((read) => { if (read.ok && !controller.signal.aborted) setLot(read.data); });
     return () => controller.abort();
   }, [revision.lotId]);
+  // The "Keep as history" button removes itself, so focus moves to the notice it changed.
+  useEffect(() => { if (kept) alertRef.current?.focus(); }, [kept]);
   const reason = lot?.revision?.jobId === job.jobId ? lot.revision.supersededReason : null;
   const field = reason ? FIELD_NAMES[reason.field] : undefined;
   const rev = `Rev ${revision.number}`;
   return (
     <>
       <ArcSteps current={4} />
-      <section className="cd" role="alert" style={{ borderColor: "rgba(227,163,64,.6)", padding: "16px 18px" }}>
+      <section ref={alertRef} tabIndex={-1} data-arc-focus="" className="cd" role="alert" style={{ borderColor: "rgba(227,163,64,.6)", padding: "16px 18px" }}>
         <span className="sx wn" style={{ fontSize: 18, fontWeight: 600, color: "var(--tx)", whiteSpace: "normal" }}><Icon name="warn" />An input changed after {rev} was prepared.</span>
         <div className="lb" style={{ fontSize: 15, margin: "4px 0 0 24px" }}>{kept ? `${rev} stays as read-only history.` : "A replaced revision cannot be approved. Plan the lot again."}</div>
         <div className="row" style={{ margin: "14px 0 0 24px" }}>
@@ -442,6 +469,13 @@ export function JobFlow({ jobId }: { jobId: string }) {
   const { setWorkingOn } = useArcScreen();
   const [read, setRead] = useState<{ record?: JobRecord; words?: string } | null>(null);
   const [phase, setPhase] = useState<"compare" | "approve" | "kept" | "replaced">("compare");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [moved, setMoved] = useState(0);
+  // Every phase change replaces the card whose button held focus, so focus goes to the new card's heading.
+  useEffect(() => {
+    if (moved) rootRef.current?.querySelector<HTMLElement>("[data-arc-focus]")?.focus();
+  }, [moved]);
+  const go = (next: typeof phase) => { setPhase(next); setMoved((count) => count + 1); };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -463,20 +497,24 @@ export function JobFlow({ jobId }: { jobId: string }) {
   if (!read) return <Loading>Reading the job card</Loading>;
   if (!record) return <Problem words={read.words ?? arcWords("UNKNOWN")} />;
   const { jobSheet, revision } = record;
-  if (replaced && revision) return <Replaced job={jobSheet} revision={revision} />;
-  if (jobSheet.status !== "DRAFT") return <Receipt job={jobSheet} revision={revision} />;
-  if (phase === "kept") {
-    return (
-      <section className="cd" role="status">
+  let card;
+  if (replaced && revision) card = <Replaced job={jobSheet} revision={revision} />;
+  else if (jobSheet.status !== "DRAFT") card = <Receipt job={jobSheet} revision={revision} />;
+  else if (phase === "kept") {
+    card = (
+      <section className="cd" role="status" tabIndex={-1} data-arc-focus="">
         <span className="sx id" style={{ fontSize: 15, whiteSpace: "normal" }}><IdleMark />Draft kept. {jobSheet.order.itemCode} is not approved.</span>
-        <div style={{ marginTop: 12 }}><Button variant="secondary" small onClick={() => setPhase("approve")}>Review it again</Button></div>
+        <div style={{ marginTop: 12 }}><Button variant="secondary" small onClick={() => go("approve")}>Review it again</Button></div>
       </section>
     );
+  } else if (phase === "compare") card = <Compare job={jobSheet} onNext={() => go("approve")} />;
+  else {
+    card = (
+      <Approve job={jobSheet} revision={revision}
+        onApproved={(approved) => { setRead({ record: { jobSheet: approved, revision: revision && { ...revision, status: "APPROVED" } } }); setMoved((count) => count + 1); }}
+        onReplaced={() => go("replaced")} onRevise={() => go("compare")} onKeep={() => go("kept")} />
+    );
   }
-  if (phase === "compare") return <Compare job={jobSheet} onNext={() => setPhase("approve")} />;
-  return (
-    <Approve job={jobSheet} revision={revision}
-      onApproved={(approved) => setRead({ record: { jobSheet: approved, revision: revision && { ...revision, status: "APPROVED" } } })}
-      onReplaced={() => setPhase("replaced")} onRevise={() => setPhase("compare")} onKeep={() => setPhase("kept")} />
-  );
+  // display: contents keeps the cards as direct items of the exchange's column, as before.
+  return <div ref={rootRef} style={{ display: "contents" }}>{card}</div>;
 }

@@ -32,7 +32,8 @@ export function ArcSteps({ current }: { current: 1 | 2 | 3 | 4 }) {
 export function ScreenHead({ title, sub }: { title: string; sub?: ReactNode }) {
   return (
     <div>
-      <h2 className="h1a h1s">{title}</h2>
+      {/* A focus target (JobFlow) for when the card whose button held focus is replaced by this one. */}
+      <h2 className="h1a h1s" tabIndex={-1} data-arc-focus="">{title}</h2>
       {sub && <p className="lb" style={{ margin: "4px 0 0", fontSize: 15 }}>{sub}</p>}
     </div>
   );
