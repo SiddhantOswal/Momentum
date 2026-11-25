@@ -39,7 +39,7 @@ export function ImpactTiles({ impact }: { impact?: Result<ImpactResponse> }) {
     <>
       <Kpi label="Lots scored" value={formatNumber(kpis.lotsScored)} unit="lots" sub={`${formatNumber(kpis.lotsChanged)} with changed settings`} chip={<ProvenanceChip kind="modeled-records" />} />
       <Kpi label="Modeled scrap" value={formatNumber(kpis.scrapPctAfter, 2)} unit="%" sub={`Down from ${formatNumber(kpis.scrapPctBefore, 2)}%`} chip={estimate} good />
-      <Kpi label="Modeled saving" value={formatMoney(kpis.netSavingMonth, kpis.currency)} unit="a month" sub="Not a measured saving" chip={estimate} good />
+      <Kpi label="Modeled saving" value={formatMoney(kpis.netSavingMonth, kpis.currency)} sub="In one held-out month. Not a measured saving." chip={estimate} good />
       <Kpi label="Board saved" value={formatNumber(kpis.kgSavedMonth)} unit="kg" sub="In one held-out month" chip={estimate} />
     </>
   );
@@ -50,13 +50,16 @@ function Bar({ label, value, share, accent }: { label: string; value: string; sh
     <div style={{ marginTop: 12 }}>
       <div style={{ fontSize: 14, color: "var(--mu)", marginBottom: 6 }}>{label}</div>
       <div className="in-track">
-        <div style={{ width: `${Math.max(0, Math.min(1, share)) * 100}%`, background: accent ? "#E8664F" : "var(--bar0)" }}>
-          <span className="n" style={{ color: accent ? "#18110E" : "var(--tx)" }}>{value}</span>
+        <div style={{ width: `${Math.max(0, Math.min(1, share)) * 100}%`, background: accent ? "var(--ac)" : "var(--bar0)" }}>
+          <span className="n" style={{ color: accent ? "var(--arc-accent-ink)" : "var(--tx)" }}>{value}</span>
         </div>
       </div>
     </div>
   );
 }
+
+// Bar length only; a zero "before" draws an empty bar rather than dividing by zero.
+const ratio = (after: number, before: number) => (before > 0 ? after / before : 0);
 
 /** Before and after for the held-out month, as the design's reference-lot bars. */
 export function ImpactCompare({ impact }: { impact?: Result<ImpactResponse> }) {
@@ -71,12 +74,12 @@ export function ImpactCompare({ impact }: { impact?: Result<ImpactResponse> }) {
         <div>
           <div className="th">Scrap</div>
           <Bar label="Entered plans" value={`${formatNumber(kpis.scrapPctBefore, 2)}%`} share={1} />
-          <Bar label="Recommended plans" value={`${formatNumber(kpis.scrapPctAfter, 2)}%`} share={kpis.scrapPctAfter / kpis.scrapPctBefore} accent />
+          <Bar label="Recommended plans" value={`${formatNumber(kpis.scrapPctAfter, 2)}%`} share={ratio(kpis.scrapPctAfter, kpis.scrapPctBefore)} accent />
         </div>
         <div>
           <div className="th">Scrap cost</div>
           <Bar label="Entered plans" value={formatMoney(kpis.scrapCostBefore, kpis.currency)} share={1} />
-          <Bar label="Recommended plans" value={formatMoney(kpis.scrapCostAfter, kpis.currency)} share={kpis.scrapCostAfter / kpis.scrapCostBefore} accent />
+          <Bar label="Recommended plans" value={formatMoney(kpis.scrapCostAfter, kpis.currency)} share={ratio(kpis.scrapCostAfter, kpis.scrapCostBefore)} accent />
         </div>
       </div>
       <div className="lb" style={{ marginTop: 14, fontSize: 13.5 }}>Modeled, one held-out month. Not a measured saving.</div>
