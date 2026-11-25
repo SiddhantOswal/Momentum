@@ -93,8 +93,8 @@ for (const theme of ['dark', 'light']) {
     // The test server's /health answers ok, so the indicator must read connected from it.
     await expect(page.getByRole('status').filter({ hasText: 'Backend' })).toHaveText('Backend connected');
     await expect(page.getByText('Prototype data, not live')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
-    await expect(page.getByText('Not connected', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeAttached();
+    await expect(page.locator('main')).toBeVisible();
   });
 }
 

@@ -110,10 +110,11 @@ test('/app follows system changes until a choice, then switches in place and rem
 });
 
 test('/app matches the approved title styles and numeric arrow font', async ({ page }) => {
-  await page.goto('/app/#/home');
+  // Home's title is for screen readers only, so the visible page and card titles come from Insights.
+  await page.goto('/app/#/insights');
 
-  const pageTitle = page.getByRole('heading', { level: 1, name: 'Home' });
-  const cardTitle = page.getByRole('heading', { level: 2, name: 'Home' });
+  const pageTitle = page.getByRole('heading', { level: 1, name: 'Insights' });
+  const cardTitle = page.getByRole('heading', { level: 2, name: 'Reading attribution' });
   const displayFont = 'Inter, sans-serif';
   const titleStyles = {
     fontFamily: displayFont,
