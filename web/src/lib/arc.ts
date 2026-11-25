@@ -312,7 +312,8 @@ const WORDS: Record<string, string> = {
   VERTEX_EMPTY_RESPONSE: VERTEX_UNUSABLE,
   VERTEX_OUTPUT_TRUNCATED: VERTEX_UNUSABLE,
   GEMINI_SAFETY_BLOCKED: "Gemini blocked this message, so Arc did not act on it. Rephrase it, or use the buttons.",
-  REQUEST_TIMEOUT: "This step did not finish within 60 s. Your confirmed inputs are kept. Try again.",
+  // 05 section 6 wrote "within 60 s", but a turn may run 120 s (config/arc.json requestTimeoutMs), so no figure is shown.
+  REQUEST_TIMEOUT: "This step did not finish in time. Your confirmed inputs are kept. Try again.",
   BIGQUERY_UNAVAILABLE: "The data could not be read. Try again.",
   SERVICE_UNAVAILABLE: "Arc could not read or save its records. Nothing was changed. Try again.",
   TRACE_INCOMPLETE: "Arc could not read or save its records. Nothing was changed. Try again.",
