@@ -249,6 +249,7 @@ for (const theme of ['dark', 'light']) {
       await expect(panel.getByText('6.7 kg')).toBeVisible();
       await expect(panel.getByText('₹360')).toBeVisible();
       await expect(panel.getByRole('heading', { name: '3 of 7 settings change' })).toBeVisible();
+      await expect(panel.locator('.cl')).toHaveText('Working onPKBX0041, Rev 1Settings and risk');
       const table = panel.getByRole('table', { name: 'Setting changes' });
       await expect(table.getByRole('row')).toHaveCount(4);
       await expect(table.getByRole('row').nth(2)).toContainText('HIGH');

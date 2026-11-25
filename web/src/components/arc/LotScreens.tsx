@@ -431,7 +431,8 @@ function Replaced({ job, revision }: { job: StoredJob; revision: RevisionBlock }
   );
 }
 
-const STATUS_STAGE: Record<string, string> = { DRAFT: "Review and approve", APPROVED: "Approved", RUN: "Approved", CLOSED: "Approved" };
+// The "Working on" stage names the step the card on screen belongs to, as the designs label it.
+const PHASE_STAGE = { compare: "Settings and risk", approve: "Review and approve", kept: "Draft kept", replaced: "Out of date" } as const;
 
 /**
  * A stored job from GET /jobs/:id, shown as the card its state calls for: compare and approve
@@ -455,8 +456,9 @@ export function JobFlow({ jobId }: { jobId: string }) {
   useEffect(() => {
     if (!record) return;
     const { jobSheet, revision } = record;
-    setWorkingOn({ label: `${jobSheet.order.itemCode}${revision ? `, Rev ${revision.number}` : ""}`, stage: replaced ? "Out of date" : STATUS_STAGE[jobSheet.status] ?? jobSheet.status });
-  }, [record, replaced, setWorkingOn]);
+    const stage = replaced ? "Out of date" : jobSheet.status !== "DRAFT" ? "Approved" : PHASE_STAGE[phase];
+    setWorkingOn({ label: `${jobSheet.order.itemCode}${revision ? `, Rev ${revision.number}` : ""}`, stage });
+  }, [record, replaced, phase, setWorkingOn]);
 
   if (!read) return <Loading>Reading the job card</Loading>;
   if (!record) return <Problem words={read.words ?? arcWords("UNKNOWN")} />;

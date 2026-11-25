@@ -90,6 +90,9 @@
 /* compare table (Arc-Lot-Compare) */
 .m .arcp .cmp { grid-template-columns: 1fr 100px 120px 90px; }
 
+/* In the panel the stepper takes the column gap only, as the Arc-Lot designs space it. */
+.m .arcp .stp { margin: 0; }
+
 /* the four New Lot steps as the phone design draws them: bars and "Step n of 4" */
 .m .arcp .stq { display: none; }
 .m .arcp .stq .bars { display: flex; gap: 6px; }
