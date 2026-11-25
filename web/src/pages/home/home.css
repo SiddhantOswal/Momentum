@@ -1,7 +1,11 @@
 /* Home (Main.html). The hero line is the design's CSS scene, copied into machine.html with every
    class prefixed "hm-" and every keyframe renamed, because Vite bundles all page CSS into one
-   sheet and other pages use the same short names (.train, .led, .scn). The --h-* colours come
-   from .arc-main-machine in arc-tokens.css. */
+   sheet and other pages use the same short names (.train, .led, .scn). The --h-* colours are the
+   design's (.h3 and .m.lt .h3 in Main.html), the same values arc-tokens.css keeps on
+   .arc-main-machine; that class is not reused here because arc-main-machine.spec.js expects it
+   on one probe element only. */
+.m .hm-h3 { --h-st: #0B0D10; --h-belt: #262B32; --h-rail: #8A929B; --h-rail2: #6C747D; --h-rail3: #565D66; --h-ln: rgba(255,255,255,.1); --h-top: #D3A66B; --h-sd: #B4854C; --h-ed: #926838; --h-metal: #6F7780; --h-metal2: #9AA3AC; --h-metal3: #4C535B; --h-gnd: #14181C; --h-gl: rgba(255,255,255,.1); }
+:root[data-theme="light"] .m .hm-h3 { --h-st: #E7E3DA; --h-belt: #2A2F35; --h-rail: #CFD4D9; --h-rail2: #B0B7BE; --h-rail3: #98A0A8; --h-ln: rgba(255,255,255,.1); --h-gnd: #F3F0E9; --h-gl: rgba(20,24,28,.12); --h-metal: #8E969F; --h-metal2: #B9C0C7; --h-metal3: #6D757E; }
 
 .m .hm-hero { height: 320px; position: relative; }
 .m .hm-copy { padding: 30px 32px; position: relative; z-index: 2; width: 700px; max-width: 100%; }

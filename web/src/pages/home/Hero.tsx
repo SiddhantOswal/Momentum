@@ -54,7 +54,7 @@ export function Hero({ lots, job }: { lots: LiveLot[]; job?: Result<JobResponse>
         </div>
       </div>
       <div className="hm-art">
-        <div className="hm-h3 arc-main-machine" role="img"
+        <div className="hm-h3" role="img"
           aria-label="Illustrative 3D view: stacks of board stop at two stations while four arms close on them, then move on. A schematic, not a view of your line."
           // Static markup copied from the approved design; it holds no data and no user input.
           dangerouslySetInnerHTML={{ __html: machine }} />
