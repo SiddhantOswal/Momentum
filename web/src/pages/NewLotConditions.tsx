@@ -126,7 +126,7 @@ function SettingsCard({ lot }: { lot: LotState }) {
             <div><div className="nm">{leverLabel(lever.key)}</div><div className="sr" id={`${id}-src`}>{sub}</div></div>
             {"options" in lever
               ? <FieldSelect id={id} label={leverLabel(lever.key)} value={value} placeholder="Select value" options={LEVEL_OPTIONS} describedBy={`${id}-src`} onChange={(next) => set(lever.key, next)} />
-              : <FieldInput id={id} label={leverLabel(lever.key)} value={value} unit={unit} inputMode="decimal" placeholder={unit.length > 4 ? "Enter" : "Enter value"} required invalid={invalid}
+              : <FieldInput id={id} label={leverLabel(lever.key)} value={value} unit={unit} inputMode="decimal" placeholder={unit.length > 6 ? "Enter" : "Enter value"} required invalid={invalid}
                   describedBy={`${id}-src`} onChange={(next) => set(lever.key, next)} />}
           </div>
         );
