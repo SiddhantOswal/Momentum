@@ -1,0 +1,128 @@
+/* Home (Main.html). The hero line is the design's CSS scene, copied into machine.html with every
+   class prefixed "hm-" and every keyframe renamed, because Vite bundles all page CSS into one
+   sheet and other pages use the same short names (.train, .led, .scn). The --h-* colours come
+   from .arc-main-machine in arc-tokens.css. */
+
+.m .hm-hero { height: 320px; position: relative; }
+.m .hm-copy { padding: 30px 32px; position: relative; z-index: 2; width: 700px; max-width: 100%; }
+.m .hm-art { position: absolute; right: 0; top: 0; width: 620px; height: 320px; }
+.m .hm-h3 {
+  position: absolute; left: 0; top: 0; width: 620px; height: 320px; overflow: hidden;
+  perspective: 1100px; perspective-origin: 58% 38%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 34%); mask-image: linear-gradient(90deg, transparent 0, #000 34%);
+}
+.m .hm-tag { position: absolute; right: 24px; top: 24px; background: rgba(22,26,31,.6); border-color: rgba(255,255,255,.22); color: var(--tx); }
+:root[data-theme="light"] .m .hm-tag { color: #EAEDF0; background: rgba(22,26,31,.62); border-color: rgba(255,255,255,.28); }
+
+.m .hm-bp { position: absolute; left: 372px; top: 124px; width: 0; height: 0; transform-style: preserve-3d; transform: scale(.56) rotateX(58deg) rotateZ(-34deg); }
+.m .hm-bp * { transform-style: preserve-3d; }
+.m .hm-gnd { position: absolute; left: -300px; top: -300px; width: 600px; height: 600px; border-radius: 50%; background: var(--h-gnd); transform: translateZ(-48px); border: 1.5px solid var(--h-gl); }
+.m .hm-gnd.hm-g2 { left: -240px; top: -240px; width: 480px; height: 480px; background: none; border: 1.5px dashed var(--h-gl); }
+.m .hm-lane { position: absolute; left: -760px; width: 1520px; height: 0; border-top: 2px dashed var(--h-gl); transform: translateZ(-47px); }
+.m .hm-belt { position: absolute; top: -75px; height: 150px; background: linear-gradient(180deg, rgba(255,255,255,.05), transparent 35%, rgba(0,0,0,.22)), var(--h-belt); overflow: hidden; transform: translateZ(0); }
+.m .hm-bln { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, var(--h-ln) 0 2px, transparent 2px 30px); animation: hm-bm 4.2s infinite; }
+@keyframes hm-bm { 0%, 72% { background-position: 0 0; } 100% { background-position: 150px 0; } }
+.m .hm-cb { position: absolute; }
+.m .hm-cb > i { position: absolute; display: block; transform-origin: 0 0; backface-visibility: visible; }
+.m .hm-cb > .hm-ft { left: 0; top: 0; }
+.m .hm-crt > .hm-ft { background: linear-gradient(135deg, rgba(255,255,255,.16), transparent 62%), var(--h-top); }
+.m .hm-crt > .hm-fs { background: var(--h-sd); }
+.m .hm-crt > .hm-fe { background: var(--h-ed); }
+.m .hm-crt > .hm-fs, .m .hm-crt > .hm-fe { background-image: linear-gradient(0deg, transparent 0 calc(50% - 1px), rgba(0,0,0,.22) 0 calc(50% + 1px), transparent 0), repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, transparent 2px 6px); }
+.m .hm-crt > i { box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.m .hm-crt.hm-tape > .hm-fs { background-image: linear-gradient(90deg, transparent 0 27px, rgba(238,224,192,.62) 27px 37px, transparent 37px), linear-gradient(0deg, transparent 0 calc(50% - 1px), rgba(0,0,0,.22) 0 calc(50% + 1px), transparent 0), repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, transparent 2px 6px); }
+.m .hm-crt .hm-tp { position: absolute; left: 27px; top: 0; bottom: 0; width: 10px; background: rgba(238,224,192,.62); }
+.m .hm-crt .hm-pr { position: absolute; left: 10px; top: 12px; width: 30px; height: 3px; background: rgba(0,0,0,.2); box-shadow: 0 8px 0 rgba(0,0,0,.14), 0 16px 0 rgba(0,0,0,.1); }
+.m .hm-crt .hm-pr.hm-p2 { left: 12px; top: 14px; width: 40px; height: 36px; background: none; border: 2px solid rgba(0,0,0,.16); border-radius: 3px; box-shadow: none; }
+.m .hm-crt .hm-bcl { position: absolute; left: 10px; top: 10px; width: 34px; height: 22px; background: #F2EEE4; border-radius: 2px; }
+.m .hm-crt .hm-bcl u { position: absolute; left: 4px; right: 4px; top: 5px; bottom: 5px; background: repeating-linear-gradient(90deg, #2A2F35 0 2px, transparent 2px 4px, #2A2F35 4px 5px, transparent 5px 8px); }
+.m .hm-crt .hm-arw { position: absolute; left: 30px; top: 10px; width: 4px; height: 24px; background: rgba(0,0,0,.22); }
+.m .hm-crt .hm-arw:before { content: ""; position: absolute; left: -6px; top: 0; width: 0; height: 0; border: 8px solid transparent; border-bottom: 10px solid rgba(0,0,0,.22); border-top: 0; margin-left: 0; }
+.m .hm-shd { position: absolute; left: 8px; top: 8px; width: 70px; height: 70px; border-radius: 8px; background: rgba(0,0,0,.42); filter: blur(7px); transform: translateZ(.6px); }
+:root[data-theme="light"] .m .hm-shd { background: rgba(0,0,0,.3); }
+.m .hm-scn { position: absolute; left: -22px; top: -75px; width: 44px; height: 150px; background: linear-gradient(90deg, transparent, rgba(232,102,79,.34), transparent); transform: translateZ(1px); animation: hm-led 4.2s infinite; }
+.m .hm-lens, .m .hm-abase .hm-led { position: absolute; left: 8px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: #E8664F; box-shadow: 0 0 8px #E8664F; animation: hm-led 4.2s infinite; }
+.m .hm-rail > .hm-ft { background: var(--h-rail); }
+.m .hm-rail > .hm-fs { background: var(--h-rail2); }
+.m .hm-rail > .hm-fe { background: var(--h-rail3); }
+.m .hm-abase > .hm-ft, .m .hm-alink > .hm-ft, .m .hm-agrip > .hm-ft { background: var(--h-metal2); }
+.m .hm-abase > .hm-fs, .m .hm-agrip > .hm-fs { background: var(--h-metal); }
+.m .hm-abase > .hm-fe, .m .hm-agrip > .hm-fe { background: var(--h-metal3); }
+.m .hm-alink > .hm-fs, .m .hm-alink > .hm-fe { background: var(--h-metal); }
+.m .hm-agrip .hm-gstrip { position: absolute; left: 5px; right: 5px; top: 2px; height: 6px; border-radius: 3px; background: #E8664F; box-shadow: 0 0 10px #E8664F; animation: hm-nn3 4.2s ease-in-out infinite; }
+.m .hm-sl { animation-duration: 4.2s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.m .hm-sl.hm-sp { animation-name: hm-gp; }
+.m .hm-sl.hm-sn { animation-name: hm-gn; }
+@keyframes hm-gp { 0% { transform: translateY(0); } 10%, 62% { transform: translateY(-26px); } 70%, 100% { transform: translateY(0); } }
+@keyframes hm-gn { 0% { transform: translateY(0); } 10%, 62% { transform: translateY(26px); } 70%, 100% { transform: translateY(0); } }
+@keyframes hm-nn3 { 0% { opacity: .15; } 10%, 62% { opacity: 1; } 70%, 100% { opacity: .15; } }
+@keyframes hm-led { 0% { opacity: .3; } 10%, 62% { opacity: 1; } 70%, 100% { opacity: .3; } }
+.m .hm-train { position: absolute; left: 0; top: 0; animation: hm-tr3 25.2s linear infinite; }
+@keyframes hm-tr3 {
+  0% { transform: translateX(0); } 12% { transform: translateX(0); }
+  16.667% { transform: translateX(150px); } 28.667% { transform: translateX(150px); }
+  33.333% { transform: translateX(300px); } 45.333% { transform: translateX(300px); }
+  50% { transform: translateX(450px); } 62% { transform: translateX(450px); }
+  66.667% { transform: translateX(600px); } 78.667% { transform: translateX(600px); }
+  83.333% { transform: translateX(750px); } 95.333% { transform: translateX(750px); }
+  100% { transform: translateX(900px); }
+}
+.m .hm-cw { position: absolute; left: 0; top: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .m .hm-train, .m .hm-bln, .m .hm-sl, .m .hm-led, .m .hm-gstrip, .m .hm-lens, .m .hm-scn { animation: none; }
+  .m .hm-sl.hm-sp { transform: translateY(-26px); }
+  .m .hm-sl.hm-sn { transform: translateY(26px); }
+}
+
+/* Production route: nine stages on one line, changed settings in callouts above their stage. */
+.m .hm-route { overflow-x: auto; }
+.m .hm-stages { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); position: relative; min-width: 860px; }
+.m .hm-callouts { position: absolute; left: 0; right: 0; top: 0; height: 66px; }
+.m .hm-callout { position: absolute; bottom: 12px; height: 60px; border: 1px solid rgba(232,102,79,.7); border-radius: 10px; background: var(--rz); padding: 6px 14px; display: flex; gap: 16px; align-items: center; z-index: 2; }
+.m .hm-callout > div + div { border-left: 1px solid var(--ln2); padding-left: 16px; }
+.m .hm-callout .v { font-size: 20px; line-height: 26px; font-weight: 600; white-space: nowrap; }
+.m .hm-stage { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.m .hm-stem { position: relative; height: 66px; width: 100%; }
+.m .hm-stem i { position: absolute; left: 50%; bottom: 0; width: 1px; height: 12px; background: rgba(232,102,79,.7); }
+.m .hm-dot { position: relative; height: 18px; width: 100%; display: flex; align-items: center; justify-content: center; }
+.m .hm-dot > span:first-child { position: absolute; left: 0; right: 0; top: 8px; height: 2px; background: var(--ln2); }
+.m .hm-stage:first-child .hm-dot > span:first-child { left: 50%; }
+.m .hm-stage:last-child .hm-dot > span:first-child { right: 50%; }
+.m .hm-dot b { position: relative; z-index: 1; width: 12px; height: 12px; border-radius: 50%; background: var(--cd); border: 2px solid var(--ln2); display: block; }
+.m .hm-dot b.on { width: 16px; height: 16px; background: var(--ac); border: 0; box-shadow: 0 0 0 4px var(--cd), 0 0 0 5px rgba(232,102,79,.6); }
+.m .hm-name { margin-top: 8px; font-size: 14px; font-weight: 500; color: var(--mu); white-space: nowrap; }
+.m .hm-name.on { font-weight: 600; color: var(--tx); }
+
+/* Sample orders table and the model tiles. */
+.m .hm-seg { display: flex; gap: 3px; }
+.m .hm-seg i { width: 22px; height: 5px; border-radius: 2px; background: var(--ln2); display: block; }
+.m .hm-cont { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; border: 1.5px dashed var(--ln2); border-radius: 12px; min-height: 52px; padding: 8px 16px; margin-bottom: 6px; }
+.m .hm-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.m .hm-tile { border: 1px solid var(--ln); border-radius: 10px; padding: 12px; background: var(--bg); min-width: 0; }
+.m .hm-bar { position: relative; height: 4px; border-radius: 2px; background: var(--ln2); margin: 12px 0 10px; }
+.m .hm-bar > i { position: absolute; left: 0; top: 0; height: 4px; border-radius: 2px; display: block; }
+.m .hm-step { position: relative; padding-left: 30px; min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.m .hm-step > .sx { position: absolute; left: 0; top: 7px; }
+.m .hm-step > i { position: absolute; left: 7px; top: 22px; bottom: -8px; width: 1px; background: var(--ln2); }
+.m .hm-card-row { padding: 14px 0; border-top: 1px solid var(--ln2); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.m .hm-card-row .n { font-size: 24px; line-height: 28px; font-weight: 700; white-space: nowrap; }
+.m .hm-open { background: #1F1810; color: #F3E9D2; }
+
+@media (max-width: 1023px) {
+  .m .hm-art { opacity: .45; }
+  .m .hm-tiles { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+@media (max-width: 767px) {
+  .m .hm-hero { height: auto; }
+  .m .hm-copy { padding: 24px 20px; }
+  .m .hm-copy h2 { font-size: 28px !important; line-height: 34px !important; }
+  .m .hm-art { display: none; }
+}
+.m .hm-route-card { padding: 16px 20px 14px; }
+.m .hm-scroll { overflow-x: auto; }
+.m .hm-scroll > [role="table"] { min-width: 560px; }
+.m .hm-scroll:focus-visible, .m .hm-route:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+@media (max-width: 767px) {
+  .m .hm-page .ct { flex-wrap: wrap; }
+  .m .hm-page .mt { white-space: normal; }
+}
