@@ -66,8 +66,8 @@
 @keyframes pf-tin { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .m .pf-page .tst { animation: none; } }
 
-/* Below the design width the drawing becomes three columns, then one, with the steps in order. */
-@container (max-width: 1127px) {
+/* The drawing is 1128 px wide and overhangs a 1126 px card by 2 px, as in the design. Narrower, it becomes three columns, then one, with the steps in order. */
+@container (max-width: 1099px) {
   .m .pf-page .pf { height: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
   .m .pf-page .pf-arrows { display: none; }
   .m .pf-page .zn { position: static; height: auto; width: auto !important; display: flex; flex-direction: column; }

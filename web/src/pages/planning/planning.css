@@ -84,9 +84,10 @@
 .m .pl-page .wk { display: grid; grid-template-columns: 110px repeat(6, 1fr); }
 .m .pl-page .wk .wd { border-left: 1px solid var(--ln); padding: 0 8px; display: flex; align-items: center; height: 36px; }
 .m .pl-page .wk .wl { display: flex; align-items: center; height: 112px; border-top: 1px solid var(--ln); font-size: 15px; font-weight: 600; }
-.m .pl-page .wk .wc { height: 112px; border-top: 1px solid var(--ln); border-left: 1px solid var(--ln); padding: 10px 8px; display: flex; align-items: center; min-width: 0; }
-.m .pl-page .wk .wx { height: 78px; border-radius: 10px; border: 1.5px dashed var(--ac); padding: 10px; width: 100%; background: rgba(232,102,79,.08); min-width: 0; }
-.m .pl-page .wk .wx div:first-child { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.m .pl-page .wk .wc { height: 112px; border-top: 1px solid var(--ln); border-left: 1px solid var(--ln); padding: 10px 4px; display: flex; align-items: center; min-width: 0; }
+.m .pl-page .wk .wx { height: 78px; border-radius: 10px; border: 1.5px dashed var(--ac); padding: 10px 7px; width: 100%; background: rgba(232,102,79,.08); min-width: 0; }
+/* Inter is wider than the design's Inter Tight, so the example code is set at 14 px to stay on one line. */
+.m .pl-page .wk .wx div:first-child { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .m .pl-page .cks { margin: 0; padding: 0; list-style: none; }
 .m .pl-page .ck { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; line-height: 1.4; padding: 11px 0; border-top: 1px solid var(--ln); }
 .m .pl-page .ck i { flex: none; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--ln2); display: flex; align-items: center; justify-content: center; margin-top: 1px; }
