@@ -7,6 +7,15 @@ type Search = { state: "idle" } | { state: "busy" } | { state: "error"; message:
 
 const timeOf = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : undefined);
 
+// Place and time only as the weather response gives them, for example " Pune, read at 10:00 am."
+function readAt(weather: Weather) {
+  const time = timeOf(weather.observedAt);
+  const parts = [weather.location, time && `read at ${time}`].filter(Boolean);
+  if (parts.length === 0) return "";
+  const text = parts.join(", ");
+  return ` ${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+}
+
 /** Past modeled lots with the diagnosed defect at similar humidity, from `/evidence/seen-before`. */
 export function SeenBeforeCard({ label }: { label: Label }) {
   const [defect, setDefect] = useState<Defect | "">(label === "NONE" ? "" : label);
@@ -55,7 +64,7 @@ export function SeenBeforeCard({ label }: { label: Label }) {
           </label>
           {rh.trim() !== "" && (edited || !weather
             ? <div className="pd-src"><ProvenanceChip kind="entered-by-operator" /></div>
-            : <div className="pd-src"><ProvenanceChip kind="weather-record" />Public weather record, not a plant sensor. {weather.location ?? "Pune"}{timeOf(weather.observedAt) ? `, read at ${timeOf(weather.observedAt)}` : ""}.</div>)}
+            : <div className="pd-src"><ProvenanceChip kind="weather-record" />Public weather record, not a plant sensor.{readAt(weather)}</div>)}
         </div>
       </div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16, flexWrap: "wrap" }}>
@@ -100,7 +109,7 @@ function Outcome({ search }: { search: Search }) {
     <>
       <div className="pd-stats">
         <Stat label="Past lots" value={formatNumber(result.caseCount)} sub={`${name} was the main defect`} />
-        <Stat label="Typical scrap in those lots" value={typeof result.avgRateWhenMain === "number" ? formatNumber(result.avgRateWhenMain, 2) : null} unit="%" />
+        <Stat label={`Average ${name.toLowerCase()} rate in those lots`} value={typeof result.avgRateWhenMain === "number" ? formatNumber(result.avgRateWhenMain, 2) : null} unit="%" />
         <Stat label="Scrap cost of those lots" value={typeof result.costWhenMain === "number" ? formatMoney(result.costWhenMain) : null} />
       </div>
       <p className="lb" style={{ margin: "12px 0 0", fontSize: 14, lineHeight: 1.5 }}>
