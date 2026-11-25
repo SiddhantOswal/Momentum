@@ -190,6 +190,7 @@ for (const theme of ['dark', 'light']) {
       await expect(choices.first()).toBeChecked();
       await expect(panel.getByText('Approved sample', { exact: true })).toHaveCount(1);
       await expect(panel.getByText('Dropping your own PDF or JPEG is not connected to Arc yet.')).toBeVisible();
+      expect((await panel.locator('.drop .pv').boundingBox()).width).toBeLessThan(160);
       await panel.getByRole('radio', { name: /^PO2 Multi-line/ }).click();
       await expect(choices.nth(1)).toBeChecked();
       await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toHaveAttribute('placeholder', 'Tell Arc what to change');

@@ -20,7 +20,7 @@
 
 /* dashed drop zone (Arc-Lot-Source), here only ever in its not-connected state */
 .m .arcp .drop { border: 1.5px dashed var(--ln2); border-radius: 12px; min-height: 56px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 10px 16px; background: var(--cd); }
-.m .arcp .drop > span { font-size: 15px; color: var(--mu); flex: 1 1 220px; }
+.m .arcp .drop > span:last-child { font-size: 15px; color: var(--mu); flex: 1 1 220px; }
 
 /* review checkbox (Arc-Lot-Review, Arc-Lot-Approve) */
 .m .arcp .cka { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--cd); border: 1px solid var(--ln2); border-radius: 12px; padding: 13px 16px; font: 500 16px/22px var(--arc-font-body); color: var(--tx); cursor: pointer; }
