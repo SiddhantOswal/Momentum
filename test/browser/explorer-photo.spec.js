@@ -5,7 +5,7 @@ const NOT_ENABLED = json(404, { ok: false, error: { code: 'ARC_NOT_ENABLED', mes
 
 // Floor lots belong to other sessions; their jobs must never be requested.
 const FLOOR_LOT = { lotId: 'JOB-HACK-other-1', jobId: 'JOB-HACK-other-1', orderId: 'TEST-PO-7', itemCode: 'SKU-FLOOR-7', quantity: 800, status: 'planned', updatedAt: '2026-11-25T09:00:00.000Z',
-  changes: [{ lever: 'dryingHours', from: 6, to: 8 }, { lever: 'gumViscositySec', from: 30, to: 38 }] };
+  changes: [{ lever: 'dryingHours', from: 6, to: 8 }, { lever: 'gumViscositySec', from: 30, to: 38 }, { lever: 'notALever', from: 1, to: 2 }] };
 const OLDER = { ...FLOOR_LOT, lotId: 'JOB-HACK-other-0', jobId: 'JOB-HACK-other-0', itemCode: 'SKU-OLD', updatedAt: '2026-11-24T09:00:00.000Z' };
 const SESSION = { ok: true, session: { authorizationMode: 'HACKATHON_DEMO', identityLabel: 'Demo session, simulated', expiresAt: '2026-11-25T12:00:00.000Z',
   activeLots: [{ lotId: 'LOT-T-1', stage: 'draft_review', currentJobId: 'JOB-TEST-1', currentRevision: 1 }], jobIds: [], activeTaskRunId: null, resumable: false, turnCount: 0 } };

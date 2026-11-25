@@ -111,7 +111,8 @@ export function useCurrentPlan(): PlanState {
       if (!floor.ok) return setState({ kind: "error", message: floor.error });
       const lot = newestFloorLot(floor.data.lots ?? []);
       if (!lot) return setState({ kind: "none" });
-      setState({ kind: "plan", plan: { source: "floor", itemCode: lot.itemCode, changes: (lot.changes ?? []) as Change[] } });
+      const known = (lot.changes ?? []).filter((change): change is Change => Object.hasOwn(LEVER_META, change.lever));
+      setState({ kind: "plan", plan: { source: "floor", itemCode: lot.itemCode, changes: known } });
     })();
     return () => controller.abort();
   }, []);
