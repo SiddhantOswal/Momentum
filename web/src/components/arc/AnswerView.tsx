@@ -143,7 +143,7 @@ export const BLOCK_RENDERERS: Renderers = {
   reference: ({ block }) => {
     switch (block.ref.kind) {
       case "job": return <JobFlow jobId={block.ref.id} />;
-      case "po_review": return <LotReview />;
+      case "po_review": return <LotReview reviewId={block.ref.id} />;
       case "lot": return <LotConditions lotId={block.ref.id} />;
       case "photo": return <PhotoResult photoId={block.ref.id} />;
       case "card": return (

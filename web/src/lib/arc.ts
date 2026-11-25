@@ -137,6 +137,18 @@ export async function getTurn(clientTurnId: string, signal?: AbortSignal): Promi
   return result.ok ? { ok: true, data: result.data.turn } : result;
 }
 
+/** A stored order review as GET /api/arc/reviews/:reviewId returns it: catalog-matched lines only carry an item code. */
+export type OrderReviewLine = {
+  lineIndex: number; sourcePage: number | null; itemCode: string | null; quantity: number | null;
+  status: "MATCHED" | "AMBIGUOUS" | "UNKNOWN_CODE" | "MISSING_ITEM_CODE" | "MISSING_QTY" | "MALFORMED";
+};
+export type OrderReview = { reviewId: string; expiresAt: string; readByGemini: boolean; lines: OrderReviewLine[] };
+
+export async function getOrderReview(reviewId: string, signal?: AbortSignal): Promise<ArcResult<OrderReview>> {
+  const result = await arcGet<{ review: OrderReview }>(`/api/arc/reviews/${encodeURIComponent(reviewId)}`, signal);
+  return result.ok ? { ok: true, data: result.data.review } : result;
+}
+
 export async function listTurns({ limit = 10, before }: { limit?: number; before?: string } = {}, signal?: AbortSignal): Promise<ArcResult<TurnList>> {
   const query = new URLSearchParams({ limit: String(limit), ...(before ? { before } : {}) });
   const result = await arcGet<TurnList>(`/api/arc/turns?${query}`, signal);
@@ -357,7 +369,10 @@ const WORDS: Record<string, string> = {
   MODEL_ACCEPTANCE_REQUIRED: "Approval is closed until the five models have their acceptance record.",
   SUPERVISOR_AUTHORIZATION_REQUIRED: "This session cannot approve job cards.",
   CONFIRMATION_REQUIRED: "Confirm the order and the conditions first.",
-  LOT_NOT_FOUND: "Arc has no lot to work on in this session. Use New Lot on the dashboard to prepare this lot.",
+  LOT_NOT_FOUND: "Arc has no lot in this session yet. Read an order and confirm it first.",
+  ORDER_REVIEW_EXPIRED: "This order review has expired. Read the order again.",
+  ORDER_LINE_NOT_CONFIRMABLE: "This line is not matched to one catalog item with a quantity, so Arc cannot confirm it. Read the order again or use New Lot.",
+  ORDER_SAMPLE_REQUIRED: "Arc reads the approved sample orders only. Choose PO1 to PO5.",
   TOOL_RESULT_TOO_LARGE: "That result was too large for Arc to show. Ask for less at once.",
   VALIDATION_ERROR: "Arc could not turn that into a step it can run. Rephrase it, or use the buttons.",
   APPROVAL_IN_PROGRESS: "This step is already running in another tab. Arc will show the result here.",

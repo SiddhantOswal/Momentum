@@ -52,6 +52,13 @@
 .m .arcp .fld:has(select) small { margin-left: auto; pointer-events: none; font-size: 16px; }
 .m .arcp .fld:has(select:focus-visible) { outline: 2px solid var(--ac); outline-offset: 2px; }
 .m .arcp .fld.empty { color: var(--dim); }
+/* a typed value fills the drawn field; the unit stays at the right */
+.m .arcp .fld input { flex: 1; min-width: 0; height: 100%; border: 0; padding: 0; background: transparent; color: var(--tx); font: inherit; }
+.m .arcp .fld input::placeholder { color: var(--dim); font: 500 16px var(--arc-font-body); }
+.m .arcp .fld input:focus-visible { outline: none; }
+.m .arcp .fld:has(input:focus-visible) { outline: 2px solid var(--ac); outline-offset: 2px; }
+.m .arcp .fld:has([aria-invalid="true"]) { border-color: var(--wn); }
+.m .arcp .fld:has(input) small { margin-left: 8px; flex: none; }
 .m .arcp .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
 /* key and value rows (Arc-Lot-Approve) */
