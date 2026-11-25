@@ -1272,9 +1272,13 @@ app.post("/api/agents/generateJobSheet", async (c) => {
 
 const port = readServerPort(process.env.PORT);
 
+// Off Cloud Run the server stays on loopback when the demo runs or a launcher asks for it
+// (USTAAD_BIND_HOST, set by tools/run-local-live.mjs): a laptop run with production
+// settings must not be reachable from the rest of the network.
+const loopbackOnly = demoMode || (!isCloudRun && process.env.USTAAD_BIND_HOST === "127.0.0.1");
 serve({
   fetch: app.fetch,
-  ...(demoMode ? { hostname: "127.0.0.1" } : {}),
+  ...(loopbackOnly ? { hostname: "127.0.0.1" } : {}),
   port,
 }, () => {
   console.log(`Momentum production prep running at http://localhost:${port}`);
