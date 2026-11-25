@@ -44,7 +44,11 @@ const JOB = {
       paperSupplier: 'S1', inkColors: 1, inkCoveragePct: 10, quantity: 900, sourcePoNumber: 'PO-1' },
     conditions: { runDate: '2026-11-25', shift: 'DAY', ambientRhPct: 55, ambientTempC: 27, paperMoisturePct: 8.1, supervisorConfirmed: true, conditionSource: 'manual-entry' },
     baseline: { levers, risk: risk(70.2, { WARP: 2.1, DELAM: 1.9, STRENGTH: 0.8, PRINT: 1.2, CRACK: 0.6 }) },
-    recommended: { levers: { ...levers, rollTempC: 168, gumApplication: 'MED' }, risk: risk(61.5, { WARP: 1.7, DELAM: 1.6, STRENGTH: 0.8, PRINT: 1.2, CRACK: 0.6 }) },
+    recommended: { levers: { ...levers, rollTempC: 168, gumApplication: 'MED' }, risk: {
+      ...risk(61.5, { WARP: 1.7, DELAM: 1.6, STRENGTH: 0.8, PRINT: 1.2, CRACK: 0.6 }),
+      targetUse: Object.fromEntries(['WARP', 'DELAM', 'STRENGTH', 'PRINT', 'CRACK'].map(defect => [defect,
+        defect === 'CRACK' ? { useClass: 'advisory', reason: 'Little skill on the holdout.' } : { useClass: 'optimizer', reason: 'Counted.' }])),
+    } },
     changes: [{ lever: 'rollTempC', from: 160, to: 168, reason: 'r' }, { lever: 'gumApplication', from: 'HIGH', to: 'MED', reason: 'r' }],
     evidence: [], explanation: 'Stored text.', savings: { kg: 8.7, amount: 435, currency: 'INR' },
   },
@@ -56,6 +60,7 @@ const EXPLANATION = {
     { defect: 'WARP', predictedPct: 1.7, typicalPct: 1.5, driverRank: 2, driver: 'drying_hours', attributionPts: 0.033 },
     { defect: 'WARP', predictedPct: 1.7, typicalPct: 1.5, driverRank: 3, driver: 'gum_application', attributionPts: -0.104 },
     { defect: 'DELAM', predictedPct: 1.6, typicalPct: 1.4, driverRank: 1, driver: 'gum_viscosity_sec', attributionPts: 0.271 },
+    { defect: 'CRACK', predictedPct: 0.6, typicalPct: 0.5, driverRank: 1, driver: 'paper_moisture_pct', attributionPts: 0.044 },
   ],
   evidenceRefs: [],
 };
@@ -79,8 +84,10 @@ async function mockApi(page, overrides = {}) {
   });
   await page.route('**/impact/summary', route => route.fulfill(reply('impact', json(200, IMPACT))));
   await page.route('**/jobs/*', route => route.fulfill(reply('job', json(200, JOB))));
-  await page.route('**/risk/explanation', route => {
+  await page.route('**/risk/explanation', async route => {
     calls.explanation.push(route.request().postDataJSON());
+    // Held open so repeated clicks land while the first request is still in flight.
+    if (overrides.explanationDelayMs) await new Promise(resolve => setTimeout(resolve, overrides.explanationDelayMs));
     return route.fulfill(reply('explanation', json(200, EXPLANATION)));
   });
   return calls;
@@ -134,7 +141,7 @@ for (const theme of ['dark', 'light']) {
 
     const steps = page.getByRole('region', { name: 'Latest run steps' });
     await expect(steps).toContainText('900 boxes');
-    await expect(steps).toContainText('Humidity 55%');
+    await expect(steps.getByRole('listitem').nth(2)).toHaveText('Done: Conditions confirmedHumidity 55%');
     await expect(steps).toContainText('2 settings changed');
 
     await expect(page.getByRole('table', { name: 'Recent activity' })).toContainText('Lot TESTITEM1 planned · 900 units');
@@ -151,8 +158,10 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('region', { name: 'Lots scored' })).toContainText('120 with changed settings');
     await expect(page.getByRole('region', { name: 'Modeled scrap' })).toContainText('4.44%');
     await expect(page.getByRole('region', { name: 'Modeled scrap' })).toContainText('Down from 5.55%');
-    await expect(page.getByRole('region', { name: 'Modeled saving' })).toContainText('₹4,321a month');
-    await expect(page.getByRole('region', { name: 'Modeled saving' })).toContainText('Not a measured saving');
+    const saving = page.getByRole('region', { name: 'Modeled saving' });
+    await expect(saving).toContainText('₹4,321');
+    await expect(saving).toContainText('In one held-out month. Not a measured saving.');
+    await expect(saving).not.toContainText('a month');
     await expect(page.getByRole('region', { name: 'Board saved' })).toContainText('87kg');
     await expect(main.getByText('Model estimate', { exact: true })).toHaveCount(3);
 
@@ -162,7 +171,8 @@ for (const theme of ['dark', 'light']) {
 
     const fit = page.getByRole('region', { name: 'How well the five models hold up' });
     await expect(fit).toContainText('150 test lots, September 2026');
-    await expect(fit.getByRole('img')).toHaveAttribute('aria-label', /Warp 0\.41, Delamination 0\.52, Strength 0\.33, Print 0\.66, Crack −0\.06/);
+    await expect(fit.getByRole('list', { name: 'Fit score on held-out test lots' }).getByRole('listitem'))
+      .toHaveText(['Warp0.41', 'Delamination0.52', 'Strength0.33', 'Print0.66', 'Crack−0.06low confidence']);
     await expect(page.getByRole('region', { name: 'Reading this chart' })).toContainText('Crack is −0.06. Low confidence.');
 
     const settings = page.getByRole('region', { name: 'Two settings changed' });
@@ -267,14 +277,81 @@ test('the pause control stops the Insights animation and is announced', async ({
   await expect(page.locator('.in-mo')).toHaveClass(/paused/);
 });
 
+test('Home shows conditions as entered, not confirmed, when the record says so', async ({ page }) => {
+  const unconfirmed = structuredClone(JOB);
+  unconfirmed.jobSheet.conditions.supervisorConfirmed = false;
+  await mockApi(page, { job: json(200, unconfirmed) });
+  await open(page, '#/home');
+  const steps = page.getByRole('region', { name: 'Latest run steps' });
+  await expect(steps.getByRole('listitem').nth(2)).toHaveText('Not done: Conditions confirmedEntered, not confirmed');
+  await expect(page.locator('main').getByText('Humidity 55% entered. Paper moisture 8.1%.')).toBeVisible();
+});
+
+test('Home shows no figures from a job record that belongs to another lot', async ({ page }) => {
+  const other = structuredClone(JOB);
+  other.jobSheet.jobId = 'JOB-TEST-9999';
+  await mockApi(page, { job: json(200, other) });
+  await open(page, '#/home');
+  await expect(page.locator('main').getByText('Its scrap figures open in the demo session that planned it.')).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('70.2');
+  await expect(page.locator('main')).not.toContainText('Recycled 5-ply');
+  await expect(page.getByRole('region', { name: 'Latest run steps' }).getByRole('listitem').nth(2)).toHaveText('Not done: Conditions confirmedNot known here');
+});
+
+test('attribution labels a defect the stored plan marks advisory as low confidence', async ({ page }) => {
+  await mockApi(page);
+  await open(page, '#/insights');
+  const panel = page.getByRole('region', { name: 'What moved the estimate' });
+  await panel.getByRole('button', { name: 'Show what moved the estimate' }).click();
+  await expect(panel.getByTestId('attribution-value')).toHaveText(['+0.512', '+0.033', '−0.104']);
+  await expect(panel.getByTestId('attribution-confidence')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Crack' }).click();
+  await expect(panel.getByTestId('attribution-value')).toHaveText(['+0.044']);
+  await expect(panel.getByTestId('attribution-confidence')).toHaveText('Low confidence. Supervised use only.');
+});
+
+test('a double click on the explanation button sends one request', async ({ page }) => {
+  const calls = await mockApi(page, { explanationDelayMs: 600 });
+  await open(page, '#/insights');
+  const panel = page.getByRole('region', { name: 'What moved the estimate' });
+  await panel.getByRole('button', { name: 'Show what moved the estimate' }).dblclick();
+  await expect(panel.getByTestId('attribution-value')).toHaveText(['+0.512', '+0.033', '−0.104']);
+  expect(calls.explanation).toHaveLength(1);
+});
+
+test('three clicks in one task send one explanation request', async ({ page }) => {
+  const calls = await mockApi(page, { explanationDelayMs: 600 });
+  await open(page, '#/insights');
+  const button = page.getByRole('region', { name: 'What moved the estimate' }).getByRole('button', { name: 'Show what moved the estimate' });
+  await button.evaluate(element => { element.click(); element.click(); element.click(); });
+  await expect(page.getByTestId('attribution-value')).toHaveText(['+0.512', '+0.033', '−0.104']);
+  expect(calls.explanation).toHaveLength(1);
+});
+
+// 720 px wide is the 1440 px design at 200% zoom.
 for (const hash of ['#/home', '#/insights']) {
-  test(`${hash} does not scroll sideways at phone width or at 200% zoom`, async ({ page }) => {
+  test(`${hash} fits at phone width and at 200% zoom, with nothing scrolling sideways inside main`, async ({ page }) => {
     await mockApi(page);
     for (const width of [375, 720]) {
       await page.setViewportSize({ width, height: 812 });
+      await page.goto('about:blank');
       await page.goto('/app/' + hash);
       await expect(page.locator('main .cd').first()).toBeVisible();
+      await expect(page.locator('main').getByText(hash === '#/home' ? 'TESTITEM1' : '₹4,321').first()).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      // Text kept only for screen readers is clipped on purpose, and shapes inside an SVG are
+      // clipped by the SVG's own box, which is checked; both are left out.
+      const wide = await page.locator('main').evaluate((main, limit) => [main, ...main.querySelectorAll('*')]
+        .filter(element => !(element instanceof SVGElement && element.ownerSVGElement))
+        .filter(element => {
+          for (let node = element; node && node !== main.parentElement; node = node.parentElement) {
+            if (getComputedStyle(node).clip.startsWith('rect')) return false;
+          }
+          return true;
+        })
+        .filter(element => element.scrollWidth > element.clientWidth + 1 || element.getBoundingClientRect().right > limit + 1)
+        .map(element => `${element.tagName.toLowerCase()}.${element.getAttribute('class') ?? ''} ${element.scrollWidth}/${element.clientWidth}`), width);
+      expect(wide, `${hash} at ${width} px`).toEqual([]);
     }
   });
 }
