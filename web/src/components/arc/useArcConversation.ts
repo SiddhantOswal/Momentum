@@ -1,15 +1,26 @@
 import { useCallback, useRef, useState } from "react";
-import { arcWords, askArc, geminiCallsLeftToday, getArcSession, getTurn, newTurnId, type TurnInput, type TurnOutcome } from "../../lib/arc";
+import {
+  arcWords, askArc, geminiCallsLeftToday, getArcSession, getRun, getTurn, newTurnId, stepsFromEvents, stepsFromRun,
+  type ArcEvent, type ArcSession, type StepState, type TurnInput, type TurnOutcome,
+} from "../../lib/arc";
 
 export type Exchange = {
   id: string;
   asked: string;
+  /** What was sent, so a retry-safe failure can be sent again as a new turn. Null for past work. */
+  input: TurnInput | null;
   /** The latest step label the server sent while the turn runs (G1). */
   step: string | null;
+  /** Steps that started, from the stream or, for past work, from the run read. */
+  steps: StepState[];
+  taskRunId: string | null;
   outcome: TurnOutcome | null;
 };
 
 export type Connection = "unknown" | "connected" | "not_connected";
+
+/** The lot a screen is showing, for the "Working on" line above the message box. */
+export type WorkingOn = { label: string; stage: string };
 
 /**
  * Conversation state lives above the panel so closing and reopening Arc keeps the
@@ -18,19 +29,23 @@ export type Connection = "unknown" | "connected" | "not_connected";
 export function useArcConversation() {
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [connection, setConnection] = useState<Connection>("unknown");
+  const [session, setSession] = useState<ArcSession | null>(null);
   const [callsLeft, setCallsLeft] = useState<number | null>(null);
+  const [workingOn, setWorkingOn] = useState<WorkingOn | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
 
-  const update = (id: string, patch: Partial<Exchange>) =>
-    setExchanges((list) => list.map((exchange) => (exchange.id === id ? { ...exchange, ...patch } : exchange)));
+  const update = (id: string, patch: Partial<Exchange> | ((exchange: Exchange) => Partial<Exchange>)) =>
+    setExchanges((list) => list.map((exchange) => (exchange.id === id
+      ? { ...exchange, ...(typeof patch === "function" ? patch(exchange) : patch) } : exchange)));
 
   const refreshBudget = useCallback(() => { void geminiCallsLeftToday().then(setCallsLeft); }, []);
 
   // Checked each time the panel opens, never polled (contract section 7).
   const checkConnection = useCallback(async () => {
-    const session = await getArcSession();
-    setConnection(!session.ok && session.code === "ARC_NOT_ENABLED" ? "not_connected" : "connected");
+    const read = await getArcSession();
+    setConnection(!read.ok && read.code === "ARC_NOT_ENABLED" ? "not_connected" : "connected");
+    setSession(read.ok ? read.data : null);
     refreshBudget();
   }, [refreshBudget]);
 
@@ -39,9 +54,17 @@ export function useArcConversation() {
     busyRef.current = true;
     setBusy(true);
     const id = newTurnId();
-    setExchanges((list) => [...list, { id, asked, step: null, outcome: null }]);
+    const events: ArcEvent[] = [];
+    setExchanges((list) => [...list, { id, asked, input, step: null, steps: [], taskRunId: null, outcome: null }]);
+    const onEvent = (event: ArcEvent) => {
+      events.push(event);
+      const patch: Partial<Exchange> = { steps: stepsFromEvents(events) };
+      if (event.type === "step.started") patch.step = event.label;
+      if (event.type === "run.started") patch.taskRunId = event.taskRunId;
+      update(id, patch);
+    };
     try {
-      const outcome = await askArc(input, (step) => update(id, { step }), id);
+      const outcome = await askArc(input, onEvent, id);
       update(id, { outcome });
       if (outcome.kind === "not_connected") setConnection("not_connected");
     } catch {
@@ -53,20 +76,29 @@ export function useArcConversation() {
     }
   }, [refreshBudget]);
 
-  /** Shows a stored turn from past work, read again from the server. */
+  /** Shows a stored turn from past work, read again from the server, with its run's steps. */
   const showPast = useCallback(async (clientTurnId: string, asked: string) => {
     if (exchanges.some((exchange) => exchange.id === clientTurnId)) return;
-    setExchanges((list) => [...list, { id: clientTurnId, asked, step: null, outcome: null }]);
+    setExchanges((list) => [...list, { id: clientTurnId, asked, input: null, step: null, steps: [], taskRunId: null, outcome: null }]);
     const turn = await getTurn(clientTurnId);
     let outcome: TurnOutcome;
     if (!turn.ok) outcome = turn.code === "ARC_NOT_ENABLED" ? { kind: "not_connected" } : { kind: "error", code: turn.code, words: arcWords(turn.code) };
     else if (turn.data.status === "complete") outcome = { kind: "answer", turn: turn.data };
-    else if (turn.data.status === "failed") outcome = { kind: "stopped", code: turn.data.errorCode ?? "UNKNOWN", words: arcWords(turn.data.errorCode ?? "UNKNOWN") };
-    else outcome = { kind: "error", code: "IN_PROGRESS", words: arcWords("TURN_STILL_RUNNING") };
-    update(clientTurnId, { outcome });
+    else if (turn.data.status === "failed") {
+      const code = turn.data.errorCode ?? "UNKNOWN";
+      outcome = { kind: "stopped", code, words: arcWords(code), retrySafe: false };
+    } else outcome = { kind: "error", code: "IN_PROGRESS", words: arcWords("TURN_STILL_RUNNING") };
+    const taskRunId = turn.ok ? turn.data.taskRunId : null;
+    const run = taskRunId ? await getRun(taskRunId) : null;
+    update(clientTurnId, { outcome, taskRunId, steps: run?.ok ? stepsFromRun(run.data) : [] });
   }, [exchanges]);
 
-  return { exchanges, connection, callsLeft, busy, send, showPast, checkConnection };
+  /** A new turn with the same input; the server raises the step's attempt (contract section 6). */
+  const retry = useCallback((exchange: Exchange) => {
+    if (exchange.input) void send(exchange.input, exchange.asked);
+  }, [send]);
+
+  return { exchanges, connection, session, callsLeft, busy, workingOn, setWorkingOn, send, retry, showPast, checkConnection };
 }
 
 export type ArcConversation = ReturnType<typeof useArcConversation>;

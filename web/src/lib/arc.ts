@@ -198,9 +198,44 @@ const STOPPED = new Set(["step.failed", "step.blocked", "step.waiting_for_user",
 
 export type TurnOutcome =
   | { kind: "answer"; turn: TurnView }
-  | { kind: "stopped"; code: string; words: string }
+  /** `retrySafe` comes from the server's event; a step the server did not mark safe gets no Try again. */
+  | { kind: "stopped"; code: string; words: string; retrySafe: boolean }
   | { kind: "not_connected" }
   | { kind: "error"; code: string; words: string };
+
+/** One step as the screens need it, from the live events or from the run read. */
+export type StepState = {
+  stepId: string; tool: string; status: StepStatus; resultRef: ResultRef | null;
+  errorCode: string | null; retrySafe: boolean | null; waitingFor: WaitingFor | null;
+};
+
+const EVENT_STATUS: Partial<Record<ArcEvent["type"], StepStatus>> = {
+  "step.started": "RUNNING", "step.succeeded": "SUCCEEDED", "step.failed": "FAILED",
+  "step.blocked": "BLOCKED", "step.waiting_for_user": "WAITING_FOR_USER",
+};
+
+export function stepsFromEvents(events: ArcEvent[]): StepState[] {
+  const steps = new Map<string, StepState>();
+  for (const event of events) {
+    const status = EVENT_STATUS[event.type];
+    if (!status || !("stepId" in event)) continue;
+    const step: StepState = steps.get(event.stepId) ?? {
+      stepId: event.stepId, tool: event.tool, status, resultRef: null, errorCode: null, retrySafe: null, waitingFor: null,
+    };
+    step.status = status;
+    if (event.type === "step.succeeded") step.resultRef = event.resultRef;
+    if (event.type === "step.failed" || event.type === "step.blocked") { step.errorCode = event.errorCode; step.retrySafe = event.retrySafe; }
+    if (event.type === "step.waiting_for_user") step.waitingFor = event.waitingFor;
+    steps.set(event.stepId, step);
+  }
+  return [...steps.values()];
+}
+
+// PENDING and SKIPPED steps never started, so no screen is drawn for them (contract section 3.2).
+export function stepsFromRun(run: RunView): StepState[] {
+  return run.steps.filter((step) => step.status !== "PENDING" && step.status !== "SKIPPED")
+    .map(({ stepId, tool, status, resultRef, errorCode, retrySafe, waitingFor }) => ({ stepId, tool, status, resultRef, errorCode, retrySafe, waitingFor }));
+}
 
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -212,7 +247,7 @@ async function readAnswer(clientTurnId: string): Promise<TurnOutcome> {
     if (turn.data.status === "complete") return { kind: "answer", turn: turn.data };
     if (turn.data.status === "failed") {
       const code = turn.data.errorCode ?? "SERVICE_UNAVAILABLE";
-      return { kind: "stopped", code, words: arcWords(code) };
+      return { kind: "stopped", code, words: arcWords(code), retrySafe: false };
     }
     await pause(1000 * (attempt + 1));
   }
@@ -226,10 +261,11 @@ function failureOutcome(failure: ArcFailure): TurnOutcome {
 
 function stoppedOutcome(event: ArcEvent): TurnOutcome {
   switch (event.type) {
-    case "step.failed": case "run.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode) };
-    case "step.blocked": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode, event.retryAfterSeconds) };
-    case "step.waiting_for_user": return { kind: "stopped", code: event.waitingFor, words: WAITING_WORDS[event.waitingFor] };
-    case "stream.error": return { kind: "stopped", code: event.code, words: arcWords(event.code) };
+    case "step.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode), retrySafe: event.retrySafe };
+    case "run.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode), retrySafe: false };
+    case "step.blocked": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode, event.retryAfterSeconds), retrySafe: event.retrySafe };
+    case "step.waiting_for_user": return { kind: "stopped", code: event.waitingFor, words: WAITING_WORDS[event.waitingFor], retrySafe: false };
+    case "stream.error": return { kind: "stopped", code: event.code, words: arcWords(event.code), retrySafe: true };
     default: return { kind: "error", code: "UNKNOWN", words: arcWords("UNKNOWN") };
   }
 }
@@ -238,12 +274,11 @@ function stoppedOutcome(event: ArcEvent): TurnOutcome {
  * One turn from send to answer: post, follow the stream, then read the stored answer.
  * A stream that drops before a terminal event is posted again with the same clientTurnId,
  * which the server replays instead of running twice (contract sections 3.4 and 4.4).
+ * `onEvent` sees every event, so the caller can draw the step cards as they change.
  */
-export async function askArc(input: TurnInput, onStep: (label: string) => void, clientTurnId = newTurnId()): Promise<TurnOutcome> {
+export async function askArc(input: TurnInput, onEvent: (event: ArcEvent) => void, clientTurnId = newTurnId()): Promise<TurnOutcome> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const posted = await postTurn({ clientTurnId, input }, (event) => {
-      if (event.type === "step.started") onStep(event.label);
-    });
+    const posted = await postTurn({ clientTurnId, input }, onEvent);
     if (!posted.ok) {
       if (posted.code === "IN_PROGRESS") return readAnswer(clientTurnId);
       return failureOutcome(posted);
@@ -293,6 +328,14 @@ const WORDS: Record<string, string> = {
   GEMINI_CALL_REPLAYED: "This step was interrupted, and Arc stopped so it would not call Gemini twice. Nothing new was saved. Send your message again.",
   REVISION_SUPERSEDED: "This revision was replaced. Open the current revision to approve it.",
   REVISION_FINGERPRINT_MISMATCH: "This revision was replaced. Open the current revision to approve it.",
+  REVISION_NOT_REGISTERED: "This draft has no registered revision. Plan the lot again to approve it.",
+  REVIEW_CONFIRMATION_REQUIRED: "Tick the box to confirm you reviewed this card, then press Approve.",
+  MODEL_ACCEPTANCE_REQUIRED: "Approval is closed until the five models have their acceptance record.",
+  SUPERVISOR_AUTHORIZATION_REQUIRED: "This session cannot approve job cards.",
+  CONFIRMATION_REQUIRED: "Confirm the order and the conditions first.",
+  LOT_NOT_FOUND: "Arc has no lot to work on in this session. Use New Lot on the dashboard to prepare this lot.",
+  TOOL_RESULT_TOO_LARGE: "That result was too large for Arc to show. Ask for less at once.",
+  VALIDATION_ERROR: "Arc could not turn that into a step it can run. Rephrase it, or use the buttons.",
   APPROVAL_IN_PROGRESS: "This step is already running in another tab. Arc will show the result here.",
   IN_PROGRESS: "This step is already running in another tab. Arc will show the result here.",
   TURN_STILL_RUNNING: "Arc is still working on this message. Open past work in a moment to see the answer.",
@@ -335,3 +378,96 @@ export async function geminiCallsLeftToday(signal?: AbortSignal): Promise<number
   const counts = [budget.remaining.day, budget.remaining.session, budget.remaining.ip].filter((n): n is number => typeof n === "number");
   return counts.length ? Math.min(...counts) : null;
 }
+
+/*
+ * Records an answer points at. A reference block names a record and the client reads it with
+ * the dashboard route that already serves it (contract section 5.1), so Arc and the dashboard
+ * show the same stored job, lot and photo list. Field names mirror src/schemas.js and
+ * src/state-schemas.js.
+ */
+
+export type Defect = "WARP" | "DELAM" | "STRENGTH" | "PRINT" | "CRACK";
+export type LeverKey = "sfSpeedMpm" | "rollTempC" | "gumApplication" | "gumViscositySec" | "pastingPressure" | "dryingHours" | "printSpeedSpm";
+export type RiskView = {
+  ratesPct: Partial<Record<Defect, number>>; totalScrapPct?: number; totalScrapKg: number;
+  scrapCost: number; currency: string; primaryDefect: Defect;
+};
+export type StoredJob = {
+  jobId: string; createdAt: string; status: "DRAFT" | "APPROVED" | "RUN" | "CLOSED";
+  order: { orderId: string; itemCode: string; quantity: number; ply?: number; fluteProfile?: string; paperType?: string };
+  conditions: { runDate: string; shift: string; ambientRhPct: number; ambientTempC: number; paperMoisturePct: number; conditionSource?: string; supervisorConfirmed?: boolean };
+  baseline: { levers: Record<LeverKey, number | string>; risk: RiskView };
+  recommended: { levers: Record<LeverKey, number | string>; risk: RiskView };
+  changes: { lever: LeverKey; from: number | string; to: number | string; reason: string }[];
+  explanation: string;
+  savings: { kg: number; amount: number; currency: string };
+  approvedAt: string | null;
+  cardUri: string | null;
+  approvalAudit?: { authorizationMode?: string; decidedAt: string } | null;
+};
+export type RevisionStatus = "PENDING" | "CURRENT" | "SUPERSEDED" | "APPROVING" | "APPROVED" | "FAILED";
+/** Present only while lot revisions are on; without its fingerprint a draft cannot be approved. */
+export type RevisionBlock = { lotId: string; number: number; fingerprint: string | null; status: RevisionStatus };
+export type JobRecord = { jobSheet: StoredJob; revision?: RevisionBlock };
+
+export type DraftCondition = {
+  field: "ambientRhPct" | "ambientTempC" | "paperMoisturePct" | "runDate" | "shift";
+  value: number | string; unit: string; provenance: string; sourceDetail: string; label: string;
+  observedAt?: string; enteredByRole?: string; confirmed: boolean;
+};
+export type LotRecord = {
+  lot: { lotId: string; stage: LotStage; currentRevision: number; currentJobId: string | null; draftConditions: DraftCondition[]; updatedAt: string };
+  revision: null | {
+    jobId: string; number: number; status: RevisionStatus; fingerprint: string | null; supersededBy: string | null;
+    supersededReason: { field: string; from: number | string; to: number | string; provenance: string; byRole: string } | null;
+  };
+};
+
+export type ApprovedPhoto = { id: string; label: string };
+export type SettingsSummary = {
+  lots: number; avgRatePct: number; sfSpeedMpm: number; rollTempC: number; gumApplication: string;
+  gumViscositySec: number; pastingPressure: string; dryingHours: number; printSpeedSpm: number;
+};
+export type DefectHistory = {
+  defect: Defect; caseCount: number; avgRateWhenMain: number; costWhenMain: number;
+  goodRuns: SettingsSummary | null; badRuns: SettingsSummary | null;
+};
+
+async function arcSend<T>(path: string, body: unknown): Promise<ArcResult<T>> {
+  const response = await arcFetch(path, {
+    method: "POST", body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+  });
+  if (!(response instanceof Response)) return response;
+  if (!response.ok) return failureFrom(response);
+  const parsed = await response.json().catch(() => undefined);
+  return parsed?.ok === true ? { ok: true, data: parsed as T } : { ok: false, status: response.status, code: "INVALID_RESPONSE", message: "Unexpected response." };
+}
+
+export const getJobRecord = (jobId: string, signal?: AbortSignal) =>
+  arcGet<JobRecord>(`/jobs/${encodeURIComponent(jobId)}`, signal);
+
+export const getLotRecord = (lotId: string, signal?: AbortSignal) =>
+  arcGet<LotRecord>(`/lots/${encodeURIComponent(lotId)}`, signal);
+
+export const jobCardPdfPath = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/card.pdf`;
+
+/**
+ * The approval request. Approval stays a human step (CLAUDE.md section 4): the only caller is
+ * the Approve button on the approval card, after the reviewer ticks its box. The server's
+ * guard needs both fields and rejects a fingerprint that is not the current revision's.
+ */
+export function approveJobCard(jobId: string, revisionFingerprint: string) {
+  return arcSend<{ jobSheet: StoredJob; cardUri?: string }>(`/jobs/${encodeURIComponent(jobId)}/approve`, {
+    reviewConfirmed: true, revisionFingerprint,
+  });
+}
+
+export async function listApprovedPhotos(signal?: AbortSignal): Promise<ArcResult<ApprovedPhoto[]>> {
+  const result = await arcGet<{ photos: ApprovedPhoto[] }>("/evidence/approved-photos", signal);
+  return result.ok ? { ok: true, data: result.data.photos } : result;
+}
+
+/** The findSeenBefore command the search_defect_history tool runs, read through its dashboard route with no Gemini call. */
+export const searchDefectHistory = (request: { defect: Defect; ambientRhPct: number }) =>
+  arcSend<DefectHistory>("/evidence/seen-before", request);
