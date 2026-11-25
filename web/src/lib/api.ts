@@ -1,5 +1,5 @@
 // Thin client for the Momentum backend. Every call returns either data or a plain error message.
-export type Result<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
+export type Result<T> = { ok: true; data: T } | { ok: false; error: string; status?: number; code?: string };
 
 // Opens a session before protected calls. Google sign-in replaces the demo session once
 // Firebase Auth is configured; until then the server's signed session cookie is used.
@@ -30,7 +30,7 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
     }
     const body = await response.json().catch(() => undefined);
     if (!response.ok || body?.ok === false) {
-      return { ok: false, status: response.status, error: body?.error?.message ?? `Request failed (${response.status})` };
+      return { ok: false, status: response.status, code: body?.error?.code, error: body?.error?.message ?? `Request failed (${response.status})` };
     }
     return { ok: true, data: body as T };
   } catch {
