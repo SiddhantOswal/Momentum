@@ -80,23 +80,27 @@ for (const theme of ['dark', 'light']) {
 test('/app follows system changes until a choice, then switches in place and remembers it', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.goto('/app/#/defects');
+  await page.goto('/app/#/insights');
 
   const root = page.locator('html');
-  const heading = page.getByRole('heading', { name: 'Defects', exact: true });
+  const heading = page.getByRole('heading', { name: 'Insights', exact: true, level: 1 });
   await expect(heading).toBeVisible();
   await expect(root).toHaveCSS('color-scheme', 'light');
-  await expect(page.getByRole('button', { name: 'Switch to dark theme' })).toBeVisible();
+  // At phone width the sidebar, and its theme switch, sit behind the Menu button.
+  await page.getByRole('button', { name: 'Menu' }).click();
+  const toggle = page.getByRole('button', { name: 'Light theme' });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
 
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(root).toHaveCSS('color-scheme', 'dark');
-  const toggle = page.getByRole('button', { name: 'Switch to light theme' });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   await toggle.focus();
   await toggle.press('Space');
   await expect(root).toHaveCSS('color-scheme', 'light');
-  await expect(page.getByRole('button', { name: 'Switch to dark theme' })).toBeFocused();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(toggle).toBeFocused();
   await expect(heading).toBeVisible();
-  await expect(page).toHaveURL(/#\/defects$/);
+  await expect(page).toHaveURL(/#\/insights$/);
 
   await page.emulateMedia({ colorScheme: 'light' });
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -106,10 +110,10 @@ test('/app follows system changes until a choice, then switches in place and rem
 });
 
 test('/app matches the approved title styles and numeric arrow font', async ({ page }) => {
-  await page.goto('/app/#/floor');
+  await page.goto('/app/#/home');
 
-  const pageTitle = page.getByRole('heading', { level: 1, name: 'Floor' });
-  const cardTitle = page.getByRole('heading', { level: 2, name: /Scrap rate by month/ });
+  const pageTitle = page.getByRole('heading', { level: 1, name: 'Home' });
+  const cardTitle = page.getByRole('heading', { level: 2, name: 'Home' });
   const displayFont = 'Inter, sans-serif';
   const titleStyles = {
     fontFamily: displayFont,
@@ -173,15 +177,16 @@ test('/app loads and switches theme when localStorage access throws', async ({ p
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.goto('/app/#/defects');
+  await page.goto('/app/#/insights');
 
   const root = page.locator('html');
-  await expect(page.getByRole('heading', { name: 'Defects', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Insights', exact: true, level: 1 })).toBeVisible();
   await expect(root).toHaveAttribute('data-theme', 'light');
   await expect(root).toHaveCSS('color-scheme', 'light');
 
-  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  const toggle = page.getByRole('button', { name: 'Light theme' });
+  await toggle.click();
   await expect(root).toHaveCSS('color-scheme', 'dark');
-  await expect(page.getByRole('button', { name: 'Switch to light theme' })).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   expect(errors).toEqual([]);
 });

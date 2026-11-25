@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('all four direction arrows use the bundled Inter face', async ({ page }) => {
-  await page.goto('/app/#/floor');
+  await page.goto('/app/#/home');
   const arrows = ['←', '↑', '→', '↓'];
   await page.locator('main').evaluate((main, characters) => {
     characters.forEach((character, index) => {
