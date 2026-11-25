@@ -1,0 +1,149 @@
+/*
+ * Styles the New Lot designs define for their own pages (NewLot-*.html), with the same class
+ * names. Scoped under .nl so they cannot reach other pages.
+ */
+
+/* lot identity bar */
+.m .nl .ids { display: flex; align-items: center; height: 56px; border: 1px solid var(--ln); border-radius: 12px; background: var(--cd); margin-bottom: 16px; padding: 0 4px; }
+.m .nl .ids > div { padding: 0 18px; border-left: 1px solid var(--ln); min-width: 0; }
+.m .nl .ids > div:first-child { border-left: 0; }
+.m .nl .ids small { display: block; font-size: 12px; color: var(--dim); line-height: 14px; }
+.m .nl .ids b { display: block; font: 600 16px/20px var(--arc-font-display); white-space: nowrap; }
+.m .nl .ids .nx { margin-left: auto; }
+
+/* check items and confirmations */
+.m .nl .ci { display: flex; align-items: center; gap: 12px; }
+.m .nl .ci > svg { width: 20px; height: 20px; flex: none; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.m .nl .ci.ok > svg { stroke: var(--ok); }
+.m .nl .ci.wn > svg { stroke: var(--wn); }
+.m .nl .ck { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; line-height: 1.4; cursor: pointer; }
+.m .nl .ck input { appearance: none; flex: none; width: 20px; height: 20px; margin: 1px 0 0; border-radius: 6px; border: 1.5px solid var(--ln2); background: transparent; display: grid; place-content: center; cursor: pointer; }
+.m .nl .ck input:checked { background: var(--tx); border-color: var(--tx); }
+.m .nl .ck input:checked::after { content: ""; width: 10px; height: 6px; border: solid var(--inv); border-width: 0 0 2.4px 2.4px; transform: translateY(-1px) rotate(-45deg); }
+.m .nl .ck input:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.m .nl .ck input:disabled { opacity: .45; cursor: default; }
+
+/* form rows and fields */
+.m .nl .fr { display: grid; grid-template-columns: 1fr 190px; align-items: center; column-gap: 16px; min-height: 56px; border-top: 1px solid var(--ln); }
+.m .nl .fr:first-of-type { border-top: 0; }
+.m .nl .fr > * { min-width: 0; }
+.m .nl .fr .nm { font-size: 16px; font-weight: 600; }
+.m .nl .fr .sr { font-size: 13px; color: var(--mu); }
+.m .nl .fld { position: relative; height: 44px; border: 1px solid var(--ln2); border-radius: 10px; background: var(--bg); display: flex; align-items: center; padding: 0 14px; gap: 8px; }
+.m .nl .fld:focus-within { border-color: var(--ac); box-shadow: 0 0 0 1px var(--ac); }
+.m .nl .fld.rq { border-color: rgba(227,163,64,.65); }
+.m .nl .fld.bad { border-color: var(--bd); }
+.m .nl .fld input, .m .nl .fld select { flex: 1; width: 0; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--tx); font: 600 18px var(--arc-font-display); font-variant-numeric: tabular-nums; padding: 0; appearance: none; }
+.m .nl .fld input::placeholder { color: var(--dim); opacity: 1; font: 500 16px var(--arc-font-body); }
+.m .nl .fld select:invalid { color: var(--dim); font: 500 16px var(--arc-font-body); }
+.m .nl .fld select option { color: var(--tx); background: var(--cd); }
+.m .nl .fld input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.6); }
+.m .nl .fld small { flex: none; font: 500 14px var(--arc-font-body); color: var(--mu); }
+.m .nl .lgd { width: 28px; height: 16px; border: 1.5px solid var(--wn); border-radius: 6px; flex: none; }
+
+/* order context inputs on the Purchase order card */
+.m .nl .ctx { display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 10px; margin-top: 14px; }
+.m .nl .ctx label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--mu); }
+.m .nl .ctx .fld input, .m .nl .ctx .fld select { font-size: 15px; }
+
+/* the dashed file row */
+.m .nl .file { border: 1.5px dashed var(--ln2); border-radius: 12px; min-height: 56px; display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--bg); }
+.m .nl .file svg { width: 24px; height: 24px; flex: none; fill: none; stroke: var(--mu); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.m .nl .file b { font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* "What we read from the order" rows */
+.m .nl .rd { display: grid; grid-template-columns: 112px 1fr auto; align-items: center; column-gap: 14px; min-height: 58px; border-top: 1px solid var(--ln); padding: 4px 0; }
+.m .nl .rd .k { font-size: 13.5px; color: var(--mu); }
+.m .nl .rd .v { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.m .nl .rd .w { font-size: 12.5px; color: var(--mu); }
+.m .nl .rd .w .lk { font-size: 12.5px; }
+.m .nl .rd .ed { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.m .nl .rd .ed .fld { height: 36px; width: 150px; }
+.m .nl .rd .ed .fld input { font-size: 15px; }
+
+/* the order excerpt on the Source card */
+.m .nl .po { background: #D7C39A; color: #1F1810; border-radius: 10px; padding: 20px 22px; min-height: 318px; display: flex; flex-direction: column; }
+.m .nl .po .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.m .nl .po .hd b { font: 700 15px var(--arc-font-display); letter-spacing: .06em; }
+.m .nl .po .row { display: grid; grid-template-columns: 44px 110px 1fr 90px; gap: 8px; align-items: center; }
+.m .nl .po .row.h { margin-top: 18px; font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid rgba(27,23,18,.35); padding-bottom: 6px; }
+.m .nl .po .row.l { margin-top: 8px; padding: 8px 6px; margin-left: -6px; margin-right: -6px; font-size: 14px; border: 2px solid transparent; border-radius: 6px; }
+.m .nl .po .row.l.on { border-color: #C4442F; background: rgba(196,68,47,.08); font-weight: 600; }
+.m .nl .po .row span:last-child { text-align: right; }
+.m .nl .po .ft { margin-top: auto; padding-top: 16px; font-size: 12.5px; color: rgba(27,23,18,.72); }
+
+/* status rows (Approve, Recovery, Stale) */
+.m .nl .st { display: flex; align-items: center; gap: 12px; height: 42px; border-top: 1px solid var(--ln); }
+.m .nl .st > div { flex: 1; font-size: 15px; font-weight: 600; min-width: 0; }
+.m .nl .st > div.off { color: var(--mu); }
+.m .nl .st .lb { font-size: 13px; }
+
+/* the nine stages on the card */
+.m .nl .route { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; margin-top: 10px; }
+.m .nl .route div { border-top: 2px solid var(--ln2); padding-top: 8px; font-size: 12.5px; line-height: 1.25; color: var(--mu); }
+.m .nl .route div.on { border-top-color: var(--ac); }
+
+/* model trust bars */
+.m .nl .tr2 { position: relative; height: 6px; border-radius: 4px; background: var(--ln2); }
+.m .nl .tr2 i { position: absolute; left: 0; top: 0; height: 6px; border-radius: 4px; display: block; }
+
+/* toasts */
+.m .nl .tsts { position: fixed; right: 24px; top: 68px; width: 400px; max-width: calc(100vw - 48px); display: flex; flex-direction: column; gap: 10px; z-index: 30; pointer-events: none; }
+.m .nl .tst { display: flex; pointer-events: auto; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--cd); border: 1px solid var(--ln2); border-left-width: 4px; box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: nl-tin .35s ease-out both; }
+:root[data-theme="light"] .m .nl .tst { box-shadow: 0 12px 28px -12px rgba(20,24,28,.35); }
+.m .nl .tst.ok { border-left-color: var(--ok); } .m .nl .tst.wn { border-left-color: var(--wn); } .m .nl .tst.bd { border-left-color: var(--bd); }
+.m .nl .tst > svg { width: 22px; height: 22px; flex: none; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.m .nl .tst.ok > svg { stroke: var(--ok); } .m .nl .tst.wn > svg { stroke: var(--wn); } .m .nl .tst.bd > svg { stroke: var(--bd); }
+.m .nl .tst div { flex: 1; min-width: 0; }
+.m .nl .tst b { display: block; font: 600 16px/22px var(--arc-font-display); }
+.m .nl .tst span { display: block; font-size: 14px; line-height: 20px; color: var(--mu); }
+.m .nl .tst .x { flex: none; width: 32px; height: 32px; border: 0; border-radius: 10px; background: transparent; color: var(--mu); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.m .nl .tst .x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.m .nl .tst .x:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+@keyframes nl-tin { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+
+.m .nl .chp:focus-visible, .m .nl .fld select:focus-visible { outline: 2px solid var(--ac); outline-offset: 3px; }
+.m .nl .chp:disabled { opacity: .45; cursor: default; }
+.m .nl .busy { font-size: 15px; color: var(--mu); }
+/* Positioned so a visually hidden header row stays inside its table. */
+.m .nl .rt { position: relative; }
+.m .nl .err { margin: 12px 0 0; font-size: 14px; line-height: 1.45; color: var(--bd); }
+
+@media (max-width: 1023px) {
+  .m .nl .ids { height: auto; flex-wrap: wrap; padding: 8px 4px; row-gap: 8px; }
+  .m .nl .ids .nx { margin-left: 0; }
+  .m .nl .fr { grid-template-columns: 1fr minmax(150px, 190px); }
+  .m .nl .ctx { grid-template-columns: 1fr; }
+  .m .nl .route { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 10px; }
+  .m .nl .tsts { top: auto; bottom: 16px; right: 16px; }
+  .m .nl .bar { flex-wrap: wrap; }
+  .m .nl .bar > * { white-space: normal; }
+}
+@media (max-width: 767px) {
+  .m .nl .ct { flex-wrap: wrap; }
+  .m .nl .mt, .m .nl .sx, .m .nl .bt { white-space: normal; }
+  .m .nl .bt { height: auto; min-height: 44px; padding-top: 8px; padding-bottom: 8px; text-align: center; }
+  .m .nl .fr { grid-template-columns: 1fr; row-gap: 6px; padding: 8px 0; }
+  .m .nl .rd { grid-template-columns: 1fr; row-gap: 4px; }
+  .m .nl .po .row { grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr) 64px; }
+  .m .nl .po .row > * { min-width: 0; overflow-wrap: anywhere; }
+  .m .nl .file b { white-space: normal; overflow-wrap: anywhere; }
+
+  /* Tables become stacked rows: the setting on its own line, then its values. The header row
+     stays for screen readers only. Row templates are set inline, hence !important. */
+  .m .nl .rt .tb.h { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; white-space: nowrap; }
+  .m .nl .rt .tb { column-gap: 10px; row-gap: 4px; padding: 10px 0; min-height: 0 !important; height: auto !important; }
+  .m .nl .rt .tb > * { min-width: 0; white-space: normal; }
+  .m .nl .rt .tb > :first-child { grid-column: 1 / -1; }
+  .m .nl .rt.chg .tb { grid-template-columns: auto auto minmax(0, 1fr) !important; }
+  .m .nl .rt.chg .tb > :nth-child(3)::before { content: "\2192\00a0"; color: var(--mu); font-weight: 500; }
+  .m .nl .rt.card .tb { grid-template-columns: auto minmax(0, 1fr) auto !important; }
+  .m .nl .rt.trust .tb { grid-template-columns: minmax(0, 1fr) auto !important; }
+  .m .nl .rt.trust .tb > :first-child { grid-column: 1; grid-row: 1; }
+  .m .nl .rt.trust .tb > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .m .nl .rt.trust .tb > :nth-child(3) { grid-column: 2; grid-row: 1; }
+  .m .nl .rt.trust .tb > :nth-child(4) { grid-column: 1 / -1; grid-row: 3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .m .nl .tst { animation: none; }
+}
