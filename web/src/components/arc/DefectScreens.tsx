@@ -105,10 +105,14 @@ function HistoryResult({ result, defectName, humidity }: { result: DefectHistory
       </div>
       {goodRuns && badRuns && (
         <div role="table" aria-label="Average settings in the best and worst quarter of lots" style={{ marginTop: 14 }}>
+          <div className="lb" style={{ fontSize: 14, marginBottom: 6 }}>
+            {/* seen_before.sql: the lowest-rate and highest-rate quarters of every lot in the humidity band. */}
+            Average settings of the {formatNumber(goodRuns.lots)} lots with the lowest {defectName} rate and the {formatNumber(badRuns.lots)} with the highest, near {humidity}% humidity.
+          </div>
           <div role="row" className="tb h" style={{ gridTemplateColumns: "1fr 96px 96px" }}>
             <span role="columnheader" className="th">Setting</span>
-            <span role="columnheader" className="th" style={{ textAlign: "right" }}>Best {formatNumber(goodRuns.lots)}</span>
-            <span role="columnheader" className="th" style={{ textAlign: "right" }}>Worst {formatNumber(badRuns.lots)}</span>
+            <span role="columnheader" className="th" style={{ textAlign: "right" }}>Lowest</span>
+            <span role="columnheader" className="th" style={{ textAlign: "right" }}>Highest</span>
           </div>
           {SETTINGS.map(({ key, name, unit }) => (
             <div key={key} role="row" className="tb" style={{ gridTemplateColumns: "1fr 96px 96px", minHeight: 44 }}>

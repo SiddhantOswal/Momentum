@@ -486,7 +486,8 @@ for (const theme of ['dark', 'light']) {
       await expect(results.locator('.n').first()).toHaveText('23lots');
       await expect(results.getByText('Modeled records', { exact: true })).toBeVisible();
       await expect(results).toContainText('Warp was the main problem near 60% humidity, at 2.41% of the lot on average.');
-      await expect(results.getByRole('columnheader', { name: 'Best 12' })).toBeVisible();
+      await expect(results.getByText('Average settings of the 12 lots with the lowest Warp rate and the 11 with the highest, near 60% humidity.')).toBeVisible();
+      await expect(results.getByRole('columnheader')).toHaveText(['Setting', 'Lowest', 'Highest']);
       await panel.getByLabel('Defect', { exact: true }).selectOption('CRACK');
       await search.click();
       await expect(panel.getByText('No matching lots')).toBeVisible();
