@@ -24,6 +24,12 @@ export const SAMPLE_DOCUMENTS = Object.freeze({
   PO5: "PO5_ClientB_scanned.jpg",
 });
 
+// The order context New Lot sends with each sample (web/src/pages/newlot/store.ts). Arc reads the
+// sample with the same context, so both routes reach the same review and the same job identity.
+export const SAMPLE_ORDER_CONTEXT = Object.freeze({
+  PO1: Object.freeze({ orderId: "TEST-CLA/PO/2026/1047", paperType: "RECYCLED", paperSupplier: "SUP-D" }),
+});
+
 export function isSampleDocument(filename) {
   return Object.values(SAMPLE_DOCUMENTS).includes(filename);
 }

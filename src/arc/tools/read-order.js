@@ -1,8 +1,7 @@
-import { File } from "node:buffer";
-import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { readOrder } from "../../commands/read-order.js";
-import { SAMPLE_DOCUMENTS } from "../../synthetic-po-allowlist.js";
+import { SAMPLE_ORDER_CONTEXT } from "../../synthetic-po-allowlist.js";
+import { readSampleFile, reviewIdForEffect } from "../lot-flow.js";
 import { needWriteEffect, unavailable } from "./policy.js";
 
 export const readOrderTool = {
@@ -12,15 +11,12 @@ export const readOrderTool = {
   precondition: needWriteEffect,
   effectScope: "po_review",
   spendsGemini: true,
-  async execute({ sampleId }, { deps }) {
-    const filename = SAMPLE_DOCUMENTS[sampleId];
-    const bytes = await readFile(new URL(`../../../public/samples/${filename}`, import.meta.url), { signal: deps.signal })
-      .catch((error) => {
-        if (error.name === "AbortError") throw error;
-        return null;
-      });
-    if (!bytes) return unavailable("The approved sample could not be opened.");
-    const file = new File([bytes], filename, { type: filename.endsWith(".pdf") ? "application/pdf" : "image/jpeg" });
-    return readOrder({ fields: { file } }, deps);
+  async execute({ sampleId }, { deps, principal, key }) {
+    const file = await readSampleFile(sampleId, deps.signal);
+    if (!file) return unavailable("The approved sample could not be opened.");
+    return readOrder({
+      fields: { file, ...SAMPLE_ORDER_CONTEXT[sampleId] },
+      reviewId: reviewIdForEffect(principal.sessionId, key),
+    }, deps);
   },
 };
