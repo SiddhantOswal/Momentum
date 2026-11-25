@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 // In development, API calls are proxied to the local backend, or to MOMENTUM_BACKEND when set
 // (read-only previews against the live service).
 const backend = process.env.MOMENTUM_BACKEND ?? "http://127.0.0.1:4173";
-const apiPaths = ["/api", "/health", "/impact", "/conditions", "/jobs", "/orders", "/risk", "/evidence", "/insights", "/fx", "/job-sheets", "/samples"];
+const apiPaths = ["/api", "/health", "/impact", "/conditions", "/jobs", "/orders", "/risk", "/evidence", "/insights", "/fx", "/job-sheets", "/samples", "/lots"];
 
 export default defineConfig({
   base: "/app/",
