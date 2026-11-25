@@ -8,7 +8,8 @@ const json = (status, body) => ({ status, contentType: 'application/json', body:
 const NOT_ENABLED = json(404, { ok: false, error: { code: 'ARC_NOT_ENABLED', message: 'Arc is not enabled on this deployment.' } });
 
 const JOB_ID = 'JOB-HACK-0123456789abcdef0123456789abcdef-0123456789abcdef0123456789abcdef01234567';
-const RUN_ID = '3f0c8a52-6a0e-4b8e-9d39-0c4a1d2e7b10';
+const OTHER_JOB = 'JOB-HACK-0123456789abcdef0123456789abcdef-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+const RUN_ID ='3f0c8a52-6a0e-4b8e-9d39-0c4a1d2e7b10';
 const LEVERS = { sfSpeedMpm: 48, rollTempC: 162, gumApplication: 'HIGH', gumViscositySec: 32, pastingPressure: 'MED', dryingHours: 5, printSpeedSpm: 60 };
 const RECOMMENDED = { ...LEVERS, rollTempC: 170, gumApplication: 'MED', gumViscositySec: 45 };
 const TARGET_USE = {
@@ -108,14 +109,16 @@ for (const theme of ['dark', 'light']) {
       await expect(page.locator('main')).not.toContainText(/8,640|\+0\.078|Only Print passes|synthetic/i);
     });
 
-    test('Held renders from a lot head on hold, with the toast', async ({ page }) => {
+    test('Held at the catalog match renders only for a held lot with no job, with the toast', async ({ page }) => {
       await mockBackend(page, {
         '/lots/LOT-HELD-1': json(200, { ok: true, lot: { lotId: 'LOT-HELD-1', stage: 'held', currentRevision: 0, currentJobId: null }, revision: null }),
       });
       await open(page, '/app/?lot=LOT-HELD-1#/prep-flow', { theme });
       await expect(page.getByText('Held. Nothing runs after the unclear order.')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Held at the catalog match' })).toBeVisible();
-      expect(await stepStates(page)).toEqual(['done', 'held', 'idle', 'idle', 'idle', 'idle', 'idle', 'idle', 'idle']);
+      // No returned field proves the order was read, so step 1 is not shown done.
+      expect(await stepStates(page)).toEqual(['nc', 'held', 'idle', 'idle', 'idle', 'idle', 'idle', 'idle', 'idle']);
+      await expect(page.locator('main')).not.toContainText('what was read from it');
       await expect(page.getByRole('heading', { name: 'Ways out of a hold' })).toBeVisible();
       const toast = page.getByRole('alert').filter({ hasText: 'Order is unclear' });
       await expect(toast).toBeVisible();
@@ -147,6 +150,53 @@ test('an approved job shows every step done, the job record only because a card 
   await open(page, `/app/?job=${JOB_ID}#/prep-flow`);
   expect(await stepStates(page)).toEqual(Array(9).fill('done'));
   await expect(page.getByRole('link', { name: 'Open on the operator\'s phone' })).toHaveAttribute('href', `?job=${JOB_ID}#/operator`);
+});
+
+test('a held lot that has a job shows the stored steps and does not say where the hold is', async ({ page }) => {
+  await mockBackend(page, {
+    '/lots/LOT-1': json(200, { ok: true, lot: { lotId: 'LOT-1', stage: 'held', currentRevision: 1, currentJobId: JOB_ID }, revision: { jobId: JOB_ID, number: 1, status: 'CURRENT' } }),
+    [`/jobs/${JOB_ID}`]: json(200, { ok: true, jobSheet: storedJob('DRAFT'), revision: { lotId: 'LOT-1', number: 1, fingerprint: 'f', status: 'CURRENT' } }),
+  });
+  await open(page, '/app/?lot=LOT-1#/prep-flow');
+  await expect(page.getByText('Held. The lot record does not say at which step.')).toBeVisible();
+  expect(await stepStates(page)).toEqual(['done', 'done', 'done', 'done', 'done', 'done', 'nc', 'nc', 'nc']);
+  await expect(page.getByRole('heading', { name: 'Held at the catalog match' })).toHaveCount(0);
+  await expect(page.locator('li[data-state="held"], li[data-state="idle"], li[data-state="now"]')).toHaveCount(0);
+  await expect(page.locator('main')).not.toContainText(/Not reached|Nothing has run yet|Approve, then store PDF/);
+});
+
+for (const [status, nowAt] of [['SUPERSEDED', 'Replaced, read only'], ['FAILED', 'Not current']]) {
+  test(`a draft whose revision is ${status} is not offered for review or approval`, async ({ page }) => {
+    await mockBackend(page, {
+      [`/jobs/${JOB_ID}`]: json(200, { ok: true, jobSheet: storedJob('DRAFT'), revision: { lotId: 'LOT-1', number: 1, fingerprint: 'f', status } }),
+    });
+    await open(page, `/app/?job=${JOB_ID}#/prep-flow`);
+    expect(await stepStates(page)).toEqual(['done', 'done', 'done', 'done', 'done', 'done', 'nc', 'nc', 'nc']);
+    await expect(page.getByLabel('Lot status')).toContainText(nowAt);
+    await expect(page.locator('main')).not.toContainText(/Needs a person|Needs you|Approve, then store PDF|Waiting on you/);
+    await expect(page.getByRole('link', { name: 'Open this step in New Lot' })).toHaveCount(0);
+  });
+}
+
+for (const [status, message] of [[404, 'No lot has this ID'], [403, 'This lot belongs to another demo session']]) {
+  test(`a named lot that reads as ${status} says what failed`, async ({ page }) => {
+    await mockBackend(page, { '/lots/LOT-X': json(status, { ok: false, error: { code: 'X', message: 'x' } }) });
+    await open(page, '/app/?lot=LOT-X#/prep-flow');
+    await expect(page.getByText(message)).toBeVisible();
+    await expect(page.getByText('No lot has been planned yet.')).toHaveCount(0);
+    expect(await stepStates(page)).toEqual(Array(9).fill('nc'));
+  });
+}
+
+test('Prep Flow reads at most five jobs when the newest lots belong to other sessions', async ({ page }) => {
+  const others = Array.from({ length: 12 }, (_, index) => ({ ...liveLot('planned'), lotId: `L${index}`, jobId: `JOB-OTHER-${index}` }));
+  const requests = await mockBackend(page, {
+    '/api/lots': json(200, { ok: true, mode: 'firestore', lots: others, events: [] }),
+    '/jobs/*': json(403, { ok: false, error: { code: 'DEMO_SCOPE_REQUIRED', message: 'x' } }),
+  });
+  await open(page, '/app/#/prep-flow');
+  await expect(page.getByText('The newest lots belong to other demo sessions.')).toBeVisible();
+  expect(requests.filter((request) => new URL(request.url).pathname.startsWith('/jobs/'))).toHaveLength(5);
 });
 
 test('an approved job with no stored card leaves the job record not connected', async ({ page }) => {
@@ -215,15 +265,37 @@ test('Planning has no horizontal scroll at phone width', async ({ page }) => {
   await open(page, '/app/#/planning', { width: 375, height: 812 });
   await expect(page.getByRole('heading', { name: 'Planning', level: 1 })).toBeVisible();
   await noHorizontalScroll(page);
+  // The week view stacks instead of scrolling inside its card.
+  const week = page.locator('.wk');
+  const { scroll, client } = await week.evaluate((node) => ({ scroll: node.scrollWidth, client: node.clientWidth }));
+  expect(scroll).toBeLessThanOrEqual(client);
+  expect(await week.evaluate((node) => getComputedStyle(node).overflowX)).toBe('visible');
+  await expect(page.locator('.wx')).toContainText('PKBX0041');
 });
 
-const operatorRoutes = (status = 'APPROVED', revision) => ({
+const APPROVED_REVISION = { lotId: 'LOT-1', number: 1, fingerprint: 'f', status: 'APPROVED' };
+const headOf = (currentJobId) => json(200, { ok: true, lot: { lotId: 'LOT-1', stage: 'approved', currentRevision: 1, currentJobId }, revision: null });
+const operatorRoutes = (status = 'APPROVED', revision, head) => ({
   [`/jobs/${JOB_ID}`]: json(200, { ok: true, jobSheet: storedJob(status), ...(revision ? { revision } : {}) }),
+  ...(head ? { '/lots/LOT-1': head } : {}),
 });
+
+for (const [name, head, expected] of [
+  ['the lot head names this job', headOf(JOB_ID), 'Approved, latest revision'],
+  ['the lot head names a newer job', headOf(OTHER_JOB), 'Approved, not the latest revision'],
+  ['the lot head cannot be read', undefined, 'Approved'],
+]) {
+  test(`the operator card claims "latest" only when proven: ${name}`, async ({ page }) => {
+    await mockBackend(page, operatorRoutes('APPROVED', APPROVED_REVISION, head));
+    await open(page, `/app/?job=${JOB_ID}#/operator`, { width: 375, height: 812 });
+    const status = page.getByRole('region', { name: 'Approved job card' }).locator('.sx').first();
+    await expect(status).toHaveText(expected);
+  });
+}
 
 for (const theme of ['dark', 'light']) {
   test(`the operator card renders at 375 px in the ${theme} theme with no horizontal scroll`, async ({ page }) => {
-    await mockBackend(page, operatorRoutes('APPROVED', { lotId: 'LOT-1', number: 1, fingerprint: 'f', status: 'APPROVED' }));
+    await mockBackend(page, operatorRoutes('APPROVED', APPROVED_REVISION, headOf(JOB_ID)));
     await open(page, `/app/?job=${JOB_ID}#/operator`, { theme, width: 375, height: 812 });
     const card = page.getByRole('region', { name: 'Approved job card' });
     await expect(card.getByRole('heading', { name: 'PKBX0041, Rev 1' })).toBeVisible();
@@ -247,11 +319,14 @@ test('the receipt and mismatch buttons send nothing', async ({ page }) => {
   await expect(card.getByRole('heading', { name: 'PKBX0041' })).toBeVisible();
   const before = requests.length;
 
-  // The button is announced as unavailable (aria-disabled) but still answers a click with the not-connected note.
+  // The note is there before any tap, and the button reads as unavailable.
   const receipt = card.getByRole('button', { name: 'I received this card' });
+  const receiptNote = card.getByText('Receipts are not recorded yet. This button sends nothing.');
+  await expect(receiptNote).toBeVisible();
   await expect(receipt).toHaveAttribute('aria-disabled', 'true');
+  await expect(receipt).toHaveAccessibleDescription(/Not connected.*sends nothing/);
+  expect(Number(await receipt.evaluate((node) => getComputedStyle(node).opacity))).toBeLessThan(1);
   await receipt.click({ force: true });
-  await expect(card.getByText('Receipts are not recorded yet. Nothing was sent.')).toBeVisible();
 
   await expect(page.getByRole('region', { name: 'Report a mismatch' })).toHaveCount(0);
   await card.getByRole('button', { name: 'Report a mismatch' }).click();
@@ -259,10 +334,15 @@ test('the receipt and mismatch buttons send nothing', async ({ page }) => {
   await expect(sheet.getByRole('heading', { name: 'Report a mismatch' })).toBeFocused();
   await sheet.getByRole('radio', { name: 'A unit' }).check();
   await sheet.getByLabel('Which setting?').selectOption('rollTempC');
+  await expect(sheet.getByText(/Mismatch reports are not connected yet. These buttons send nothing./)).toBeVisible();
+  for (const name of ['Send to supervisor', 'Stop and call supervisor']) {
+    const button = sheet.getByRole('button', { name });
+    await expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(Number(await button.evaluate((node) => getComputedStyle(node).opacity))).toBeLessThan(1);
+  }
   await sheet.getByLabel('What do you see?').fill('MISMATCH-TEXT-MUST-NOT-LEAVE');
   await sheet.getByRole('button', { name: 'Send to supervisor' }).click({ force: true });
   await sheet.getByRole('button', { name: 'Stop and call supervisor' }).click({ force: true });
-  await expect(sheet.getByText(/Mismatch reports are not connected yet. Nothing was sent./)).toBeVisible();
   await page.keyboard.press('Enter');
 
   const after = requests.slice(before);
