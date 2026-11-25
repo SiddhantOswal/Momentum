@@ -33,13 +33,29 @@ export function diagnoseUpload(file: File) {
 export const findSeenBefore = (defect: Defect, ambientRhPct: number) =>
   send<SeenBefore>("/evidence/seen-before", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ defect, ambientRhPct }) });
 
-// The same limits the server applies (src/google-cloud/defect-diagnosis-service.js), checked first so
-// a refused file never spends a Gemini attempt.
-const UPLOAD_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+// The same limits the server applies (identifyPhotoMimeType in src/google-cloud/defect-diagnosis-service.js),
+// checked first so a refused file never spends a Gemini attempt. The file's first bytes decide, not
+// its name or the type the browser guessed from it.
 const UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
-export const UPLOAD_ACCEPT = [...UPLOAD_TYPES].join(",");
+export const UPLOAD_ACCEPT = "image/jpeg,image/png,image/webp";
 export const UPLOAD_REFUSED = "Upload a JPEG, PNG or WebP photo up to 8 MiB.";
-export const uploadAllowed = (file: File) => UPLOAD_TYPES.has(file.type) && file.size > 0 && file.size <= UPLOAD_MAX_BYTES;
+
+function isPhotoSignature(bytes: Uint8Array) {
+  if (bytes.byteLength < 12) return false;
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return true;
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return true;
+  const ascii = (from: number, to: number) => String.fromCharCode(...bytes.subarray(from, to));
+  return ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP";
+}
+
+export async function uploadAllowed(file: File) {
+  if (file.size === 0 || file.size > UPLOAD_MAX_BYTES) return false;
+  try {
+    return isPhotoSignature(new Uint8Array(await file.slice(0, 12).arrayBuffer()));
+  } catch {
+    return false;
+  }
+}
 
 export const defectName = (label: Label) => (label === "NONE" ? "No defect seen" : DEFECTS.find((d) => d.key === label)?.label ?? label);
 

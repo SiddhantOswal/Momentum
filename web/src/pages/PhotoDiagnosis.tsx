@@ -10,7 +10,8 @@ import {
 import { SeenBeforeCard } from "./photo/SeenBefore";
 
 type Photos = { state: "loading" } | { state: "error"; message: string } | { state: "ready"; photos: ApprovedPhotos["photos"] };
-type Source = { kind: "approved"; index: number } | { kind: "upload"; file: File; url: string };
+// `key` names the photo a request was made for: the approved photo's ID, or one key per upload.
+type Source = { kind: "approved"; index: number } | { kind: "upload"; key: string; file: File; url: string };
 type Outcome = { kind: "approved"; data: Classification } | { kind: "upload"; data: UploadDiagnosis };
 
 const DASH = "–";
@@ -18,9 +19,12 @@ const DASH = "–";
 export function PhotoDiagnosis() {
   const [photos, setPhotos] = useState<Photos>({ state: "loading" });
   const [source, setSource] = useState<Source>({ kind: "approved", index: 0 });
-  const [outcome, setOutcome] = useState<Outcome>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  // Results and failures are kept per photo, so a late answer never shows under another photo.
+  const [outcomes, setOutcomes] = useState<Record<string, Outcome>>({});
+  const [failures, setFailures] = useState<Record<string, string>>({});
+  const [running, setRunning] = useState<string>();
+  const [refusal, setRefusal] = useState<string>();
+  const uploads = useRef(0);
   const picker = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,41 +37,50 @@ export function PhotoDiagnosis() {
   }, []);
   useEffect(() => () => { if (source.kind === "upload") URL.revokeObjectURL(source.url); }, [source]);
 
-  const choose = (next: Source) => { setSource(next); setOutcome(undefined); setError(undefined); };
-  const pick = (file?: File) => {
+  const choose = (next: Source) => { setSource(next); setRefusal(undefined); };
+  const pick = async (file?: File) => {
     if (!file) return;
-    if (!uploadAllowed(file)) { setError(UPLOAD_REFUSED); return; }
-    choose({ kind: "upload", file, url: URL.createObjectURL(file) });
+    if (!(await uploadAllowed(file))) { setRefusal(UPLOAD_REFUSED); return; }
+    uploads.current += 1;
+    choose({ kind: "upload", key: `upload-${uploads.current}`, file, url: URL.createObjectURL(file) });
   };
 
   const approved = photos.state === "ready" && source.kind === "approved" ? photos.photos[source.index] : undefined;
-  const canRun = !busy && !outcome && (source.kind === "upload" || Boolean(approved));
+  const key = source.kind === "upload" ? source.key : approved?.id;
+  const outcome = key ? outcomes[key] : undefined;
+  const failure = key ? failures[key] : undefined;
+  const busy = running !== undefined && running === key;
+  // One diagnosis at a time, and none again for a photo that already has its result.
+  const canRun = running === undefined && key !== undefined && !outcome;
 
   const run = async () => {
-    if (!canRun) return;
-    setBusy(true); setError(undefined);
-    if (source.kind === "upload") {
-      const r = await diagnoseUpload(source.file);
-      if (r.ok) setOutcome({ kind: "upload", data: r.data }); else setError(r.error);
-    } else if (approved) {
-      const r = await classifyPhoto(approved.id);
-      if (r.ok) setOutcome({ kind: "approved", data: r.data }); else setError(r.error);
+    if (!canRun || !key) return;
+    const target = source;
+    setRunning(key);
+    setFailures(({ [key]: _, ...rest }) => rest);
+    const r = target.kind === "upload" ? await diagnoseUpload(target.file) : await classifyPhoto(key);
+    if (r.ok) {
+      const result: Outcome = target.kind === "upload" ? { kind: "upload", data: r.data as UploadDiagnosis } : { kind: "approved", data: r.data as Classification };
+      setOutcomes((all) => ({ ...all, [key]: result }));
+    } else {
+      setFailures((all) => ({ ...all, [key]: r.error }));
     }
-    setBusy(false);
+    setRunning(undefined);
   };
 
   const label = outcomeLabel(outcome);
+  const count = photos.state === "ready" ? photos.photos.length : undefined;
 
   return (
     <>
-      <PageHeader title="Photo diagnosis" sub="Ten approved photos, or upload your own." actions={<Chip>Reads the file once</Chip>} />
+      <PageHeader title="Photo diagnosis" sub={count ? `${count} approved photos, or upload your own.` : "Approved photos, or upload your own."} actions={<Chip>Reads the file once</Chip>} />
       <div className="g">
         <section className="cd flush c8" aria-labelledby="pd-photo-title">
           <div className="pd-bar">
             <h2 id="pd-photo-title">
-              {source.kind === "upload" ? "Uploaded photo" : photos.state === "ready" && approved ? `Approved photo ${source.index + 1} of ${photos.photos.length}` : "Approved photos"}
+              {source.kind === "upload" ? "Uploaded photo" : approved ? `Approved photo ${source.index + 1} of ${count}` : "Approved photos"}
             </h2>
-            <span className="mt">{source.kind === "upload" ? "Do not upload photos of people." : "Side view of a board cross-section"}</span>
+            <span className="mt">{source.kind === "upload" ? "Your photo, read once when you run it" : "Side view of a board cross-section"}</span>
           </div>
           <PhotoView photos={photos} source={source} />
           {photos.state === "ready" && photos.photos.length > 0 && (
@@ -81,7 +94,7 @@ export function PhotoDiagnosis() {
           )}
         </section>
 
-        <Card span={4} title="Diagnosis" meta={<Status busy={busy} done={Boolean(outcome)} failed={Boolean(error) && !outcome} />}>
+        <Card span={4} title="Diagnosis" meta={<Status busy={busy} done={Boolean(outcome)} failed={Boolean(failure) && !outcome} />}>
           <Field name="Likely defect" outcome={outcome} value={likelyDefect(outcome)} />
           <Field name="What it looked at" outcome={outcome} value={lookedAt(outcome)} />
           <Field name="Suggested follow-up" outcome={outcome} value={followUp(outcome)} />
@@ -96,11 +109,13 @@ export function PhotoDiagnosis() {
           )}
           <div className="pd-acts">
             <Button arrow onClick={run} disabled={!canRun}>{busy ? "Reading the photo" : "Run diagnosis"}</Button>
-            <Button variant="secondary" onClick={() => picker.current?.click()} disabled={busy}>Other photo</Button>
-            <input ref={picker} type="file" accept={UPLOAD_ACCEPT} hidden aria-label="Choose a photo to upload"
-              onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }} />
+            <Button variant="secondary" onClick={() => picker.current?.click()} disabled={running !== undefined} aria-describedby="pd-upload-note">Other photo</Button>
+            <input ref={picker} type="file" accept={UPLOAD_ACCEPT} hidden aria-label="Choose a photo to upload" aria-describedby="pd-upload-note"
+              onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ""; }} />
           </div>
-          {error && <p className="pd-msg bad" role="alert">{error}</p>}
+          <p className="lb pd-msg" id="pd-upload-note">Do not upload photos of people. JPEG, PNG or WebP, up to 8 MiB.</p>
+          {refusal && <p className="pd-msg bad" role="alert">{refusal}</p>}
+          {failure && !outcome && <p className="pd-msg bad" role="alert">{failure}</p>}
         </Card>
 
         {label !== undefined && <SeenBeforeCard label={label} />}
@@ -108,7 +123,7 @@ export function PhotoDiagnosis() {
         <section className="cd kr c12" aria-labelledby="pd-trust-title">
           <div className="ct"><h2 className="t" id="pd-trust-title">How far to trust this</h2><ProvenanceChip kind="not-connected" /></div>
           <div className="pd-trust">
-            <p className="lb" style={{ margin: 0, maxWidth: 520, lineHeight: 1.5 }}>The stored accuracy run over the ten approved photos is not connected yet, so no match count is shown.</p>
+            <p className="lb" style={{ margin: 0, maxWidth: 520, lineHeight: 1.5 }}>The stored accuracy run over the {count ? `${count} ` : ""}approved photos is not connected yet, so no match count is shown.</p>
             <div className="ncbar" aria-hidden="true" />
             <div className="lb" style={{ marginLeft: "auto", maxWidth: 360, lineHeight: 1.5 }}>A small check, not an inspection tool.</div>
           </div>
