@@ -1,0 +1,107 @@
+/* Insights (Insights.html). The conveyor scene is the design's SVG, copied into
+   conveyor.svg.html with classes prefixed "in-" and keyframes renamed, so the shared bundle
+   cannot mix it up with the Home line or other pages. */
+
+.m .in-kpi .n { font-size: 38px; line-height: 46px; min-height: 46px; font-weight: 600; margin-top: 6px; white-space: nowrap; }
+.m .in-kpi .n small { font-size: 18px; color: var(--mu); font-weight: 500; margin-left: 5px; }
+.m .in-kpi .lb { font-size: 13.5px; margin: 2px 0 12px; }
+
+.m .in-cmp { display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; row-gap: 20px; }
+.m .in-track { height: 34px; border-radius: 6px; background: var(--bg); position: relative; }
+.m .in-track > div { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 12px; min-width: fit-content; }
+.m .in-track .n { font-weight: 600; font-size: 17px; white-space: nowrap; padding-left: 12px; }
+
+.m .in-read { flex: 1; display: flex; flex-direction: column; font-size: 16px; line-height: 1.4; color: var(--mu); margin: 0; padding: 0; list-style: none; }
+.m .in-read > li { flex: 1; display: flex; align-items: center; padding: 12px 0; }
+.m .in-read > li + li { border-top: 1px solid var(--ln); }
+
+.m .in-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.m .in-chip { height: 32px; padding: 0 12px; border-radius: 10px; display: inline-flex; align-items: center; font: 600 14px 'Inter', sans-serif; border: 1px solid var(--ln2); color: var(--mu); background: transparent; cursor: pointer; }
+.m .in-chip[aria-pressed="true"] { border-color: var(--tx); color: var(--inv); background: var(--tx); }
+.m span.in-chip { cursor: default; }
+
+.m .in-attr { display: flex; align-items: center; min-height: 52px; border-top: 1px solid var(--ln); gap: 14px; }
+.m .in-attr > span:first-child { width: 150px; flex: none; font-size: 16px; font-weight: 600; }
+.m .in-attr .in-axis { position: relative; flex: 1; min-width: 120px; height: 24px; }
+.m .in-attr .in-axis > i { position: absolute; left: 50%; top: -8px; bottom: -8px; width: 1px; background: var(--ln2); }
+.m .in-attr .in-axis > b { position: absolute; top: 2px; height: 20px; border-radius: 4px; display: block; }
+.m .in-attr .n { font-size: 20px; font-weight: 600; width: 70px; text-align: right; flex: none; }
+
+.m .in-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.m .in-pick select { height: 36px; border-radius: 10px; border: 1px solid var(--ln2); background: var(--cd); color: var(--tx); font: 500 14px 'Inter', sans-serif; padding: 0 10px; max-width: 100%; }
+.m .in-pick select:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+
+.m .in-sam { border: 1.5px dashed var(--ln2); background: transparent; }
+.m .in-tl { position: relative; padding-left: 26px; padding-bottom: 18px; }
+.m .in-tl:before { content: ""; position: absolute; left: 5px; top: 6px; bottom: -6px; width: 1px; background: var(--ln2); }
+.m .in-tl:last-child:before { display: none; }
+.m .in-tl i { position: absolute; left: 0; top: 5px; width: 11px; height: 11px; border-radius: 50%; border: 2px dashed var(--dim); background: var(--cd); display: block; }
+.m .in-tl.ok i { border: 2px solid var(--ok); background: var(--ok); }
+.m .in-ck { display: flex; align-items: flex-start; gap: 12px; padding: 6px 0; font-size: 15px; line-height: 1.4; }
+.m .in-ck i { flex: none; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--ln2); margin-top: 1px; }
+
+/* Conveyor scene. */
+.m .in-mo { --rail: #D7DBDF; --belt: #14171A; --crate: #656B72; --crate2: #4A4F55; --arm: #767C83; --arm2: #AEB4BA; --unit: #E4E7EA; position: relative; padding: 0; overflow: hidden; min-height: 620px; }
+:root[data-theme="light"] .m .in-mo { --rail: #FFFFFF; --belt: #1B1F23; --crate: #848B93; --crate2: #69707A; --arm: #8B929A; --arm2: #BDC3CA; --unit: #FFFFFF; }
+.m .in-stage { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.m .in-sbg { fill: var(--stg); }
+.m .in-cd2 { fill: var(--arm2); opacity: .55; }
+.m .in-train { animation: in-tr 25.2s linear infinite; }
+@keyframes in-tr {
+  0% { transform: translateY(0); } 12% { transform: translateY(0); }
+  16.667% { transform: translateY(-156px); } 28.667% { transform: translateY(-156px); }
+  33.333% { transform: translateY(-312px); } 45.333% { transform: translateY(-312px); }
+  50% { transform: translateY(-468px); } 62% { transform: translateY(-468px); }
+  66.667% { transform: translateY(-624px); } 78.667% { transform: translateY(-624px); }
+  83.333% { transform: translateY(-780px); } 95.333% { transform: translateY(-780px); }
+  100% { transform: translateY(-936px); }
+}
+.m .in-bl { animation: in-bl .9s linear infinite; }
+@keyframes in-bl { from { transform: translateY(0); } to { transform: translateY(-18px); } }
+.m .in-gr { animation: in-gr 4.2s ease-in-out infinite; }
+@keyframes in-gr { 0% { transform: translateX(-46px); } 10%, 62% { transform: translateX(32px); } 70%, 100% { transform: translateX(-46px); } }
+.m .in-lk { animation: in-lk 4.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 50%; }
+@keyframes in-lk { 0% { transform: scaleX(.2); } 10%, 62% { transform: scaleX(1); } 70%, 100% { transform: scaleX(.2); } }
+.m .in-nn { opacity: .1; animation: in-nn 4.2s ease-in-out infinite; }
+@keyframes in-nn { 0% { opacity: .1; } 10%, 62% { opacity: 1; } 70%, 100% { opacity: .1; } }
+.m .in-led { animation: in-led 1.6s ease-in-out infinite; }
+@keyframes in-led { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.m .in-mo.paused .in-stage * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .m .in-train, .m .in-bl, .m .in-gr, .m .in-lk, .m .in-nn, .m .in-led { animation: none; }
+  .m .in-gr { transform: translateX(32px); }
+  .m .in-nn { opacity: .8; }
+}
+.m .in-scene-txt { position: absolute; left: 28px; top: 28px; width: 300px; z-index: 2; }
+.m .in-scene-txt .t { text-wrap: balance; }
+.m .in-scene-chip { position: absolute; left: 28px; bottom: 28px; z-index: 2; }
+
+/* The low-confidence notice, placed as the design's toast under the top bar. */
+.m .in-tsts { position: fixed; right: 24px; top: 68px; width: 400px; max-width: calc(100vw - 48px); display: flex; flex-direction: column; gap: 10px; z-index: 30; }
+.m .in-tst { display: flex; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--cd); border: 1px solid var(--ln2); border-left: 4px solid var(--wn); box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: in-tin .35s ease-out both; }
+:root[data-theme="light"] .m .in-tst { box-shadow: 0 12px 28px -12px rgba(20,24,28,.35); }
+.m .in-tst > svg { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--wn); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.m .in-tst div { flex: 1; min-width: 0; }
+.m .in-tst b { display: block; font: 600 16px/22px 'Inter Tight', 'Inter', sans-serif; }
+.m .in-tst span { display: block; font-size: 14px; line-height: 20px; color: var(--mu); }
+.m .in-tst button { flex: none; width: 32px; height: 32px; border: 0; border-radius: 10px; background: transparent; color: var(--mu); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.m .in-tst button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+@keyframes in-tin { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .m .in-tst { animation: none; } }
+
+@media (max-width: 1023px) {
+  .m .in-tsts { position: static; width: auto; max-width: none; margin-bottom: 16px; }
+  .m .in-tst { animation: none; }
+}
+@media (max-width: 767px) {
+  .m .in-cmp { grid-template-columns: 1fr; }
+  .m .in-mo { min-height: 520px; }
+  .m .in-scene-txt { left: 20px; top: 20px; width: auto; right: 20px; }
+  .m .in-attr { flex-wrap: wrap; padding: 8px 0; }
+  .m .in-attr > span:first-child { width: 100%; }
+}
+.m .in-ask { background: none; border: 0; padding: 0; margin-left: 8px; cursor: pointer; font-family: inherit; }
+@media (max-width: 767px) {
+  .m .in-page .ct { flex-wrap: wrap; }
+  .m .in-page .mt { white-space: normal; }
+}
