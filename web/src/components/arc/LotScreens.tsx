@@ -109,7 +109,7 @@ export function LotReview({ problem }: { problem?: StepProblem }) {
       <section className="cd" style={{ padding: "16px 20px" }}>
         <div className="ct2"><h3 className="t" style={{ fontSize: 16 }}>What we read from the order</h3></div>
         <NotConnectedNote>
-          Arc cannot show the values it read yet, because no route returns a stored order review to Arc. Check them on the New Lot page.
+          The order review is stored, but it is not shown here yet. No route returns a stored review to Arc, so the values cannot be checked or confirmed in Arc.
         </NotConnectedNote>
       </section>
       <div className="stl">
@@ -118,7 +118,6 @@ export function LotReview({ problem }: { problem?: StepProblem }) {
       {problem && <Problem {...problem} />}
       <div className="row">
         <Button arrow disabled>Confirm order</Button>
-        <ButtonLink variant="secondary" href={href("new-lot/order")}>Open New Lot</ButtonLink>
       </div>
     </>
   );

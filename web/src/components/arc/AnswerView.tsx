@@ -145,7 +145,7 @@ export const BLOCK_RENDERERS: Renderers = {
       case "job": return <JobFlow jobId={block.ref.id} />;
       case "po_review": return <LotReview />;
       case "lot": return <LotConditions lotId={block.ref.id} />;
-      case "photo": return <PhotoResult photoId={block.ref.id} generatedByGemini={block.generatedByGemini} />;
+      case "photo": return <PhotoResult photoId={block.ref.id} />;
       case "card": return (
         <section className="cd">
           <div className="ct2"><span className="t" style={{ fontSize: 15 }}>Job card PDF</span><Labels labels={block.labels} gemini={block.generatedByGemini} /></div>

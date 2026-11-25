@@ -210,16 +210,16 @@ export function DefectCheck() {
   );
 }
 
-/** A diagnosis the turn ran. The record is named, but the label Gemini gave is not returned to Arc yet. */
-export function PhotoResult({ photoId, generatedByGemini }: { photoId: string; generatedByGemini: boolean }) {
+/**
+ * A diagnosis the turn ran. The record is named, but the label Gemini gave is not returned to Arc
+ * yet. The Gemini chip marks Gemini text on screen, and this card shows none, so it carries no chip.
+ */
+export function PhotoResult({ photoId }: { photoId: string }) {
   return (
     <section className="cd">
       <div className="ct2" style={{ flexWrap: "wrap" }}>
         <h3 className="t" style={{ fontSize: 15 }}>Photo diagnosis</h3>
-        <span className="chips">
-          <LabelChip label="Approved reference photo" />
-          {generatedByGemini && <ProvenanceChip kind="generated-by-gemini" />}
-        </span>
+        <span className="chips"><LabelChip label="Approved reference photo" /></span>
       </div>
       <div style={{ fontSize: 16, fontWeight: 600, overflowWrap: "anywhere" }}>{photoId}</div>
       <div style={{ marginTop: 10 }}>
