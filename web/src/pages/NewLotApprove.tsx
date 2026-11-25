@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Banner, Button, ButtonLink, Card, Chip, ProvenanceChip } from "../components/m";
 import { call, type JobSheet, type PlanResult, type Revision } from "./newlot/api";
-import { cardPdfHref, readJob } from "./newlot/actions";
+import { cardPdfHref, readJob, REPLACED_MESSAGE } from "./newlot/actions";
 import { CardSettings, RouteOnCard, cardSummary } from "./newlot/card-view";
 import { IdsBar, NewLotPage, StatusIcon, StatusRow, Toasts, kg, useToasts } from "./newlot/parts";
-import { inputsChanged, updateLot, useLot, type LotState } from "./newlot/store";
+import { inputsChanged, markStale, updateLot, useLot, type LotState } from "./newlot/store";
 import { NewLotStale } from "./NewLotStale";
 
 type Stored = { jobSheet: JobSheet; revision?: Revision };
@@ -41,20 +41,22 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
     const read = stored?.revision;
     if (read?.status === "CURRENT") show({ id: "saved", tone: "ok", title: "Draft saved", text: `Rev ${read.number} is stored and read back.` });
     // The draft can be replaced from elsewhere, such as an edit made through Arc.
-    if (read?.status === "SUPERSEDED") updateLot({ stale: { jobId, number: read.number, message: "An input changed after this draft was prepared, so it is replaced and read only." } });
+    if (read?.status === "SUPERSEDED") markStale({ jobId, number: read.number, message: REPLACED_MESSAGE });
   }, [stored, show, jobId]);
 
   const approved = lot.approved?.jobSheet.jobId === jobId ? lot.approved : stored?.jobSheet.status === "APPROVED" ? stored : undefined;
   const sheet = approved?.jobSheet ?? stored?.jobSheet ?? plan.jobSheet;
-  const revision = stored?.revision ?? plan.revision;
-  const number = revision?.number;
+  // The guard checks the fingerprint the server reads back now, never the one the plan returned.
+  const revision = stored?.revision;
+  const unregistered = !!stored && !approved && (!revision || !revision.fingerprint);
+  const number = revision?.number ?? plan.revision?.number;
   const rev = number === undefined ? "this draft" : `Rev ${number}`;
   const changed = inputsChanged(lot);
-  const canApprove = !approved && !changed && !!stored && revision?.status === "CURRENT" && !!revision.fingerprint;
+  const canApprove = !approved && !changed && revision?.status === "CURRENT" && !!revision.fingerprint;
 
   // This handler is the only caller of the approve route. Arc has no tool that reaches it.
   const approve = async () => {
-    if (!reviewed || !canApprove) return;
+    if (!reviewed || !canApprove || busy) return;
     setBusy(true); setApproveError(undefined);
     const result = await call<Stored>(`/jobs/${encodeURIComponent(jobId)}/approve?lang=en&currency=INR`, {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -67,7 +69,7 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
       return;
     }
     if (result.status === 409 && result.code && REPLACED.has(result.code)) {
-      updateLot({ stale: { jobId, number, message: result.message } });
+      markStale({ jobId, number, message: result.message });
       return;
     }
     setApproveError(result.message);
@@ -76,7 +78,8 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
   const status = approved ? "Approved, demo session" : loading ? "Reading the draft back" : "Draft, not approved";
   const next = approved ? "Operator: print the card" : "Supervisor approval";
   const steps: [Parameters<typeof StatusRow>[0]["kind"], string, string][] = [
-    [stored ? "ok" : loading ? "now" : "bad", "Draft saved", stored ? `${number === undefined ? "Draft" : `Rev ${number}`}, stored` : loading ? "Reading it back" : "Not read back"],
+    [stored ? "ok" : loading ? "now" : "bad", "Draft saved",
+      !stored ? (loading ? "Reading it back" : "Not read back") : revision ? `Rev ${revision.number}, stored` : "Stored, no revision"],
     [approved ? "ok" : "now", "Supervisor review", approved ? "Done" : "Waiting for a decision"],
     [approved ? "ok" : "idle", "Approved", approved ? "Demo session, simulated" : "Not yet"],
     [approved?.jobSheet.cardUri ? "ok" : "idle", "PDF stored", approved?.jobSheet.cardUri ? "Stored" : "Not yet"],
@@ -90,6 +93,11 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
         {error && (
           <Banner tone="bad" title="The draft could not be read back." actions={<Button small variant="secondary" onClick={reload}>Try again</Button>}>
             {error} Approval stays off until it is read back.
+          </Banner>
+        )}
+        {unregistered && (
+          <Banner tone="warn" title="This draft has no registered revision." actions={<ButtonLink small arrow href="#/new-lot/conditions">Plan this lot again</ButtonLink>}>
+            The server did not return a revision for it, so it cannot be approved. Plan the lot again to approve it.
           </Banner>
         )}
         {changed && !approved && (
