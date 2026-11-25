@@ -19,6 +19,8 @@ const JOB = { ok: true, jobSheet: {
     { lever: 'rollTempC', from: 163, to: 171, reason: 'r' },
     { lever: 'gumApplication', from: 'HIGH', to: 'MED', reason: 'r' },
     { lever: 'gumViscositySec', from: 33, to: 44, reason: 'r' },
+    // Not a setting the page knows: it must be left out, not crash the page.
+    { lever: 'notALever', from: 1, to: 2, reason: 'r' },
   ],
   explanation: 'x', savings: { kg: 1, amount: 1, currency: 'INR' }, status: 'DRAFT',
 } };
@@ -204,6 +206,13 @@ test('Plant Explorer reports a failed lot read', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveText('The current lot could not be read. The stored job could not be retrieved.');
 });
 
+test('Model watch never prints a missing sample count', async ({ page }) => {
+  await mockBackend(page, { '/api/status': json(200, { ok: true, modelAcceptance: { models: [{ defect: 'PRINT', r2: 0.6404, sampleCount: null }] } }) });
+  await open(page, '#/explorer');
+  await expect(page.getByText('0.64 on the held-out test lots')).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('null');
+});
+
 test('an approved photo result carries the approved label and Gemini chip from the response', async ({ page }) => {
   const posts = [];
   const calls = await mockBackend(page, {
@@ -261,15 +270,86 @@ test('an uploaded photo is labelled as uploaded, never as an approved reference'
   expect(uploads).toBe(1);
 });
 
+test('the privacy note is on the upload control before any file is chosen', async ({ page }) => {
+  await mockBackend(page);
+  await open(page, '#/photo');
+  const note = 'Do not upload photos of people. JPEG, PNG or WebP, up to 8 MiB.';
+  await expect(page.getByText(note)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Other photo' })).toHaveAccessibleDescription(note);
+  await expect(page.getByLabel('Choose a photo to upload')).toHaveAttribute('aria-describedby', 'pd-upload-note');
+});
+
+const REFUSED_FILES = [
+  { name: 'board.gif', mimeType: 'image/gif', buffer: Buffer.from('GIF89a\x01\x00\x01\x00\x00\x00') },
+  // A PDF renamed to .jpg: the browser calls it image/jpeg, the first bytes say otherwise.
+  { name: 'order.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('%PDF-1.7\n%âãÏÓ\n1 0 obj') },
+  { name: 'empty.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(0) },
+  { name: 'big.jpg', mimeType: 'image/jpeg', buffer: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(8 * 1024 * 1024)]) },
+];
+
 test('a refused file is stopped in the browser and sends nothing', async ({ page }) => {
   const calls = await mockBackend(page);
   await open(page, '#/photo');
-  await page.locator('input[type=file]').setInputFiles({ name: 'board.gif', mimeType: 'image/gif', buffer: Buffer.from('GIF89a') });
-  await expect(page.getByRole('alert')).toHaveText('Upload a JPEG, PNG or WebP photo up to 8 MiB.');
-  await page.locator('input[type=file]').setInputFiles({ name: 'big.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(8 * 1024 * 1024 + 1) });
-  await expect(page.getByRole('alert')).toHaveText('Upload a JPEG, PNG or WebP photo up to 8 MiB.');
-  await expect(page.getByRole('heading', { name: 'Approved photo 1 of 10' })).toBeVisible();
+  const diagnosis = page.locator('section', { has: page.getByRole('heading', { name: 'Diagnosis' }) });
+  for (const file of REFUSED_FILES) {
+    await page.locator('input[type=file]').setInputFiles(file);
+    await expect(page.getByRole('alert')).toHaveText('Upload a JPEG, PNG or WebP photo up to 8 MiB.');
+    await expect(page.getByRole('heading', { name: 'Approved photo 1 of 10' })).toBeVisible();
+    // A refusal is not a failed run.
+    await expect(diagnosis.getByText('Not run yet')).toBeVisible();
+    await expect(diagnosis.getByText('Not run', { exact: true })).toHaveCount(0);
+  }
   expect(calls.filter(call => call.startsWith('POST'))).toEqual([]);
+});
+
+// Holds a route's answer until the test releases it.
+function held(body) {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  return { release, handler: async route => { await gate; await route.fulfill(json(200, body)).catch(() => {}); } };
+}
+
+test('a late approved-photo result stays with its photo', async ({ page }) => {
+  const late = held({ ok: true, source: 'vertex-gemini', photoId: 'photo-01', label: 'CRACK' });
+  await mockBackend(page, { '/evidence/classify-photo': late.handler });
+  await open(page, '#/photo');
+  const diagnosis = page.locator('section', { has: page.getByRole('heading', { name: 'Diagnosis' }) });
+
+  await page.getByRole('button', { name: 'Run diagnosis' }).click();
+  await expect(diagnosis.getByText('Reading the photo').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Approved photo 5', exact: true }).click();
+  late.release();
+
+  await expect(page.getByRole('heading', { name: 'Approved photo 5 of 10' })).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(diagnosis.getByText('Not run yet')).toBeVisible();
+  await expect(diagnosis.locator('.pd-field')).toHaveText([/Likely defect\s*–/, /What it looked at\s*–/, /Suggested follow-up\s*–/]);
+  await expect(diagnosis.locator('.pd-chips')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Run diagnosis' })).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Approved photo 1', exact: true }).click();
+  await expect(diagnosis.locator('.pd-field').first()).toHaveText(/Crease cracking/);
+  await expect(diagnosis.locator('.pd-chips .pv')).toHaveText(['Approved reference photo', 'Generated by Gemini']);
+});
+
+test('a late upload result never shows under an approved photo', async ({ page }) => {
+  const late = held({ ok: true, source: 'vertex-gemini', recognised: true, diagnosis: { label: 'WARP', severity: 'HIGH', confidence: 0.9, visibleSigns: ['Bowed sheet'] } });
+  await mockBackend(page, { '/evidence/diagnose-photo': late.handler });
+  await open(page, '#/photo');
+  const diagnosis = page.locator('section', { has: page.getByRole('heading', { name: 'Diagnosis' }) });
+
+  await page.locator('input[type=file]').setInputFiles({ name: 'sheet.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]) });
+  await expect(page.getByRole('heading', { name: 'Uploaded photo' })).toBeVisible();
+  await page.getByRole('button', { name: 'Run diagnosis' }).click();
+  await page.getByRole('button', { name: 'Approved photo 2', exact: true }).click();
+  late.release();
+
+  await expect(page.getByRole('heading', { name: 'Approved photo 2 of 10' })).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(diagnosis.getByText('Not run yet')).toBeVisible();
+  await expect(diagnosis).not.toContainText('Warp');
+  await expect(diagnosis.getByText('Uploaded photo', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Seen before' })).toHaveCount(0);
 });
 
 test('seen before lists past lots and shows the zero-result state', async ({ page }) => {
@@ -293,7 +373,9 @@ test('seen before lists past lots and shows the zero-result state', async ({ pag
   await card.getByRole('button', { name: 'Search history' }).click();
   await expect(card.getByText('Past lots', { exact: true })).toBeVisible();
   await expect(card.locator('.pd-stats')).toContainText('14');
+  await expect(card.getByText('Average crease cracking rate in those lots')).toBeVisible();
   await expect(card.locator('.pd-stats')).toContainText('3.25');
+  await expect(card.locator('.pd-stats')).not.toContainText('Typical scrap');
   await expect(card.locator('.pd-stats')).toContainText('₹41,250');
   expect(searches).toEqual([{ defect: 'CRACK', ambientRhPct: 52 }]);
 
@@ -319,14 +401,43 @@ test('the approved photos fail closed when the list cannot be read', async ({ pa
   await expect(page.getByRole('group', { name: 'Approved photos' })).toHaveCount(0);
 });
 
-for (const hash of ['#/explorer', '#/photo']) {
-  test(`${hash} fits a phone screen without sideways scrolling`, async ({ page }) => {
-    await mockBackend(page);
-    await page.setViewportSize({ width: 375, height: 800 });
-    await page.goto('/app/' + hash);
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await page.waitForLoadState('networkidle');
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(0);
+// Lists the page, plus every element inside main whose content is wider than its box.
+async function sidewaysOverflow(page) {
+  return page.evaluate(() => {
+    const found = [];
+    const root = document.documentElement;
+    if (root.scrollWidth > root.clientWidth) found.push(`document ${root.scrollWidth} > ${root.clientWidth}`);
+    for (const el of document.querySelectorAll('main *')) {
+      if (el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1) found.push(`${el.tagName.toLowerCase()}.${el.className} ${el.scrollWidth} > ${el.clientWidth}`);
+    }
+    return found;
   });
 }
+
+test('#/explorer fits a phone screen without sideways scrolling', async ({ page }) => {
+  await mockBackend(page);
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto('/app/#/explorer');
+  await expect(page.locator('.pe-call')).toHaveCount(3);
+  await expect(page.locator('.pe-floor')).toBeVisible();
+  expect(await sidewaysOverflow(page)).toEqual([]);
+});
+
+test('#/photo fits a phone screen with a diagnosis and a history result on it', async ({ page }) => {
+  await mockBackend(page, {
+    '/evidence/diagnose-photo': json(200, { ok: true, source: 'vertex-gemini', recognised: true,
+      diagnosis: { label: 'DELAM', severity: 'MEDIUM', confidence: 0.7, visibleSigns: ['Liner separating from the flute along the long edge of the sheet'] } }),
+    '/evidence/seen-before': json(200, { ok: true, source: 'bigquery', defect: 'DELAM', caseCount: 1234, avgRateWhenMain: 12.75, costWhenMain: 1234567, goodRuns: null, badRuns: null, notes: [] }),
+  });
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto('/app/#/photo');
+  await expect(page.getByRole('heading', { name: 'Approved photo 1 of 10' })).toBeVisible();
+  expect(await sidewaysOverflow(page)).toEqual([]);
+
+  await page.locator('input[type=file]').setInputFiles({ name: 'sheet.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]) });
+  await page.getByRole('button', { name: 'Run diagnosis' }).click();
+  await expect(page.locator('.pd-chips .pv')).toHaveText(['Uploaded photo', 'Generated by Gemini']);
+  await page.getByRole('button', { name: 'Search history' }).click();
+  await expect(page.locator('.pd-stats')).toContainText('₹12,34,567');
+  expect(await sidewaysOverflow(page)).toEqual([]);
+});
