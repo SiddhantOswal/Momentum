@@ -1,6 +1,6 @@
 // Response shapes and display helpers shared by Home and Insights. Types mirror the server
 // schemas in src/schemas.js and src/model-acceptance.js; only the fields these pages read.
-import { DEFECTS, type Defect } from "../../lib/api";
+import { DEFECTS, type Defect, type Result } from "../../lib/api";
 import type { LiveLot } from "../../lib/live";
 
 export type ModelScore = { defect: Defect; r2: number | null; sampleCount: number | null };
@@ -12,7 +12,8 @@ export type StatusResponse = {
 };
 
 type Levers = Record<string, number | string>;
-type Risk = { ratesPct: Partial<Record<Defect, number>>; totalScrapPct?: number; totalScrapKg: number; scrapCost: number; currency: string; primaryDefect: Defect; targetUse?: unknown };
+type TargetUse = Partial<Record<Defect, { useClass: "optimizer" | "advisory" | "abstain"; reason: string }>>;
+type Risk = { ratesPct: Partial<Record<Defect, number>>; totalScrapPct?: number; totalScrapKg: number; scrapCost: number; currency: string; primaryDefect: Defect; targetUse?: TargetUse };
 
 /** GET /jobs/:id. A job is readable only from the demo session that planned it. */
 export type JobResponse = {
@@ -27,6 +28,17 @@ export type JobResponse = {
     savings: { kg: number; amount: number; currency: string };
   };
 };
+
+/** The job record only when it belongs to this lot, so a stale or mismatched read shows nothing. */
+export function sheetFor(job: Result<JobResponse> | undefined, lot: LiveLot | undefined) {
+  return job?.ok && lot?.jobId !== undefined && job.data.jobSheet.jobId === lot.jobId ? job.data.jobSheet : undefined;
+}
+
+/** Defects the stored plan marks advisory, which the app shows as low confidence (ARC-ML-03). */
+export function advisoryDefects(sheet: JobResponse["jobSheet"] | undefined) {
+  const targetUse = sheet?.recommended.risk.targetUse ?? sheet?.baseline.risk.targetUse;
+  return new Set(DEFECT_ORDER.filter((defect) => targetUse?.[defect]?.useClass === "advisory"));
+}
 
 // The names the Main and Insights designs print on the model rows.
 export const DEFECT_NAME: Record<Defect, string> = { WARP: "Warp", DELAM: "Delamination", STRENGTH: "Strength", PRINT: "Print", CRACK: "Crack" };

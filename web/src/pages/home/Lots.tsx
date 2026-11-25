@@ -3,7 +3,7 @@ import { Card, Chip, Icon, IdleMark, Table } from "../../components/m";
 import { formatNumber, type Result } from "../../lib/api";
 import { timeAgo, type LiveEvent, type LiveLot, type LiveState } from "../../lib/live";
 import { href } from "../../lib/routes";
-import { DEFECT_NAME, STATUS_VIEW, leverChange, leverLabel, type JobResponse } from "./data";
+import { DEFECT_NAME, STATUS_VIEW, leverChange, leverLabel, sheetFor, type JobResponse } from "./data";
 
 const ReadyMark = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.6" fill="currentColor" /></svg>
@@ -28,7 +28,7 @@ function ModelFlag({ lot }: { lot: LiveLot }) {
 /** Stored lots, newest first, from /api/lots and the live stream. Lot heads cannot be listed
  * yet, so the stage column shows the not-connected state rather than a guessed stage. */
 export function SampleOrders({ lots, job }: { lots: LiveLot[]; job?: Result<JobResponse> }) {
-  const sheet = job?.ok ? job.data.jobSheet : undefined;
+  const sheet = sheetFor(job, lots[0]);
   const rows = lots.slice(0, 5).map((lot) => ({
     key: lot.lotId,
     cells: [
@@ -39,17 +39,15 @@ export function SampleOrders({ lots, job }: { lots: LiveLot[]; job?: Result<JobR
     ],
   }));
   return (
-    <Card title="Approved sample orders" meta="Newest first" span={8}>
+    <Card title="Approved sample orders" meta="Newest first" span={8} className="hm-orders">
       <div className="hm-cont">
         <span style={{ fontSize: 15, fontWeight: 600 }}>Continue review</span>
         <Chip tone="none">Not connected</Chip>
         <span className="lb">Open reviews are not listed here yet.</span>
       </div>
-      <div className="hm-scroll" tabIndex={0}>
-        <Table label="Lots from approved sample orders" rowHeight={56}
-          columns={[{ label: "Lot", width: "170px" }, { label: "Stage", width: "150px" }, { label: "Model flag", width: "184px" }, { label: "Status", width: "1fr" }]}
-          rows={rows} empty="No lots yet. Try a sample order to start one." />
-      </div>
+      <Table label="Lots from approved sample orders" rowHeight={56}
+        columns={[{ label: "Lot", width: "170px" }, { label: "Stage", width: "150px" }, { label: "Model flag", width: "184px" }, { label: "Status", width: "1fr" }]}
+        rows={rows} empty="No lots yet. Try a sample order to start one." />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, borderTop: "1px solid var(--ln)", paddingTop: 14, marginTop: 2 }}>
         <span className="lb" style={{ fontSize: 14, color: "var(--tx)" }}>
           {sheet && `Humidity ${formatNumber(sheet.conditions.ambientRhPct, 1)}% ${sheet.conditions.supervisorConfirmed ? "confirmed" : "entered"}. Paper moisture ${formatNumber(sheet.conditions.paperMoisturePct, 1)}%.`}
@@ -64,7 +62,7 @@ const PAPER: Record<string, string> = { RECYCLED: "Recycled", VIRGIN: "Virgin", 
 
 /** The kraft job card: the newest draft that waits for a supervisor. */
 export function JobCardSummary({ lot, job }: { lot?: LiveLot; job?: Result<JobResponse> }) {
-  const order = job?.ok && job.data.jobSheet.jobId === lot?.jobId ? job.data.jobSheet.order : undefined;
+  const order = sheetFor(job, lot)?.order;
   return (
     <section className="cd kr c4" aria-labelledby="hm-card-title" style={{ display: "flex", flexDirection: "column", padding: 22 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -110,13 +108,19 @@ function steps(lot: LiveLot | undefined, job: Result<JobResponse> | undefined): 
     return ["Order read", "Catalog matched", "Conditions confirmed", "Settings compared", "Draft saved", "Approved and stored"]
       .map((name, index) => ({ name, state: index === 0 ? "next" : "idle", detail: index === 0 ? "Next step" : "Not yet" }));
   }
-  const sheet = job?.ok && job.data.jobSheet.jobId === lot.jobId ? job.data.jobSheet : undefined;
+  const sheet = sheetFor(job, lot);
   const changed = lot.changes?.length ?? 0;
   const approved = lot.status !== "planned" && lot.status !== "blocked";
+  // Only the job record says whether a supervisor confirmed the conditions; the lot list does not.
+  const conditions: Step = !sheet
+    ? { name: "Conditions confirmed", state: "idle", detail: "Not known here" }
+    : sheet.conditions.supervisorConfirmed
+      ? { name: "Conditions confirmed", state: "done", detail: `Humidity ${formatNumber(sheet.conditions.ambientRhPct, 1)}%` }
+      : { name: "Conditions confirmed", state: "idle", detail: "Entered, not confirmed" };
   return [
     { name: "Order read", state: "done", detail: `${formatNumber(lot.quantity)} boxes` },
     { name: "Catalog matched", state: "done", detail: lot.itemCode },
-    { name: "Conditions confirmed", state: "done", detail: sheet ? `Humidity ${formatNumber(sheet.conditions.ambientRhPct, 1)}%` : "" },
+    conditions,
     { name: "Settings compared", state: "done", detail: changed === 1 ? "1 setting changed" : `${changed} settings changed` },
     { name: "Draft saved", state: "done", detail: "Saved" },
     approved
@@ -128,7 +132,7 @@ function steps(lot: LiveLot | undefined, job: Result<JobResponse> | undefined): 
 const STEP_MARK: Record<Step["state"], ReactNode> = {
   done: <span className="sx ok"><Icon name="ok" /><span className="sr-only">Done: </span></span>,
   next: <span className="sx ac"><ReadyMark /><span className="sr-only">Next: </span></span>,
-  idle: <span className="sx id"><IdleMark /><span className="sr-only">Not started: </span></span>,
+  idle: <span className="sx id"><IdleMark /><span className="sr-only">Not done: </span></span>,
 };
 
 /** The steps of the newest stored lot, each from what that lot record holds. */
@@ -160,19 +164,17 @@ const LIVE_VIEW: Record<LiveState["status"], { tone: string; text: string }> = {
 export function Activity({ events, status }: { events: LiveEvent[]; status: LiveState["status"] }) {
   const view = LIVE_VIEW[status];
   return (
-    <Card title="Activity" span={12} meta={
+    <Card title="Activity" span={12} className="hm-activity" meta={
       <span className={`sx ${view.tone}`} style={{ fontSize: 14 }}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" /></svg>{view.text}
       </span>
     }>
-      <div className="hm-scroll" tabIndex={0}>
-        <Table label="Recent activity" columns={[{ label: "When", width: "120px" }, { label: "What happened", width: "1fr" }, { label: "By", width: "200px" }]}
+      <Table label="Recent activity" columns={[{ label: "When", width: "120px" }, { label: "What happened", width: "1fr" }, { label: "By", width: "200px" }]}
         rows={events.slice(0, 8).map((event, index) => ({
           key: `${event.at}-${index}`,
-          cells: [<span key="at" className="lb">{timeAgo(event.at)}</span>, <span key="text">{event.text}</span>, <span key="by" className="lb">{event.actor ?? "–"}</span>],
+          cells: [<span key="at" className="lb">{timeAgo(event.at)}</span>, <span key="text" style={{ overflowWrap: "anywhere" }}>{event.text}</span>, <span key="by" className="lb">{event.actor ?? "–"}</span>],
         }))}
         empty="No activity recorded yet." />
-      </div>
     </Card>
   );
 }

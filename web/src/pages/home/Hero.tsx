@@ -3,7 +3,7 @@ import { ButtonLink, Chip, IdleMark, ProvenanceChip } from "../../components/m";
 import { href } from "../../lib/routes";
 import type { LiveLot } from "../../lib/live";
 import type { Result } from "../../lib/api";
-import type { JobResponse } from "./data";
+import { sheetFor, type JobResponse } from "./data";
 
 const kg = (value: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
 
@@ -12,7 +12,7 @@ function RunLine({ lot, job }: { lot?: LiveLot; job?: Result<JobResponse> }) {
   if (!lot) {
     return <div className="lb" style={{ fontSize: 15 }}>No prepared run yet. Try a sample order to make one.</div>;
   }
-  const sheet = job?.ok ? job.data.jobSheet : undefined;
+  const sheet = sheetFor(job, lot);
   return (
     <>
       <div>
