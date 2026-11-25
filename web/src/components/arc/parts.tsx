@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { TurnInput } from "../../lib/arc";
 import { Button, Icon, IdleMark, NEW_LOT_STEPS, ProvenanceChip, Stepper } from "../m";
 import type { WorkingOn } from "./useArcConversation";
@@ -74,14 +74,22 @@ export function Tabs<K extends string>({ label, tabs, selected, onSelect }: {
 }
 
 /** A failed or blocked step in plain words, with Try again only when the server marked the step safe to repeat. */
-export function Problem({ words, onRetry }: { words: string; onRetry?: () => void }) {
+export function Problem({ words, onRetry, retryAt }: { words: string; onRetry?: () => void; retryAt?: number }) {
   const { busy } = useArcScreen();
+  const [waiting, setWaiting] = useState(() => retryAt !== undefined && retryAt > Date.now());
+  // A rate-limited step offers Try again only once the server's wait is over.
+  useEffect(() => {
+    if (retryAt === undefined || retryAt <= Date.now()) return setWaiting(false);
+    setWaiting(true);
+    const timer = setTimeout(() => setWaiting(false), retryAt - Date.now());
+    return () => clearTimeout(timer);
+  }, [retryAt]);
   return (
     <section className="cd" role="alert" style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
       <span className="sx wn" style={{ fontSize: 15, whiteSpace: "normal", alignItems: "flex-start", lineHeight: 1.45, flex: "1 1 260px" }}>
         <Icon name="warn" /><span style={{ color: "var(--tx)" }}>{words}</span>
       </span>
-      {onRetry && <Button variant="secondary" small disabled={busy} onClick={onRetry}>Try again</Button>}
+      {onRetry && !waiting && <Button variant="secondary" small disabled={busy} onClick={onRetry}>Try again</Button>}
     </section>
   );
 }

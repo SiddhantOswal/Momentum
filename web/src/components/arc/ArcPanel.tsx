@@ -35,14 +35,19 @@ export function ArcLauncher({ open, onToggle, ref }: { open: boolean; onToggle: 
 /**
  * The card a turn calls for, from the last step the server reported. J1 and defect turns get
  * their designed screen; any other turn shows its answer. A stopped step keeps its screen and
- * shows the reason on it, with Try again only when the server marked the step safe to repeat.
+ * shows the reason on it, with Try again only as the stopped outcome allows (lib/arc.ts Retry).
  */
+function problemOf(exchange: Exchange, retry: (exchange: Exchange) => void): StepProblem | undefined {
+  const { outcome, input } = exchange;
+  if (outcome?.kind !== "stopped") return undefined;
+  return { words: outcome.words, onRetry: outcome.retry && input ? () => retry(exchange) : undefined, retryAt: outcome.retry?.at };
+}
+
 function screenFor(exchange: Exchange, retry: (exchange: Exchange) => void): ReactNode | null {
   const { outcome, steps } = exchange;
   const last = steps.at(-1);
   if (!outcome || !last || outcome.kind === "not_connected" || outcome.kind === "error") return null;
-  const problem: StepProblem | undefined = outcome.kind === "stopped"
-    ? { words: outcome.words, onRetry: outcome.retrySafe && exchange.input ? () => retry(exchange) : undefined } : undefined;
+  const problem = problemOf(exchange, retry);
   const ref = last.resultRef;
   switch (last.tool) {
     case "list_samples": return last.status === "SUCCEEDED" ? <LotSource /> : null;
@@ -64,7 +69,7 @@ function Outcome({ exchange, ask, busy, retry }: { exchange: Exchange; ask: Ask;
     case "not_connected":
       return <NotConnected title="Arc is not connected" missing={NOT_CONNECTED} />;
     case "stopped":
-      return <Problem words={outcome.words} onRetry={outcome.retrySafe && exchange.input ? () => retry(exchange) : undefined} />;
+      return <Problem {...problemOf(exchange, retry) as StepProblem} />;
     case "error":
       return <Problem words={outcome.words} />;
   }

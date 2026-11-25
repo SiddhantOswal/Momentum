@@ -513,6 +513,58 @@ for (const theme of ['dark', 'light']) {
   });
 }
 
+test('after stream.error, Try again re-posts the same clientTurnId so the server replays or takes the turn over', async ({ page }) => {
+  const posts = await mockTurns(page, [
+    { events: (id) => [
+      { clientTurnId: id, sequence: 1, type: 'run.started', taskRunId: RUN_ID, kind: 'lot_preparation' },
+      { clientTurnId: id, sequence: 2, type: 'step.started', stepId: 'step_1', tool: 'read_order', label: 'Reading the order' },
+      { type: 'stream.error', code: 'REQUEST_TIMEOUT' },
+    ] },
+    { events: (id) => oneStep(id, { tool: 'read_order', kind: 'lot_preparation', resultRef: { kind: 'po_review', id: REVIEW_ID } }) },
+  ]);
+  const panel = await openArc(page);
+  await type(panel, 'Read sample order PO1');
+  await expect(panel.getByRole('alert')).toHaveText(/This step did not finish in time\. Your confirmed inputs are kept\. Try again\./);
+  expect(posts).toHaveLength(1);
+  await panel.getByRole('button', { name: 'Try again' }).click();
+  await expect(panel.getByRole('heading', { name: 'Check what was read' })).toBeVisible();
+  expect(posts).toHaveLength(2);
+  expect(posts[1]).toEqual(posts[0]);
+  await expect(panel.getByRole('article')).toHaveCount(1);
+});
+
+test('a stream that drops with no terminal event is re-posted once with the same clientTurnId', async ({ page }) => {
+  const posts = await mockTurns(page, [
+    { events: (id) => [
+      { clientTurnId: id, sequence: 1, type: 'run.started', taskRunId: RUN_ID, kind: 'lot_preparation' },
+      { clientTurnId: id, sequence: 2, type: 'step.started', stepId: 'step_1', tool: 'list_samples', label: 'Working on this step' },
+    ] },
+    { events: (id) => oneStep(id, { tool: 'list_samples', kind: 'lot_preparation' }) },
+  ]);
+  const panel = await openArc(page);
+  await panel.getByRole('button', { name: /^New lot/ }).click();
+  await expect(panel.getByRole('heading', { name: 'Choose the purchase order' })).toBeVisible();
+  expect(posts).toHaveLength(2);
+  expect(posts[1]).toEqual(posts[0]);
+});
+
+test('a rate-limited step offers Try again only after the wait, and then as a new turn', async ({ page }) => {
+  const posts = await mockTurns(page, [
+    { events: (id) => oneStep(id, { tool: 'query_metric', kind: 'data_question', end: { type: 'step.blocked', errorCode: 'BUDGET_RATE_LIMITED', retrySafe: true } })
+      .map((event) => event.type === 'step.blocked' ? { ...event, retryAfterSeconds: 2 } : event) },
+    { events: noRun, taskRunId: null, answer: { text: 'Arc finished the requested steps.', generatedByGemini: false, writerOutcome: 'not_called', blocks: [] } },
+  ]);
+  const panel = await openArc(page);
+  await type(panel, 'Which lots had the most scrap?');
+  await expect(panel.getByRole('alert')).toContainText('Too many typed messages in one minute. Wait 2 s, or use the buttons.');
+  await expect(panel.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+  await expect(panel.getByRole('button', { name: 'Try again' })).toBeVisible({ timeout: 4000 });
+  await panel.getByRole('button', { name: 'Try again' }).click();
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[1].input).toEqual(posts[0].input);
+  expect(posts[1].clientTurnId).not.toBe(posts[0].clientTurnId);
+});
+
 test('Arc-Phone: a full-width sheet at 375 px with no sideways scroll, and approval is still a tick plus a button', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await mockTurns(page, [planToJob]);

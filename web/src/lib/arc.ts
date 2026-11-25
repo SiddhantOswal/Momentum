@@ -193,13 +193,23 @@ export async function postTurn(
 
 export const newTurnId = () => crypto.randomUUID();
 
-const TERMINAL = new Set(["run.completed", "run.failed", "answer", "stream.error"]);
-const STOPPED = new Set(["step.failed", "step.blocked", "step.waiting_for_user", "run.failed", "stream.error"]);
+const TERMINAL = new Set(["run.completed", "run.failed", "answer"]);
+const STOPPED = new Set(["step.failed", "step.blocked", "step.waiting_for_user", "run.failed"]);
+
+/**
+ * How a stopped turn may be tried again, or null when it may not.
+ * - "new_turn": the server marked the step safe to repeat, so Try again sends the input under a
+ *   new clientTurnId and the step's attempt rises (contract section 6).
+ * - "same_turn": the stream ended before the turn did (stream.error or a dropped connection), so
+ *   Try again re-posts the same clientTurnId; the server replays it, or takes it over once its
+ *   lease has expired, and never runs it twice (sections 3.3, 3.4 and 4.4).
+ * `at` holds Try again back until a rate-limit wait is over (epoch milliseconds).
+ */
+export type Retry = { mode: "new_turn" | "same_turn"; at?: number } | null;
 
 export type TurnOutcome =
   | { kind: "answer"; turn: TurnView }
-  /** `retrySafe` comes from the server's event; a step the server did not mark safe gets no Try again. */
-  | { kind: "stopped"; code: string; words: string; retrySafe: boolean }
+  | { kind: "stopped"; code: string; words: string; retry: Retry }
   | { kind: "not_connected" }
   | { kind: "error"; code: string; words: string };
 
@@ -247,7 +257,7 @@ async function readAnswer(clientTurnId: string): Promise<TurnOutcome> {
     if (turn.data.status === "complete") return { kind: "answer", turn: turn.data };
     if (turn.data.status === "failed") {
       const code = turn.data.errorCode ?? "SERVICE_UNAVAILABLE";
-      return { kind: "stopped", code, words: arcWords(code), retrySafe: false };
+      return { kind: "stopped", code, words: arcWords(code), retry: null };
     }
     await pause(1000 * (attempt + 1));
   }
@@ -259,13 +269,25 @@ function failureOutcome(failure: ArcFailure): TurnOutcome {
   return { kind: "error", code: failure.code, words: arcWords(failure.code, failure.retryAfterSeconds) };
 }
 
+// The budget's own wait when the event carries it; a replayed event does not (contract D8), so a minute, as the words say.
+const RATE_LIMIT_WAIT_SECONDS = 60;
+
+function stepRetry(errorCode: string, retrySafe: boolean, retryAfterSeconds?: number): Retry {
+  if (!retrySafe) return null;
+  if (errorCode !== "BUDGET_RATE_LIMITED") return { mode: "new_turn" };
+  return { mode: "new_turn", at: Date.now() + (retryAfterSeconds ?? RATE_LIMIT_WAIT_SECONDS) * 1000 };
+}
+
 function stoppedOutcome(event: ArcEvent): TurnOutcome {
   switch (event.type) {
-    case "step.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode), retrySafe: event.retrySafe };
-    case "run.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode), retrySafe: false };
-    case "step.blocked": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode, event.retryAfterSeconds), retrySafe: event.retrySafe };
-    case "step.waiting_for_user": return { kind: "stopped", code: event.waitingFor, words: WAITING_WORDS[event.waitingFor], retrySafe: false };
-    case "stream.error": return { kind: "stopped", code: event.code, words: arcWords(event.code), retrySafe: true };
+    case "step.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode), retry: stepRetry(event.errorCode, event.retrySafe) };
+    case "run.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode), retry: null };
+    case "step.blocked": return {
+      kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode, event.retryAfterSeconds),
+      retry: stepRetry(event.errorCode, event.retrySafe, event.retryAfterSeconds),
+    };
+    case "step.waiting_for_user": return { kind: "stopped", code: event.waitingFor, words: WAITING_WORDS[event.waitingFor], retry: null };
+    case "stream.error": return { kind: "stopped", code: event.code, words: arcWords(event.code), retry: { mode: "same_turn" } };
     default: return { kind: "error", code: "UNKNOWN", words: arcWords("UNKNOWN") };
   }
 }
@@ -276,7 +298,7 @@ function stoppedOutcome(event: ArcEvent): TurnOutcome {
  * which the server replays instead of running twice (contract sections 3.4 and 4.4).
  * `onEvent` sees every event, so the caller can draw the step cards as they change.
  */
-export async function askArc(input: TurnInput, onEvent: (event: ArcEvent) => void, clientTurnId = newTurnId()): Promise<TurnOutcome> {
+export async function askArc(input: TurnInput, onEvent: (event: ArcEvent) => void, clientTurnId: string = newTurnId()): Promise<TurnOutcome> {
   for (let attempt = 0; attempt < 2; attempt++) {
     const posted = await postTurn({ clientTurnId, input }, onEvent);
     if (!posted.ok) {
@@ -285,11 +307,12 @@ export async function askArc(input: TurnInput, onEvent: (event: ArcEvent) => voi
     }
     const { events } = posted.data;
     if (events.some((event) => event.type === "answer")) return readAnswer(clientTurnId);
-    const last = [...events].reverse().find((event) => STOPPED.has(event.type));
+    // stream.error means the server stopped following the turn, not that the turn ended, so it is not re-posted here.
+    const last = [...events].reverse().find((event) => STOPPED.has(event.type) || event.type === "stream.error");
     if (last) return stoppedOutcome(last);
     if (events.some((event) => TERMINAL.has(event.type))) return readAnswer(clientTurnId);
   }
-  return { kind: "error", code: "STREAM_DROPPED", words: arcWords("STREAM_DROPPED") };
+  return { kind: "stopped", code: "STREAM_DROPPED", words: arcWords("STREAM_DROPPED"), retry: { mode: "same_turn" } };
 }
 
 const WAITING_WORDS: Record<WaitingFor, string> = {

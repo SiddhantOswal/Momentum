@@ -49,13 +49,14 @@ export function useArcConversation() {
     refreshBudget();
   }, [refreshBudget]);
 
-  const send = useCallback(async (input: TurnInput, asked: string) => {
+  /** Posts one turn and follows it. `id` is new for a new turn, or an existing exchange's own ID to re-post it. */
+  const run = useCallback(async (id: string, input: TurnInput, asked: string, existing: boolean) => {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
-    const id = newTurnId();
     const events: ArcEvent[] = [];
-    setExchanges((list) => [...list, { id, asked, input, step: null, steps: [], taskRunId: null, outcome: null }]);
+    const fresh: Exchange = { id, asked, input, step: null, steps: [], taskRunId: null, outcome: null };
+    setExchanges((list) => existing ? list.map((exchange) => exchange.id === id ? fresh : exchange) : [...list, fresh]);
     const onEvent = (event: ArcEvent) => {
       events.push(event);
       const patch: Partial<Exchange> = { steps: stepsFromEvents(events) };
@@ -76,6 +77,8 @@ export function useArcConversation() {
     }
   }, [refreshBudget]);
 
+  const send = useCallback((input: TurnInput, asked: string) => run(newTurnId(), input, asked, false), [run]);
+
   /** Shows a stored turn from past work, read again from the server, with its run's steps. */
   const showPast = useCallback(async (clientTurnId: string, asked: string) => {
     if (exchanges.some((exchange) => exchange.id === clientTurnId)) return;
@@ -86,17 +89,24 @@ export function useArcConversation() {
     else if (turn.data.status === "complete") outcome = { kind: "answer", turn: turn.data };
     else if (turn.data.status === "failed") {
       const code = turn.data.errorCode ?? "UNKNOWN";
-      outcome = { kind: "stopped", code, words: arcWords(code), retrySafe: false };
+      outcome = { kind: "stopped", code, words: arcWords(code), retry: null };
     } else outcome = { kind: "error", code: "IN_PROGRESS", words: arcWords("TURN_STILL_RUNNING") };
     const taskRunId = turn.ok ? turn.data.taskRunId : null;
     const run = taskRunId ? await getRun(taskRunId) : null;
     update(clientTurnId, { outcome, taskRunId, steps: run?.ok ? stepsFromRun(run.data) : [] });
   }, [exchanges]);
 
-  /** A new turn with the same input; the server raises the step's attempt (contract section 6). */
+  /**
+   * Try again, as the stopped outcome allows: a new turn after a step the server marked safe to
+   * repeat, or the same clientTurnId after the stream ended early, so the server replays or takes
+   * the turn over instead of running it twice (contract sections 3.4, 4.4 and 6).
+   */
   const retry = useCallback((exchange: Exchange) => {
-    if (exchange.input) void send(exchange.input, exchange.asked);
-  }, [send]);
+    const { outcome, input } = exchange;
+    if (!input || outcome?.kind !== "stopped" || !outcome.retry) return;
+    if (outcome.retry.at !== undefined && outcome.retry.at > Date.now()) return;
+    void (outcome.retry.mode === "same_turn" ? run(exchange.id, input, exchange.asked, true) : send(input, exchange.asked));
+  }, [run, send]);
 
   return { exchanges, connection, session, callsLeft, busy, workingOn, setWorkingOn, send, retry, showPast, checkConnection };
 }

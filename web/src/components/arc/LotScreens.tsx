@@ -8,7 +8,7 @@ import { href } from "../../lib/routes";
 import { Button, ButtonLink, Chip, Icon, IdleMark, LabelChip, ProvenanceChip } from "../m";
 import { ArcSteps, Loading, NotConnectedNote, Problem, ReviewCheck, ScreenHead, Tabs, useArcScreen } from "./parts";
 
-export type StepProblem = { words: string; onRetry?: () => void };
+export type StepProblem = { words: string; onRetry?: () => void; retryAt?: number };
 
 /*
  * The J1 cards (Arc-Lot-*). Each is driven by a run step the server reported or by the stored
@@ -86,7 +86,7 @@ export function LotSource({ problem }: { problem?: StepProblem }) {
         <ProvenanceChip kind="not-connected" />
         <span>Dropping your own PDF or JPEG is not connected to Arc yet.</span>
       </div>
-      {problem && <Problem words={problem.words} onRetry={problem.onRetry} />}
+      {problem && <Problem {...problem} />}
       <div className="row">
         <Button arrow disabled={busy} onClick={() => send({ kind: "text", text: `Read sample order ${chosen}` }, `Read sample order ${chosen}`)}>Read this order</Button>
         <span className="lb" style={{ fontSize: 14 }}>Approved samples only.</span>
@@ -111,7 +111,7 @@ export function LotReview({ problem }: { problem?: StepProblem }) {
       <div className="stl">
         {checks.map((check) => <ReviewCheck key={check} checked={false} disabled onChange={() => undefined}>{check}</ReviewCheck>)}
       </div>
-      {problem && <Problem words={problem.words} onRetry={problem.onRetry} />}
+      {problem && <Problem {...problem} />}
       <div className="row">
         <Button arrow disabled>Confirm order</Button>
         <ButtonLink variant="secondary" href={href("new-lot/order")}>Open New Lot</ButtonLink>
@@ -175,7 +175,7 @@ export function LotConditions({ lotId, problem }: { lotId: string | null; proble
           })}
         </section>
       )}
-      {problem && <Problem words={problem.words} onRetry={problem.onRetry} />}
+      {problem && <Problem {...problem} />}
       <div className="row">
         <Button arrow disabled>Confirm conditions</Button>
         <span className="lb" style={{ fontSize: 14 }}>
@@ -192,7 +192,7 @@ export function PlanStopped({ problem }: { problem?: StepProblem }) {
     <>
       <ArcSteps current={3} />
       <ScreenHead title="Compare the two plans" />
-      {problem && <Problem words={problem.words} onRetry={problem.onRetry} />}
+      {problem && <Problem {...problem} />}
       <section className="cd">
         <div className="ct2"><h3 className="t" style={{ fontSize: 15 }}>Scrap for this lot</h3></div>
         <NotConnectedNote>Arc could not plan this lot, so there is no estimate to compare. Plan it on the New Lot page.</NotConnectedNote>
