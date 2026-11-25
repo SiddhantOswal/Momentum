@@ -23,6 +23,7 @@ test("the Arc review read returns this session's lines and nothing order-derived
   assert.equal(response.headers.get("cache-control"), "no-store");
   const body = await response.json();
   assert.equal(body.review.reviewId, reviewId);
+  assert.equal(body.review.readByGemini, true, "the recorded extraction came through the Vertex client");
   assert.deepEqual(body.review.lines, [{ lineIndex: 0, sourcePage: 1, itemCode: PO1.itemCode, quantity: PO1.quantity, status: "MATCHED" }]);
   const raw = JSON.stringify(body);
   for (const value of ["Client A Industries", "CLA/PO/2026/1047", PO1.context.paperSupplier]) assert.ok(!raw.includes(value), value);

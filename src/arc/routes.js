@@ -114,6 +114,8 @@ function reviewView(reviewId, review) {
   return {
     reviewId,
     expiresAt: new Date(review.expiresAt).toISOString(),
+    // Set by code from the extraction record, so the card can say whether Gemini read the file.
+    readByGemini: review.result.source === "vertex-gemini" && review.result.isRealModelPrediction === true,
     lines: (review.result.lines ?? []).map((line) => ({
       lineIndex: line.lineIndex,
       sourcePage: line.sourcePage ?? null,
