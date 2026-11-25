@@ -25,9 +25,10 @@ export const ROUTES: Record<RouteId, Route> = {
 
 export const href = (id: RouteId) => `#/${id}`;
 
-// "#/new-lot" alone opens the first step; anything unknown falls back to Home.
+// "#/new-lot" alone opens the first step; anything unknown falls back to Home. A query after the
+// path ("#/operator?job=X") belongs to the page, so it is not part of the route.
 function routeFromHash(hash: string): Route {
-  const path = hash.replace(/^#\/?/, "").replace(/\/+$/, "");
+  const path = hash.replace(/^#\/?/, "").split("?")[0].replace(/\/+$/, "");
   if (path === "new-lot") return ROUTES["new-lot/order"];
   return Object.hasOwn(ROUTES, path) ? ROUTES[path as RouteId] : ROUTES.home;
 }
