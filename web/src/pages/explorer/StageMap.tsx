@@ -1,7 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { Chip } from "../../components/m";
 import line from "./line.jpg";
-import { leverLabel, leverNumber, leverUnit, stageOf, STAGES, type PlanSheet, type StageId } from "./plan";
+import { leverLabel, leverNumber, leverUnit, stageOf, STAGES, type PlanView, type StageId } from "./plan";
 
 // Station markers on the 768 x 512 illustration, from the design.
 const MARKERS: Record<StageId, [number, number]> = { 1: [120, 360], 2: [295, 235], 3: [395, 150], 4: [530, 150], 5: [720, 105] };
@@ -12,11 +12,11 @@ const CALLOUT = { lefts: [16, 250, 484], width: 218, bottom: 84, lineFrom: 0.6 }
 const pct = (value: number, of: number) => `${(value / of) * 100}%`;
 
 /** The illustrated line with its five stations, the plan's changes as callouts and the stage tabs. */
-export function StageMap({ sheet, selected, onSelect }: { sheet?: PlanSheet; selected: StageId; onSelect: (stage: StageId) => void }) {
+export function StageMap({ plan, selected, onSelect }: { plan?: PlanView; selected: StageId; onSelect: (stage: StageId) => void }) {
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const changes = [...(sheet?.changes ?? [])].sort((a, b) => stageOf(a.lever) - stageOf(b.lever));
+  const changes = [...(plan?.changes ?? [])].sort((a, b) => stageOf(a.lever) - stageOf(b.lever));
   const stage = STAGES.find((s) => s.id === selected)!;
-  const rh = sheet?.conditions.ambientRhPct;
+  const rh = plan?.rh;
 
   // Arrow keys move between stage tabs, as in the WAI-ARIA tabs pattern.
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -34,7 +34,7 @@ export function StageMap({ sheet, selected, onSelect }: { sheet?: PlanSheet; sel
       <div className="pe-bar">
         <Chip tone="example">Illustrative line, not a live view</Chip>
         <span className="mt">
-          {sheet ? `${sheet.order.itemCode}, stage` : "Stage"} {stage.id} of {STAGES.length}, {stage.name.toLowerCase()}
+          {plan ? `${plan.itemCode}, stage` : "Stage"} {stage.id} of {STAGES.length}, {stage.name.toLowerCase()}
         </span>
       </div>
       <div className="pe-stage">
@@ -58,7 +58,7 @@ export function StageMap({ sheet, selected, onSelect }: { sheet?: PlanSheet; sel
           ))}
         </div>
         <div className="pe-fill" />
-        {sheet && (
+        {plan && (
           <div className="pe-callouts">
             {changes.map((change, index) => {
               const unit = leverUnit(change.lever);
@@ -72,10 +72,10 @@ export function StageMap({ sheet, selected, onSelect }: { sheet?: PlanSheet; sel
                 </div>
               );
             })}
-            {typeof rh === "number" && (
+            {rh && (
               <div className="gl pe-floor">
                 <div className="lb">Floor conditions</div>
-                <div className="n">{rh}% humidity{sheet.conditions.supervisorConfirmed === true && <span> confirmed</span>}</div>
+                <div className="n">{rh.value}% humidity{rh.confirmed && <span> confirmed</span>}</div>
               </div>
             )}
           </div>

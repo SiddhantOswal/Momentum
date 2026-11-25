@@ -47,43 +47,71 @@ export const leverUnit = (lever: LeverKey) => {
 type Change = { lever: LeverKey; from: string | number; to: string | number };
 
 /** The parts of a stored job sheet (`GET /jobs/:id`) this page reads. */
-export type PlanSheet = {
-  jobId: string;
-  order: { orderId: string; itemCode: string };
-  conditions: { ambientRhPct: number; supervisorConfirmed?: boolean; conditionSource?: string };
-  baseline: { levers: Levers };
+type StoredSheet = {
+  order: { itemCode: string };
+  conditions: { ambientRhPct: number; supervisorConfirmed?: boolean };
   recommended: { levers: Levers };
   changes: Change[];
+};
+
+/**
+ * The plan shown on the page. "session" is this session's own lot, read in full from its stored
+ * job sheet. "floor" is the newest lot on the shared floor view, which carries only the changed
+ * settings, so its unchanged values and floor conditions are not known here.
+ */
+export type PlanView = {
+  source: "session" | "floor";
+  itemCode: string;
+  changes: Change[];
+  levers?: Levers;
+  rh?: { value: number; confirmed: boolean };
 };
 
 export type PlanState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "none" }
-  | { kind: "plan"; lot: LiveLot; sheet: PlanSheet };
+  | { kind: "plan"; plan: PlanView };
 
-// The floor view lists every lot; the current one is the most recently updated lot that has a plan.
-function currentLot(lots: LiveLot[]) {
+type ArcSession = { session?: { activeLots?: { lotId: string; currentJobId: string | null }[] } };
+
+function newestFloorLot(lots: LiveLot[]) {
   return lots
-    .filter((lot) => typeof lot.jobId === "string" && lot.jobId.length > 0)
+    .filter((lot) => Array.isArray(lot.changes) && typeof lot.itemCode === "string")
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
 }
 
-/** Reads the current lot from `/api/lots`, then its stored plan from `/jobs/:id`. */
+/**
+ * This session's lot comes from the Arc session (`/api/arc/session`), the only session-scoped
+ * lot list, and its plan from `/jobs/:id`. Without one, the newest lot on the floor view
+ * (`/api/lots`, every session's lots) is shown from the changes it carries. Another session's job
+ * is never requested, because `/jobs/:id` refuses it.
+ */
 export function useCurrentPlan(): PlanState {
   const [state, setState] = useState<PlanState>({ kind: "loading" });
   useEffect(() => {
     const controller = new AbortController();
+    const { signal } = controller;
     (async () => {
-      const lots = await getJson<{ lots: LiveLot[] }>("/api/lots", controller.signal);
-      if (controller.signal.aborted) return;
-      if (!lots.ok) return setState({ kind: "error", message: lots.error });
-      const lot = currentLot(lots.data.lots ?? []);
+      const session = await getJson<ArcSession>("/api/arc/session", signal);
+      if (signal.aborted) return;
+      const own = session.ok ? (session.data.session?.activeLots ?? []).filter((lot) => lot.currentJobId).at(-1) : undefined;
+      if (own?.currentJobId) {
+        const job = await getJson<{ jobSheet: StoredSheet }>(`/jobs/${encodeURIComponent(own.currentJobId)}`, signal);
+        if (signal.aborted) return;
+        if (!job.ok) return setState({ kind: "error", message: job.error });
+        const sheet = job.data.jobSheet;
+        return setState({ kind: "plan", plan: {
+          source: "session", itemCode: sheet.order.itemCode, changes: sheet.changes, levers: sheet.recommended.levers,
+          rh: { value: sheet.conditions.ambientRhPct, confirmed: sheet.conditions.supervisorConfirmed === true },
+        } });
+      }
+      const floor = await getJson<{ lots: LiveLot[] }>("/api/lots", signal);
+      if (signal.aborted) return;
+      if (!floor.ok) return setState({ kind: "error", message: floor.error });
+      const lot = newestFloorLot(floor.data.lots ?? []);
       if (!lot) return setState({ kind: "none" });
-      const job = await getJson<{ jobSheet: PlanSheet }>(`/jobs/${encodeURIComponent(lot.jobId!)}`, controller.signal);
-      if (controller.signal.aborted) return;
-      if (!job.ok) return setState({ kind: "error", message: job.error });
-      setState({ kind: "plan", lot, sheet: job.data.jobSheet });
+      setState({ kind: "plan", plan: { source: "floor", itemCode: lot.itemCode, changes: (lot.changes ?? []) as Change[] } });
     })();
     return () => controller.abort();
   }, []);

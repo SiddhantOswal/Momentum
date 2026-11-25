@@ -3,8 +3,12 @@ import { expect, test } from '@playwright/test';
 const json = (status, body) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
 const NOT_ENABLED = json(404, { ok: false, error: { code: 'ARC_NOT_ENABLED', message: 'Arc is not enabled on this deployment.' } });
 
-const LOT = { lotId: 'LOT-T-1', jobId: 'JOB-TEST-1', orderId: 'TEST-PO-1', itemCode: 'SKU-TEST-9', quantity: 500, status: 'planned', updatedAt: '2026-11-25T09:00:00.000Z' };
-const OLDER = { ...LOT, lotId: 'LOT-T-0', jobId: 'JOB-TEST-0', itemCode: 'SKU-OLD', updatedAt: '2026-11-24T09:00:00.000Z' };
+// Floor lots belong to other sessions; their jobs must never be requested.
+const FLOOR_LOT = { lotId: 'JOB-HACK-other-1', jobId: 'JOB-HACK-other-1', orderId: 'TEST-PO-7', itemCode: 'SKU-FLOOR-7', quantity: 800, status: 'planned', updatedAt: '2026-11-25T09:00:00.000Z',
+  changes: [{ lever: 'dryingHours', from: 6, to: 8 }, { lever: 'gumViscositySec', from: 30, to: 38 }] };
+const OLDER = { ...FLOOR_LOT, lotId: 'JOB-HACK-other-0', jobId: 'JOB-HACK-other-0', itemCode: 'SKU-OLD', updatedAt: '2026-11-24T09:00:00.000Z' };
+const SESSION = { ok: true, session: { authorizationMode: 'HACKATHON_DEMO', identityLabel: 'Demo session, simulated', expiresAt: '2026-11-25T12:00:00.000Z',
+  activeLots: [{ lotId: 'LOT-T-1', stage: 'draft_review', currentJobId: 'JOB-TEST-1', currentRevision: 1 }], jobIds: [], activeTaskRunId: null, resumable: false, turnCount: 0 } };
 const LEVERS = { sfSpeedMpm: 41, rollTempC: 163, gumApplication: 'HIGH', gumViscositySec: 33, pastingPressure: 'MED', dryingHours: 6, printSpeedSpm: 52 };
 const JOB = { ok: true, jobSheet: {
   jobId: 'JOB-TEST-1', order: { orderId: 'TEST-PO-1', itemCode: 'SKU-TEST-9', quantity: 500 },
@@ -30,7 +34,8 @@ async function mockBackend(page, overrides = {}) {
   const answers = {
     '/api/auth/config': json(200, { enabled: false, provider: 'firebase-google' }),
     '/api/status': json(200, STATUS),
-    '/api/lots': json(200, { ok: true, mode: 'memory', lots: [OLDER, LOT], events: [] }),
+    '/api/arc/session': json(200, SESSION),
+    '/api/lots': json(200, { ok: true, mode: 'memory', lots: [OLDER, FLOOR_LOT], events: [] }),
     '/jobs/JOB-TEST-1': json(200, JOB),
     '/evidence/approved-photos': json(200, PHOTOS),
     '/conditions/weather': json(200, { ok: true, source: 'google-maps-weather', ambientRhPct: 52, ambientTempC: 22, observedAt: '2026-11-25T04:30:00Z', location: 'Pune' }),
@@ -64,7 +69,7 @@ async function expectNoRetiredCopy(page) {
 
 for (const theme of ['dark', 'light']) {
   test(`Plant Explorer shows the current lot's plan in the ${theme} theme`, async ({ page }) => {
-    await mockBackend(page);
+    const calls = await mockBackend(page);
     await open(page, '#/explorer', theme);
 
     await expect(page.getByRole('heading', { level: 1, name: 'Plant Explorer' })).toBeVisible();
@@ -97,6 +102,8 @@ for (const theme of ['dark', 'light']) {
     await expect(page.locator('.m')).toHaveCSS('background-color', theme === 'dark' ? 'rgb(18, 21, 25)' : 'rgb(238, 240, 242)');
     expect((await page.locator('.pe-map').boundingBox()).width).toBe(768);
     await expectNoRetiredCopy(page);
+    // The session's own job is read; the floor lots of other sessions are not.
+    expect(calls.filter(call => call.startsWith('GET /jobs/'))).toEqual(['GET /jobs/JOB-TEST-1']);
   });
 
   test(`Photo diagnosis renders the approved photos in the ${theme} theme`, async ({ page }) => {
@@ -134,8 +141,8 @@ test('the compare control shows not connected and sends nothing', async ({ page 
   const compare = page.getByRole('button', { name: 'Compare HIGH and MEDIUM' });
   await expect(compare).toBeVisible();
   await expect(compare).toBeDisabled();
-  await expect(compare).toHaveAccessibleDescription(/Not connected\s*Comparing two estimates for one lot is not built yet\./);
-  await expect(page.getByText('A comparison only. Changes go through New Lot.')).toBeVisible();
+  await expect(compare).toHaveAccessibleDescription('A comparison only. Changes go through New Lot. Comparing two estimates for one lot is not built yet.');
+  await expect(page.getByRole('tabpanel').getByText('Not connected', { exact: true })).toBeVisible();
 
   const before = calls.length;
   await compare.click({ force: true });
@@ -162,8 +169,27 @@ test('stage tabs follow the keyboard and the stage card follows the tab', async 
   await expect(page.getByRole('tabpanel').getByText('Model estimate')).toBeVisible();
 });
 
+test('without a lot in this session, the newest floor lot is shown from its changes only', async ({ page }) => {
+  const calls = await mockBackend(page, { '/api/arc/session': NOT_ENABLED });
+  await open(page, '#/explorer');
+  await expect(page.getByText('SKU-FLOOR-7, stage 3 of 5, glue')).toBeVisible();
+  await expect(page.locator('.pe-call')).toHaveText([/Gum viscosity\s*30 → 38 s/, /Drying time\s*6 → 8 h/]);
+  const panel = page.getByRole('tabpanel');
+  await expect(panel.locator('.pe-row')).toHaveText([/Gum viscosity\s*was 30 s\s*38 s/]);
+  await expect(panel).toContainText('Newest lot on the floor view, changed settings only.');
+  // The floor record has no conditions, so no humidity is shown for it.
+  await expect(page.locator('.pe-floor')).toHaveCount(0);
+  await page.getByRole('tab', { name: /Corrugate/ }).click();
+  await expect(panel).toContainText('The plan changes nothing at this stage.');
+  await expect(panel.locator('.pe-row')).toHaveCount(0);
+  expect(calls.filter(call => call.startsWith('GET /jobs/'))).toEqual([]);
+});
+
 test('Plant Explorer says so when no lot is planned', async ({ page }) => {
-  const calls = await mockBackend(page, { '/api/lots': json(200, { ok: true, lots: [{ ...LOT, jobId: undefined }], events: [] }) });
+  const calls = await mockBackend(page, {
+    '/api/arc/session': json(200, { ...SESSION, session: { ...SESSION.session, activeLots: [] } }),
+    '/api/lots': json(200, { ok: true, lots: [{ ...FLOOR_LOT, changes: undefined }], events: [] }),
+  });
   await open(page, '#/explorer');
   await expect(page.getByRole('tabpanel')).toContainText('No lot is planned yet, so there are no settings to show.');
   await expect(page.getByRole('tabpanel').getByText('Model estimate')).toHaveCount(0);
