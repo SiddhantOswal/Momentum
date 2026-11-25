@@ -30,12 +30,12 @@ export const RELEASE_FLAGS = Object.freeze({
   USTAAD_ENFORCE_APPROVE_GUARD: "true",
   USTAAD_ENFORCE_MODEL_VERSIONS: "true",
   USTAAD_GEMINI_BUDGET_POLICY: "budget-v2",
-  // The live pool with the design's proposed limits (04 section 5.2, F2: Rs 600 a day). The eval
-  // pool needs an eval suite name on every reservation, so it cannot serve manual testing. Today's
-  // production revision still counts on gemini_daily_usage, so these counters are not shared with it.
+  // The live pool, capped well below production: today's revision still counts on
+  // gemini_daily_usage, so laptop spend is added on top of it. Rs 100 and 100 attempts a day keep
+  // the combined spend inside the F2 budget (Rs 600 live plus Rs 200 eval).
   GEMINI_BUDGET_LIMITS: JSON.stringify({
-    pool: "live", dayLimit: 300, sessionDayLimit: 40, ipDayLimit: 120,
-    minuteLimit: 20, sessionMinuteLimit: 6, dayCostCapInr: 600,
+    pool: "live", dayLimit: 100, sessionDayLimit: 40, ipDayLimit: 100,
+    minuteLimit: 20, sessionMinuteLimit: 6, dayCostCapInr: 100,
     demoSessionMint: { perIpPerHour: 30 },
     pitchClaim: { attemptsPerIpPerHour: 5 },
   }),
@@ -60,8 +60,14 @@ export function serviceEnvironment(service) {
 
 /** A metadata endpoint on loopback that answers only Google metadata requests. */
 export function createLocalMetadataServer({ getToken, projectId }) {
-  return createServer(async (request, response) => {
-    if (request.headers["metadata-flavor"] !== "Google") {
+  const server = createServer(async (request, response) => {
+    // A browser page cannot reach this after a DNS rebind: the Host must be the exact loopback
+    // address and port, and headers only browsers send are refused. Node's own fetch sends
+    // Sec-Fetch-Mode, so that one header is allowed.
+    const expectedHost = `127.0.0.1:${server.address()?.port}`;
+    const fromBrowser = request.headers.origin !== undefined ||
+      request.headers["sec-fetch-site"] !== undefined || request.headers["sec-fetch-dest"] !== undefined;
+    if (request.headers["metadata-flavor"] !== "Google" || request.headers.host !== expectedHost || fromBrowser) {
       response.writeHead(403).end();
       return;
     }
@@ -84,9 +90,10 @@ export function createLocalMetadataServer({ getToken, projectId }) {
       send(503, "");
     }
   });
+  return server;
 }
 
-/** Caches the developer's gcloud access token; gcloud tokens last an hour, so refresh after 45 minutes. */
+/** Caches the developer's gcloud token for 5 minutes: gcloud may hand back a cached token with little life left. */
 export function createGcloudTokenSource({ fetchToken = async () => (await run("gcloud", ["auth", "print-access-token"])).stdout.trim(), now = Date.now } = {}) {
   let cached;
   let pending;
@@ -94,7 +101,7 @@ export function createGcloudTokenSource({ fetchToken = async () => (await run("g
     if (cached && cached.expiresAt > now()) return { value: cached.value, expiresIn: Math.floor((cached.expiresAt - now()) / 1000) };
     pending ??= fetchToken().then((value) => {
       if (!value) throw new Error("gcloud returned no token");
-      cached = { value, expiresAt: now() + 45 * 60 * 1000 };
+      cached = { value, expiresAt: now() + 5 * 60 * 1000 };
       return cached;
     }).finally(() => { pending = undefined; });
     const token = await pending;
@@ -113,11 +120,12 @@ async function main() {
   await new Promise((resolve) => metadata.listen(0, "127.0.0.1", resolve));
   Object.assign(process.env, env, RELEASE_FLAGS, {
     PORT,
+    USTAAD_BIND_HOST: "127.0.0.1",
     USTAAD_PUBLIC_ORIGIN: `http://localhost:${PORT}`,
     GCE_METADATA_HOST: `127.0.0.1:${metadata.address().port}`,
     GOOGLE_CLOUD_PROJECT: PROJECT,
   });
-  console.log(`LOCAL LIVE: ${SERVICE} settings from Cloud Run (${Object.keys(plain).length} settings, ${secrets.length} secrets, values not shown), every Arc and M1 flag on, Gemini budget live pool (Rs 600 a day cap). Real BigQuery, Firestore, Cloud Storage and Vertex AI as your gcloud account.`);
+  console.log(`LOCAL LIVE: ${SERVICE} settings from Cloud Run (${Object.keys(plain).length} settings, ${secrets.length} secrets, values not shown), every Arc and M1 flag on, Gemini budget live pool capped at Rs 100 a day. Listening on 127.0.0.1 only. Real BigQuery, Firestore, Cloud Storage and Vertex AI as your gcloud account.`);
   await import("../index.mjs");
 }
 

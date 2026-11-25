@@ -42,7 +42,26 @@ test("the local metadata endpoint refuses requests without the Google header", a
   assert.equal(other.status, 404);
 });
 
-test("the gcloud token is fetched once and refreshed after 45 minutes", async () => {
+test("the local metadata endpoint refuses rebinding hosts and browser requests", async (t) => {
+  const { request } = await import("node:http");
+  const server = createLocalMetadataServer({ getToken: async () => ({ value: "tok", expiresIn: 60 }), projectId: "p" });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const port = server.address().port;
+  const get = (headers) => new Promise((resolve, reject) => {
+    request({ host: "127.0.0.1", port, path: "/computeMetadata/v1/instance/service-accounts/default/token", headers: { "Metadata-Flavor": "Google", ...headers } },
+      (response) => { response.resume(); resolve(response.statusCode); }).on("error", reject).end();
+  });
+  assert.equal(await get({}), 200, "a plain local client gets the token");
+  assert.equal(await get({ Host: "attacker.example:" + port }), 403, "a rebound hostname is refused");
+  assert.equal(await get({ Host: "localhost:" + port }), 403, "only the exact loopback address is accepted");
+  assert.equal(await get({ Origin: "http://127.0.0.1:" + port }), 403);
+  assert.equal(await get({ "Sec-Fetch-Site": "same-origin" }), 403);
+  assert.equal(await get({ "Sec-Fetch-Dest": "empty" }), 403);
+  assert.equal(await get({ "Sec-Fetch-Mode": "cors" }), 200, "Node fetch sends Sec-Fetch-Mode and must still work");
+});
+
+test("the gcloud token is fetched once and refreshed after 5 minutes", async () => {
   let now = 0;
   let calls = 0;
   const source = createGcloudTokenSource({ fetchToken: async () => `tok-${++calls}`, now: () => now });
@@ -50,9 +69,9 @@ test("the gcloud token is fetched once and refreshed after 45 minutes", async ()
   assert.equal(calls, 1, "two requests at once share one gcloud call");
   assert.equal(a.value, "tok-1");
   assert.equal(b.value, "tok-1");
-  now = 44 * 60 * 1000;
+  now = 4 * 60 * 1000;
   assert.equal((await source()).value, "tok-1");
-  now = 46 * 60 * 1000;
+  now = 6 * 60 * 1000;
   assert.equal((await source()).value, "tok-2");
 });
 
@@ -72,7 +91,14 @@ test("every release flag is on and Gemini uses the live pool under the F2 rupee 
   assert.equal(RELEASE_FLAGS.USTAAD_GEMINI_BUDGET_POLICY, "budget-v2");
   const limits = JSON.parse(RELEASE_FLAGS.GEMINI_BUDGET_LIMITS);
   assert.equal(limits.pool, "live");
-  assert.equal(limits.dayCostCapInr, 600);
+  assert.ok(limits.dayCostCapInr <= 100, "laptop spend stays well under the F2 live cap");
+});
+
+test("the server binds to loopback off Cloud Run when asked, and the launcher asks", async () => {
+  const { readFileSync } = await import("node:fs");
+  const index = readFileSync(new URL("../index.mjs", import.meta.url), "utf8");
+  assert.match(index, /!isCloudRun && process\.env\.USTAAD_BIND_HOST === "127\.0\.0\.1"/);
+  assert.match(readFileSync(launcher, "utf8"), /USTAAD_BIND_HOST: "127\.0\.0\.1"/);
 });
 
 test("the launcher refuses to run on Cloud Run", () => {
