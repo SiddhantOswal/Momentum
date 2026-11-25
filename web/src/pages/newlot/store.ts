@@ -93,6 +93,14 @@ export function updateLot(change: Partial<LotState> | ((current: LotState) => Pa
   for (const listener of listeners) listener();
 }
 
+/**
+ * Records that the server replaced the draft. The idempotency key goes with it: reusing the key
+ * would replay the replaced revision instead of planning a new one.
+ */
+export function markStale(stale: NonNullable<LotState["stale"]>) {
+  updateLot({ stale, idempotency: undefined });
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);

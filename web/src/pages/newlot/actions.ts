@@ -4,7 +4,7 @@ import {
   type Explanation, type Extraction, type ExtractedLine, type LotRecord, type Outcome, type PlanOutputs, type PlanResult,
   type PlantReading, type RunConditions, type Status, type Weather,
 } from "./api";
-import { SAMPLES, getLot, getOrderFile, setOrderFile, updateLot, type ConditionKey, type LotState, type SampleId } from "./store";
+import { SAMPLES, getLot, getOrderFile, markStale, setOrderFile, updateLot, type ConditionKey, type LotState, type SampleId } from "./store";
 
 const MAX_ORDER_BYTES = 10 * 1024 * 1024;
 
@@ -17,7 +17,9 @@ const PLAN_RESULTS: Partial<LotState> = {
 /** Everything that depends on the order read. A new order or a new file drops all of it. */
 const AFTER_ORDER: Partial<LotState> = { ...PLAN_RESULTS, extraction: undefined, lineIndex: undefined, itemCode: "", quantity: "", lotId: undefined };
 
-const lineCode = (line: ExtractedLine) => line.resolvedItemCode ?? line.extractedItemCode ?? "";
+export const REPLACED_MESSAGE = "An input changed after this draft was prepared, so it is replaced and read only.";
+
+export const lineCode = (line: ExtractedLine) => line.resolvedItemCode ?? line.extractedItemCode ?? "";
 
 export function chooseLine(line: ExtractedLine) {
   updateLot({ ...PLAN_RESULTS, lineIndex: line.lineIndex, itemCode: lineCode(line), quantity: line.quantity === undefined ? "" : String(line.quantity) });
@@ -148,7 +150,8 @@ function planBody(lot: LotState, file: File) {
 /**
  * POST /jobs, the command Arc's plan_lot tool also calls: it applies the condition guard,
  * predicts, searches settings, explains and stores the draft as a new revision of the lot.
- * The same inputs reuse the idempotency key, so a retry continues the same revision.
+ * The same inputs reuse the idempotency key, so a retry continues the same revision, until the
+ * server reports that revision replaced (markStale drops the key).
  */
 export async function planLot(): Promise<Outcome<PlanResult>> {
   const lot = getLot();
@@ -161,10 +164,13 @@ export async function planLot(): Promise<Outcome<PlanResult>> {
   const result = await call<PlanResult>("/jobs", { method: "POST", body: planBody(lot, file), headers: { "Idempotency-Key": key } });
   const inputs = { conditions: { ...lot.conditions }, levers: { ...lot.levers } };
   if (result.ok) {
+    const revision = result.data.revision;
     updateLot({
-      plan: result.data, lotId: result.data.revision?.lotId ?? lot.lotId, plannedInputs: inputs,
+      plan: result.data, lotId: revision?.lotId ?? lot.lotId, plannedInputs: inputs,
       partial: undefined, explanation: undefined, stale: undefined, approved: undefined,
     });
+    // A replayed key can return a revision that was replaced since; it must not look approvable.
+    if (revision && revision.status !== "CURRENT") markStale({ jobId: result.data.jobSheet.jobId, number: revision.number, message: REPLACED_MESSAGE });
     return result;
   }
   const outputs = result.body as PlanOutputs | undefined;
@@ -195,7 +201,7 @@ export async function recordConditionEdit(field: ConditionKey): Promise<Outcome<
   });
   if (result.ok && result.data.superseded) {
     const { jobId, number } = result.data.superseded;
-    updateLot({ stale: { jobId, number, message: "An input changed after this draft was prepared, so it is replaced and read only." } });
+    markStale({ jobId, number, message: REPLACED_MESSAGE });
   }
   return result;
 }
