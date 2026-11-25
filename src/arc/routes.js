@@ -2,7 +2,7 @@
  * The `/api/arc` sub-app (wire contract `06-arc-wire-contract.md`, ARC-M2-01).
  *
  * Owned here: the session read, the run read, the turn claim with its 409 and
- * replay cases, and the two turn reads. The turn runner supplies live and
+ * replay cases, the two turn reads and the order review read. The turn runner supplies live and
  * replayed turn streams. The follow and resume routes arrive in ARC-M2-06.
  *
  * Order of checks: the global body limit and per-IP limiter run before this
@@ -106,6 +106,22 @@ function streamOf(events, headers) {
     status: 200,
     headers: { ...streamHeaders, ...headers },
   });
+}
+
+// What the review card needs: catalog-matched item codes, quantities and line states. The buyer, the PO
+// number and any item code the catalog did not match stay on the server (contract section 5.2).
+function reviewView(reviewId, review) {
+  return {
+    reviewId,
+    expiresAt: new Date(review.expiresAt).toISOString(),
+    lines: (review.result.lines ?? []).map((line) => ({
+      lineIndex: line.lineIndex,
+      sourcePage: line.sourcePage ?? null,
+      itemCode: line.status === "MATCHED" ? line.resolvedItemCode ?? null : null,
+      quantity: line.quantity ?? null,
+      status: line.status,
+    })),
+  };
 }
 
 // A turn that made no tool step stores no events; its stream is one frame with no id (contract section 3.3).
@@ -324,6 +340,21 @@ export function createArcRoutes({
     if (turn === null) return fail(c, 404, "NOT_FOUND", "The turn was not found or has expired.");
     if (turn.recordStatus === "in_progress") c.header("Retry-After", String(IN_PROGRESS_RETRY_SECONDS));
     return c.json({ ok: true, turn: turnView(turn) });
+  });
+
+  // The stored order review behind a read_order step, for the review card. Missing, expired and
+  // other-session reviews all answer NOT_FOUND, as runs and turns do (decision D9).
+  app.get("/reviews/:reviewId", requireEmptyQuery, async (c) => {
+    const id = RunIdSchema.safeParse(c.req.param("reviewId"));
+    if (!id.success) {
+      return json(c, 400, validationFailure([{ field: "reviewId", path: ["reviewId"], code: "invalid_format", message: "The review ID must be a UUID." }]));
+    }
+    const load = commandDeps.servicePorts?.loadPurchaseOrderReview;
+    if (typeof load !== "function") return storesUnavailable(c);
+    const loaded = await load({ reviewId: id.data, ownerSessionId: principalOf(c).sessionId, signal: c.req.raw.signal });
+    if (!loaded?.ok) return storesUnavailable(c);
+    if (!loaded.review || loaded.review.expired) return fail(c, 404, "NOT_FOUND", "The order review was not found or has expired.");
+    return c.json({ ok: true, review: reviewView(id.data, loaded.review) });
   });
 
   // A mounted sub-app does not use its own notFound handler, so the catch-all is a route.
