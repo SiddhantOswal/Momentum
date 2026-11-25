@@ -20,9 +20,6 @@ const L = {
   plannedNotDone: { text: "Planned, not done", tone: "example" },
 } as const satisfies Record<string, Label>;
 
-/** Labels that mark an item as roadmap, not shipped. */
-export const ROADMAP_LABELS: string[] = [L.planned, L.research, L.concept, L.hardware, L.validated, L.integration, L.outOfScope, L.plannedNotDone].map((l) => l.text);
-
 export const STAGES = [
   { when: "Today", title: "Prepare", text: "Order to approved job card.", label: L.prototype, needs: "Order, catalog, five models", now: true },
   { when: "Next", title: "Guide", text: "Voice, briefings, scan access.", label: L.planned, needs: "Shift and asset records" },

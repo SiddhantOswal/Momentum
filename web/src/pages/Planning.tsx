@@ -181,20 +181,21 @@ export function Planning() {
         <SectionHead title="Production scheduling" note="Scheduling comes later. This screen is a concept." />
         <section className="cd c8" aria-labelledby="week-title">
           <div className="ct"><h2 className="t" id="week-title">Week view</h2><span className="mt" style={{ whiteSpace: "normal" }}>Example lot. Nothing here is from your plant.</span></div>
-          <div className="wk" role="presentation">
-            <div />
+          <div className="wkw"><div className="wk" role="presentation">
+            <div className="wk0" />
             {DAYS.map((day) => <div key={day} className="th wd">{day}</div>)}
             {LINES.map((line, row) => (
               <div key={line} style={{ display: "contents" }}>
                 <div className="wl">{line}</div>
                 {DAYS.map((day, column) => (
                   <div key={day} className="wc">
+                    <span className="wdn" aria-hidden="true">{day}</span>
                     {row === 0 && column === 1 && <div className="wx"><div>PKBX0041</div><div className="lb" style={{ fontSize: 13, lineHeight: 1.3 }}>Example</div></div>}
                   </div>
                 ))}
               </div>
             ))}
-          </div>
+          </div></div>
         </section>
         <div className="c4" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <section className="cd" style={{ flex: 1 }} aria-labelledby="needs-title">

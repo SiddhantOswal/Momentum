@@ -81,7 +81,9 @@
 .m .pl-page .vs b { display: block; font: 600 17px/24px var(--arc-font-display); }
 .m .pl-page .vs span { display: block; font-size: 14px; line-height: 20px; color: var(--mu); margin-top: 4px; min-height: 40px; }
 
+.m .pl-page .wkw { container-type: inline-size; }
 .m .pl-page .wk { display: grid; grid-template-columns: 110px repeat(6, 1fr); }
+.m .pl-page .wk .wdn { display: none; }
 .m .pl-page .wk .wd { border-left: 1px solid var(--ln); padding: 0 8px; display: flex; align-items: center; height: 36px; }
 .m .pl-page .wk .wl { display: flex; align-items: center; height: 112px; border-top: 1px solid var(--ln); font-size: 15px; font-weight: 600; }
 .m .pl-page .wk .wc { height: 112px; border-top: 1px solid var(--ln); border-left: 1px solid var(--ln); padding: 10px 4px; display: flex; align-items: center; min-width: 0; }
@@ -105,7 +107,6 @@
   .m .pl-page .xp { grid-template-columns: minmax(0, 1fr); row-gap: 16px; }
   .m .pl-page .rail { border-right: 0; padding-right: 0; border-bottom: 1px solid var(--ln); padding-bottom: 12px; }
   .m .pl-page .dw { padding-left: 0; min-height: 0; }
-  .m .pl-page .wk { overflow-x: auto; }
 }
 @media (max-width: 640px) {
   .m .pl-page .ev, .m .pl-page .vs { grid-template-columns: minmax(0, 1fr); }
@@ -113,11 +114,21 @@
   .m .pl-page .dr2 { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
   .m .pl-page .lr { grid-template-columns: 36px minmax(0, 1fr); row-gap: 8px; padding: 10px 0; }
   .m .pl-page .lr > .pv { grid-column: 2; justify-self: start; }
-  .m .pl-page .wk { grid-template-columns: 90px repeat(6, minmax(64px, 1fr)); }
   .m .pl-page .fs h2 { font-size: 28px; line-height: 34px; }
 }
 @media (max-width: 640px) {
   .m .pl-page .ct { flex-wrap: wrap; }
   .m .pl-page .mt { white-space: normal; }
   .m .pl-page .nx .hd { flex-wrap: wrap; }
+}
+
+/* Under 720 px the six day columns cannot hold the example lot, so each line lists its days as
+   wrapping cells with the day named inside: nothing scrolls inside the card. */
+@container (max-width: 719px) {
+  .m .pl-page .wk { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); column-gap: 8px; }
+  .m .pl-page .wk .wk0, .m .pl-page .wk .wd { display: none; }
+  .m .pl-page .wk .wl { grid-column: 1 / -1; height: auto; padding: 14px 0 6px; }
+  .m .pl-page .wk .wc { height: auto; min-height: 64px; border-left: 0; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px 0; }
+  .m .pl-page .wk .wdn { display: block; font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); }
+  .m .pl-page .wk .wx { height: auto; }
 }
