@@ -1,9 +1,9 @@
-import { useId, useState } from "react";
-import { Button, Card, NotConnected } from "../../components/m";
+import { useId, useRef, useState } from "react";
+import { Button, Card, Icon, NotConnected } from "../../components/m";
 import { renewSession, type Defect, type Result } from "../../lib/api";
 import type { LiveLot } from "../../lib/live";
 import { useResource } from "../../lib/useApp";
-import { DEFECT_NAME, DEFECT_ORDER, type JobResponse } from "../home/data";
+import { DEFECT_NAME, DEFECT_ORDER, advisoryDefects, type JobResponse } from "../home/data";
 
 export type ExplanationRow = { defect: Defect; predictedPct: number; typicalPct: number; driverRank: number; driver: string; attributionPts: number };
 type ExplanationResponse = { rows: ExplanationRow[] };
@@ -67,7 +67,7 @@ async function postExplanation(body: unknown, retried = false): Promise<Result<E
 /** Signed value exactly as returned, with a true minus sign. */
 const signed = (value: number) => `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value)}`;
 
-function Rows({ rows }: { rows: ExplanationRow[] }) {
+function Rows({ rows, advisory }: { rows: ExplanationRow[]; advisory: Set<Defect> }) {
   const defects = DEFECT_ORDER.filter((defect) => rows.some((row) => row.defect === defect));
   const [chosen, setChosen] = useState<Defect>(defects[0]);
   const defect = defects.includes(chosen) ? chosen : defects[0];
@@ -81,6 +81,11 @@ function Rows({ rows }: { rows: ExplanationRow[] }) {
         ))}
       </div>
       <h3 className="sr-only">What moved the {DEFECT_NAME[defect]} estimate</h3>
+      {advisory.has(defect) && (
+        <div className="sx bd" style={{ fontSize: 14, margin: "0 0 8px" }} data-testid="attribution-confidence">
+          <Icon name="bad" />Low confidence. Supervised use only.
+        </div>
+      )}
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label={`Attribution for ${DEFECT_NAME[defect]}, percentage points`}>
         {shown.map((row) => {
           const share = (Math.abs(row.attributionPts) / largest) * 45;
@@ -112,6 +117,7 @@ export function Attribution({ lots }: { lots: LiveLot[] }) {
   const job = useResource<JobResponse>(jobId ? `/jobs/${encodeURIComponent(jobId)}` : null);
   const [explained, setExplained] = useState<{ jobId: string; busy: boolean; result?: Result<ExplanationResponse> }>();
   const selectId = useId();
+  const inFlight = useRef(false);
 
   if (planned.length === 0) {
     return <NotConnected span={8} title="What moved the estimate" missing="No stored lot to explain yet. Plan a lot from a sample order first." />;
@@ -120,18 +126,25 @@ export function Attribution({ lots }: { lots: LiveLot[] }) {
   const request = sheet && explanationRequest(sheet);
   const current = explained?.jobId === jobId ? explained : undefined;
 
+  // A disabled button still lets clicks through until React re-renders, so the ref is the guard
+  // that keeps one press to one request (and one Gemini call).
   async function explain() {
-    if (!request || !jobId) return;
+    if (!request || !jobId || inFlight.current) return;
+    inFlight.current = true;
     setExplained({ jobId, busy: true });
-    const result = await postExplanation(request);
-    setExplained((state) => (state?.jobId === jobId ? { jobId, busy: false, result } : state));
+    try {
+      const result = await postExplanation(request);
+      setExplained((state) => (state?.jobId === jobId ? { jobId, busy: false, result } : state));
+    } finally {
+      inFlight.current = false;
+    }
   }
 
   let body;
   if (job.loading) body = <p className="lb" style={{ margin: 0 }}>Reading the lot record…</p>;
   else if (!sheet) body = <p className="lb" style={{ margin: 0 }}>This lot was planned in another demo session, so its inputs cannot be read here.</p>;
   else if (!request) body = <p className="lb" style={{ margin: 0 }}>This lot's record cannot be explained in its stored currency.</p>;
-  else if (current?.result?.ok) body = <Rows rows={current.result.data.rows} />;
+  else if (current?.result?.ok) body = <Rows rows={current.result.data.rows} advisory={advisoryDefects(sheet)} />;
   else {
     body = (
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
