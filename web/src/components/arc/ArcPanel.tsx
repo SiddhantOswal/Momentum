@@ -1,17 +1,22 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
-import { arcWords, listTurns, type TurnListItem, type TurnOutcome } from "../../lib/arc";
-import { ArcMark, Icon, IdleMark, NotConnected, PATHS } from "../m";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from "react";
+import { arcWords, listTurns, type ArcSession, type LotStage, type TurnInput, type TurnListItem, type TurnOutcome } from "../../lib/arc";
+import { href, type RouteId } from "../../lib/routes";
+import { ArcMark, ButtonLink, Icon, NotConnected, PATHS } from "../m";
 import { AnswerView, type Ask } from "./AnswerView";
+import { DefectCheck } from "./DefectScreens";
+import { JobFlow, LotConditions, LotReview, LotSource, PlanStopped, type StepProblem } from "./LotScreens";
+import { ArcScreenContext, Loading, Problem, type ArcScreen } from "./parts";
 import type { ArcConversation, Exchange } from "./useArcConversation";
 
 const MAX_TEXT = 1000;
 
-// The four Arc-Start rows. Each sends its own title as a typed turn.
-const STARTERS = [
-  { title: "New lot", sub: "Read an order and prepare a job card.", icon: PATHS.newLot },
-  { title: "Check a defect", sub: "Search past lots or review an approved photo.", icon: PATHS.photo },
-  { title: "Ask about the data", sub: "Conditions, risks, models and approvals.", icon: PATHS.insights },
-  { title: "Open a job card", sub: "Review or retrieve a stored card.", icon: PATHS.jobCard },
+// The four Arc-Start rows. A row with a fixed plan in config/arc.json sends that action, which
+// needs no Gemini call; the others send their title as a typed turn.
+const STARTERS: { title: string; sub: string; icon: string; input: TurnInput }[] = [
+  { title: "New lot", sub: "Read an order and prepare a job card.", icon: PATHS.newLot, input: { kind: "action", actionId: "list_samples" } },
+  { title: "Check a defect", sub: "Search past lots or review an approved photo.", icon: PATHS.photo, input: { kind: "action", actionId: "list_approved_photos" } },
+  { title: "Ask about the data", sub: "Conditions, risks, models and approvals.", icon: PATHS.insights, input: { kind: "text", text: "Ask about the data" } },
+  { title: "Open a job card", sub: "Review or retrieve a stored card.", icon: PATHS.jobCard, input: { kind: "text", text: "Open a job card" } },
 ];
 
 const NOT_CONNECTED = "Arc is not switched on for this deployment, so it cannot read or run anything. The dashboard pages still work.";
@@ -27,7 +32,30 @@ export function ArcLauncher({ open, onToggle, ref }: { open: boolean; onToggle: 
   );
 }
 
-function Outcome({ outcome, ask, busy }: { outcome: TurnOutcome; ask: Ask; busy: boolean }) {
+/**
+ * The card a turn calls for, from the last step the server reported. J1 and defect turns get
+ * their designed screen; any other turn shows its answer. A stopped step keeps its screen and
+ * shows the reason on it, with Try again only when the server marked the step safe to repeat.
+ */
+function screenFor(exchange: Exchange, retry: (exchange: Exchange) => void): ReactNode | null {
+  const { outcome, steps } = exchange;
+  const last = steps.at(-1);
+  if (!outcome || !last || outcome.kind === "not_connected" || outcome.kind === "error") return null;
+  const problem: StepProblem | undefined = outcome.kind === "stopped"
+    ? { words: outcome.words, onRetry: outcome.retrySafe && exchange.input ? () => retry(exchange) : undefined } : undefined;
+  const ref = last.resultRef;
+  switch (last.tool) {
+    case "list_samples": return last.status === "SUCCEEDED" ? <LotSource /> : null;
+    case "read_order": return last.status === "SUCCEEDED" || last.waitingFor ? <LotReview problem={problem} /> : <LotSource problem={problem} />;
+    case "set_conditions": return <LotConditions lotId={ref?.kind === "lot" ? ref.id : null} problem={problem} />;
+    case "plan_lot": return ref?.kind === "job" ? <JobFlow jobId={ref.id} /> : <PlanStopped problem={problem} />;
+    case "list_approved_photos": return last.status === "SUCCEEDED" ? <DefectCheck /> : null;
+    default: return null;
+  }
+}
+
+function Outcome({ exchange, ask, busy, retry }: { exchange: Exchange; ask: Ask; busy: boolean; retry: (exchange: Exchange) => void }) {
+  const outcome = exchange.outcome as TurnOutcome;
   switch (outcome.kind) {
     case "answer":
       return outcome.turn.answer
@@ -36,45 +64,68 @@ function Outcome({ outcome, ask, busy }: { outcome: TurnOutcome; ask: Ask; busy:
     case "not_connected":
       return <NotConnected title="Arc is not connected" missing={NOT_CONNECTED} />;
     case "stopped":
+      return <Problem words={outcome.words} onRetry={outcome.retrySafe && exchange.input ? () => retry(exchange) : undefined} />;
     case "error":
       return <Problem words={outcome.words} />;
   }
 }
 
-function Problem({ words }: { words: string }) {
-  return (
-    <section className="cd" role="alert">
-      <span className="sx wn" style={{ fontSize: 15, whiteSpace: "normal", alignItems: "flex-start", lineHeight: 1.45 }}>
-        <Icon name="warn" /><span style={{ color: "var(--tx)" }}>{words}</span>
-      </span>
-    </section>
-  );
-}
-
-function ExchangeView({ exchange, ask, busy }: { exchange: Exchange; ask: Ask; busy: boolean }) {
+function ExchangeView({ exchange, ask, busy, retry }: { exchange: Exchange; ask: Ask; busy: boolean; retry: (exchange: Exchange) => void }) {
+  const screen = screenFor(exchange, retry);
+  if (screen) return <article className="stl" style={{ gap: 16 }} aria-label={`You asked: ${exchange.asked}`}>{screen}</article>;
   return (
     <article className="stl" style={{ gap: 16 }} aria-label={`You asked: ${exchange.asked}`}>
       <div className="rqh"><small>You asked</small><h2>{exchange.asked}</h2></div>
       {exchange.outcome
-        ? <Outcome outcome={exchange.outcome} ask={ask} busy={busy} />
-        : <div className="sx id" role="status" style={{ fontSize: 15 }}><IdleMark />{exchange.step ?? "Arc is working on this"}</div>}
+        ? <Outcome exchange={exchange} ask={ask} busy={busy} retry={retry} />
+        : <Loading>{exchange.step ?? "Arc is working on this"}</Loading>}
     </article>
   );
 }
 
-function Start({ send, disabled }: { send: (text: string) => void; disabled: boolean }) {
+// "Next for you" by the stage the lot head records (04 section 2.7). Each leads to the page that does that step.
+const NEXT_STEP: Record<LotStage, { title: string; sub: string; action: string; route: RouteId }> = {
+  order_review: { title: "Confirm the order", sub: "Planning waits until the order is confirmed.", action: "Confirm the order", route: "new-lot/order" },
+  conditions: { title: "Confirm the conditions", sub: "Planning stays blocked until they are confirmed.", action: "Confirm conditions", route: "new-lot/conditions" },
+  planning: { title: "Plan the lot", sub: "Enter the planned settings to get a draft.", action: "Plan the lot", route: "new-lot/settings" },
+  draft_review: { title: "Review the draft", sub: "The job card stays a draft until you approve it.", action: "Review the draft", route: "new-lot/approve" },
+  approval_pending: { title: "Approve the job card", sub: "Only you can approve it.", action: "Review and approve", route: "new-lot/approve" },
+  approved: { title: "Job card approved", sub: "Nothing is waiting on this lot.", action: "Open Preparation Flow", route: "prep-flow" },
+  held: { title: "Planning is held", sub: "A defect estimate is missing, so no card can be issued.", action: "Open Preparation Flow", route: "prep-flow" },
+};
+
+function NextForYou({ session }: { session: ArcSession | null }) {
+  const lot = session?.activeLots.at(-1);
+  if (!lot) return <NotConnected title="Next for you" missing="Arc does not track lots in progress yet, so it cannot suggest the next step." />;
+  const next = NEXT_STEP[lot.stage];
+  return (
+    <section className="cd kr" aria-labelledby="arc-next-title">
+      <div className="ct" style={{ marginBottom: 10 }}>
+        <h3 className="t" id="arc-next-title" style={{ fontSize: 15 }}>Next for you</h3>
+        <span className="pv"><i aria-hidden="true" />{lot.currentRevision > 0 ? `Rev ${lot.currentRevision}` : "Not planned yet"}</span>
+      </div>
+      <div className="d" style={{ fontSize: 26, lineHeight: "32px", fontWeight: 600, letterSpacing: "-.3px" }}>{next.title}</div>
+      <div className="lb" style={{ marginTop: 4, fontSize: 15 }}>{next.sub}</div>
+      <div style={{ display: "flex", gap: 18, marginTop: 16, alignItems: "center" }}>
+        <ButtonLink arrow href={href(next.route)}>{next.action}</ButtonLink>
+      </div>
+    </section>
+  );
+}
+
+function Start({ send, disabled, session }: { send: (input: TurnInput, asked: string) => void; disabled: boolean; session: ArcSession | null }) {
   return (
     <>
       <div>
         <h2 className="h1a">What do you need done?</h2>
         <p className="lb" style={{ margin: "6px 0 0", fontSize: 15 }}>Run the work, or ask about it. You approve every decision.</p>
       </div>
-      <NotConnected title="Next for you" missing="The next step for a lot in progress is not connected to Arc yet." />
+      <NextForYou session={session} />
       <div>
         <h3 className="sh2">Or start something</h3>
         <section className="cd" style={{ padding: "4px 20px" }}>
           {STARTERS.map((starter) => (
-            <button key={starter.title} type="button" className="ar" disabled={disabled} onClick={() => send(starter.title)}>
+            <button key={starter.title} type="button" className="ar" disabled={disabled} onClick={() => send(starter.input, starter.title)}>
               <span className="gx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d={starter.icon} /></svg></span>
               <span><b>{starter.title}</b><span className="s">{starter.sub}</span></span>
               <Icon name="chevron" className="ac2" />
@@ -127,14 +178,16 @@ function PastWork({ onOpen }: { onOpen: (turn: TurnListItem) => void }) {
           ))}
         </section>
       )}
-      {state.loading && <div className="sx id" role="status" style={{ fontSize: 15 }}><IdleMark />Reading past work</div>}
+      {state.loading && <Loading>Reading past work</Loading>}
       {state.next && !state.loading && <div><button type="button" className="bt s sm" onClick={() => load(state.next ?? undefined)}>Show older</button></div>}
     </section>
   );
 }
 
+const LOT_TOOLS = new Set(["list_samples", "read_order", "set_conditions", "plan_lot"]);
+
 export function ArcPanel({ hostName, conversation, onClose }: { hostName: string; conversation: ArcConversation; onClose: () => void }) {
-  const { exchanges, connection, callsLeft, busy, send, showPast, checkConnection } = conversation;
+  const { exchanges, connection, session, callsLeft, busy, workingOn, setWorkingOn, send, retry, showPast, checkConnection } = conversation;
   const [text, setText] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -156,23 +209,28 @@ export function ArcPanel({ hostName, conversation, onClose }: { hostName: string
     if (!showHistory) bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
   }, [exchanges, showHistory]);
 
+  const screen: ArcScreen = useMemo(() => ({
+    send: (input, asked) => { setShowHistory(false); void send(input, asked); },
+    busy, setWorkingOn,
+  }), [send, busy, setWorkingOn]);
+
   const sendText = (value: string) => {
     const trimmed = value.trim();
     if (!trimmed || busy || notConnected) return;
-    setShowHistory(false);
     setText("");
-    void send({ kind: "text", text: trimmed }, trimmed);
+    screen.send({ kind: "text", text: trimmed }, trimmed);
   };
-  const ask: Ask = (suggestion) => {
-    setShowHistory(false);
-    void send({ kind: "action", actionId: suggestion.actionId }, suggestion.label);
-  };
+  const ask: Ask = (suggestion) => screen.send({ kind: "action", actionId: suggestion.actionId }, suggestion.label);
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       sendText(text);
     }
   };
+
+  const latest = exchanges.at(-1);
+  const onLot = Boolean(latest?.steps.some((step) => LOT_TOOLS.has(step.tool)));
+  const placeholder = !exchanges.length ? "Tell Arc what you need" : onLot ? "Tell Arc what to change" : "Ask a follow-up";
 
   return (
     <aside id="arc-panel" className="arcp" role="dialog" aria-label="Arc by Momentum">
@@ -186,25 +244,30 @@ export function ArcPanel({ hostName, conversation, onClose }: { hostName: string
         </button>
         <button type="button" className="ib" aria-label="Close Arc" onClick={onClose}><Icon name="close" /></button>
       </div>
-      <div className="ab" ref={bodyRef}>
-        {showHistory
-          ? <PastWork onOpen={(turn) => { setShowHistory(false); void showPast(turn.clientTurnId, askedText(turn)); }} />
-          : (
-            <>
-              {notConnected && exchanges.length === 0 && <NotConnected title="Arc is not connected" missing={NOT_CONNECTED} />}
-              {exchanges.length === 0 && <Start send={sendText} disabled={busy || notConnected} />}
-              {exchanges.length > 0 && (
-                <div role="log" aria-label="Arc messages" aria-live="polite" className="stl" style={{ gap: 28 }}>
-                  {exchanges.map((exchange) => <ExchangeView key={exchange.id} exchange={exchange} ask={ask} busy={busy} />)}
-                </div>
-              )}
-            </>
-          )}
-      </div>
+      <ArcScreenContext.Provider value={screen}>
+        <div className="ab" ref={bodyRef}>
+          {showHistory
+            ? <PastWork onOpen={(turn) => { setShowHistory(false); void showPast(turn.clientTurnId, askedText(turn)); }} />
+            : (
+              <>
+                {notConnected && exchanges.length === 0 && <NotConnected title="Arc is not connected" missing={NOT_CONNECTED} />}
+                {exchanges.length === 0 && <Start send={screen.send} disabled={busy || notConnected} session={session} />}
+                {exchanges.length > 0 && (
+                  <div role="log" aria-label="Arc messages" aria-live="polite" className="stl" style={{ gap: 28 }}>
+                    {exchanges.map((exchange) => <ExchangeView key={exchange.id} exchange={exchange} ask={ask} busy={busy} retry={retry} />)}
+                  </div>
+                )}
+              </>
+            )}
+        </div>
+      </ArcScreenContext.Provider>
       <div className="cp">
+        {workingOn && exchanges.length > 0 && (
+          <div className="cl"><span className="k">Working on</span><span className="chp">{workingOn.label}</span><span className="chp">{workingOn.stage}</span></div>
+        )}
         <form className="cb" onSubmit={(event) => { event.preventDefault(); sendText(text); }}>
           <textarea ref={inputRef} className="ti" rows={1} maxLength={MAX_TEXT} value={text} disabled={notConnected}
-            placeholder={exchanges.length ? "Ask a follow-up" : "Tell Arc what you need"} aria-label="Message Arc"
+            placeholder={placeholder} aria-label="Message Arc"
             onChange={(event) => setText(event.target.value)} onKeyDown={onKeyDown} />
           {/* Voice comes later: the button is shown but stays disabled in code, with no handler. */}
           <button type="button" className="mic" disabled aria-label="Speak to Arc. Voice is not available yet.">
