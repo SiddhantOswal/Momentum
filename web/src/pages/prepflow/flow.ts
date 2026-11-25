@@ -8,7 +8,7 @@ import type { JobRead, LotHead, LiveLot, TraceEvent } from "./records";
  */
 export type StepState = "done" | "now" | "held" | "failed" | "idle" | "nc";
 export type ZoneStatus = "complete" | "waiting" | "held" | "partly" | "blocked" | "not-reached" | "nc";
-export type FlowKind = "draft" | "approved" | "held" | "partial" | "none";
+export type FlowKind = "draft" | "approved" | "held" | "held-job" | "replaced" | "partial" | "none";
 export type ChipTone = "ok" | "wn" | "bd" | "dim";
 
 export type StepDef = { n: number; title: string; sub: string; by: string; zone: 0 | 1 | 2 };
@@ -44,6 +44,8 @@ export type FlowView = {
   revisionNumber?: number;
   changeCount?: number;
   lowConfidence: Defect[];
+  /** For "replaced": whether a newer revision replaced it or planning failed. */
+  notCurrent?: "replaced" | "failed";
   /** For "none": what is missing, in one plain sentence. */
   missing?: string;
 };
@@ -85,19 +87,22 @@ function lotFields(sources: FlowSources) {
 
 /**
  * Builds the page state from stored records only. A step is "done" only when a stored record
- * holds its output: the stored job for steps 1 to 9, the lot head for a hold, and the run
- * trace for a run that stopped at the explanation.
+ * holds its output: the stored job for steps 1 to 9, the run trace for a run that stopped at
+ * the explanation. A lot head on hold says that the lot is held, not where: it is read as a
+ * hold at the catalog match only when the lot has no job yet.
  */
 export function deriveFlow(sources: FlowSources): FlowView {
   const base = { defectTones: DIM_TONES, lowConfidence: [] as Defect[], ...lotFields(sources) };
+  const head = sources.head?.lot;
+  const stored = sources.job?.jobSheet;
 
-  if (sources.head?.lot.stage === "held") {
+  if (head?.stage === "held" && !stored && head.currentJobId === null && head.currentRevision === 0) {
     return {
       ...base,
       kind: "held",
-      // The hold is a stop at order review; the design shows it on the catalog match.
-      steps: steps(["done", "held", "idle", "idle", "idle", "idle", "idle", "idle", "idle"], {
-        1: "Order file read", 2: "The line is ambiguous", 3: "Not reached", 4: "Waits for the earlier steps",
+      // The lot head returns no order fields, so nothing proves the order was read: step 1 stays not connected.
+      steps: steps(["nc", "held", "idle", "idle", "idle", "idle", "idle", "idle", "idle"], {
+        2: "The line is ambiguous", 3: "Not reached", 4: "Waits for the earlier steps",
         5: "Not reached", 6: "Not reached", 7: "Not reached", 8: "Not reached", 9: "Not created",
       }),
       zones: [
@@ -124,25 +129,53 @@ export function deriveFlow(sources: FlowSources): FlowView {
     };
   }
 
-  const stored = sources.job?.jobSheet;
   if (stored) {
     const targetUse = stored.baseline.risk.targetUse;
     const defectTones = targetUse
       ? Object.fromEntries(DEFECTS.map(({ key }) => [key, targetUse[key] ? USE_TONE[targetUse[key].useClass] : "dim"])) as Record<Defect, ChipTone>
       : DIM_TONES;
     const lowConfidence = targetUse ? DEFECTS.map(({ key }) => key).filter((key) => targetUse[key]?.useClass === "advisory") : [];
+    const known = { ...base, defectTones, lowConfidence, jobId: stored.jobId, changeCount: stored.changes.length };
+    const upToSix: StepState[] = ["done", "done", "done", "done", "done", "done"];
+    const revisionStatus = sources.job?.revision?.status;
     const approved = stored.status !== "DRAFT";
+
+    if (!approved && (revisionStatus === "SUPERSEDED" || revisionStatus === "FAILED")) {
+      const notCurrent = revisionStatus === "SUPERSEDED" ? "replaced" : "failed";
+      return {
+        ...known,
+        kind: "replaced",
+        notCurrent,
+        steps: steps([...upToSix, "nc", "nc", "nc"], { 7: notCurrent === "replaced" ? "Replaced, read only" : "Not current" }),
+        zones: [
+          { status: "complete", footer: NORMAL_FOOTERS[0] },
+          { status: "complete", footer: NORMAL_FOOTERS[1] },
+          { status: "nc", footer: "A replaced revision cannot be approved. Plan the lot again." },
+        ],
+      };
+    }
+
+    if (!approved && head?.stage === "held") {
+      // Held after a draft exists: the stored job proves steps 1 to 6; the head does not say where the hold sits.
+      return {
+        ...known,
+        kind: "held-job",
+        steps: steps([...upToSix, "nc", "nc", "nc"]),
+        zones: [
+          { status: "complete", footer: NORMAL_FOOTERS[0] },
+          { status: "complete", footer: NORMAL_FOOTERS[1] },
+          { status: "nc", footer: NORMAL_FOOTERS[2] },
+        ],
+      };
+    }
+
     const cardStored = approved && stored.cardUri !== null;
     return {
-      ...base,
-      defectTones,
-      lowConfidence,
-      jobId: stored.jobId,
-      changeCount: stored.changes.length,
+      ...known,
       kind: approved ? "approved" : "draft",
       steps: steps(approved
-        ? ["done", "done", "done", "done", "done", "done", "done", "done", cardStored ? "done" : "nc"]
-        : ["done", "done", "done", "done", "done", "done", "now", "idle", "idle"]),
+        ? [...upToSix, "done", "done", cardStored ? "done" : "nc"]
+        : [...upToSix, "now", "idle", "idle"]),
       zones: [
         { status: "complete", footer: NORMAL_FOOTERS[0] },
         { status: "complete", footer: NORMAL_FOOTERS[1] },
@@ -156,9 +189,11 @@ export function deriveFlow(sources: FlowSources): FlowView {
     kind: "none",
     steps: steps(Array(9).fill("nc")),
     zones: NORMAL_FOOTERS.map((footer) => ({ status: "nc" as const, footer })),
-    missing: sources.failure ?? (sources.lot
-      ? "This lot has no stored job yet, so no step can be shown."
-      : "No lot has been planned yet. Steps show here once a lot has a stored job."),
+    missing: sources.failure ?? (head?.stage === "held"
+      ? "This lot is on hold, but its stored job could not be read, so no step can be shown."
+      : sources.lot
+        ? "This lot has no stored job yet, so no step can be shown."
+        : "No lot has been planned yet. Steps show here once a lot has a stored job."),
   };
 }
 

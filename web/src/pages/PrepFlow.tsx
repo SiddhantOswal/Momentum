@@ -6,16 +6,20 @@ import { deriveFlow, EDGES, edgeTone, STEPS, ZONES, type FlowSources, type FlowV
 import { findReadableJob, pageParam, readJob, readLotHead, readLots, readTrace, type LotHead } from "./prepflow/records";
 import "./prepflow/prepflow.css";
 
+const JOB_FAILURES: Record<number, string> = {
+  403: "This lot belongs to another demo session, so its steps cannot be shown here.",
+  404: "No stored job has this ID, so no step can be shown.",
+};
+const LOT_FAILURES: Record<number, string> = {
+  403: "This lot belongs to another demo session, so its steps cannot be shown here.",
+  404: "No lot has this ID, so no step can be shown.",
+};
+
 /**
  * Reads the stored records for one lot: the job named in the URL (`job`), the lot head
  * (`lot`), or else the newest lot on the floor view; plus a run trace when the URL names one
  * (`run`). Each read that fails leaves its part of the page not connected.
  */
-const JOB_FAILURES: Record<number, string> = {
-  403: "This lot belongs to another demo session, so its steps cannot be shown here.",
-  404: "No stored job has this ID, so no step can be shown.",
-};
-
 function useFlowSources(): { loading: boolean; sources: FlowSources } {
   const [state, setState] = useState<{ loading: boolean; sources: FlowSources }>({
     loading: true, sources: { lot: null, job: null, head: null, trace: null },
@@ -32,6 +36,7 @@ function useFlowSources(): { loading: boolean; sources: FlowSources } {
       if (lotId) {
         const read = await readLotHead(lotId, signal);
         if (read.ok) head = read.data;
+        else sources.failure = LOT_FAILURES[read.status ?? 0] ?? "The lot record could not be read, so no step can be shown.";
         jobId ??= head?.lot.currentJobId ?? null;
       }
       if (jobId) {
@@ -166,6 +171,14 @@ function stripFor(view: FlowView): Strip {
     case "partial":
       return [lot, ["Now at", "Risk evidence", "Step 6 of 9, Intelligence zone"],
         ["Waiting on", "Supervisor", "Demo session, no named person"], ["Next", "Retry, continue or hold", "See New Lot, recovery"]];
+    case "held-job":
+      return [lot, ["Now at", "On hold", "The lot record does not say where"],
+        ["Held for", "Supervisor", "Demo session, no named person"], ["Next", "Open the lot in New Lot", "Then continue, or leave on hold"]];
+    case "replaced":
+      return [lot, view.notCurrent === "replaced"
+        ? ["Now at", "Replaced, read only", `${view.revisionNumber ? `Rev ${view.revisionNumber}` : "This revision"} was replaced. Plan the lot again.`]
+        : ["Now at", "Not current", "This revision did not finish. Plan the lot again."],
+        ["Waiting on", "No one", "This revision is read only"], ["Next", "Plan the lot again", "In New Lot"]];
     case "approved":
       return [lot, ["Now at", "Approved", "Step 9 of 9, Decision zone"],
         ["Waiting on", "No one", "Approved in a demo session"], ["Next", "Hand the card to the floor", "Open it on the operator's phone"]];
@@ -205,10 +218,34 @@ function SidePanels({ view }: { view: FlowView }) {
     return (
       <>
         {detail("Why it stopped", <Chip tone="accent">Held</Chip>, "The order is unclear. A supervisor picks the line.",
-          [["Kept", ["The uploaded order and what was read from it"]], ["Not run", ["Conditions, defect estimate, search, explanation", "Approval and job card"]]],
+          [["Not run", ["Conditions, defect estimate, search, explanation", "Approval and job card"]]],
           <ButtonLink href={href("new-lot/order")} arrow>Open this step in New Lot</ButtonLink>)}
         {choices("Ways out of a hold", ["Choose the right line, then confirm the order.", "Correct a field that was read wrongly.", "Leave the lot on hold. Nothing downstream is created."],
           "Changing the order marks later steps out of date.")}
+      </>
+    );
+  }
+  if (view.kind === "held-job") {
+    return (
+      <>
+        {detail("Why it stopped", <Chip tone="accent">Held</Chip>, "The lot is on hold. Its record does not say at which step or why.",
+          [["Stored", ["The draft job for this lot"]]],
+          <ButtonLink href={href("new-lot/order")} arrow>Open New Lot</ButtonLink>)}
+        {choices("Ways out of a hold", ["Continue the lot from New Lot.", "Leave the lot on hold."],
+          "Approving saves a job card. Not a machine command.")}
+      </>
+    );
+  }
+  if (view.kind === "replaced") {
+    const replaced = view.notCurrent === "replaced";
+    return (
+      <>
+        {detail("Why it is read only", <Chip tone="none">{replaced ? "Replaced, read only" : "Not current"}</Chip>,
+          replaced ? "A replaced revision cannot be approved. Plan the lot again." : "This revision did not finish. It cannot be approved.",
+          [["Stored", ["The draft job for this revision"]]],
+          <ButtonLink href={href("new-lot/order")} arrow>Plan the lot again</ButtonLink>)}
+        {choices("What you are deciding", null, "Approving saves a job card. Not a machine command.",
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.4 }}>Nothing to decide on this revision.</p>)}
       </>
     );
   }
@@ -254,10 +291,11 @@ function SidePanels({ view }: { view: FlowView }) {
 
 const TOASTS = {
   held: { tone: "wn", icon: "warn", title: "Order is unclear", text: "A supervisor picks the line." },
+  "held-job": { tone: "wn", icon: "warn", title: "Lot is on hold", text: "The record does not say where it stopped." },
   partial: { tone: "bd", icon: "bad", title: "Explanation did not finish", text: "Approval is blocked." },
 } as const;
 
-function Toast({ kind }: { kind: "held" | "partial" }) {
+function Toast({ kind }: { kind: keyof typeof TOASTS }) {
   const [open, setOpen] = useState(true);
   const toast = TOASTS[kind];
   return (
@@ -275,17 +313,23 @@ function Toast({ kind }: { kind: "held" | "partial" }) {
 
 const SUBTITLES: Partial<Record<FlowView["kind"], string>> = {
   held: "Held. Nothing runs after the unclear order.",
+  "held-job": "Held. The lot record does not say at which step.",
   partial: "Partial. Estimate done, explanation missing.",
 };
 const CARD_TITLES: Partial<Record<FlowView["kind"], string>> = { held: "Held at the catalog match", partial: "Stopped at risk evidence" };
 
+// The design's legend for each state; a state with no step waiting on a person does not list one.
+const LEGENDS: Record<FlowView["kind"], StepState[]> = {
+  draft: ["done", "now", "idle"], approved: ["done", "now", "idle"], none: ["done", "now", "idle"],
+  held: ["done", "held", "idle"], partial: ["done", "failed", "idle"], "held-job": ["done", "nc"], replaced: ["done", "nc"],
+};
+
 export function PrepFlow() {
   const { loading, sources } = useFlowSources();
   const view = deriveFlow(sources);
-  const legend: StepState[] = [
-    "done", view.kind === "held" ? "held" : view.kind === "partial" ? "failed" : "now", "idle",
-    ...(view.steps.some((step) => step.state === "nc") ? ["nc" as const] : []),
-  ];
+  const keyed = LEGENDS[view.kind];
+  const hasNc = view.steps.some((step) => step.state === "nc");
+  const legend: StepState[] = hasNc && !keyed.includes("nc") ? [...keyed, "nc"] : keyed;
   return (
     <div className="pf-page">
       <PageHeader title="Preparation flow" sub={SUBTITLES[view.kind] ?? "Purchase order to approved job card, step by step."}
@@ -311,7 +355,7 @@ export function PrepFlow() {
         </Card>
         {!loading && view.kind !== "none" && <SidePanels view={view} />}
       </div>
-      {(view.kind === "held" || view.kind === "partial") && <Toast kind={view.kind} />}
+      {(view.kind === "held" || view.kind === "held-job" || view.kind === "partial") && <Toast kind={view.kind} />}
     </div>
   );
 }
