@@ -36,7 +36,29 @@ export type TraceEvent = { type: string; tool?: string; sequence: number };
 export const readLots = (signal?: AbortSignal) => getJson<{ lots: LiveLot[] }>("/api/lots", signal);
 export const readJob = (jobId: string, signal?: AbortSignal) => getJson<JobRead>(`/jobs/${encodeURIComponent(jobId)}`, signal);
 export const readLotHead = (lotId: string, signal?: AbortSignal) => getJson<LotHead>(`/lots/${encodeURIComponent(lotId)}`, signal);
-export const cardPdfPath = (jobId: string) => `/jobs/${encodeURIComponent(jobId)}/card.pdf`;
+const MAX_JOB_READS = 5;
+
+export type JobSearch =
+  | { ok: true; lot: LiveLot; job: JobRead }
+  | { ok: false; reason: "none" | "other-sessions" | "failed"; lot?: LiveLot; status?: number };
+
+/**
+ * The floor view lists every session's lots, but a stored job can be read only by the demo
+ * session that made it (403 otherwise, decided from the job ID before any query). This tries
+ * the newest few matching lots and keeps the first this session can read.
+ */
+export async function findReadableJob(lots: LiveLot[], signal: AbortSignal): Promise<JobSearch> {
+  const candidates = lots.filter((lot) => lot.jobId).slice(0, MAX_JOB_READS);
+  if (candidates.length === 0) return { ok: false, reason: "none" };
+  for (const lot of candidates) {
+    const read = await readJob(lot.jobId!, signal);
+    if (read.ok) return { ok: true, lot, job: read.data };
+    if (read.status !== 403) return { ok: false, reason: "failed", lot, status: read.status };
+  }
+  return { ok: false, reason: "other-sessions" };
+}
+
+export const cardPdfPath =(jobId: string) => `/jobs/${encodeURIComponent(jobId)}/card.pdf`;
 
 const TRACE_READ_MS = 5000;
 

@@ -301,3 +301,39 @@ test('a draft card is not offered to the operator as approved', async ({ page })
   await expect(card).not.toContainText('Approved, latest revision');
   await expect(card.getByRole('button', { name: 'I received this card' })).toHaveCount(0);
 });
+
+// The floor view lists every session's lots; a job from another demo session reads as 403.
+const OTHER = 'JOB-HACK-ffffffffffffffffffffffffffffffff-ffffffffffffffffffffffffffffffffffffffff';
+const DEMO_SCOPE = json(403, { ok: false, error: { code: 'DEMO_SCOPE_REQUIRED', message: 'This record does not belong to this demo session.' } });
+const otherLot = (status) => ({ ...liveLot(status), lotId: OTHER, jobId: OTHER, updatedAt: '2026-11-25T11:00:00.000Z' });
+
+test('Prep Flow skips lots from other demo sessions and shows this session\'s newest', async ({ page }) => {
+  await mockBackend(page, {
+    '/api/lots': json(200, { ok: true, mode: 'firestore', lots: [otherLot('planned'), liveLot('planned')], events: [] }),
+    [`/jobs/${OTHER}`]: DEMO_SCOPE,
+    [`/jobs/${JOB_ID}`]: json(200, { ok: true, jobSheet: storedJob('DRAFT') }),
+  });
+  await open(page, '/app/#/prep-flow');
+  expect(await stepStates(page)).toEqual(['done', 'done', 'done', 'done', 'done', 'done', 'now', 'idle', 'idle']);
+});
+
+test('when every listed lot belongs to another session, Prep Flow says so and shows no step done', async ({ page }) => {
+  await mockBackend(page, {
+    '/api/lots': json(200, { ok: true, mode: 'firestore', lots: [otherLot('planned')], events: [] }),
+    [`/jobs/${OTHER}`]: DEMO_SCOPE,
+  });
+  await open(page, '/app/#/prep-flow');
+  await expect(page.getByText('The newest lots belong to other demo sessions.')).toBeVisible();
+  expect(await stepStates(page)).toEqual(Array(9).fill('nc'));
+});
+
+test('the operator page skips approved cards from other demo sessions', async ({ page }) => {
+  await mockBackend(page, {
+    '/api/lots': json(200, { ok: true, mode: 'firestore', lots: [otherLot('approved')], events: [] }),
+    [`/jobs/${OTHER}`]: DEMO_SCOPE,
+  });
+  await open(page, '/app/#/operator', { width: 375, height: 812 });
+  const card = page.getByRole('region', { name: 'Approved job card' });
+  await expect(card).toContainText('The newest approved cards belong to other demo sessions.');
+  await expect(card.getByRole('button')).toHaveCount(0);
+});

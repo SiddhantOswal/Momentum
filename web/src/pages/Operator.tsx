@@ -3,7 +3,7 @@ import { ThemeSwitch } from "../components/Frame";
 import { Chip, Icon, IdleMark, ProvenanceChip } from "../components/m";
 import { LEVERS, type LeverKey } from "../lib/session";
 import type { Theme } from "../lib/useApp";
-import { cardPdfPath, pageParam, readJob, readLots, type JobRead } from "./prepflow/records";
+import { cardPdfPath, findReadableJob, pageParam, readJob, readLots, type JobRead } from "./prepflow/records";
 import "./operator/operator.css";
 
 // Labels and units as Operator-Phone writes them.
@@ -21,6 +21,16 @@ const unitOf = (key: LeverKey) => {
 };
 const shown = (value: string | number) => (typeof value === "string" ? LEVEL_WORDS[value] ?? value : String(value));
 
+const READ_FAILURES: Record<number, string> = {
+  403: "This card belongs to another demo session, so it cannot be shown here.",
+  404: "No stored card has this ID.",
+};
+const SEARCH_FAILURES = {
+  none: "No card has been approved yet. An approved card shows here.",
+  "other-sessions": "The newest approved cards belong to other demo sessions. Approve a card in this session to see it here.",
+  failed: "The stored card could not be read.",
+} as const;
+
 type Load = { state: "loading" } | { state: "missing"; text: string } | { state: "ready"; job: JobRead };
 
 /** The job named by `?job=`, or else the newest approved lot on the floor view. */
@@ -30,18 +40,20 @@ function useOperatorJob(): Load {
     const controller = new AbortController();
     const { signal } = controller;
     (async () => {
-      let jobId = pageParam("job");
+      const jobId = pageParam("job");
       if (!jobId) {
         const lots = await readLots(signal);
         if (signal.aborted) return;
         if (!lots.ok) return setLoad({ state: "missing", text: "The lot list could not be read, so no card can be shown." });
-        jobId = lots.data.lots.find((lot) => lot.status === "approved" && lot.jobId)?.jobId ?? null;
-        if (!jobId) return setLoad({ state: "missing", text: "No card has been approved yet. An approved card shows here." });
+        const found = await findReadableJob(lots.data.lots.filter((lot) => lot.status === "approved"), signal);
+        if (signal.aborted) return;
+        if (found.ok) return setLoad({ state: "ready", job: found.job });
+        return setLoad({ state: "missing", text: SEARCH_FAILURES[found.reason] });
       }
       const read = await readJob(jobId, signal);
       if (signal.aborted) return;
       if (!read.ok) {
-        return setLoad({ state: "missing", text: read.status === 404 ? "No stored card has this ID." : "The stored card could not be read." });
+        return setLoad({ state: "missing", text: READ_FAILURES[read.status ?? 0] ?? "The stored card could not be read." });
       }
       setLoad({ state: "ready", job: read.data });
     })();
@@ -76,7 +88,7 @@ function CardView({ job, onReport }: { job: JobRead; onReport: () => void }) {
   const first = LEVERS.find(({ key }) => changed.has(key));
   const firstValue = first && sheet.recommended.levers[first.key];
   const nextCheck = first && firstValue !== undefined
-    ? `Set ${LEVER_LABELS[first.key].toLowerCase()} to ${shown(firstValue)}${unitOf(first.key) ? ` ${unitOf(first.key)}` : ""}${STATIONS[first.key] ? ` at ${STATIONS[first.key]}` : ""}.`
+    ? `Set ${LEVER_LABELS[first.key].toLowerCase()} to ${shown(firstValue)}${unitOf(first.key) ? `\u00a0${unitOf(first.key)}` : ""}${STATIONS[first.key] ? ` at ${STATIONS[first.key]}` : ""}.`
     : "No setting changed. Run the card as listed.";
   return (
     <>

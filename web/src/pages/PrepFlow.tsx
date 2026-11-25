@@ -3,7 +3,7 @@ import { ButtonLink, Card, Chip, Icon, IdleMark, NotConnected, PageHeader } from
 import { DEFECTS, formatNumber } from "../lib/api";
 import { href } from "../lib/routes";
 import { deriveFlow, EDGES, edgeTone, STEPS, ZONES, type FlowSources, type FlowView, type StepState, type ZoneStatus } from "./prepflow/flow";
-import { pageParam, readJob, readLotHead, readLots, readTrace, type JobRead, type LotHead } from "./prepflow/records";
+import { findReadableJob, pageParam, readJob, readLotHead, readLots, readTrace, type LotHead } from "./prepflow/records";
 import "./prepflow/prepflow.css";
 
 /**
@@ -11,6 +11,11 @@ import "./prepflow/prepflow.css";
  * (`lot`), or else the newest lot on the floor view; plus a run trace when the URL names one
  * (`run`). Each read that fails leaves its part of the page not connected.
  */
+const JOB_FAILURES: Record<number, string> = {
+  403: "This lot belongs to another demo session, so its steps cannot be shown here.",
+  404: "No stored job has this ID, so no step can be shown.",
+};
+
 function useFlowSources(): { loading: boolean; sources: FlowSources } {
   const [state, setState] = useState<{ loading: boolean; sources: FlowSources }>({
     loading: true, sources: { lot: null, job: null, head: null, trace: null },
@@ -29,19 +34,19 @@ function useFlowSources(): { loading: boolean; sources: FlowSources } {
         if (read.ok) head = read.data;
         jobId ??= head?.lot.currentJobId ?? null;
       }
-      if (!jobId && !runId) {
+      if (jobId) {
+        const read = await readJob(jobId, signal);
+        if (read.ok) sources.job = read.data;
+        else sources.failure = JOB_FAILURES[read.status ?? 0] ?? "The stored job could not be read, so no step can be shown.";
+      } else if (!runId && !lotId) {
         const lots = await readLots(signal);
         if (!lots.ok) sources.failure = "The lot list could not be read, so no step can be shown.";
         else {
-          sources.lot = lots.data.lots.find((lot) => lot.jobId) ?? null;
-          jobId = sources.lot?.jobId ?? null;
+          const found = await findReadableJob(lots.data.lots, signal);
+          if (found.ok) Object.assign(sources, { lot: found.lot, job: found.job });
+          else if (found.reason === "other-sessions") sources.failure = "The newest lots belong to other demo sessions. Plan a lot in New Lot to see its steps.";
+          else if (found.reason === "failed") sources.failure = JOB_FAILURES[found.status ?? 0] ?? "The stored job could not be read, so no step can be shown.";
         }
-      }
-      if (jobId) {
-        const read = await readJob(jobId, signal);
-        if (read.ok) sources.job = read.data as JobRead;
-        else if (read.status !== 404) sources.failure = "The stored job could not be read, so no step can be shown.";
-        else sources.failure = "No stored job has this ID, so no step can be shown.";
       }
       const revisionLot = sources.job?.revision?.lotId;
       if (!head && revisionLot) {
@@ -156,7 +161,7 @@ function stripFor(view: FlowView): Strip {
   const lot: Strip[number] = ["Lot", view.itemCode ?? "Not recorded", lotSub];
   switch (view.kind) {
     case "held":
-      return [["Lot", view.itemCode ?? "Order not confirmed", "Order not confirmed"], ["Now at", "Catalog match", "Step 2 of 9, Ingestion zone"],
+      return [["Lot", view.itemCode ?? "Not confirmed", "Order line not chosen"], ["Now at", "Catalog match", "Step 2 of 9, Ingestion zone"],
         ["Held for", "Supervisor", "Demo session, no named person"], ["Next", "Choose the line", "Then continue, or leave on hold"]];
     case "partial":
       return [lot, ["Now at", "Risk evidence", "Step 6 of 9, Intelligence zone"],
