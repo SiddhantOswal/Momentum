@@ -636,7 +636,7 @@ test("a writer safety block shows the template, counts the fallback and logs the
   const turn = await sessionStore.getTurn(principal.sessionId, clientTurnId);
   assert.deepEqual([turn.summary.attempts, turn.summary.writerOutcome, turn.summary.fallbackReason], [2, "fallback", "GEMINI_SAFETY_BLOCKED"]);
   assert.match(turn.answerText, /^Holdout R2 per model: Warp 0\.47, Delamination 0\.52, Strength 0\.39, Print 0\.64, Crack 0\.11\./);
-  assert.deepEqual(turn.summary.versions, { config: "arc-v1", models: "arc-models-v1", writer: "writer/v1" });
+  assert.deepEqual(turn.summary.versions, { config: "arc-v2", models: "arc-models-v1", writer: "writer/v1" });
   assert.deepEqual(logged, [{ event: "arc_answer_fallback", reason: "GEMINI_SAFETY_BLOCKED" }]);
   assert.equal(attempts.size, 2);
 });

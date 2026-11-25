@@ -8,13 +8,14 @@ import { unavailable } from "../google-cloud/firestore-arc-client.js";
 import { TURN_LEASE_MS } from "../google-cloud/firestore-arc-session-store.js";
 import { demoOwnsJob, demoOwnsLot } from "../hackathon-demo-auth.js";
 import { IpKeySchema, ResultRefSchema, ToolNameSchema } from "../state-schemas.js";
+import { actionParamsSchema, takesParams } from "./action-params.js";
 import { answerBlocks } from "./answer-blocks.js";
 import { checkGrounding, checkWriterText } from "./answer-checks.js";
 import { UNCHECKED_TEXT, factsFor, metricRef, renderTemplate as renderAnswerTemplate } from "./answer-render.js";
 import { canonicalJson } from "./canonical-json.js";
+import { preparePlanInputs } from "./lot-flow.js";
 import { retrySafe, stepLabel } from "./run-view.js";
 import { createToolRegistry } from "./tools/index.js";
-import { noArgs } from "./tools/policy.js";
 import { turnStream } from "./turn-stream.js";
 
 export { arcConfig };
@@ -44,7 +45,10 @@ const runKinds = new Map([
   ["search_defect_history", "history_search"],
 ]);
 const blockedErrors = new Set(["CONFIRMATION_REQUIRED", "LOT_NOT_FOUND", "IN_PROGRESS", "GEMINI_CALL_REPLAYED",
-  "REVISION_SUPERSEDED", "REVISION_FINGERPRINT_MISMATCH", "APPROVAL_IN_PROGRESS"]);
+  "REVISION_SUPERSEDED", "REVISION_FINGERPRINT_MISMATCH", "APPROVAL_IN_PROGRESS",
+  "ORDER_REVIEW_EXPIRED", "ORDER_LINE_NOT_CONFIRMABLE", "ORDER_SAMPLE_REQUIRED"]);
+// Steps that write the lot head; the next step must see what they wrote.
+const lotWriters = new Set(["set_conditions", "confirm_conditions"]);
 
 function taskRunIdFor(sessionId, clientTurnId) {
   const digest = sha256(`arc-run-v1:${sessionId}:${clientTurnId}`);
@@ -79,7 +83,9 @@ function resultReference(tool, args, result, principal) {
   const jobId = args.jobId ?? result.jobId ?? result.jobSheet?.jobId;
   if (["get_job", "plan_lot"].includes(tool) && demoOwnsJob(principal, jobId)) ref = { kind: "job", id: jobId };
   const lotId = result.lot?.lotId;
-  if (["get_lot", "set_conditions"].includes(tool) && demoOwnsLot(principal, lotId)) ref = { kind: "lot", id: lotId };
+  if (["get_lot", "set_conditions", "confirm_order", "confirm_conditions"].includes(tool) && demoOwnsLot(principal, lotId)) {
+    ref = { kind: "lot", id: lotId };
+  }
   const parsed = ResultRefSchema.safeParse(ref ?? metricRef(tool, args, result));
   return parsed.success ? parsed.data : null;
 }
@@ -125,8 +131,8 @@ export function createArcTurnRunner({
     reply: replySchema.optional(),
   });
 
-  function validateAction({ params }) {
-    return noArgs.safeParse(params ?? {});
+  function validateAction({ actionId, params }) {
+    return actionParamsSchema(actionId).safeParse(params ?? {});
   }
 
   function runTurn({ principal, ipKey, session, turn, input, signal, startedAt = performance.now() }) {
@@ -191,13 +197,14 @@ export function createArcTurnRunner({
       }
     }
 
-    async function complete(answerText, summary, outcome) {
+    // A run that waits for the person ends the turn with its answer and no run.completed (contract 3.3).
+    async function complete(answerText, summary, outcome, { waiting = false } = {}) {
       signal.throwIfAborted();
       const answer = { ...base, sequence: 0, type: "answer", resultRef: answerRef(clientTurnId) };
       // Stage terminal frames first so a committed turn can always replay.
       // Publish them only after the turn is readable.
       const frames = run ? [await stageEvent("answer", { resultRef: answer.resultRef }, true),
-        await stageEvent("run.completed", {}, true)] : [answer];
+        ...(waiting ? [] : [await stageEvent("run.completed", {}, true)])] : [answer];
       const saved = await sessionStore.completeTurn({
         ...owned, answerText, taskRunId: run?.taskRunId ?? null,
         eventRange: run ? { first: 1, last: sequence } : null, summary: {
@@ -228,23 +235,37 @@ export function createArcTurnRunner({
     }
 
     const normalizedText = input.kind === "text" ? input.text.normalize("NFKC") : undefined;
-    const actionId = input.kind === "action" ? input.actionId
-      : Object.hasOwn(config.suggestions, normalizedText) ? config.suggestions[normalizedText] : null;
-    const fixed = actionId !== null ? config.actions[actionId] : null;
+    const suggested = input.kind === "text" && Object.hasOwn(config.suggestions, normalizedText) ? config.suggestions[normalizedText] : null;
+    // Typed text never reaches an action that takes params, so no message can confirm an order or conditions.
+    const actionId = input.kind === "action" ? input.actionId : suggested !== null && !takesParams(suggested) ? suggested : null;
+    const fixed = actionId !== null && Object.hasOwn(config.actions, actionId) ? config.actions[actionId] : null;
+    let params = {};
+    if (fixed) {
+      const parsed = actionParamsSchema(actionId).safeParse(input.kind === "action" ? input.params ?? {} : {});
+      if (!parsed.success) return fail("VALIDATION_ERROR");
+      params = parsed.data;
+    }
     if (!fixed) {
       const stopped = await preRoute?.({ text: normalizedText, signal });
       if (stopped) return complete(answerTextSchema.parse(stopped.text), { intent: stopped.intent });
       if (typeof router !== "function") return fail("SERVICE_UNAVAILABLE");
     }
 
-    const activeLotId = session.activeLotIds.at(-1);
+    // An action that opens a lot works on no earlier lot, so a resumed run matches the run it started.
+    const activeLotId = fixed?.opensLot ? undefined : session.activeLotIds.at(-1);
     const loadedLot = activeLotId && lotStore ? await lotStore.getLot({
       lotId: activeLotId, ownerSessionId: sessionId, signal,
     }) : null;
     const lot = loadedLot?.head;
-    const context = { lot, signal, source: fixed ? "code" : "model" };
-    const registry = createToolRegistry({ principal, ipKey, session, deps });
-    let calls = fixed?.calls;
+    let prepared = {};
+    if (fixed?.planInputs) {
+      const plan = await preparePlanInputs({ lot, params, principal, deps: { servicePorts: deps.servicePorts, signal } });
+      if (!plan.ok) return fail(safeCode(plan.error?.code));
+      prepared = plan.context;
+    }
+    const context = { lot, signal, source: fixed ? "code" : "model", ...prepared };
+    const registry = createToolRegistry({ principal, ipKey, session, deps, fixedPlan: Boolean(fixed) });
+    let calls = fixed?.calls.map(({ name, args }) => ({ name, args: args === "params" ? params : args }));
     let reply;
     if (!fixed) {
       const history = (await Promise.all(session.recentTurnIds.filter((id) => id !== clientTurnId)
@@ -282,15 +303,19 @@ export function createArcTurnRunner({
     if (!calls.length) return complete(replyText, { intent: reply.code });
 
     const kind = fixed?.kind ?? calls.map(({ name }) => runKinds.get(name)).find(Boolean) ?? "data_question";
+    // A fixed plan that hands over to the person ends with a step that waits for them. It runs no tool;
+    // its name is what the person does next (confirm_order, confirm_conditions or approve).
+    const waitFor = fixed?.waitFor ?? null;
+    const planned = [...calls, ...(waitFor ? [{ name: waitFor }] : [])].map(initialStep);
     run = await taskRunStore.get(taskRunId, { signal });
     if (!run) {
       run = await taskRunStore.create({
-        taskRunId, sessionId, kind, lotId: lot?.lotId ?? null, status: "RUNNING", steps: calls.map(initialStep),
+        taskRunId, sessionId, kind, lotId: lot?.lotId ?? null, status: "RUNNING", steps: planned,
       }, { signal });
       if (!run) throw unavailable("The Arc task run already exists.");
     }
     if (run.sessionId !== sessionId || run.kind !== kind || run.lotId !== (lot?.lotId ?? null) ||
-        run.steps.length !== calls.length || run.steps.some(({ tool }, index) => tool !== calls[index].name)) {
+        run.steps.length !== planned.length || run.steps.some(({ tool }, index) => tool !== planned[index].tool)) {
       throw unavailable("The stored Arc plan does not match the turn.");
     }
     if (session.activeTaskRunId !== taskRunId) await sessionStore.setActiveTaskRun({ sessionId, taskRunId, signal });
@@ -316,6 +341,18 @@ export function createArcTurnRunner({
       }
       signal.throwIfAborted();
       return boundResult(result);
+    }
+
+    // Recorded before the step is marked done, so a resumed step records the same lot or job
+    // again instead of leaving the session without it.
+    async function recordOnSession(name, ref) {
+      if (name === "confirm_order" && ref?.kind === "lot") await sessionStore.recordLot({ sessionId, lotId: ref.id, signal });
+      if (name === "plan_lot" && ref?.kind === "job") await sessionStore.recordJob({ sessionId, jobId: ref.id, signal });
+    }
+
+    async function refreshLot() {
+      if (!lotStore || !context.lot) return;
+      context.lot = (await lotStore.getLot({ lotId: context.lot.lotId, ownerSessionId: sessionId, signal }))?.head ?? null;
     }
 
     function boundResult(result) {
@@ -400,16 +437,26 @@ export function createArcTurnRunner({
         return fail(errorCode, step, result?.error?.retryAfterSeconds);
       }
       step = { ...step, status: "SUCCEEDED", resultRef: resultReference(name, argsParsed.data, result, principal), finishedAt: iso(now()) };
+      await recordOnSession(name, step.resultRef);
       await saveStep(index, step);
+      if (lotWriters.has(name)) await refreshLot();
       await rememberDiscovered(name);
       await emit("step.succeeded", { ...fields, resultRef: step.resultRef });
       collect(name, argsParsed.data, result, step.resultRef);
     }
 
+    if (waitFor) {
+      const index = calls.length;
+      const waiting = { ...run.steps[index], status: "WAITING_FOR_USER", waitingFor: waitFor, startedAt: run.steps[index].startedAt ?? iso(now()) };
+      await saveStep(index, waiting, "WAITING_FOR_USER");
+      await emit("step.waiting_for_user", { stepId: waiting.stepId, tool: waiting.tool, waitingFor: waitFor });
+    }
+
+    const toolSteps = run.steps.slice(0, calls.length);
     const summary = {
       intent: actionId ?? reply?.code ?? kind,
-      tools: run.steps.map(({ tool }) => tool),
-      resultRefs: run.steps.flatMap(({ resultRef }) => resultRef ? [resultRef] : []),
+      tools: toolSteps.map(({ tool }) => tool),
+      resultRefs: toolSteps.flatMap(({ resultRef }) => resultRef ? [resultRef] : []),
     };
     let template = answerTextSchema.parse(await renderTemplate({ ...summary, data, replyText }));
     // The template meets the same grounding rule as the writer; the reply line is fixed copy from config.
@@ -442,10 +489,10 @@ export function createArcTurnRunner({
       }
       if (outcome.outcome === "fallback") log({ event: "arc_answer_fallback", reason: safeCode(outcome.reason) });
     }
-    const saved = await taskRunStore.save({ ...run, status: "COMPLETED" }, { signal });
+    const saved = await taskRunStore.save({ ...run, status: waitFor ? "WAITING_FOR_USER" : "COMPLETED" }, { signal });
     if (!saved.ok) throw unavailable("The Arc run changed.");
     run = saved.run;
-    await complete(outcome?.text ?? template, summary, outcome);
+    await complete(outcome?.text ?? template, summary, outcome, { waiting: Boolean(waitFor) });
   }
 
   async function readEvents({ sessionId, turn, signal }) {

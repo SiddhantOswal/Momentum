@@ -42,7 +42,7 @@ export function recordingVertexClient(respond) {
  * reads through the real Vertex client. `services` are the command service
  * ports; approveJob is always counted, so a case can assert zero approvals.
  */
-export function arcTurns({ router, writer, renderTemplate, services = {}, commandDeps = {}, budgetLimits = {} } = {}) {
+export function arcTurns({ router, writer, renderTemplate, services = {}, commandDeps = {}, budgetLimits = {}, lotStore } = {}) {
   const firestore = createFakeFirestore();
   const options = { projectId: FAKE_PROJECT_ID, fetchImpl: firestore.fetchImpl, tokenProvider: async () => "offline-eval" };
   const sessionStore = createFirestoreArcSessionStore(options);
@@ -87,14 +87,14 @@ export function arcTurns({ router, writer, renderTemplate, services = {}, comman
     routerPort = createArcRouter({ client: vertex.client, scope });
   }
   const runner = createArcTurnRunner({
-    sessionStore, taskRunStore, eventStore: createArcEventStore(options), deps,
+    sessionStore, taskRunStore, eventStore: createArcEventStore(options), deps, lotStore,
     geminiCap: readDailyGeminiCallCapConfig({}), attemptStore,
     preRoute: scope.preRoute, renderReply: scope.renderReply, router: routerPort, writer,
     ...(renderTemplate && { renderTemplate }),
   });
   const app = new Hono();
   app.route("/api/arc", createArcRoutes({
-    enabled: true, commandDeps: deps, sessionStore, taskRunStore, ...runner, getIpKey: () => IP_KEY,
+    enabled: true, commandDeps: deps, sessionStore, taskRunStore, lotStore, ...runner, getIpKey: () => IP_KEY,
   }));
 
   async function post(input, clientTurnId = randomUUID()) {

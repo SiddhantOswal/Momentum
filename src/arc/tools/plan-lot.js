@@ -9,9 +9,13 @@ const confirmedOrderSchema = OperatorItemConfirmationSchema.extend({
   reviewFingerprint: Sha256HexSchema,
 });
 
+// Paper moisture kept at its example value stays labelled "Example value" on the lot; the operator
+// pressed Confirm conditions with it on screen, as New Lot plans with whatever the field holds.
+const planned = ({ confirmed, field, sourceDetail }) => confirmed || (field === "paperMoisturePct" && sourceDetail === "example");
+
 function confirmedConditions(lot) {
   return RunConditionsSchema.safeParse(Object.fromEntries(
-    (lot.draftConditions ?? []).filter(({ confirmed }) => confirmed).map(({ field, value }) => [field, value]),
+    (lot.draftConditions ?? []).filter(planned).map(({ field, value }) => [field, value]),
   ));
 }
 
