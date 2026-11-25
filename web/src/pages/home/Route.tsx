@@ -36,7 +36,6 @@ export function ProductionRoute({ lot }: { lot?: LiveLot }) {
   const changes = lot?.changes ?? [];
   const callouts: Callout[] = STAGES.map((_, stage) => ({ stage, changes: changes.filter((c) => leverStage(c.lever) === STAGES[stage]) }))
     .filter((callout) => callout.changes.length > 0);
-  const changedStages = new Set(callouts.map((c) => c.stage));
   const ref = useRef<HTMLDivElement>(null);
   const [total, setTotal] = useState(0);
   useLayoutEffect(() => {
@@ -56,31 +55,41 @@ export function ProductionRoute({ lot }: { lot?: LiveLot }) {
 
   return (
     <Card title="Production route" meta={meta} span={12} className="hm-route-card">
-      <div className="hm-route" tabIndex={0} role="group" aria-label="Production stages">
-        <div className="hm-stages" ref={ref}>
-          <div className="hm-callouts">
-            {total > 0 && place(callouts, total).map((box) => (
-              <div key={box.stage} className="hm-callout" style={{ left: box.left, width: box.w }}>
-                {box.changes.map((change) => (
-                  <div key={change.lever}>
-                    <div className="lb" style={{ fontSize: 13 }}>{leverLabel(change.lever)}</div>
-                    <div className="n v">{leverChange(change)}</div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+      <div className="hm-stages" ref={ref}>
+        {/* The floating callouts are drawn for sight only; each stage below carries its own
+            changes as text, which is also what shows when the route stacks at phone width. */}
+        <div className="hm-callouts" aria-hidden="true">
+          {total > 0 && place(callouts, total).map((box) => (
+            <div key={box.stage} className="hm-callout" style={{ left: box.left, width: box.w }}>
+              {box.changes.map((change) => (
+                <div key={change.lever}>
+                  <div className="lb" style={{ fontSize: 13 }}>{leverLabel(change.lever)}</div>
+                  <div className="n v">{leverChange(change)}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <ol className="hm-stage-list" aria-label="Production stages">
           {STAGES.map((name, index) => {
-            const on = changedStages.has(index);
+            const stageChanges = callouts.find((callout) => callout.stage === index)?.changes ?? [];
+            const on = stageChanges.length > 0;
             return (
-              <div key={name} className="hm-stage">
-                <div className="hm-stem">{on && <i />}</div>
-                <div className="hm-dot"><span /><b className={on ? "on" : undefined} /></div>
-                <div className={`hm-name${on ? " on" : ""}`}>{name}{on && <span className="sr-only">, settings change here</span>}</div>
-              </div>
+              <li key={name} className="hm-stage">
+                <div className="hm-stem" aria-hidden="true">{on && <i />}</div>
+                <div className="hm-dot" aria-hidden="true"><span /><b className={on ? "on" : undefined} /></div>
+                <div className={`hm-name${on ? " on" : ""}`}>{name}</div>
+                {on && (
+                  <ul className="hm-inline">
+                    {stageChanges.map((change) => (
+                      <li key={change.lever}><span className="lb">{leverLabel(change.lever)}</span> <span className="n">{leverChange(change)}</span></li>
+                    ))}
+                  </ul>
+                )}
+              </li>
             );
           })}
-        </div>
+        </ol>
       </div>
     </Card>
   );

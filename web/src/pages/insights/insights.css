@@ -31,7 +31,30 @@
 .m .in-pick select { height: 36px; border-radius: 10px; border: 1px solid var(--ln2); background: var(--cd); color: var(--tx); font: 500 14px 'Inter', sans-serif; padding: 0 10px; max-width: 100%; }
 .m .in-pick select:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
 
-.m .in-sam { border: 1.5px dashed var(--ln2); background: transparent; }
+/* Model fit rows, on the design's grid: name 140 px, a 400 px track for 0.0 to 0.8, the value
+   right-aligned at 618 px and the note after it. Below 768 px each row stacks. */
+.m .in-legend { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--mu); margin-bottom: 18px; }
+.m .in-legend i { width: 12px; height: 12px; border-radius: 50%; background: var(--mu); display: block; }
+.m .in-fit { list-style: none; margin: 0; padding: 0; }
+.m .in-fit li { display: grid; grid-template-columns: 140px minmax(0, 400px) 78px minmax(0, 1fr); align-items: center; min-height: 52px; }
+.m .in-fit-name { font-size: 16px; font-weight: 600; }
+.m .in-fit-track { position: relative; height: 6px; border-radius: 3px; background: var(--ln2); margin: 0 8px; }
+.m .in-fit-track i { position: absolute; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 50%; display: block; }
+.m .in-fit-value { font-size: 20px; font-weight: 600; text-align: right; }
+.m .in-fit-note { font-size: 13px; color: var(--mu); padding-left: 12px; }
+.m .in-fit-ticks { display: grid; grid-template-columns: 140px minmax(0, 400px); margin-top: 10px; }
+.m .in-fit-scale { display: flex; justify-content: space-between; margin: 0 8px; }
+.m .in-fit-scale b { font-size: 12px; font-weight: 400; color: var(--dim); }
+@media (max-width: 767px) {
+  .m .in-fit li { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name value" "track track" "note note"; row-gap: 8px; padding: 10px 0; }
+  .m .in-fit-name { grid-area: name; }
+  .m .in-fit-value { grid-area: value; }
+  .m .in-fit-track { grid-area: track; }
+  .m .in-fit-note { grid-area: note; padding-left: 0; }
+  .m .in-fit-note:empty { display: none; }
+  .m .in-fit-ticks { grid-template-columns: minmax(0, 1fr); }
+  .m .in-fit-ticks > span:first-child { display: none; }
+}
 .m .in-tl { position: relative; padding-left: 26px; padding-bottom: 18px; }
 .m .in-tl:before { content: ""; position: absolute; left: 5px; top: 6px; bottom: -6px; width: 1px; background: var(--ln2); }
 .m .in-tl:last-child:before { display: none; }

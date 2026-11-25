@@ -78,9 +78,12 @@
   .m .hm-sl.hm-sn { transform: translateY(26px); }
 }
 
-/* Production route: nine stages on one line, changed settings in callouts above their stage. */
-.m .hm-route { overflow-x: auto; }
-.m .hm-stages { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); position: relative; min-width: 860px; }
+
+/* Production route: nine stages on one line, changed settings in callouts above their stage.
+   Below 768 px the stages stack and each shows its changes under its name. */
+.m .hm-route-card { padding: 16px 20px 14px; }
+.m .hm-stages { position: relative; }
+.m .hm-stage-list { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
 .m .hm-callouts { position: absolute; left: 0; right: 0; top: 0; height: 66px; }
 .m .hm-callout { position: absolute; bottom: 12px; height: 60px; border: 1px solid rgba(232,102,79,.7); border-radius: 10px; background: var(--rz); padding: 6px 14px; display: flex; gap: 16px; align-items: center; z-index: 2; }
 .m .hm-callout > div + div { border-left: 1px solid var(--ln2); padding-left: 16px; }
@@ -94,12 +97,12 @@
 .m .hm-stage:last-child .hm-dot > span:first-child { right: 50%; }
 .m .hm-dot b { position: relative; z-index: 1; width: 12px; height: 12px; border-radius: 50%; background: var(--cd); border: 2px solid var(--ln2); display: block; }
 .m .hm-dot b.on { width: 16px; height: 16px; background: var(--ac); border: 0; box-shadow: 0 0 0 4px var(--cd), 0 0 0 5px rgba(232,102,79,.6); }
-.m .hm-name { margin-top: 8px; font-size: 14px; font-weight: 500; color: var(--mu); white-space: nowrap; }
+.m .hm-name { margin-top: 8px; font-size: 14px; font-weight: 500; color: var(--mu); text-align: center; overflow-wrap: anywhere; }
 .m .hm-name.on { font-weight: 600; color: var(--tx); }
+/* Read by screen readers on wide screens, where the callouts above carry the same text. */
+.m .hm-inline { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; list-style: none; }
 
 /* Sample orders table and the model tiles. */
-.m .hm-seg { display: flex; gap: 3px; }
-.m .hm-seg i { width: 22px; height: 5px; border-radius: 2px; background: var(--ln2); display: block; }
 .m .hm-cont { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; border: 1.5px dashed var(--ln2); border-radius: 12px; min-height: 52px; padding: 8px 16px; margin-bottom: 6px; }
 .m .hm-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .m .hm-tile { border: 1px solid var(--ln); border-radius: 10px; padding: 12px; background: var(--bg); min-width: 0; }
@@ -117,16 +120,28 @@
   .m .hm-tiles { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
 @media (max-width: 767px) {
+  .m .hm-page .ct { flex-wrap: wrap; }
+  .m .hm-page .mt { white-space: normal; }
   .m .hm-hero { height: auto; }
   .m .hm-copy { padding: 24px 20px; }
   .m .hm-copy h2 { font-size: 28px !important; line-height: 34px !important; }
   .m .hm-art { display: none; }
-}
-.m .hm-route-card { padding: 16px 20px 14px; }
-.m .hm-scroll { overflow-x: auto; }
-.m .hm-scroll > [role="table"] { min-width: 560px; }
-.m .hm-scroll:focus-visible, .m .hm-route:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
-@media (max-width: 767px) {
-  .m .hm-page .ct { flex-wrap: wrap; }
-  .m .hm-page .mt { white-space: normal; }
+
+  .m .hm-callouts, .m .hm-stem, .m .hm-dot > span:first-child { display: none; }
+  .m .hm-stage-list { grid-template-columns: minmax(0, 1fr); }
+  .m .hm-stage { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 12px; align-items: start; padding-bottom: 14px; }
+  .m .hm-stage:before { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--ln2); }
+  .m .hm-stage:first-child:before { top: 9px; }
+  .m .hm-stage:last-child:before { bottom: auto; height: 9px; }
+  .m .hm-dot { grid-column: 1; grid-row: 1; width: 18px; }
+  .m .hm-name { grid-column: 2; grid-row: 1; margin-top: 0; text-align: left; line-height: 18px; }
+  .m .hm-inline { position: static; width: auto; height: auto; margin: 6px 0 0; overflow: visible; clip: auto; white-space: normal; grid-column: 2; padding: 0; }
+  .m .hm-inline li { font-size: 15px; }
+  .m .hm-inline .n { font-weight: 600; white-space: nowrap; }
+
+  /* The two tables reflow: the header row stays for screen readers, cells wrap into rows. */
+  .m .hm-page [role="table"] .tb.h { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .m .hm-orders [role="table"] .tb:not(.lb) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; row-gap: 8px; padding: 10px 0; }
+  .m .hm-activity [role="table"] .tb:not(.lb) { grid-template-columns: minmax(0, 1fr) !important; row-gap: 4px; padding: 10px 0; }
+  .m .hm-page [role="table"] .sx { white-space: normal; }
 }
