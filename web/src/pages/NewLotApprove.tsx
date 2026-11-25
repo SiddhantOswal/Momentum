@@ -134,7 +134,7 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
                   <input type="checkbox" checked={reviewed} disabled={!canApprove} onChange={(event) => setReviewed(event.target.checked)} />
                   I reviewed the settings and limits on this card.
                 </label>
-                <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14 }}>
                   <Button style={{ flex: 1 }} disabled={!reviewed || !canApprove || busy} onClick={approve} aria-describedby="nl-approve-note">
                     {busy ? "Approving" : `Approve ${rev}`}
                   </Button>

@@ -35,7 +35,7 @@ export function ExcludedNote({ risk }: { risk: Risk }) {
 
 /** The changed settings, as the design's three-column table. */
 export function ChangesTable({ changes, withChip = true, rowHeight = 52 }: { changes: Change[]; withChip?: boolean; rowHeight?: number }) {
-  const columns = withChip ? "1fr 130px 150px 100px" : "1fr 120px 140px";
+  const columns = withChip ? "minmax(0, 1fr) minmax(90px, 130px) minmax(100px, 150px) max-content" : "minmax(0, 1fr) minmax(90px, 120px) minmax(100px, 140px)";
   return (
     <div role="table" aria-label="Settings that change" className="rt chg">
       <div role="row" className="tb h" style={{ gridTemplateColumns: columns, minHeight: 30 }}>

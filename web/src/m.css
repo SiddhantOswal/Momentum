@@ -203,6 +203,15 @@
 :root[data-theme="light"] .m .scr { background: rgba(22,26,31,.36); }
 :root[data-theme="light"] .m .arcp { box-shadow: -24px 0 48px -24px rgba(20,24,28,.38); }
 
+/* Small laptops keep the sidebar, but the top bar at its design widths is wider than the space
+   left beside it and pushed the whole page sideways. The launcher drops its tagline instead. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .m .arc { width: auto; flex: 0 1 auto; min-width: 0; }
+  .m .arc .at span { display: none; }
+  .m .tr { min-width: 0; }
+  .m .top { height: auto; min-height: 56px; flex-wrap: wrap; row-gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+}
+
 /* Narrow screens and 200% zoom: the design is drawn at 1440 px only. The sidebar becomes a
    drawer behind a Menu button, the top bar wraps, and Arc becomes a full-width sheet. */
 @media (max-width: 1023px) {

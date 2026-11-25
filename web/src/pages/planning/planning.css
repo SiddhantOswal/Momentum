@@ -51,7 +51,7 @@
 .m .pl-page .chain u { text-decoration: none; color: var(--dim); font-size: 16px; }
 
 .m .pl-page .nx { display: flex; flex-direction: column; }
-.m .pl-page .nx .hd { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.m .pl-page .nx .hd { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 12px; }
 .m .pl-page .nx .gx { flex: none; width: 48px; height: 48px; border: 1px solid var(--ln2); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
 .m .pl-page .nx .gx svg { width: 24px; height: 24px; fill: none; stroke: var(--tx); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .m .pl-page .nx h3 { margin: 0; font: 600 20px/26px var(--arc-font-display); flex: 1; }
