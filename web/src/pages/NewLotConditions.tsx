@@ -8,17 +8,17 @@ import { CONDITION_FIELDS, getLot, updateLot, useLot, type ConditionKey, type Fi
 const SHIFTS = [{ value: "DAY", label: "Day" }, { value: "NIGHT", label: "Night" }];
 const TOTAL_FIELDS = CONDITION_FIELDS.length + LEVERS.length;
 
-const CONDITION_LIMITS: Partial<Record<ConditionKey, [number, number]>> = {
-  ambientRhPct: [0, 100], paperMoisturePct: [0, 20], ambientTempC: [-50, 60],
-};
+// The bounds of RunConditionsSchema in src/schemas.js; temperature there is any finite number.
+// The plant's recorded ranges are checked by the server, which says when a value is outside them.
+const SCHEMA_LIMITS: Partial<Record<ConditionKey, [number, number]>> = { ambientRhPct: [0, 100], paperMoisturePct: [0, 20] };
 
 function conditionValid(key: ConditionKey, value: string) {
   if (value.trim() === "") return false;
   if (key === "runDate") return /^\d{4}-\d{2}-\d{2}$/.test(value);
   if (key === "shift") return value === "DAY" || value === "NIGHT";
   const number = Number(value);
-  const [min, max] = CONDITION_LIMITS[key]!;
-  return Number.isFinite(number) && number >= min && number <= max;
+  const limits = SCHEMA_LIMITS[key];
+  return Number.isFinite(number) && (!limits || (number >= limits[0] && number <= limits[1]));
 }
 
 function leverValid(key: LeverKey, value: string) {
@@ -37,7 +37,7 @@ function doneCount(lot: LotState) {
 function sourceText(source: FieldSource | undefined, filled: boolean) {
   if (!filled) return "Required";
   if (!source || source.kind === "operator") return "Entered by operator";
-  if (source.kind === "weather") return `Weather record, ${source.location ?? "Pune"}, ${timeText(source.observedAt)}`;
+  if (source.kind === "weather") return `Weather record${source.location ? `, ${source.location}` : ""}, ${timeText(source.observedAt)}`;
   return `Last plant reading, ${dateText(source.recordedAt)}${source.simulated ? ", simulated" : ""}`;
 }
 
@@ -102,7 +102,7 @@ function ConditionsCard({ lot, onToast }: { lot: LotState; onToast: ReturnType<t
       </div>
       {note && <p className="err" role="alert">{note}</p>}
       <div style={{ flex: 1, minHeight: 12 }} />
-      <p className="lb" style={{ fontSize: 13, lineHeight: 1.45, margin: "12px 0 0" }}>No plant sensor is connected. Values come from the dataset, the public weather record for Pune or the operator.</p>
+      <p className="lb" style={{ fontSize: 13, lineHeight: 1.45, margin: "12px 0 0" }}>No plant sensor is connected. Values come from the dataset, the public weather record or the operator.</p>
       <div style={{ borderTop: "1px solid var(--ln)", marginTop: 12, paddingTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
         <span className="lgd" aria-hidden="true" /><span className="lb" style={{ fontSize: 14 }}>Amber outline: still to confirm.</span>
       </div>

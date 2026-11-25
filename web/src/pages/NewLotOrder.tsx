@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { Button, Card, Chip, ProvenanceChip } from "../components/m";
 import { formatNumber } from "../lib/api";
 import type { ExtractedLine, Extraction } from "./newlot/api";
-import { changeContext, chooseLine, chooseSample, chooseUpload, editOrderValue, readOrder } from "./newlot/actions";
+import { changeContext, chooseLine, chooseSample, chooseUpload, editOrderValue, lineCode, readOrder } from "./newlot/actions";
 import { FieldInput, FieldSelect, IdsBar, NewLotPage, StatusIcon, Toasts, useToasts } from "./newlot/parts";
 import { SAMPLES, updateLot, useLot, type LotState } from "./newlot/store";
 
@@ -17,7 +17,6 @@ const LINE_STATUS: Record<ExtractedLine["status"], string> = {
   MISSING_ITEM_CODE: "No item code", MISSING_QTY: "No quantity", MALFORMED: "Check this line",
 };
 
-const lineCode = (line: ExtractedLine) => line.resolvedItemCode ?? line.extractedItemCode ?? "";
 const titleCase = (word: string) => word.charAt(0) + word.slice(1).toLowerCase();
 
 function selectedLine(lot: LotState) {
