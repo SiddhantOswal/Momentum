@@ -31,8 +31,8 @@ export const RELEASE_FLAGS = Object.freeze({
   USTAAD_ENFORCE_MODEL_VERSIONS: "true",
   USTAAD_GEMINI_BUDGET_POLICY: "budget-v2",
   // The live pool, capped well below production: today's revision still counts on
-  // gemini_daily_usage, so laptop spend is added on top of it. Rs 100 and 100 attempts a day keep
-  // the combined spend inside the F2 budget (Rs 600 live plus Rs 200 eval).
+  // gemini_daily_usage, so laptop spend comes on top of momentum's Rs 600 day. Om approved up to
+  // Rs 100 a day for manual testing on 2026-11-25 (STATUS decision log).
   GEMINI_BUDGET_LIMITS: JSON.stringify({
     pool: "live", dayLimit: 100, sessionDayLimit: 40, ipDayLimit: 100,
     minuteLimit: 20, sessionMinuteLimit: 6, dayCostCapInr: 100,
