@@ -95,10 +95,7 @@ test('the risk card labels from use classes: advisory is low confidence, abstain
   assert.match(source, /useClass === "abstain" \? "Not shown" : number\(risk\.ratesPct\[key\]\) \+ "%"/);
 });
 
-test('the lot plan saving and the lot list total name the targets they leave out', async () => {
-  const source = await readFile(new URL('../web/src/screens/Lots.tsx', import.meta.url), 'utf8');
-  assert.match(source, /const savingNote = `\$\{formatNumber\(Math\.max\(0, sheet\.savings\.kg\), 1\)\} kg less scrap\$\{excluded\.length \? `; excludes \$\{excluded\.join\(", "\)\}` : ""\}`;/);
-  assert.match(source, /label="Predicted saving" [^\n]*sub=\{savingNote\}/);
-  assert.match(source, /% scrap\{lot\.primaryDefect [^\n]*\}\{excludedFromTotal\(lot\)\}<\/span>/);
-  assert.match(source, /return left\.length \? ` · excludes \$\{left\.map\(\(d\) => d\.short\)\.join\(", "\)\}` : "";/);
+test('the New Lot plan names the targets its totals leave out', async () => {
+  const source = await readFile(new URL('../web/src/pages/newlot/plan-view.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Totals leave out \{left\.map\(defectLabel\)\.join\(", "\)\}: low confidence, not counted\./);
 });

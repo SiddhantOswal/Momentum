@@ -188,8 +188,9 @@
 .m .fu > span { font-size: 13px; color: var(--dim); margin-right: 4px; }
 .m .chp { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--ln2); background: transparent; font: 600 14px var(--arc-font-body); color: var(--mu); white-space: nowrap; cursor: pointer; }
 .m .chp.on { background: var(--tx); color: var(--inv); border-color: var(--tx); }
-.m .df { display: flex; gap: 18px; flex-wrap: wrap; border-top: 1px solid var(--ln); margin-top: 12px; padding-top: 12px; font-size: 13px; color: var(--mu); line-height: 18px; }
+.m .df { display: flex; gap: 18px; flex-wrap: wrap; overflow-wrap: anywhere; border-top: 1px solid var(--ln); margin-top: 12px; padding-top: 12px; font-size: 13px; color: var(--mu); line-height: 18px; }
 .m .df b { color: var(--tx); font-weight: 600; }
+.m .df > * { min-width: 0; }
 .m .ct2 { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
 .m .ct2 .chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .m .ans { margin: 0; font-size: 16px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }

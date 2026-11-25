@@ -39,13 +39,20 @@ test("the dashboard (src/ui/workflow.js) sends the approve body from the loaded 
   }
 });
 
-test("the React client (web/src/screens/Lots.tsx) sends the approve body from the loaded revision", async () => {
-  const lots = await source("../web/src/screens/Lots.tsx");
-  const call = approveCall(lots, "const r = await send<{ jobSheet: JobSheet }>(`/jobs/${encodeURIComponent(sheet.jobId)}/approve", 500);
+test("the New Lot approval card sends the approve body from the revision read back from the server", async () => {
+  const page = await source("../web/src/pages/NewLotApprove.tsx");
+  const call = approveCall(page, "const result = await call<Stored>(`/jobs/${encodeURIComponent(jobId)}/approve", 300);
   assert.match(call, /method: "POST"/);
   assert.match(call, /"Content-Type": "application\/json"/);
-  assert.match(call, /JSON\.stringify\(\{ reviewConfirmed: true, revisionFingerprint: result\.revision\?\.fingerprint \}\)/);
-  assert.match(lots, /setResult\(\{ jobSheet: r\.data\.jobSheet, revision: r\.data\.revision \}\)/);
-  const session = await source("../web/src/lib/session.ts");
-  assert.match(session, /export type JobResult = \{[^\n]*revision\?: \{[^}]*fingerprint: string \| null/);
+  assert.match(call, /JSON\.stringify\(\{ reviewConfirmed: true, revisionFingerprint: revision!\.fingerprint \}\)/);
+  // The fingerprint comes from GET /jobs/:id, never from the plan response.
+  assert.match(page, /const revision = stored\?\.revision;/);
+  assert.doesNotMatch(page, /plan\.revision\?\.fingerprint|plan\.revision\.fingerprint/);
+});
+
+test("the Arc approval card sends the same approve body", async () => {
+  const arc = await source("../web/src/lib/arc.ts");
+  const call = approveCall(arc, "export function approveJobCard(jobId: string, revisionFingerprint: string)", 300);
+  assert.match(call, /`\/jobs\/\$\{encodeURIComponent\(jobId\)\}\/approve`/);
+  assert.match(call, /reviewConfirmed: true, revisionFingerprint,/);
 });
