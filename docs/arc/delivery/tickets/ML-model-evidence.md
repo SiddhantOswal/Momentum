@@ -37,3 +37,9 @@ Added 2026-11-25 by Om's session. They answer the model findings of the 23 Nov i
 - AC: both lists include every config file the server reads; a test scans `index.mjs` and `src/` for `config/*.json` references and fails if any is missing from either list; the server starts from a copy of only the files the Dockerfile would ship.
 - Depends on: nothing. Owner: backend engineer.
 - Test plan: the scan test; removing one entry fails it; a start-up test from the shipped file set.
+
+### ARC-DEV-01 Run the full service on a laptop against the live project (P0, asked by Om 2026-11-25)
+- Goal: founders can test the release-candidate configuration end to end on localhost, with live Vertex AI, BigQuery, Firestore, Cloud Storage and Secret Manager, before a revision is deployed.
+- AC: `npm run live:local` refuses to start on Cloud Run (`K_SERVICE` set). It copies the plain settings of the `momentum` Cloud Run service, loads its secrets into the process without printing them, turns on every Arc and M1 flag from `04` section 3.5 that exists in code, uses the budget store's `live` pool with the limits proposed in `04` section 5.2 (the `eval` pool needs an eval suite name on every reservation), and sets the public origin to localhost. Credentials come from the developer's own `gcloud` login through a metadata endpoint bound to 127.0.0.1 that answers only requests carrying `Metadata-Flavor: Google`; the server reads its address from Google's standard `GCE_METADATA_HOST`, and the default stays `metadata.google.internal`. No secret or token is written to disk or printed.
+- Depends on: nothing. Owner: backend engineer. Review: security reviewer (credentials).
+- Test plan: unit tests for the metadata host override (default unchanged, invalid host refused) and the local endpoint (header required, token cached, only loopback); a live start on Om's laptop with a typed Arc question and a planned lot.
