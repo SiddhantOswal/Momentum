@@ -7,7 +7,9 @@ const json = (status, body) => ({ status, contentType: 'application/json', body:
 const SESSION = 'a'.repeat(32);
 const LOT_ID = `LOT-HACK-${SESSION}-${'b'.repeat(12)}`;
 const JOB_ID = `JOB-HACK-${SESSION}-${'c'.repeat(40)}`;
+// The plan and the read-back carry different fingerprints, so a test can tell which one approval sends.
 const FINGERPRINT = 'd'.repeat(64);
+const READ_BACK_FINGERPRINT = 'f'.repeat(64);
 const REVIEW_ID = '0b9a4c1e-2f3d-4a5b-8c6d-7e8f9a0b1c2d';
 
 const PROFILE = {
@@ -43,6 +45,7 @@ const SHEET = {
   explanation: 'Stored explanation text.', evidence: [],
 };
 const REVISION = { lotId: LOT_ID, number: 1, fingerprint: FINGERPRINT, status: 'CURRENT' };
+const READ_BACK_REVISION = { ...REVISION, fingerprint: READ_BACK_FINGERPRINT };
 const PLAN = {
   ok: true, durable: true, jobId: JOB_ID, runId: 'run-1', completedStages: ['extractOrder', 'getConditions', 'predictRisk', 'optimizeLevers', 'findSimilarRuns', 'explainRisk', 'generateJobSheet'],
   orderProfile: PROFILE, conditions: { ...CONDITIONS, conditionSource: 'manual-entry', supervisorConfirmed: true },
@@ -82,7 +85,7 @@ async function mockBackend(page, overrides = {}) {
       case 'GET /conditions/weather': return route.fulfill(json(200, { ok: true, source: 'google-maps-weather', ambientRhPct: 61, ambientTempC: 27.5, observedAt: '2026-11-25T08:30:00Z', location: 'Pune' }));
       case 'GET /conditions/current': return route.fulfill(json(200, { ok: true, agent: 'getConditions', source: 'simulated-sensor', isRealModelPrediction: false, data: CONDITIONS, sensorSource: 'simulated', provenance: { timestamp: '2026-11-20T06:00:00Z', freshness: 'stale' } }));
       case 'POST /jobs': return route.fulfill(json(200, PLAN));
-      case 'GET /jobs/:job': return route.fulfill(json(200, { ok: true, jobSheet: SHEET, revision: REVISION }));
+      case 'GET /jobs/:job': return route.fulfill(json(200, { ok: true, jobSheet: SHEET, revision: READ_BACK_REVISION }));
       case 'POST /jobs/:job/approve': return route.fulfill(json(200, { ok: true, jobSheet: { ...SHEET, status: 'APPROVED', approvedAt: '2026-11-25T09:00:00Z', cardUri: 'gs://prepagent-hack-data/jobcards/test.pdf' } }));
       case 'GET /lots/:lot': return route.fulfill(json(200, { ok: true, lot: { lotId: LOT_ID, stage: 'conditions', currentRevision: 1, currentJobId: JOB_ID }, revision: { jobId: JOB_ID, number: 1, status: 'SUPERSEDED', supersededReason: { field: 'paperMoisturePct', from: 8.1, to: 9, provenance: 'operator_entry', byRole: 'Supervisor session' } } }));
       case 'PUT /lots/:lot/conditions': return route.fulfill(json(200, { ok: true, lot: { lotId: LOT_ID, stage: 'conditions' }, superseded: { jobId: JOB_ID, number: 1, reason: { field: 'paperMoisturePct' } } }));
@@ -205,7 +208,7 @@ test('the manual route reads the order, plans the lot and approves through the b
 
   const sent = calls.filter((call) => call.key === 'POST /jobs/:job/approve');
   expect(sent).toHaveLength(1);
-  expect(sent[0].json).toEqual({ reviewConfirmed: true, revisionFingerprint: FINGERPRINT });
+  expect(sent[0].json).toEqual({ reviewConfirmed: true, revisionFingerprint: READ_BACK_FINGERPRINT });
   await expect(page.getByRole('link', { name: 'Open the job card PDF' })).toHaveAttribute('href', `/jobs/${JOB_ID}/card.pdf?lang=en&currency=INR`);
   await expect(page.locator('section').filter({ hasText: 'Supervisor decision' }).getByText('Demo session, simulated').first()).toBeVisible();
 });
@@ -303,12 +306,70 @@ test('a saved review survives a reload, so the order does not need to be read ag
   expect(calls.filter((call) => call.key === 'POST /orders/extract')).toHaveLength(1);
 });
 
-test('the steps fit a phone screen without sideways scrolling', async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 800 });
-  await mockBackend(page);
-  for (const { hash } of STEPS) {
-    await openStep(page, hash, filled());
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow, hash).toBeLessThanOrEqual(0);
+test('a read-back without a revision keeps Approve off and says why', async ({ page }) => {
+  const calls = await mockBackend(page, { 'GET /jobs/:job': json(200, { ok: true, jobSheet: SHEET }) });
+  await openStep(page, '#/new-lot/approve', filled());
+  await expect(page.getByRole('alert').filter({ hasText: 'This draft has no registered revision.' })).toBeVisible();
+  await expect(page.getByLabel('I reviewed the settings and limits on this card.')).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^Approve/ })).toBeDisabled();
+  expect(calls.filter((call) => call.key === 'POST /jobs/:job/approve')).toHaveLength(0);
+});
+
+test('planning again after the approve guard replaced the draft sends a new idempotency key', async ({ page }) => {
+  const calls = await mockBackend(page, {
+    'POST /jobs/:job/approve': json(409, { ok: false, error: { code: 'REVISION_SUPERSEDED', message: 'An input changed after this draft was prepared, so it is replaced and read only.' } }),
+  });
+  await openStep(page, '#/new-lot/conditions', filled({ plan: undefined }));
+  await page.getByRole('button', { name: 'Plan this lot' }).click();
+  await expect(page).toHaveURL(/#\/new-lot\/settings$/);
+  await page.getByRole('link', { name: 'Review job card' }).click();
+  await page.getByLabel('I reviewed the settings and limits on this card.').check();
+  await page.getByRole('button', { name: 'Approve Rev 1' }).click();
+  await expect(page.getByText('Out of date. Nothing has been approved.')).toBeVisible();
+
+  // The inputs are unchanged, so only the stale signal can make the key change.
+  await page.getByRole('link', { name: 'Plan this lot again' }).click();
+  await page.getByRole('button', { name: 'Plan this lot' }).click();
+  await expect(page).toHaveURL(/#\/new-lot\/settings$/);
+  const keys = calls.filter((call) => call.key === 'POST /jobs').map((call) => call.headers['idempotency-key']);
+  expect(keys).toHaveLength(2);
+  expect(keys[1]).not.toBe(keys[0]);
+});
+
+test('a plan that comes back with a replaced revision is shown as stale, not approvable', async ({ page }) => {
+  await mockBackend(page, { 'POST /jobs': json(200, { ...PLAN, revision: { ...REVISION, status: 'SUPERSEDED' } }) });
+  await openStep(page, '#/new-lot/conditions', filled({ plan: undefined }));
+  await page.getByRole('button', { name: 'Plan this lot' }).click();
+  await expect(page).toHaveURL(/#\/new-lot\/settings$/);
+  await page.goto('/app/#/new-lot/approve');
+  await expect(page.getByText('Out of date. Nothing has been approved.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve Rev 1' })).toBeDisabled();
+});
+
+const PHONE_SCREENS = [
+  ...STEPS.map(({ hash }) => ({ name: hash, hash, state: filled() })),
+  { name: 'recovery', hash: '#/new-lot/settings', state: filled({ plan: undefined, partial: { outputs: { ...PLAN, jobSheet: undefined, revision: undefined, blockedAt: 'explainRisk' }, message: 'The explanation is unavailable.' } }) },
+  { name: 'stale', hash: '#/new-lot/approve', state: filled({ stale: { jobId: JOB_ID, number: 1, message: 'Replaced.' } }) },
+];
+
+test('all six screens fit a phone screen, and nothing inside them scrolls sideways', async ({ context }) => {
+  for (const { name, hash, state } of PHONE_SCREENS) {
+    // A new tab per screen starts with empty session storage, so each state seeds cleanly.
+    const fresh = await context.newPage();
+    await fresh.setViewportSize({ width: 375, height: 800 });
+    await mockBackend(fresh);
+    await openStep(fresh, hash, state);
+    await expect(fresh.locator('main .nl')).toBeVisible();
+    const wide = await fresh.evaluate(() => {
+      // Visually hidden text (clipped to nothing) is meant to overflow its 1 px box.
+      const hidden = (element) => { for (let node = element; node; node = node.parentElement) if (getComputedStyle(node).clip !== 'auto') return true; return false; };
+      return [...document.querySelectorAll('main *')]
+        .filter((element) => element.scrollWidth > element.clientWidth + 1 && !hidden(element))
+        .map((element) => `${element.tagName.toLowerCase()}.${element.className} ${element.scrollWidth}>${element.clientWidth}`);
+    });
+    expect(wide, name).toEqual([]);
+    const overflow = await fresh.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, name).toBeLessThanOrEqual(0);
+    await fresh.close();
   }
 });
