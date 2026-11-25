@@ -662,6 +662,23 @@ test('a starter row that sends a turn leaves focus in the message box', async ({
   await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toBeFocused();
 });
 
+
+// Every laid-out element inside the panel that is wider inside than its box, as tag.class names.
+// Inline boxes report no width of their own, and screen-reader-only text is clipped on purpose.
+function overflowingInPanel(page) {
+  return page.evaluate(() => [...document.querySelectorAll('#arc-panel *')].filter((element) => {
+    if (element.closest('.sr-only, svg')) return false;
+    const display = getComputedStyle(element).display;
+    if (display === 'inline' || display === 'contents' || display === 'none') return false;
+    return element.scrollWidth > element.clientWidth + 1;
+  }).map((element) => `${element.tagName.toLowerCase()}${[...element.classList].map((name) => `.${name}`).join('')}`));
+}
+
+async function expectNoSidewaysScroll(page) {
+  expect(await overflowingInPanel(page)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+}
+
 test('Arc-Phone: a full-width sheet at 375 px with no sideways scroll, and approval is still a tick plus a button', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await mockTurns(page, [planToJob]);
@@ -672,25 +689,21 @@ test('Arc-Phone: a full-width sheet at 375 px with no sideways scroll, and appro
   await expect(panel.getByRole('heading', { name: 'Compare the two plans' })).toBeVisible();
   await expect(panel.getByText('Step 3 of 4')).toBeVisible();
   await expect(panel.getByRole('list', { name: 'New lot steps' })).toBeHidden();
+  await expectNoSidewaysScroll(page);
   await panel.getByRole('button', { name: 'Prepare job-card draft' }).click();
   await expect(panel.getByText('Step 4 of 4')).toBeVisible();
   const box = panel.getByRole('checkbox', { name: 'I reviewed the settings and limits on this card.' });
   const approve = panel.getByRole('button', { name: 'Approve job card' });
   await expect(approve).toBeDisabled();
-  const widths = await page.evaluate(() => {
-    const body = document.querySelector('#arc-panel .ab');
-    return { page: document.documentElement.scrollWidth, body: body.scrollWidth, bodyClient: body.clientWidth };
-  });
-  expect(widths.page).toBeLessThanOrEqual(375);
-  expect(widths.body).toBeLessThanOrEqual(widths.bodyClient);
+  await expectNoSidewaysScroll(page);
   await box.check();
   await approve.click();
   await expect(panel.getByRole('heading', { name: 'Job card approved' })).toBeVisible();
   expect(approvals).toHaveLength(1);
-  expect(await page.evaluate(() => document.querySelector('#arc-panel .ab').scrollWidth <= document.querySelector('#arc-panel .ab').clientWidth)).toBe(true);
+  await expectNoSidewaysScroll(page);
 });
 
-test('the phone sheet has no sideways scroll on the defect and answer screens', async ({ page }) => {
+test('the phone sheet has no sideways scroll on the defect screens', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await mockTurns(page, [{ events: (id) => oneStep(id, { tool: 'list_approved_photos', kind: 'photo_check' }) }]);
   await page.route('**/evidence/approved-photos', (route) => route.fulfill(json(200, { ok: true,
@@ -698,14 +711,38 @@ test('the phone sheet has no sideways scroll on the defect and answer screens', 
   const panel = await openArc(page, { hash: '#/home' });
   await panel.getByRole('button', { name: /^Check a defect/ }).click();
   await expect(panel.getByText('Approved photo 1 of 10')).toBeVisible();
-  const overflow = () => page.evaluate(() => {
-    const body = document.querySelector('#arc-panel .ab');
-    return { page: document.documentElement.scrollWidth, over: body.scrollWidth - body.clientWidth };
-  });
-  expect(await overflow()).toMatchObject({ over: 0 });
+  await expectNoSidewaysScroll(page);
   await panel.getByRole('tab', { name: 'Historical evidence' }).click();
   await expect(panel.getByRole('button', { name: 'Search history' })).toBeVisible();
-  const after = await overflow();
-  expect(after.over).toBe(0);
-  expect(after.page).toBeLessThanOrEqual(375);
+  await expectNoSidewaysScroll(page);
+});
+
+test('long unbroken server strings wrap inside the phone sheet', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const LONG = 'PKBX' + 'Q'.repeat(150);
+  const chart = { blockId: 'b1', kind: 'chart', title: `Holdout R2 per model ${LONG}`, labels: [LONG], note: LONG,
+    series: [{ name: LONG, value: 0.47, unit: null, labels: [LONG] }, { name: 'Print', value: 0.64, unit: null, labels: [] }] };
+  const followUps = { blockId: 'b2', kind: 'follow_ups', suggestions: [{ actionId: 'get_status', label: LONG }] };
+  const value = { blockId: 'b1', kind: 'value', title: LONG, value: LONG, unit: LONG, labels: [LONG], note: LONG };
+  const answer = (blocks) => ({ text: `${LONG} ${LONG}`, generatedByGemini: true, writerOutcome: 'shown', blocks });
+  await mockTurns(page, [
+    { events: noRun, taskRunId: null, answer: answer([chart, followUps]) },
+    { events: noRun, taskRunId: null, answer: { ...answer([{ blockId: 'b1', kind: 'refusal', suggestions: [{ actionId: 'list_samples', label: LONG }] }]), generatedByGemini: false } },
+    { events: noRun, taskRunId: null, answer: answer([value, { blockId: 'b2', kind: 'reference', ref: { kind: 'trace', id: LONG }, labels: [LONG], generatedByGemini: false }]) },
+    planToJob,
+  ]);
+  await mockJob(page, { job: { ...DRAFT, order: { ...DRAFT.order, itemCode: LONG, fluteProfile: LONG } } });
+  const panel = await openArc(page, { hash: '#/home' });
+  await type(panel, LONG);
+  await expect(panel.getByRole('table', { name: /Holdout R² per model/ })).toBeVisible();
+  await type(panel, 'Where is Phoenix Market City?');
+  await expect(panel.getByText('Out of scope', { exact: true })).toBeVisible();
+  await type(panel, 'What is the moisture today?');
+  await expect(panel.getByRole('article').nth(2).locator('.n').first()).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await type(panel, 'Plan the lot');
+  await panel.getByRole('button', { name: 'Prepare job-card draft' }).click();
+  await expect(panel.getByRole('heading', { name: new RegExp(`^${LONG}, Rev 1$`) })).toBeVisible();
+  await expect(panel.locator('.cl')).toContainText(LONG);
+  await expectNoSidewaysScroll(page);
 });
