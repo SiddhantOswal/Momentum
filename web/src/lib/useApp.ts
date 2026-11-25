@@ -1,26 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
 import { getJson, type Result } from "./api";
 
-export type Screen = "floor" | "lots" | "defects" | "impact" | "models";
-export const SCREENS: Screen[] = ["floor", "lots", "defects", "impact", "models"];
-
-const screenFromHash = (): Screen => {
-  const name = location.hash.replace(/^#\/?/, "").split("/")[0];
-  return (SCREENS as string[]).includes(name) ? (name as Screen) : "floor";
-};
-
-// Hash routing keeps one HTML entry point and works behind any static host.
-export function useScreen() {
-  const [screen, setScreen] = useState<Screen>(screenFromHash);
-  useEffect(() => {
-    const onChange = () => setScreen(screenFromHash());
-    addEventListener("hashchange", onChange);
-    return () => removeEventListener("hashchange", onChange);
-  }, []);
-  const go = useCallback((next: Screen) => { location.hash = "/" + next; }, []);
-  return { screen, go };
-}
-
 export type Theme = "dark" | "light";
 
 const themeKey = "momentum-theme";
