@@ -165,6 +165,8 @@ test('the manual route reads the order, plans the lot and approves through the b
   await expect(page).toHaveURL(/#\/new-lot\/conditions$/);
   await expect(page.getByLabel('Humidity')).toHaveValue('61');
   await expect(page.locator('#nl-ambientRhPct-src')).toContainText('Weather record, Pune');
+  await expect(page.getByText('10 fields left to confirm')).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Lot' })).toContainText('Operator: confirm 10 fields');
   await page.getByLabel('Paper moisture').fill('8.1');
   await page.getByLabel('Run date').fill('2026-11-25');
   await page.getByLabel('Shift').selectOption('DAY');

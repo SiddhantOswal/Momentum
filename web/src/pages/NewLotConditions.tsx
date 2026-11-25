@@ -126,7 +126,7 @@ function SettingsCard({ lot }: { lot: LotState }) {
             <div><div className="nm">{leverLabel(lever.key)}</div><div className="sr" id={`${id}-src`}>{sub}</div></div>
             {"options" in lever
               ? <FieldSelect id={id} label={leverLabel(lever.key)} value={value} placeholder="Select value" options={LEVEL_OPTIONS} describedBy={`${id}-src`} onChange={(next) => set(lever.key, next)} />
-              : <FieldInput id={id} label={leverLabel(lever.key)} value={value} unit={unit} inputMode="decimal" placeholder="Enter value" required invalid={invalid}
+              : <FieldInput id={id} label={leverLabel(lever.key)} value={value} unit={unit} inputMode="decimal" placeholder={unit.length > 4 ? "Enter" : "Enter value"} required invalid={invalid}
                   describedBy={`${id}-src`} onChange={(next) => set(lever.key, next)} />}
           </div>
         );
@@ -165,12 +165,18 @@ export function NewLotConditions() {
   const lot = useLot();
   const done = doneCount(lot);
   const left = TOTAL_FIELDS - done;
-  const { toasts, dismiss, show } = useToasts(left > 0 ? [{ id: "left", tone: "wn", title: `${left} fields left to confirm`, text: "Analysis stays blocked until then." }] : []);
+  const { toasts, dismiss, show } = useToasts();
+  // The count follows the form, so it stays right after the weather record fills two fields.
+  const [countDismissed, setCountDismissed] = useState(false);
+  const shown = left > 0 && !countDismissed
+    ? [{ id: "left", tone: "wn" as const, title: `${left} ${left === 1 ? "field" : "fields"} left to confirm`, text: "Analysis stays blocked until then." }, ...toasts]
+    : toasts;
   const status = left > 0 ? "Conditions incomplete" : "Conditions entered";
-  const next = left > 0 ? `Operator: confirm ${left} fields` : "Operator: plan this lot";
+  const next = left > 0 ? `Operator: confirm ${left} ${left === 1 ? "field" : "fields"}` : "Operator: plan this lot";
   return (
     <NewLotPage step={2} sub="Confirm today's conditions and your planned settings."
-      ids={<IdsBar lot={lot} status={status} next={next} kraft />} toasts={<Toasts toasts={toasts} dismiss={dismiss} />}>
+      ids={<IdsBar lot={lot} status={status} next={next} kraft />}
+      toasts={<Toasts toasts={shown} dismiss={(id) => (id === "left" ? setCountDismissed(true) : dismiss(id))} />}>
       <div className="g">
         {!lot.orderConfirmed && (
           <Banner tone="warn" title="Confirm the order first." actions={<ButtonLink small href="#/new-lot/order">Go to Order</ButtonLink>}>
