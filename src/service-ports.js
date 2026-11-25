@@ -142,6 +142,7 @@ export function createServicePorts(adapters = {}) {
     extractOrder: adapters.extractOrder ?? unavailable("extractOrder"),
     extractOrderForReview: adapters.extractOrderForReview ?? unavailable("extractOrderForReview"),
     confirmPurchaseOrderReview: adapters.confirmPurchaseOrderReview ?? unavailable("confirmPurchaseOrderReview"),
+    loadPurchaseOrderReview: adapters.loadPurchaseOrderReview ?? unavailable("loadPurchaseOrderReview"),
     currentConditions: adapters.currentConditions ?? unavailable("currentConditions"),
     predictRisk: adapters.predictRisk ?? unavailable("predictRisk"),
     optimizeRisk: adapters.optimizeRisk ?? unavailable("optimizeRisk"),
@@ -670,6 +671,7 @@ export function createConfiguredServicePorts({
     extractOrder,
     extractOrderForReview: review.extractForReview,
     confirmPurchaseOrderReview: review.confirmReview,
+    loadPurchaseOrderReview: review.loadReview,
   });
 }
 

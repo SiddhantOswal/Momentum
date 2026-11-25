@@ -11,6 +11,7 @@ const REVIEW_TTL_MS = 30 * 60 * 1000;
 // Design 2.0: Firestore TTL removes the document a day later; the 30 minutes above is checked here.
 const REVIEW_DOCUMENT_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_REVIEWS = 100;
+const REVIEW_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function digest(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -154,9 +155,14 @@ export function createPurchaseOrderReviewService({
   const durable = reviewStore !== undefined;
   const reviews = durable ? createDurableReviewStore(reviewStore, now) : createMemoryReviewStore(now);
 
-  async function extractForReview({ file, operatorFields = {}, selectedLineIndex, ownerSessionId, signal } = {}) {
+  async function extractForReview({
+    file, operatorFields = {}, selectedLineIndex, ownerSessionId, reviewId: requestedReviewId, signal,
+  } = {}) {
     if (!file || typeof file.arrayBuffer !== "function") {
       return validationFailure("A purchase-order file is required.", "file", "required", "Upload the purchase order to review its extracted lines.");
+    }
+    if (requestedReviewId !== undefined && !REVIEW_ID_PATTERN.test(String(requestedReviewId))) {
+      throw new TypeError("A requested review ID must be a UUID.");
     }
     if (durable && !SessionIdSchema.safeParse(ownerSessionId).success) {
       return {
@@ -188,7 +194,7 @@ export function createPurchaseOrderReviewService({
         },
       };
     }
-    const reviewId = idFactory();
+    const reviewId = requestedReviewId ?? idFactory();
     const reviewFingerprint = extractionFingerprint(parsedResult.data);
     const saved = await reviews.save(reviewId, {
       result: structuredClone(parsedResult.data),
@@ -341,8 +347,24 @@ export function createPurchaseOrderReviewService({
     };
   }
 
+  /**
+   * The stored review for its own session, for Arc's confirm steps and its review card. Another
+   * session's review reads as absent. Only the durable store records the owner, so without it
+   * this fails closed instead of reading a review that any session could name.
+   */
+  async function loadReview({ reviewId, ownerSessionId, signal } = {}) {
+    if (!durable) return reviewStoreUnavailable("Stored PO reviews need the durable review store.");
+    if (typeof reviewId !== "string" || !REVIEW_ID_PATTERN.test(reviewId) || !SessionIdSchema.safeParse(ownerSessionId).success) {
+      return { ok: true, review: undefined };
+    }
+    const loaded = await reviews.load(reviewId, { ownerSessionId, signal });
+    if (!loaded.ok || !loaded.review) return loaded;
+    return { ok: true, review: { ...structuredClone(loaded.review), reviewId, expired: loaded.review.expiresAt <= now() } };
+  }
+
   return Object.freeze({
     extractForReview,
     confirmReview,
+    loadReview,
   });
 }
