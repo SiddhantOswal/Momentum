@@ -1,0 +1,747 @@
+{
+  "schema": 1,
+  "note": "Static plan. Lifecycle state and evidence live in progress.json.",
+  "pilotOrder": [
+    "U04",
+    "U03",
+    "U10"
+  ],
+  "units": [
+    {
+      "id": "U01",
+      "name": "Shell, tokens, shared components",
+      "canonicalRoute": null,
+      "priority": "P0",
+      "dependsOn": [],
+      "pilot": false,
+      "designScreens": [],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "web/public/arc-tokens.css",
+        "web/src/components/ArcPanel.tsx",
+        "web/src/lib/useApp.ts (theme)"
+      ],
+      "backendContracts": [
+        "GET /api/status"
+      ],
+      "discrepancies": [
+        "DR-001",
+        "DR-002",
+        "DR-003",
+        "DR-004",
+        "DR-031",
+        "DR-032"
+      ],
+      "requiredStates": [
+        "dark",
+        "light",
+        "sidebar active states",
+        "Arc launcher open and closed",
+        "phone layout adaptation"
+      ],
+      "contract": "docs/migration/pages/U01.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "web/test/routes.test.js",
+        "test/browser/shell-navigation.spec.js",
+        "test/browser/arc-theme.spec.js",
+        "test/browser/arc-panel.spec.js"
+      ],
+      "openDecisions": [],
+      "hardBlockers": []
+    },
+    {
+      "id": "U02",
+      "name": "Home",
+      "canonicalRoute": "/home",
+      "priority": "P1",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Main"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [
+        "home-machine.jpg",
+        "logo-momentum.jpg"
+      ],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "web/src/lib/live.ts",
+        "web/src/lib/api.ts"
+      ],
+      "backendContracts": [
+        "GET /api/status",
+        "GET /api/live",
+        "GET /api/lots"
+      ],
+      "discrepancies": [
+        "DR-019",
+        "DR-027",
+        "DR-037"
+      ],
+      "requiredStates": [
+        "Main"
+      ],
+      "contract": "docs/migration/pages/U02.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "PD-03",
+        "PD-12"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U03",
+      "name": "New Lot (order, conditions, settings, approve, recovery, stale)",
+      "canonicalRoute": "/new-lot",
+      "priority": "P0",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": true,
+      "designScreens": [
+        "NewLot-Approve",
+        "NewLot-Conditions",
+        "NewLot-Order",
+        "NewLot-Recovery",
+        "NewLot-Settings",
+        "NewLot-Stale"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [
+        "logo-momentum.jpg",
+        "specimen.jpg"
+      ],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "git show origin/arc/main:web/src/screens/Lots.tsx",
+        "web/src/lib/session.ts",
+        "src/commands/*"
+      ],
+      "backendContracts": [
+        "POST /orders/extract",
+        "GET /conditions/current",
+        "GET /conditions/weather",
+        "POST /jobs",
+        "PUT /lots/:lotId/conditions",
+        "GET /lots/:lotId",
+        "POST /jobs/:id/approve",
+        "GET /jobs/:id/card.pdf"
+      ],
+      "discrepancies": [
+        "DR-008",
+        "DR-019",
+        "DR-024",
+        "DR-027",
+        "DR-028",
+        "DR-038"
+      ],
+      "requiredStates": [
+        "Approve",
+        "Conditions",
+        "Order",
+        "Recovery",
+        "Settings",
+        "Stale"
+      ],
+      "contract": "docs/migration/pages/U03.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "PD-04",
+        "PD-12"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U04",
+      "name": "Plant Explorer",
+      "canonicalRoute": "/plant-explorer",
+      "priority": "P1",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": true,
+      "designScreens": [
+        "Plant-Explorer"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [
+        "home-machine.jpg",
+        "plant-machine.jpg"
+      ],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "web/src/lib/api.ts"
+      ],
+      "backendContracts": [
+        "POST /risk/predict",
+        "POST /risk/optimize"
+      ],
+      "discrepancies": [
+        "DR-011",
+        "DR-019"
+      ],
+      "requiredStates": [
+        "Plant-Explorer"
+      ],
+      "contract": "docs/migration/pages/U04.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "PD-12"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U05",
+      "name": "Preparation Flow (normal, held, partial)",
+      "canonicalRoute": "/preparation-flow",
+      "priority": "P1",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Prep-Flow-Held",
+        "Prep-Flow-Partial",
+        "Prep-Flow"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "src/trace-registry.js",
+        "src/arc/turn-stream.js"
+      ],
+      "backendContracts": [
+        "GET /api/runs/:id/events"
+      ],
+      "discrepancies": [
+        "DR-006",
+        "DR-037"
+      ],
+      "requiredStates": [
+        "Held",
+        "Partial",
+        "Prep-Flow"
+      ],
+      "contract": "docs/migration/pages/U05.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [],
+      "hardBlockers": []
+    },
+    {
+      "id": "U06",
+      "name": "Insights",
+      "canonicalRoute": "/insights",
+      "priority": "P1",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Insights"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "git show origin/arc/main:web/src/screens/Floor.tsx (impact call)",
+        "public/impact.html"
+      ],
+      "backendContracts": [
+        "GET /impact/summary",
+        "GET /api/status modelAcceptance"
+      ],
+      "discrepancies": [
+        "DR-004",
+        "DR-005",
+        "DR-009",
+        "DR-010",
+        "DR-019",
+        "DR-035"
+      ],
+      "requiredStates": [
+        "Insights"
+      ],
+      "contract": "docs/migration/pages/U06.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "PD-05",
+        "PD-12"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U07",
+      "name": "Photo Diagnosis",
+      "canonicalRoute": "/photo-diagnosis",
+      "priority": "P1",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Photo-Diagnosis"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [
+        "specimen.jpg"
+      ],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "git show origin/arc/main:web/src/screens/Defects.tsx",
+        "web/src/lib/session.ts"
+      ],
+      "backendContracts": [
+        "GET /evidence/approved-photos",
+        "POST /evidence/classify-photo",
+        "POST /evidence/diagnose-photo",
+        "POST /evidence/seen-before"
+      ],
+      "discrepancies": [
+        "DR-024",
+        "DR-029"
+      ],
+      "requiredStates": [
+        "Photo-Diagnosis"
+      ],
+      "contract": "docs/migration/pages/U07.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "PD-04"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U08",
+      "name": "Planning",
+      "canonicalRoute": "/planning",
+      "priority": "P2",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Planning"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [],
+      "backendContracts": [],
+      "discrepancies": [],
+      "requiredStates": [
+        "Planning"
+      ],
+      "contract": "docs/migration/pages/U08.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [],
+      "hardBlockers": []
+    },
+    {
+      "id": "U09",
+      "name": "Operator phone card",
+      "canonicalRoute": "/card/:jobId (proposed)",
+      "priority": "P2",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Operator-Phone"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "src/job-sheet-pdf.js"
+      ],
+      "backendContracts": [
+        "GET /jobs/:id",
+        "GET /jobs/:id/card.pdf"
+      ],
+      "discrepancies": [
+        "DR-007"
+      ],
+      "requiredStates": [
+        "Operator-Phone"
+      ],
+      "contract": "docs/migration/pages/U09.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "PD-07"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U10",
+      "name": "Arc start, out of scope, no data",
+      "canonicalRoute": "Arc panel",
+      "priority": "P1",
+      "dependsOn": [
+        "U01"
+      ],
+      "pilot": true,
+      "designScreens": [
+        "Arc-No-Data",
+        "Arc-Out-Of-Scope",
+        "Arc-Start"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "web/src/components/ArcPanel.tsx",
+        "src/arc/scope-rules.js"
+      ],
+      "backendContracts": [
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "POST /api/arc/turns"
+      ],
+      "discrepancies": [
+        "DR-014",
+        "DR-016",
+        "DR-026",
+        "DR-033"
+      ],
+      "requiredStates": [
+        "No-Data",
+        "Out-Of-Scope",
+        "Start"
+      ],
+      "contract": "docs/migration/pages/U10.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "PD-04"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U11",
+      "name": "Arc new-lot journey",
+      "canonicalRoute": "Arc panel",
+      "priority": "P0",
+      "dependsOn": [
+        "U03",
+        "U10"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Arc-Lot-Approve",
+        "Arc-Lot-Compare",
+        "Arc-Lot-Conditions",
+        "Arc-Lot-Receipt",
+        "Arc-Lot-Replaced",
+        "Arc-Lot-Review",
+        "Arc-Lot-Source"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "src/arc/tools/*",
+        "src/commands/*"
+      ],
+      "backendContracts": [
+        "POST /api/arc/turns",
+        "tools: read_order, set_conditions, plan_lot, get_job_card"
+      ],
+      "discrepancies": [
+        "DR-008",
+        "DR-014",
+        "DR-015",
+        "DR-019"
+      ],
+      "requiredStates": [
+        "Lot-Approve",
+        "Lot-Compare",
+        "Lot-Conditions",
+        "Lot-Receipt",
+        "Lot-Replaced",
+        "Lot-Review",
+        "Lot-Source"
+      ],
+      "contract": "docs/migration/pages/U11.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "ARC-M2-05",
+        "ARC-M2-06",
+        "ARC-M3-01"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U12",
+      "name": "Arc answers (value, chart)",
+      "canonicalRoute": "Arc panel",
+      "priority": "P1",
+      "dependsOn": [
+        "U06",
+        "U10"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Arc-Answer-Chart",
+        "Arc-Answer-Value"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "src/arc/metrics",
+        "config/arc-metrics.json"
+      ],
+      "backendContracts": [
+        "POST /api/arc/turns",
+        "tool: query_metric"
+      ],
+      "discrepancies": [
+        "DR-009",
+        "DR-015",
+        "DR-019"
+      ],
+      "requiredStates": [
+        "Answer-Chart",
+        "Answer-Value"
+      ],
+      "contract": "docs/migration/pages/U12.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "ARC-M2-05",
+        "ARC-M4-01 flag"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U13",
+      "name": "Arc defect (photo, history)",
+      "canonicalRoute": "Arc panel",
+      "priority": "P1",
+      "dependsOn": [
+        "U07",
+        "U10"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Arc-Defect-History",
+        "Arc-Defect-Photo"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "src/arc/tools/diagnose-approved-photo.js",
+        "src/arc/tools/search-defect-history.js"
+      ],
+      "backendContracts": [
+        "POST /api/arc/turns"
+      ],
+      "discrepancies": [
+        "DR-024",
+        "DR-029"
+      ],
+      "requiredStates": [
+        "Defect-History",
+        "Defect-Photo"
+      ],
+      "contract": "docs/migration/pages/U13.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "ARC-M2-05"
+      ],
+      "hardBlockers": []
+    },
+    {
+      "id": "U14",
+      "name": "Arc phone",
+      "canonicalRoute": "Arc panel (phone)",
+      "priority": "P2",
+      "dependsOn": [
+        "U09",
+        "U10"
+      ],
+      "pilot": false,
+      "designScreens": [
+        "Arc-Phone"
+      ],
+      "designSource": "docs/arc/design/source/html/{dark,light}/<ScreenId>.html and png/{dark,light}/<ScreenId>.png",
+      "assets": [],
+      "sharedComponents": [
+        "Shell",
+        "PageHeader",
+        "Card",
+        "Button",
+        "Chip",
+        "Status"
+      ],
+      "existingCode": [
+        "web/src/components/ArcPanel.tsx"
+      ],
+      "backendContracts": [
+        "POST /api/arc/turns"
+      ],
+      "discrepancies": [
+        "DR-007",
+        "DR-014"
+      ],
+      "requiredStates": [
+        "Phone"
+      ],
+      "contract": "docs/migration/pages/U14.md",
+      "acceptance": "See contract. Both themes match the PNG at 1440 wide; structural checks pass at 1440x900, 1280x800, 1024x768; every control wired or shown as not connected.",
+      "tests": [
+        "tools/visual/capture.mjs report",
+        "one browser test per control path"
+      ],
+      "openDecisions": [
+        "PD-07"
+      ],
+      "hardBlockers": []
+    }
+  ]
+}

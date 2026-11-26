@@ -1,0 +1,402 @@
+{
+  "schema": 1,
+  "states": [
+    "NOT_STARTED",
+    "READY",
+    "IN_PROGRESS",
+    "UI_IMPLEMENTED",
+    "UI_VERIFIED",
+    "INTEGRATION_PENDING",
+    "FUNCTIONALLY_VERIFIED",
+    "BLOCKED",
+    "DEFERRED_APPROVED",
+    "RELEASE_READY"
+  ],
+  "branch": "arc/ui-vnext",
+  "baseSha": "cb1338f6ce898dfa23493484e73c4ac8d95c07ab",
+  "auditSnapshot": "docs/migration/02a-branch-snapshot.json",
+  "designExport": {
+    "archive": "Momentum_Finals_UI_Directions-project.zip",
+    "sha256": "76d81b9cc8c84c171d20624e25063ac2327de4d378d00b31c522829fbfaffef0",
+    "artboards": 61,
+    "repoCopy": "docs/arc/design/source",
+    "repoScreens": 60,
+    "extraInZip": [
+      "Main-Photo (backup Home variant, photo hero)"
+    ],
+    "comparison": "60 shared screens identical to the repo copy in visible text and CSS (checked by script on 2026-11-26)"
+  },
+  "foundation": {
+    "checkpoints": {
+      "A": "PASSED",
+      "B": "PASSED",
+      "C": "PASSED",
+      "D": "PASSED",
+      "E": "PASSED",
+      "F": "PASSED",
+      "G": "PASSED",
+      "H": "PASSED_WITH_OPEN_ITEMS"
+    }
+  },
+  "checks": [
+    {
+      "id": "CHK-BASE-ROOT",
+      "name": "npm test on arc/main cb1338f before changes",
+      "status": "PASSED_WITH_KNOWN_FLAKE",
+      "result": "1108 tests, 1107 pass, 0 fail, 1 cancelled (weather timeout, ARC-M1-13)",
+      "existing": true
+    },
+    {
+      "id": "CHK-ROOT-TEST",
+      "name": "npm test after the foundation",
+      "status": "FAILED",
+      "result": "1108 tests, 1106 pass, 1 fail, 1 cancelled. New failure: test/approve-client-body.test.js asserts the removed web/src/screens/Lots.tsx; U03 re-points it. Cancelled: same weather test as the baseline.",
+      "existing": false
+    },
+    {
+      "id": "CHK-WEB-TSC",
+      "name": "web tsc -b",
+      "status": "PASSED",
+      "result": "exit 0",
+      "existing": false
+    },
+    {
+      "id": "CHK-WEB-BUILD",
+      "name": "web vite build",
+      "status": "PASSED",
+      "result": "built, 230.8 kB js",
+      "existing": false
+    },
+    {
+      "id": "CHK-WEB-UNIT",
+      "name": "web npm test",
+      "status": "PASSED",
+      "result": "7 of 7 (routes, Arc panel)",
+      "existing": false
+    },
+    {
+      "id": "CHK-BROWSER",
+      "name": "npx playwright test",
+      "status": "PASSED",
+      "result": "60 of 60 in Chromium headless shell",
+      "existing": false
+    },
+    {
+      "id": "CHK-BROWSER-MUTATION",
+      "name": "sidebar label changed on purpose",
+      "status": "PASSED",
+      "result": "4 shell-navigation tests failed, then restored",
+      "existing": false
+    },
+    {
+      "id": "CHK-VISUAL-STRUCT",
+      "name": "tools/visual/capture.mjs, 7 routes x 5 viewports x 2 themes",
+      "status": "PASSED",
+      "result": "70 runs, 0 duplicate labels, wrapped labels or sideways scroll",
+      "existing": false
+    },
+    {
+      "id": "CHK-VISUAL-EYE",
+      "name": "Shell compared with Plant-Explorer reference",
+      "status": "PASSED_WITH_DIFFERENCES",
+      "result": "Viewed dark 1440x900, light 1280x800, 1024x768 and phone. Layout, labels, spacing match. Differences: backend status and synthetic chip are live (PD-15); Arc launcher shrinks below ~1100px; reference launcher icon overlaps its text (design CSS collision).",
+      "existing": false
+    },
+    {
+      "id": "CHK-EXTRACT",
+      "name": "tools/design/verify-extract.mjs",
+      "status": "PASSED",
+      "result": "extracted markup+CSS renders byte-identical to the original for all 60 files",
+      "existing": false
+    },
+    {
+      "id": "CHK-QUALITY",
+      "name": "scripts/quality/check.mjs tree (including new files)",
+      "status": "PASSED",
+      "result": "phrase, secret and path checks passed",
+      "existing": false
+    },
+    {
+      "id": "CHK-LEDGER",
+      "name": "tools/migration/cli.mjs validate",
+      "status": "PASSED",
+      "result": "14 units, 30 screens consistent",
+      "existing": false
+    },
+    {
+      "id": "CHK-A11Y",
+      "name": "Automated accessibility scan",
+      "status": "NOT_EXECUTED",
+      "result": "No axe or equivalent run; keyboard path covered only by theme-switch and Arc panel specs",
+      "existing": false
+    },
+    {
+      "id": "CHK-LIVE",
+      "name": "Shell against a running backend",
+      "status": "NOT_EXECUTED",
+      "result": "Backend not started; status chip seen only in its unavailable state",
+      "existing": false
+    },
+    {
+      "id": "CHK-U04-BROWSER",
+      "name": "npx playwright test test/browser/plant-explorer.spec.js",
+      "status": "PASSED",
+      "result": "11 of 11 (stage selection, keyboard, compare not-connected, Open Insights, both themes, 4 viewports); 3 consecutive runs; mutation (45 s and 42% put back to 35 s and 86%) failed test 2, then restored",
+      "existing": false
+    },
+    {
+      "id": "CHK-BROWSER-FULL-2",
+      "name": "npx playwright test (all specs) after U04",
+      "status": "PASSED",
+      "result": "71 of 71 (60 earlier + 11 U04)",
+      "existing": false
+    },
+    {
+      "id": "CHK-U04-VISUAL",
+      "name": "tools/visual/capture.mjs --ref Plant-Explorer --route plant-explorer, 5 viewports x 2 themes",
+      "status": "PASSED_WITH_DIFFERENCES",
+      "result": "10 runs, 0 duplicate or wrapped nav labels, 0 sideways scroll. Viewed dark and light at 1440x900, light 1280x800, light 1024x768, dark 390x844. Differences are in notes of U04.",
+      "existing": false
+    },
+    {
+      "id": "CHK-WEB-TSC-2",
+      "name": "web tsc -b and web npm test and web build after U04",
+      "status": "PASSED",
+      "result": "tsc exit 0; web unit 7 of 7; vite build ok",
+      "existing": false
+    },
+    {
+      "id": "CHK-U04-ROOT",
+      "name": "root npm test after U04",
+      "status": "NOT RUN",
+      "result": "No backend or root test file was changed. CHK-ROOT-TEST (approve-client-body.test.js, ENOENT on removed Lots.tsx) is unchanged and belongs to U03.",
+      "existing": false
+    }
+  ],
+  "units": {
+    "U01": {
+      "state": "UI_VERIFIED",
+      "visual": {
+        "dark": "checked at 1440x900 against Plant-Explorer; all 58 shell screens share one sidebar markup (script)",
+        "light": "checked at 1280x800 and 1024x768",
+        "viewports": [
+          "1440x900",
+          "1280x800",
+          "1024x768",
+          "768x1024",
+          "390x844"
+        ]
+      },
+      "functional": "PASSED: navigation, aliases, theme switch, Arc panel open/close (browser specs)",
+      "backend": null,
+      "evidence": [
+        "CHK-BROWSER",
+        "CHK-VISUAL-STRUCT",
+        "CHK-VISUAL-EYE",
+        "CHK-WEB-UNIT"
+      ],
+      "notes": "Primary MacBook viewport unverified. Card title is now covered by test/browser/plant-explorer.spec.js (U04)."
+    },
+    "U02": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U03": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U04": {
+      "state": "INTEGRATION_PENDING",
+      "visual": {
+        "dark": "1440x900 compared with docs/arc/design/source/png/dark/Plant-Explorer.png: layout, copy and surfaces match except the listed differences",
+        "light": "1440x900 compared with the light reference render; 1280x800 and 1024x768 viewed",
+        "viewports": [
+          "1440x900",
+          "1280x800",
+          "1024x768",
+          "768x1024",
+          "390x844"
+        ],
+        "screenshots": "docs/migration/evidence/U04/ (kept copies); regenerate all with node tools/visual/capture.mjs --ref Plant-Explorer --route plant-explorer --viewports 1440x900,1280x800,1024x768,768x1024,390x844 (writes .visual/, not tracked)"
+      },
+      "functional": "PASSED in browser: stage selection by mouse and keyboard, Compare shows the not-connected note, Open Insights navigates, theme switch keeps text identical",
+      "backend": "NOT CONNECTED by design. No lot in progress to read (DR-011). The page makes no request and shows the PKBX0041 final m2 reference run, labelled Illustrative and Model estimate. /risk/predict and /risk/optimize need a full order, conditions and levers payload and stay unused until ARC-M6-12.",
+      "evidence": [
+        "CHK-U04-BROWSER",
+        "CHK-BROWSER-FULL-2",
+        "CHK-U04-VISUAL",
+        "CHK-WEB-TSC-2",
+        "CHK-U04-ROOT"
+      ],
+      "notes": "Figures follow docs/arc/delivery/data/stale-claims.md, not the design: 42% humidity, viscosity 32 to 45 s, 162 to 170 C and HIGH to MEDIUM from the final reference run. Removed from the design: 'confirmed' after humidity (no operator confirmation exists), 'humid days', the Strength row (0.078), 'Meets its pass level'. Crack and Print rows show 0.11 and 0.64 on 219 test lots (config/model-acceptance.json); 'Low confidence in humid months' was unsourced and became 'Low confidence.'. Chip 'Model estimate' kept as designed; 'Reference lot PKBX0041, awaiting sign-off.' added as a card note (PD-12, PD-17). Stages other than Glue have no designed content: the panel reads 'No reference values for this stage.' (PD-18). Compare button shows 'Comparison is not connected yet.' (PD-19). Differences from the design: top bar shows live backend state (PD-15); the design's Arc launcher icon overlap is a collision in its CSS, not copied; arrow glyphs come from Inter; leader lines scale with the photograph, so their ends drift a few pixels from the readout cards below 1440; below 1180px the side panels stack under the stage; below 620px of stage width the readouts move below the photograph; below 560px the stage tabs scroll sideways. Primary MacBook viewport still unverified (PD-13). Accessibility scan not run (CHK-A11Y).",
+      "files": [
+        "web/src/pages/PlantExplorer.tsx",
+        "web/src/pages/plant-explorer.css",
+        "web/src/App.tsx",
+        "web/src/design/foundation.css",
+        "web/public/brand/home-machine.jpg",
+        "test/browser/plant-explorer.spec.js",
+        "docs/migration/evidence/U04/"
+      ],
+      "sharedChanges": [
+        "foundation.css: new .arc-glass surface (translucent overlay on photographs). The text tokens for light theme already existed in arc-tokens.css.",
+        "foundation.css: .card-head wraps (flex-wrap) so a long title plus chip no longer overflows narrow cards.",
+        "App.tsx: pages are chosen by route key; add the next unit beside the plant-explorer case.",
+        "web/public/brand/home-machine.jpg copied from the design assets; plant-machine.jpg and specimen.jpg are still not copied."
+      ]
+    },
+    "U05": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U06": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U07": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U08": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U09": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U10": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U11": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U12": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U13": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    },
+    "U14": {
+      "state": "NOT_STARTED",
+      "visual": {
+        "dark": null,
+        "light": null,
+        "viewports": []
+      },
+      "functional": null,
+      "backend": null,
+      "evidence": [],
+      "notes": ""
+    }
+  },
+  "resolvedDecisions": [
+    "PD-01",
+    "PD-02",
+    "PD-10",
+    "PD-11",
+    "PD-13"
+  ],
+  "viewport": {
+    "primaryMacBook": "UNVERIFIED (owner left flexible)",
+    "checked": [
+      "1440x900",
+      "1280x800",
+      "1024x768",
+      "768x1024",
+      "390x844"
+    ]
+  }
+}

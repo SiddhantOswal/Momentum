@@ -1,0 +1,17 @@
+capability_id,capability,probe_path,dev,main,v2,arc/main,arc/ARC-M1-16-stale-fixtures,maturity,verification,recommended_source,rationale
+CAP-01,Legacy server-rendered dashboard (/),src/operator-ui.js,Y,Y,Y,Y,Y,Implemented; to be replaced visually,Tests in test/*ui*.test.js and playwright (not re-run),arc/main,Superset lineage: arc/main contains every other branch
+CAP-02,"PO to job card pipeline (/orders/extract, /risk/*, /jobs, approve, PDF)",src/job-coordinator.js,Y,Y,Y,Y,Y,"Implemented, test-verified",npm test 1107/1108 on arc/main,arc/main,Superset lineage: arc/main contains every other branch
+CAP-03,Daily Gemini attempt cap,src/daily-gemini-call-cap.js,Y,Y,Y,Y,Y,Implemented,unit tests,arc/main,Superset lineage: arc/main contains every other branch
+CAP-04,Demo session auth (signed cookie),src/hackathon-demo-auth.js,Y,Y,Y,Y,Y,Implemented,unit tests,arc/main,Superset lineage: arc/main contains every other branch
+CAP-05,Google sign-in session with roles,src/user-session-auth.js,-,-,Y,Y,Y,"Implemented, not used live",unit tests,arc/main,Superset lineage: arc/main contains every other branch
+CAP-06,"React app web/ (Floor, Lots, Defects)",web/src/App.tsx,-,-,Y,Y,Y,Partial: 2 of 5 nav items are placeholders,"web tests 2/2, tsc and vite build pass (this audit)",arc/main,Superset lineage: arc/main contains every other branch
+CAP-07,Live store (Firestore lots and events),src/google-cloud/live-store.js,-,-,Y,Y,Y,Implemented,unit tests,arc/main,Superset lineage: arc/main contains every other branch
+CAP-08,Defect diagnosis with Gemini vision,src/google-cloud/defect-diagnosis-service.js,-,-,Y,Y,Y,Implemented,unit tests; live NOT RUN by this audit,arc/main,Superset lineage: arc/main contains every other branch
+CAP-09,Durable lot revisions and approve guard,src/google-cloud/firestore-lot-store.js,-,-,-,Y,-,"Implemented behind flag, off on live revision",tests; live Firestore NOT RUN,arc/main,Superset lineage: arc/main contains every other branch
+CAP-10,"Arc API (/api/arc), turn runner, tool registry",src/arc/routes.js,-,-,-,Y,-,Implemented; typed text returns SERVICE_UNAVAILABLE until writer (M2-05),tests; live Vertex NOT RUN,arc/main,Superset lineage: arc/main contains every other branch
+CAP-11,Arc metric dictionary and query_metric,src/arc/metrics,-,-,-,Y,-,Implemented behind USTAAD_ENABLE_ARC_METRICS,BigQuery dry-runs NOT RUN,arc/main,Superset lineage: arc/main contains every other branch
+CAP-12,"Arc model settings (safety, thinking, tool config)",config/arc-models.json,-,-,-,Y,Y,Implemented,mutation-tested per STATUS,arc/main,Superset lineage: arc/main contains every other branch
+CAP-13,"Quality scripts, git hooks, CI workflow",scripts/quality,-,-,-,Y,Y,Implemented,quality tests,arc/main,Superset lineage: arc/main contains every other branch
+CAP-14,Approved-design tokens and theme in web/,web/public/arc-tokens.css,-,-,-,Y,-,Implemented (M6-01),"browser 42/42 per STATUS, not re-run",arc/main,Superset lineage: arc/main contains every other branch
+CAP-15,Arc panel shell (disconnected),web/src/components/ArcPanel.tsx,-,-,-,Y,-,"Implemented, disconnected (M6-02)",web tests pass,arc/main,Superset lineage: arc/main contains every other branch
+CAP-16,Retire m_* PKBX0041 acceptance check,test/optimizer-acceptance-tool.test.js,-,-,-,-,"Y(unique commits 1a5dac5, 2d33f24)",Unmerged; awaiting independent QA,not run by this audit,arc/ARC-M1-16-stale-fixtures (cherry-pick after QA),Only branch-unique work; merge-tree against arc/main is clean

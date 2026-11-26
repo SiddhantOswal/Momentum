@@ -1,0 +1,11 @@
+---
+paths:
+  - "web/**"
+  - "test/browser/**"
+---
+- Colours, type, radii and spacing come from `web/public/arc-tokens.css` and `web/src/design/foundation.css`. Do not hard-code values that exist as tokens.
+- Shared pieces live in `web/src/ui/`. Check `components.tsx` before adding one, and add one only when two screens need it.
+- Copy, labels and provenance chips come from the approved design. Missing data reads "Not recorded", never zero. Never show fixture data after a failed request.
+- Approve is a human action: checkbox, then button. No Arc code path calls the approve route.
+- The microphone stays disabled and has no handler.
+- Keyboard and focus behaviour must work in both themes. No horizontal page scroll at 1024px and wider.

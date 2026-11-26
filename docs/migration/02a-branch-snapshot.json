@@ -1,0 +1,136 @@
+{
+  "auditTimestampUtc": "2026-11-26T08:04:03Z",
+  "repository": {
+    "remote": "https://github.com/SiddhantOswal/Momentum",
+    "defaultBranch": "main",
+    "visibility": "public (per CLAUDE.md section 7; not independently verified)"
+  },
+  "sessionBranch": {
+    "name": "claude/bold-euler-orbrdw",
+    "head": "f4d073bd575d1567752c177ef0c692822c3d02f9",
+    "note": "Audit-session branch, identical to main. Not a contributor branch."
+  },
+  "branches": {
+    "main": {
+      "ref": "refs/remotes/origin/main",
+      "sha": "f4d073bd575d1567752c177ef0c692822c3d02f9",
+      "lastCommitUtc": "2026-10-21T22:09:51+05:30",
+      "lastAuthor": "Om Jain",
+      "subject": "demo enhancements",
+      "commitsAuthorsOnBranch": {
+        "SiddhantOswal": 24,
+        "Om Jain": 11
+      },
+      "behindAheadVsArcMain": {
+        "arcMainOnly": 375,
+        "branchOnly": 0
+      },
+      "ancestorOfArcMain": true,
+      "localBranch": true
+    },
+    "dev": {
+      "ref": "refs/remotes/origin/dev",
+      "sha": "1651863da1c936e114d67f90232c5ffda6b06422",
+      "lastCommitUtc": "2026-10-16T11:04:14+05:30",
+      "lastAuthor": "SiddhantOswal",
+      "subject": "chore: remove internal build notes from product repository",
+      "commitsAuthorsOnBranch": {
+        "SiddhantOswal": 13
+      },
+      "behindAheadVsArcMain": {
+        "arcMainOnly": 397,
+        "branchOnly": 0
+      },
+      "ancestorOfArcMain": true,
+      "localBranch": false
+    },
+    "v2": {
+      "ref": "refs/remotes/origin/v2",
+      "sha": "eb6eab96fd12edf7ee66440da875ae05882ade27",
+      "lastCommitUtc": "2026-11-22T01:38:35+05:30",
+      "lastAuthor": "Om Jain",
+      "subject": "docs: v2 backend and ML changes report (PDF) with the pending to-do list",
+      "commitsAuthorsOnBranch": {
+        "Om Jain": 29,
+        "SiddhantOswal": 24
+      },
+      "behindAheadVsArcMain": {
+        "arcMainOnly": 357,
+        "branchOnly": 0
+      },
+      "ancestorOfArcMain": true,
+      "localBranch": false
+    },
+    "arc/main": {
+      "ref": "refs/remotes/origin/arc/main",
+      "sha": "cb1338f6ce898dfa23493484e73c4ac8d95c07ab",
+      "lastCommitUtc": "2026-11-25T01:05:47+05:30",
+      "lastAuthor": "SiddhantOswal",
+      "subject": "Merge ARC-SETUP-34: m0-r5-sa superseded",
+      "commitsAuthorsOnBranch": {
+        "SiddhantOswal": 381,
+        "Om Jain": 29
+      },
+      "behindAheadVsArcMain": {
+        "arcMainOnly": 0,
+        "branchOnly": 0
+      },
+      "ancestorOfArcMain": true,
+      "localBranch": false
+    },
+    "arc/ARC-M1-16-stale-fixtures": {
+      "ref": "refs/remotes/origin/arc/ARC-M1-16-stale-fixtures",
+      "sha": "2d33f2451a66843792c90545819fc3c1ecd328dd",
+      "lastCommitUtc": "2026-11-25T00:26:44+05:30",
+      "lastAuthor": "SiddhantOswal",
+      "subject": "Retire the m_* PKBX0041 acceptance check from the tool",
+      "commitsAuthorsOnBranch": {
+        "SiddhantOswal": 197,
+        "Om Jain": 29
+      },
+      "behindAheadVsArcMain": {
+        "arcMainOnly": 186,
+        "branchOnly": 2
+      },
+      "ancestorOfArcMain": false,
+      "localBranch": false
+    }
+  },
+  "mergeBases": {
+    "main..dev": "1651863da1c936e114d67f90232c5ffda6b06422",
+    "main..v2": "f4d073bd575d1567752c177ef0c692822c3d02f9",
+    "v2..arc/main": "eb6eab96fd12edf7ee66440da875ae05882ade27",
+    "main..arc/main": "f4d073bd575d1567752c177ef0c692822c3d02f9",
+    "arc/main..arc/ARC-M1-16-stale-fixtures": "dd48c8c2d2e2cbe218f5343f9b13c53ea94d9a36"
+  },
+  "pullRequests": {
+    "open": 0,
+    "closed": 0,
+    "source": "GitHub MCP list_pull_requests state=all returned []"
+  },
+  "workingTree": {
+    "staged": 0,
+    "unstaged": 0,
+    "untracked": 0,
+    "stashes": 0,
+    "worktrees": 1,
+    "note": "Clean at audit start. Only worktree was the session checkout."
+  },
+  "branchProtection": "UNVERIFIED: GitHub list_branches reports protected=false for all five branches",
+  "recommendation": {
+    "baseBranch": "arc/main",
+    "baseSha": "cb1338f6ce898dfa23493484e73c4ac8d95c07ab",
+    "migrationBranch": "arc/ui-vnext (proposed; see 02b)",
+    "consolidationFirst": false,
+    "confidence": "high for base choice (strict ancestry), medium for execution plan (unpublished contributor work)"
+  },
+  "evidenceLimitations": [
+    "Only pushed refs are visible. Contributor worktrees (for example /Users/siddhant/Developer/momentum-wt/*) and backups named in STATUS.md are not accessible.",
+    "No GitHub pull requests exist, so review state of in-flight work is invisible.",
+    "gcloud has no credentialed account in this environment; all cloud findings come from repo files and STATUS.md claims.",
+    "Test results were produced by this audit only for arc/main at cb1338f (Node 22.23.5). Other branches are unrun.",
+    "Playwright browser suite was not re-run by this audit.",
+    "The design export was read from docs/arc/design/source in arc/main (60 HTML + 60 PNG). It has not been confirmed to be the same project as the 61-screen Claude Design project the product owner refers to."
+  ],
+  "lineage": "dev -> main (+22 Om/Siddhant) -> v2 (+18 Om) -> arc/main (+357 Siddhant). arc/ARC-M1-16-stale-fixtures forks arc/main at dd48c8c (2 unique commits, merge-tree clean)."
+}

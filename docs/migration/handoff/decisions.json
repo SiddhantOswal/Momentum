@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "recordedUtc": "2026-11-26T08:40:25Z",
+  "resolved": [
+    {
+      "id": "PD-01",
+      "decision": "Design is the owner export Momentum_Finals_UI_Directions-project.zip: 61 artboards = 60 screens identical to docs/arc/design/source + Main-Photo (backup Home, not built).",
+      "by": "owner"
+    },
+    {
+      "id": "PD-02",
+      "decision": "Base is arc/main. Migration runs independently on arc/ui-vnext. Owner merges later after approval.",
+      "by": "owner"
+    },
+    {
+      "id": "PD-10",
+      "decision": "No assistant mention anywhere (commits, code, comments, docs). Commits and pushes are the owner's. No trailers.",
+      "by": "owner"
+    },
+    {
+      "id": "PD-11",
+      "decision": "Restart the frontend from scratch; keep the arc/main backend.",
+      "by": "owner"
+    },
+    {
+      "id": "PD-13",
+      "decision": "Primary MacBook viewport unknown; keep layouts flexible; desktop results provisional.",
+      "by": "owner"
+    }
+  ],
+  "open": [
+    {
+      "id": "PD-03",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-04",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-05",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-06",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-07",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-08",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-09",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-12",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-14",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-15",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-16",
+      "where": "docs/migration/11-product-decisions.md"
+    },
+    {
+      "id": "PD-17",
+      "what": "Plant Explorer shows the final m2 reference figures, not the October design figures; 'confirmed' and 'humid days' dropped; sign-off note added",
+      "applied": "provisionally in U04",
+      "needs": "owner confirmation; Om sign-off (DR-019)"
+    },
+    {
+      "id": "PD-18",
+      "what": "Stages other than Glue have no design; they show 'No reference values for this stage.'",
+      "applied": "provisionally in U04",
+      "needs": "owner confirmation or designs"
+    },
+    {
+      "id": "PD-19",
+      "what": "Compare HIGH and MEDIUM shows a not-connected note (DR-011)",
+      "applied": "provisionally in U04",
+      "needs": "owner confirmation of wording"
+    }
+  ],
+  "foundationDefaults": {
+    "PD-14": "Inter (tokens)",
+    "PD-15": "live status from /api/status",
+    "PD-16": "sidebar becomes a scrolling row below 900px"
+  }
+}

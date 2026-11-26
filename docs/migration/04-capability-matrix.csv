@@ -1,0 +1,23 @@
+id,capability,design_screens,backend_contract,branch_availability,status,proposed_baseline_availability,notes
+UI-01,Read PO (PDF/JPEG) and review lines,NewLot-Order;Arc-Lot-Source;Arc-Lot-Review,POST /orders/extract,all branches with legacy UI; React PO1 only,implemented,arc/main,none for baseline
+UI-02,Conditions confirm with provenance,NewLot-Conditions;Arc-Lot-Conditions,GET /conditions/current; GET /conditions/weather; PUT /lots/:lotId/conditions,arc/main (PUT is new),implemented; PUT flag-gated,arc/main,provenance UI in G-gaps
+UI-03,"Settings and risk plan, compare two plans",NewLot-Settings;Arc-Lot-Compare;Plant-Explorer,POST /jobs; /risk/predict; /risk/optimize; /risk/similar-runs,all,"implemented; ""8,640 combinations"" not returned",arc/main,partial (D01)
+UI-04,Approve job card (human only),NewLot-Approve;Arc-Lot-Approve,POST /jobs/:id/approve,all; guard only arc/main,implemented; server guard off live,arc/main,D15
+UI-05,Job card PDF and receipt,Arc-Lot-Receipt,GET /jobs/:id/card.pdf,all,implemented,arc/main,
+UI-06,Stale/replaced draft handling,NewLot-Stale;Arc-Lot-Replaced,GET /lots/:lotId (lot_revisions),arc/main only,implemented behind flag,arc/main,
+UI-07,Failure recovery,NewLot-Recovery,Arc run events/resume (not built); trace SSE (in-memory),arc/main partial,partial,arc/main,D11
+UI-08,Preparation Flow stage status,Prep-Flow*,durable trace store (flag) /api/runs,arc/main (M1-07),partial,arc/main,D01
+UI-09,"Home status, next actions",Main,GET /api/status; /api/live; /api/lots,v2+,implemented; next-actions not designed in backend (M6-10),arc/main,D01
+UI-10,Insights tiles,Insights;Arc-Answer-Chart,GET /impact/summary; /api/status modelAcceptance; query_metric,v2+; metric tool arc/main,partial,arc/main,D01
+UI-11,"Photo diagnosis (approved ten, uploads)",Photo-Diagnosis;Arc-Defect-Photo;Arc-Defect-History,GET /evidence/approved-photos; POST classify-photo; diagnose-photo; seen-before,approved photos main+; upload v2+,implemented,arc/main,upload state undesigned G14
+UI-12,Planning roadmap,Planning,none (static),n/a,static by design,n/a,
+UI-13,Operator phone card,Operator-Phone;Arc-Phone,GET /jobs/:id; receipts endpoint missing,none,missing,arc/main (build),D01
+UI-14,Arc chat turns and tools,Arc-*,POST /api/arc/turns; GET /api/arc/session; GET /api/arc/turns,arc/main only,implemented backend; typed answers pending,arc/main,D11
+UI-15,Arc refusal and no-data answers,Arc-Out-Of-Scope;Arc-No-Data,scope-rules; query_metric insufficient-data,arc/main only,implemented,arc/main,
+UI-16,Arc voice (mic),Arc-*,none,none,missing by plan,n/a,DR-026
+BE-01,Actual-scrap feedback,(no design),POST /jobs/:id/feedback,legacy UI,no approved UI,arc/main,DR-012
+BE-02,Google sign-in with roles,(no design),POST /api/auth/session,v2+,unused live,arc/main,DR-013/034
+BE-03,FX display currency,(no design page; UNVERIFIED if shown),GET /fx,legacy UI,disposition needed,arc/main,PD-09
+BE-04,Gemini daily cap and budget,(status only),src/daily-gemini-call-cap.js; budget stores,all/arc,implemented,arc/main,
+BE-05,Legacy mock agents /api/agents/*,none,7 routes in index.mjs:1197-1261,legacy,offline mock; unavailable in offline mode per test 17,arc/main,"disposition: keep hidden, no UI"
+BE-06,Live feed events,Main (Floor content),GET /api/live,v2+,implemented,arc/main,PD-03

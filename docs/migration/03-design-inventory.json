@@ -1,0 +1,1398 @@
+{
+  "generatedUtc": "2026-11-26T08:04:03Z",
+  "source": "docs/arc/design/source (arc/main cb1338f), approved design committed 5d67772 on 2026-11-23",
+  "counts": {
+    "screens": 30,
+    "themeFiles": 60,
+    "htmlFiles": 60,
+    "pngFiles": 60,
+    "momentumScreens": 15,
+    "arcScreens": 15,
+    "productOwnerStatedCount": "approximately 61",
+    "reconciliation": "Owner export has 61 artboards (canvas.json): the 60 screens below plus Main-Photo, a backup Home variant with a photo hero. Main is primary; Main-Photo is not built.",
+    "exportArtboards": 61
+  },
+  "designViewport": {
+    "width": 1440,
+    "sidebar": 232,
+    "topbar": 56,
+    "contentPadding": 24,
+    "grid": "12 columns x 82px, 16px gap (1160px)",
+    "phoneViews": [
+      "Operator-Phone",
+      "Arc-Phone"
+    ]
+  },
+  "nav": [
+    "Home",
+    "New Lot",
+    "Plant Explorer",
+    "Preparation Flow",
+    "Insights",
+    "Photo Diagnosis",
+    "Planning"
+  ],
+  "screens": [
+    {
+      "id": "Arc-Answer-Chart",
+      "name": "Arc Answer Chart",
+      "product": "Arc",
+      "unit": "U12",
+      "navActive": "Insights",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Answer-Chart.html",
+          "png": "png/light/Arc-Answer-Chart.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Answer-Chart.html",
+          "png": "png/dark/Arc-Answer-Chart.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = Insights",
+      "headings": [
+        "Insights",
+        "How far can I trust the five models?"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 22,
+      "imgCount": 1,
+      "textNodes": 60,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Answer-Value",
+      "name": "Arc Answer Value",
+      "product": "Arc",
+      "unit": "U12",
+      "navActive": "Home",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Answer-Value.html",
+          "png": "png/light/Arc-Answer-Value.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Answer-Value.html",
+          "png": "png/dark/Arc-Answer-Value.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = Home",
+      "headings": [
+        "Home",
+        "What is the moisture today?"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 17,
+      "imgCount": 1,
+      "textNodes": 53,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Defect-History",
+      "name": "Arc Defect History",
+      "product": "Arc",
+      "unit": "U13",
+      "navActive": "Photo Diagnosis",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Defect-History.html",
+          "png": "png/light/Arc-Defect-History.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Defect-History.html",
+          "png": "png/dark/Arc-Defect-History.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = Photo Diagnosis",
+      "headings": [
+        "Photo diagnosis",
+        "Check a defect"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 18,
+      "imgCount": 1,
+      "textNodes": 46,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Defect-Photo",
+      "name": "Arc Defect Photo",
+      "product": "Arc",
+      "unit": "U13",
+      "navActive": "Photo Diagnosis",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Defect-Photo.html",
+          "png": "png/light/Arc-Defect-Photo.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Defect-Photo.html",
+          "png": "png/dark/Arc-Defect-Photo.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = Photo Diagnosis",
+      "headings": [
+        "Photo diagnosis",
+        "Check a defect"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 18,
+      "imgCount": 2,
+      "textNodes": 43,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Lot-Approve",
+      "name": "Arc Lot Approve",
+      "product": "Arc",
+      "unit": "U11",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Lot-Approve.html",
+          "png": "png/light/Arc-Lot-Approve.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Lot-Approve.html",
+          "png": "png/dark/Arc-Lot-Approve.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = New Lot",
+      "headings": [
+        "New lot",
+        "Approve the job card"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "I reviewed the settings and limits on this card.",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 20,
+      "imgCount": 1,
+      "textNodes": 56,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Lot-Compare",
+      "name": "Arc Lot Compare",
+      "product": "Arc",
+      "unit": "U11",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Lot-Compare.html",
+          "png": "png/light/Arc-Lot-Compare.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Lot-Compare.html",
+          "png": "png/dark/Arc-Lot-Compare.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = New Lot",
+      "headings": [
+        "New lot",
+        "Compare the two plans"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 20,
+      "imgCount": 1,
+      "textNodes": 64,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Lot-Conditions",
+      "name": "Arc Lot Conditions",
+      "product": "Arc",
+      "unit": "U11",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Lot-Conditions.html",
+          "png": "png/light/Arc-Lot-Conditions.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Lot-Conditions.html",
+          "png": "png/dark/Arc-Lot-Conditions.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = New Lot",
+      "headings": [
+        "New lot",
+        "Confirm today's conditions"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 19,
+      "imgCount": 1,
+      "textNodes": 60,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Lot-Receipt",
+      "name": "Arc Lot Receipt",
+      "product": "Arc",
+      "unit": "U11",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Lot-Receipt.html",
+          "png": "png/light/Arc-Lot-Receipt.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Lot-Receipt.html",
+          "png": "png/dark/Arc-Lot-Receipt.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = New Lot",
+      "headings": [
+        "New lot",
+        "Job card approved"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 25,
+      "imgCount": 1,
+      "textNodes": 52,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Lot-Replaced",
+      "name": "Arc Lot Replaced",
+      "product": "Arc",
+      "unit": "U11",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Lot-Replaced.html",
+          "png": "png/light/Arc-Lot-Replaced.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Lot-Replaced.html",
+          "png": "png/dark/Arc-Lot-Replaced.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = New Lot",
+      "headings": [
+        "New lot"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 25,
+      "imgCount": 1,
+      "textNodes": 55,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Lot-Review",
+      "name": "Arc Lot Review",
+      "product": "Arc",
+      "unit": "U11",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Lot-Review.html",
+          "png": "png/light/Arc-Lot-Review.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Lot-Review.html",
+          "png": "png/dark/Arc-Lot-Review.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = New Lot",
+      "headings": [
+        "New lot",
+        "Check what was read"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "The source line is the one you want",
+        "The quantity matches the order",
+        "The catalog item is the right box",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 20,
+      "imgCount": 1,
+      "textNodes": 60,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Lot-Source",
+      "name": "Arc Lot Source",
+      "product": "Arc",
+      "unit": "U11",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Lot-Source.html",
+          "png": "png/light/Arc-Lot-Source.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Lot-Source.html",
+          "png": "png/dark/Arc-Lot-Source.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = New Lot",
+      "headings": [
+        "New lot",
+        "Choose the purchase order"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 18,
+      "imgCount": 1,
+      "textNodes": 48,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-No-Data",
+      "name": "Arc No Data",
+      "product": "Arc",
+      "unit": "U10",
+      "navActive": "Insights",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-No-Data.html",
+          "png": "png/light/Arc-No-Data.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-No-Data.html",
+          "png": "png/dark/Arc-No-Data.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = Insights",
+      "headings": [
+        "Insights",
+        "How did scrap change over the last 3 months?"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 17,
+      "imgCount": 1,
+      "textNodes": 39,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Out-Of-Scope",
+      "name": "Arc Out Of Scope",
+      "product": "Arc",
+      "unit": "U10",
+      "navActive": "Home",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Out-Of-Scope.html",
+          "png": "png/light/Arc-Out-Of-Scope.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Out-Of-Scope.html",
+          "png": "png/dark/Arc-Out-Of-Scope.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = Home",
+      "headings": [
+        "Home",
+        "Where is Phoenix Market City?"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 20,
+      "imgCount": 1,
+      "textNodes": 34,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Phone",
+      "name": "Arc Phone",
+      "product": "Arc",
+      "unit": "U14",
+      "navActive": "Home",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Phone.html",
+          "png": "png/light/Arc-Phone.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Phone.html",
+          "png": "png/dark/Arc-Phone.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = Home",
+      "headings": [
+        "Arc on a phone",
+        "What is the moisture today?",
+        "Approve the job card"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send",
+        "Past work",
+        "Close Arc",
+        "I reviewed the settings and limits.",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 2,
+      "svgCount": 22,
+      "imgCount": 1,
+      "textNodes": 57,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Arc-Start",
+      "name": "Arc Start",
+      "product": "Arc",
+      "unit": "U10",
+      "navActive": "Home",
+      "themes": {
+        "light": {
+          "html": "html/light/Arc-Start.html",
+          "png": "png/light/Arc-Start.png"
+        },
+        "dark": {
+          "html": "html/dark/Arc-Start.html",
+          "png": "png/dark/Arc-Start.png"
+        }
+      },
+      "proposedRoute": "Arc panel overlay (no route); host page = Home",
+      "headings": [
+        "Home",
+        "What do you need done?"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Past work",
+        "Close Arc",
+        "Speak to Arc",
+        "Send"
+      ],
+      "inputCount": 1,
+      "svgCount": 25,
+      "imgCount": 1,
+      "textNodes": 41,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /api/arc/turns (stream)",
+        "GET /api/arc/session",
+        "GET /api/arc/turns",
+        "GET /api/arc/runs/:id (events/resume NOT YET BUILT)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Insights",
+      "name": "Insights",
+      "product": "Momentum",
+      "unit": "U06",
+      "navActive": "Insights",
+      "themes": {
+        "light": {
+          "html": "html/light/Insights.html",
+          "png": "png/light/Insights.png"
+        },
+        "dark": {
+          "html": "html/dark/Insights.html",
+          "png": "png/dark/Insights.png"
+        }
+      },
+      "proposedRoute": "/#/insights",
+      "headings": [
+        "Insights"
+      ],
+      "buttons": [
+        "Light theme",
+        "1",
+        "Dismiss"
+      ],
+      "inputCount": 1,
+      "svgCount": 17,
+      "imgCount": 1,
+      "textNodes": 180,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "GET /impact/summary",
+        "GET /insights/summary (no live adapter)",
+        "POST /risk/explanation"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Main",
+      "name": "Home",
+      "product": "Momentum",
+      "unit": "U02",
+      "navActive": "Home",
+      "themes": {
+        "light": {
+          "html": "html/light/Main.html",
+          "png": "png/light/Main.png"
+        },
+        "dark": {
+          "html": "html/dark/Main.html",
+          "png": "png/dark/Main.png"
+        }
+      },
+      "proposedRoute": "/#/home",
+      "headings": [
+        "Start with a sample order."
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts"
+      ],
+      "inputCount": 0,
+      "svgCount": 31,
+      "imgCount": 1,
+      "textNodes": 131,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "GET /api/status",
+        "GET /api/live",
+        "GET /api/lots"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "NewLot-Approve",
+      "name": "New Lot Approve",
+      "product": "Momentum",
+      "unit": "U03",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/NewLot-Approve.html",
+          "png": "png/light/NewLot-Approve.png"
+        },
+        "dark": {
+          "html": "html/dark/NewLot-Approve.html",
+          "png": "png/dark/NewLot-Approve.png"
+        }
+      },
+      "proposedRoute": "/#/new-lot/approve",
+      "headings": [
+        "New lot"
+      ],
+      "buttons": [
+        "Light theme",
+        "1",
+        "Dismiss"
+      ],
+      "inputCount": 0,
+      "svgCount": 23,
+      "imgCount": 1,
+      "textNodes": 111,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /orders/extract",
+        "GET /conditions/current",
+        "GET /conditions/weather",
+        "POST /jobs",
+        "PUT /lots/:lotId/conditions",
+        "GET /lots/:lotId",
+        "POST /jobs/:id/approve",
+        "GET /jobs/:id/card.pdf"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "NewLot-Conditions",
+      "name": "New Lot Conditions",
+      "product": "Momentum",
+      "unit": "U03",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/NewLot-Conditions.html",
+          "png": "png/light/NewLot-Conditions.png"
+        },
+        "dark": {
+          "html": "html/dark/NewLot-Conditions.html",
+          "png": "png/dark/NewLot-Conditions.png"
+        }
+      },
+      "proposedRoute": "/#/new-lot/conditions",
+      "headings": [
+        "New lot"
+      ],
+      "buttons": [
+        "Light theme",
+        "1",
+        "Dismiss"
+      ],
+      "inputCount": 0,
+      "svgCount": 16,
+      "imgCount": 1,
+      "textNodes": 93,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /orders/extract",
+        "GET /conditions/current",
+        "GET /conditions/weather",
+        "POST /jobs",
+        "PUT /lots/:lotId/conditions",
+        "GET /lots/:lotId",
+        "POST /jobs/:id/approve",
+        "GET /jobs/:id/card.pdf"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "NewLot-Order",
+      "name": "New Lot Order",
+      "product": "Momentum",
+      "unit": "U03",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/NewLot-Order.html",
+          "png": "png/light/NewLot-Order.png"
+        },
+        "dark": {
+          "html": "html/dark/NewLot-Order.html",
+          "png": "png/dark/NewLot-Order.png"
+        }
+      },
+      "proposedRoute": "/#/new-lot/order",
+      "headings": [
+        "New lot"
+      ],
+      "buttons": [
+        "Light theme",
+        "1",
+        "Dismiss"
+      ],
+      "inputCount": 0,
+      "svgCount": 17,
+      "imgCount": 1,
+      "textNodes": 116,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /orders/extract",
+        "GET /conditions/current",
+        "GET /conditions/weather",
+        "POST /jobs",
+        "PUT /lots/:lotId/conditions",
+        "GET /lots/:lotId",
+        "POST /jobs/:id/approve",
+        "GET /jobs/:id/card.pdf"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "NewLot-Recovery",
+      "name": "New Lot Recovery",
+      "product": "Momentum",
+      "unit": "U03",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/NewLot-Recovery.html",
+          "png": "png/light/NewLot-Recovery.png"
+        },
+        "dark": {
+          "html": "html/dark/NewLot-Recovery.html",
+          "png": "png/dark/NewLot-Recovery.png"
+        }
+      },
+      "proposedRoute": "/#/new-lot (failure state)",
+      "headings": [
+        "New lot"
+      ],
+      "buttons": [
+        "Light theme",
+        "1",
+        "Dismiss"
+      ],
+      "inputCount": 0,
+      "svgCount": 21,
+      "imgCount": 1,
+      "textNodes": 83,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /orders/extract",
+        "GET /conditions/current",
+        "GET /conditions/weather",
+        "POST /jobs",
+        "PUT /lots/:lotId/conditions",
+        "GET /lots/:lotId",
+        "POST /jobs/:id/approve",
+        "GET /jobs/:id/card.pdf"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "NewLot-Settings",
+      "name": "New Lot Settings",
+      "product": "Momentum",
+      "unit": "U03",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/NewLot-Settings.html",
+          "png": "png/light/NewLot-Settings.png"
+        },
+        "dark": {
+          "html": "html/dark/NewLot-Settings.html",
+          "png": "png/dark/NewLot-Settings.png"
+        }
+      },
+      "proposedRoute": "/#/new-lot/settings",
+      "headings": [
+        "New lot"
+      ],
+      "buttons": [
+        "Light theme",
+        "2",
+        "Dismiss",
+        "Dismiss"
+      ],
+      "inputCount": 0,
+      "svgCount": 26,
+      "imgCount": 1,
+      "textNodes": 116,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /orders/extract",
+        "GET /conditions/current",
+        "GET /conditions/weather",
+        "POST /jobs",
+        "PUT /lots/:lotId/conditions",
+        "GET /lots/:lotId",
+        "POST /jobs/:id/approve",
+        "GET /jobs/:id/card.pdf"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "NewLot-Stale",
+      "name": "New Lot Stale",
+      "product": "Momentum",
+      "unit": "U03",
+      "navActive": "New Lot",
+      "themes": {
+        "light": {
+          "html": "html/light/NewLot-Stale.html",
+          "png": "png/light/NewLot-Stale.png"
+        },
+        "dark": {
+          "html": "html/dark/NewLot-Stale.html",
+          "png": "png/dark/NewLot-Stale.png"
+        }
+      },
+      "proposedRoute": "/#/new-lot (stale-draft state)",
+      "headings": [
+        "New lot"
+      ],
+      "buttons": [
+        "Light theme",
+        "1",
+        "Dismiss"
+      ],
+      "inputCount": 0,
+      "svgCount": 22,
+      "imgCount": 1,
+      "textNodes": 89,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /orders/extract",
+        "GET /conditions/current",
+        "GET /conditions/weather",
+        "POST /jobs",
+        "PUT /lots/:lotId/conditions",
+        "GET /lots/:lotId",
+        "POST /jobs/:id/approve",
+        "GET /jobs/:id/card.pdf"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Operator-Phone",
+      "name": "Operator Phone Card",
+      "product": "Momentum",
+      "unit": "U09",
+      "navActive": null,
+      "themes": {
+        "light": {
+          "html": "html/light/Operator-Phone.html",
+          "png": "png/light/Operator-Phone.png"
+        },
+        "dark": {
+          "html": "html/dark/Operator-Phone.html",
+          "png": "png/dark/Operator-Phone.png"
+        }
+      },
+      "proposedRoute": "/#/card/:jobId (PROPOSED, decision PD-07)",
+      "headings": [
+        "The same card, on the operator's phone."
+      ],
+      "buttons": [
+        "Light theme"
+      ],
+      "inputCount": 0,
+      "svgCount": 5,
+      "imgCount": 0,
+      "textNodes": 72,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "GET /jobs/:id",
+        "GET /jobs/:id/card.pdf",
+        "NEW receipts/mismatch endpoint (missing)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Photo-Diagnosis",
+      "name": "Photo Diagnosis",
+      "product": "Momentum",
+      "unit": "U07",
+      "navActive": "Photo Diagnosis",
+      "themes": {
+        "light": {
+          "html": "html/light/Photo-Diagnosis.html",
+          "png": "png/light/Photo-Diagnosis.png"
+        },
+        "dark": {
+          "html": "html/dark/Photo-Diagnosis.html",
+          "png": "png/dark/Photo-Diagnosis.png"
+        }
+      },
+      "proposedRoute": "/#/photo-diagnosis",
+      "headings": [
+        "Photo diagnosis"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts"
+      ],
+      "inputCount": 0,
+      "svgCount": 13,
+      "imgCount": 2,
+      "textNodes": 50,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "GET /evidence/approved-photos",
+        "POST /evidence/classify-photo",
+        "POST /evidence/diagnose-photo",
+        "POST /evidence/seen-before"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Planning",
+      "name": "Planning",
+      "product": "Momentum",
+      "unit": "U08",
+      "navActive": "Planning",
+      "themes": {
+        "light": {
+          "html": "html/light/Planning.html",
+          "png": "png/light/Planning.png"
+        },
+        "dark": {
+          "html": "html/dark/Planning.html",
+          "png": "png/dark/Planning.png"
+        }
+      },
+      "proposedRoute": "/#/planning",
+      "headings": [
+        "Planning",
+        "Prepare",
+        "Guide",
+        "Challenge and remember",
+        "Observe and learn",
+        "Challenge the plan before production does.",
+        "Eight ideas to test",
+        "Production Preflight",
+        "Experiment Designer",
+        "Proof-Carrying Job Cards",
+        "Factory Time Machine",
+        "Production Fingerprints"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts",
+        "Production Preflight Research direction",
+        "Experiment Designer Research direction",
+        "Proof-Carrying Job Cards Research direction",
+        "Factory Time Machine Requires validated data",
+        "Production Fingerprints Requires validated data",
+        "Inverse Production Planning Research direction",
+        "Closed-Loop Quality Learning Research direction",
+        "Factory Decision Memory Requires validated data"
+      ],
+      "inputCount": 0,
+      "svgCount": 20,
+      "imgCount": 1,
+      "textNodes": 331,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Plant-Explorer",
+      "name": "Plant Explorer",
+      "product": "Momentum",
+      "unit": "U04",
+      "navActive": "Plant Explorer",
+      "themes": {
+        "light": {
+          "html": "html/light/Plant-Explorer.html",
+          "png": "png/light/Plant-Explorer.png"
+        },
+        "dark": {
+          "html": "html/dark/Plant-Explorer.html",
+          "png": "png/dark/Plant-Explorer.png"
+        }
+      },
+      "proposedRoute": "/#/plant-explorer",
+      "headings": [
+        "Plant Explorer"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts"
+      ],
+      "inputCount": 0,
+      "svgCount": 15,
+      "imgCount": 2,
+      "textNodes": 71,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "POST /risk/predict",
+        "POST /risk/optimize"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Prep-Flow-Held",
+      "name": "Preparation Flow",
+      "product": "Momentum",
+      "unit": "U05",
+      "navActive": "Preparation Flow",
+      "themes": {
+        "light": {
+          "html": "html/light/Prep-Flow-Held.html",
+          "png": "png/light/Prep-Flow-Held.png"
+        },
+        "dark": {
+          "html": "html/dark/Prep-Flow-Held.html",
+          "png": "png/dark/Prep-Flow-Held.png"
+        }
+      },
+      "proposedRoute": "/#/preparation-flow (held state)",
+      "headings": [
+        "Preparation flow"
+      ],
+      "buttons": [
+        "Light theme",
+        "1",
+        "Dismiss"
+      ],
+      "inputCount": 0,
+      "svgCount": 30,
+      "imgCount": 1,
+      "textNodes": 105,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "GET /api/runs/:id/events (in-memory)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Prep-Flow-Partial",
+      "name": "Preparation Flow",
+      "product": "Momentum",
+      "unit": "U05",
+      "navActive": "Preparation Flow",
+      "themes": {
+        "light": {
+          "html": "html/light/Prep-Flow-Partial.html",
+          "png": "png/light/Prep-Flow-Partial.png"
+        },
+        "dark": {
+          "html": "html/dark/Prep-Flow-Partial.html",
+          "png": "png/dark/Prep-Flow-Partial.png"
+        }
+      },
+      "proposedRoute": "/#/preparation-flow (partial state)",
+      "headings": [
+        "Preparation flow"
+      ],
+      "buttons": [
+        "Light theme",
+        "1",
+        "Dismiss"
+      ],
+      "inputCount": 0,
+      "svgCount": 30,
+      "imgCount": 1,
+      "textNodes": 106,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "GET /api/runs/:id/events (in-memory)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    },
+    {
+      "id": "Prep-Flow",
+      "name": "Preparation Flow",
+      "product": "Momentum",
+      "unit": "U05",
+      "navActive": "Preparation Flow",
+      "themes": {
+        "light": {
+          "html": "html/light/Prep-Flow.html",
+          "png": "png/light/Prep-Flow.png"
+        },
+        "dark": {
+          "html": "html/dark/Prep-Flow.html",
+          "png": "png/dark/Prep-Flow.png"
+        }
+      },
+      "proposedRoute": "/#/preparation-flow",
+      "headings": [
+        "Preparation flow"
+      ],
+      "buttons": [
+        "Light theme",
+        "Alerts"
+      ],
+      "inputCount": 0,
+      "svgCount": 28,
+      "imgCount": 1,
+      "textNodes": 104,
+      "lightDarkTextIdentical": true,
+      "impliedBackend": [
+        "GET /api/runs/:id/events (in-memory)"
+      ],
+      "staticStatesOnly": true,
+      "missingStates": "See 05 discrepancy register (G1-G17, DR-024)"
+    }
+  ],
+  "implementationUnits": [
+    {
+      "id": "U01",
+      "name": "Shell, tokens, theme, provenance chips",
+      "screens": "all",
+      "page": "pages/U01.md"
+    },
+    {
+      "id": "U02",
+      "name": "Home",
+      "screens": "Main",
+      "page": "pages/U02.md"
+    },
+    {
+      "id": "U03",
+      "name": "New Lot (6 states)",
+      "screens": "NewLot-*",
+      "page": "pages/U03.md"
+    },
+    {
+      "id": "U04",
+      "name": "Plant Explorer",
+      "screens": "Plant-Explorer",
+      "page": "pages/U04.md"
+    },
+    {
+      "id": "U05",
+      "name": "Preparation Flow (3 states)",
+      "screens": "Prep-Flow*",
+      "page": "pages/U05.md"
+    },
+    {
+      "id": "U06",
+      "name": "Insights",
+      "screens": "Insights",
+      "page": "pages/U06.md"
+    },
+    {
+      "id": "U07",
+      "name": "Photo Diagnosis",
+      "screens": "Photo-Diagnosis",
+      "page": "pages/U07.md"
+    },
+    {
+      "id": "U08",
+      "name": "Planning",
+      "screens": "Planning",
+      "page": "pages/U08.md"
+    },
+    {
+      "id": "U09",
+      "name": "Operator phone card",
+      "screens": "Operator-Phone",
+      "page": "pages/U09.md"
+    },
+    {
+      "id": "U10",
+      "name": "Arc start, out-of-scope, no-data",
+      "screens": "Arc-Start, Arc-Out-Of-Scope, Arc-No-Data",
+      "page": "pages/U10.md"
+    },
+    {
+      "id": "U11",
+      "name": "Arc new-lot journey (7)",
+      "screens": "Arc-Lot-*",
+      "page": "pages/U11.md"
+    },
+    {
+      "id": "U12",
+      "name": "Arc answers",
+      "screens": "Arc-Answer-*",
+      "page": "pages/U12.md"
+    },
+    {
+      "id": "U13",
+      "name": "Arc defect",
+      "screens": "Arc-Defect-*",
+      "page": "pages/U13.md"
+    },
+    {
+      "id": "U14",
+      "name": "Arc phone",
+      "screens": "Arc-Phone",
+      "page": "pages/U14.md"
+    }
+  ],
+  "designAnomalies": [
+    "Stale figures: Main and Insights show 100.4 -> 83.0 kg and Rs 925 (October m_* run); STATUS.md says 15 screens carry old figures and model R2 values pending ARC-M6-19.",
+    "All 60 HTML files load Inter and Inter Tight from fonts.googleapis.com; web/ ships local Inter only (arc-fonts.css). Inter Tight local asset not verified.",
+    "HTML is static: alerts, checkboxes and Plant Explorer interaction are frozen in default state; no hover/focus/loading specs.",
+    "No login or welcome screen exists in the design, but the legacy UI has one and the live demo uses it.",
+    "No Impact page: impact content is inside Insights.",
+    "Operator-Phone has no sidebar and no stated route or auth model."
+  ],
+  "extractionLimits": "Controls list covers <button> elements only. Links, divs acting as buttons, hover and focus states and interaction logic are not captured; the HTML is static. Read the HTML and PNG for each unit.",
+  "exportArchive": {
+    "file": "Momentum_Finals_UI_Directions-project.zip",
+    "sha256": "76d81b9cc8c84c171d20624e25063ac2327de4d378d00b31c522829fbfaffef0",
+    "format": ".dc.html artboards with a React runtime in _runtime; only theme toggle, alert dismiss and Planning item selection are scripted",
+    "extraArtboards": [
+      "Main-Photo"
+    ],
+    "artboardSize": "1440 wide; heights vary (900 to 3460), see canvas.json"
+  }
+}

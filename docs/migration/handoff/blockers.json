@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "recordedUtc": "2026-11-26T08:40:25Z",
+  "hard": [],
+  "blocking_commit": [
+    {
+      "id": "BL-1",
+      "what": "Git identity in the checkout is Claude <noreply@anthropic.com>; owner forbids assistant mention",
+      "needs": "owner name and email",
+      "effect": "foundation work is uncommitted"
+    }
+  ],
+  "open": [
+    {
+      "id": "BL-2",
+      "what": "Root npm test: test/approve-client-body.test.js asserts removed web/src/screens/Lots.tsx",
+      "owner": "unit U03",
+      "evidence": "CHK-ROOT-TEST"
+    },
+    {
+      "id": "BL-3",
+      "what": "Owner MacBook viewport unknown",
+      "effect": "desktop checks provisional",
+      "evidence": "progress.json viewport"
+    },
+    {
+      "id": "BL-4",
+      "what": "No gcloud credentials in the container",
+      "effect": "no live cloud verification",
+      "evidence": "gcloud auth list: No credentialed accounts"
+    },
+    {
+      "id": "BL-5",
+      "what": "Accessibility scan and live-backend shell check not executed",
+      "evidence": "CHK-A11Y, CHK-LIVE"
+    },
+    {
+      "id": "BL-6",
+      "what": "Arc typed answers not built on the backend (M2-05, M2-06, M3-01); Dockerfile does not build web/ (ARC-M6-08)",
+      "effect": "U11 to U13 can be built visually only; /app not in the image",
+      "evidence": "05-discrepancy-register.csv DR-014, DR-018"
+    },
+    {
+      "id": "BL-7",
+      "what": "Design figures stale until Om signs off (DR-019)",
+      "effect": "screens show provisional figures labelled as such"
+    },
+    {
+      "id": "BL-8",
+      "what": "Unpublished work on contributor machines is invisible",
+      "effect": "owner says work is independent; revalidate before merging"
+    }
+  ]
+}

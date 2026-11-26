@@ -34,3 +34,9 @@ docs/arc/reference/
 
 # Agent worktrees, one per ticket branch
 .claude/worktrees/
+
+# Visual comparison output
+.visual/
+
+# Local copy of the owner design export; commit only with approval
+docs/migration/handoff/design-export/*.zip

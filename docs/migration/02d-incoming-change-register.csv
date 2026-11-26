@@ -1,0 +1,8 @@
+id,source_branch,commit_or_range,capability,disposition,dependencies,conflict_risk,approval_status,integration_status,verification_status
+INC-01,origin/dev,1651863 (tip),V1 baseline,Already integrated; no action,-,none,n/a,integrated in arc/main (ancestor),n/a
+INC-02,origin/main,f4d073b (tip),"Om UI/demo enhancements, D4",Already integrated; no action,-,none,n/a,integrated in arc/main (ancestor),n/a
+INC-03,origin/v2,"eb6eab9 (tip), 18 commits","m2_* models, React web/, Google sign-in, live store, Defect Intelligence",Already integrated; no action,-,none,n/a,integrated in arc/main (ancestor),n/a
+INC-04,origin/arc/main,"cb1338f (tip), 375 ahead of main","Arc backend, durable state, quality gates, design tokens, panel shell",BASE of migration,-,n/a,PD-02 approval needed,is the base,"npm test 1107/1108 (1 known flaky, ARC-M1-13); tsc and build ok"
+INC-05,origin/arc/ARC-M1-16-stale-fixtures,"1a5dac5, 2d33f24",Retire m_* acceptance fixtures (3 files),Selective integration after independent QA; NOT required for UI migration,arc/main dd48c8c ancestry (satisfied),low (git merge-tree clean),PENDING (STATUS.md requires QA first),not integrated,not run by this audit
+INC-06,UNPUBLISHED (Siddhant local worktrees),"ARC-M2-05, M2-06, M3-*, M6-03..06 in progress per queue.md","Arc writer, event stream, J1 Arc screens, dashboard pages",Defer pending publication; re-audit via 02-delta,M2 tickets before M6 wiring,"HIGH: same files as UI migration (web/src, Shell, routing)",needs contributor input (PD-08),invisible,unverified
+INC-07,UNPUBLISHED (Om local),unknown,"Plant sign-offs (ARC-M0-04), final PKBX0041 reference, ARC-M6-19 figures",Defer; blocks design figure refresh,Om sign-off,medium (design HTML/PNG edits),pending Om,invisible,unverified

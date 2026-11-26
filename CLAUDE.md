@@ -87,3 +87,15 @@ Reviewers must be independent of the work they review. A reviewer never grades t
 ## 8. Communication
 
 Keep a running `docs/arc/delivery/STATUS.md` with what is done, in progress, blocked and next, and a decision log. Keep updates short and factual. When you need a founder decision, ask one clear question with the options and your recommendation.
+
+## 9. UI migration (branch `arc/ui-vnext`)
+
+The approved design replaces the current web UI. The plan, contracts and ledger are in `docs/migration/`; read `00-execution-contract.md` first and nothing else unless the task needs it.
+
+- The design is `docs/arc/design/source/`. It is identical to the 60 screens in the owner's 61-artboard export; the 61st (`Main-Photo`) is a backup Home variant and is not built. Do not change the design files.
+- Sidebar order is Home, New Lot, Plant Explorer, Preparation Flow, Insights, Photo Diagnosis, Planning. `web/src/routes.ts` is the only navigation definition. Old names are hidden redirects.
+- Build screens with the shared shell, components (`web/src/ui/`) and tokens (`web/public/arc-tokens.css`). Do not copy design CSS into pages.
+- Work one unit at a time: `/momentum-next`, then `/momentum-page <UnitId>`, then `/momentum-verify <UnitId>`. State and evidence live in `docs/migration/progress.json`; `node tools/migration/cli.mjs validate` checks it.
+- Compare against the design with `tools/visual/capture.mjs` in both themes. Say what differs; do not claim pixel parity.
+- Commits are the owner's: no trailer, co-author line, session link or mention of any assistant or tool, in commits, code, comments or docs. Check `git config user.name` and `user.email` before committing. Do not commit or push unless asked.
+- Code reads as written by one careful engineer: repository naming, comments that explain why, no filler text, no dead code. Every label and number comes from the design or a real source.

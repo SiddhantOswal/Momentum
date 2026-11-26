@@ -1,0 +1,594 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1400,
+      "title": "Home",
+      "is_interactive": true
+    },
+    {
+      "file": "NewLot-Order.dc.html",
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1170,
+      "title": "New Lot / 1 Order",
+      "is_interactive": true
+    },
+    {
+      "file": "NewLot-Conditions.dc.html",
+      "x": 3040,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "New Lot / 2 Conditions",
+      "is_interactive": true
+    },
+    {
+      "file": "NewLot-Settings.dc.html",
+      "x": 4560,
+      "y": 0,
+      "w": 1440,
+      "h": 1290,
+      "title": "New Lot / 3 Settings and risk",
+      "is_interactive": true
+    },
+    {
+      "file": "NewLot-Approve.dc.html",
+      "x": 6080,
+      "y": 0,
+      "w": 1440,
+      "h": 1040,
+      "title": "New Lot / 4 Review and approve",
+      "is_interactive": true
+    },
+    {
+      "file": "NewLot-Recovery.dc.html",
+      "x": 7600,
+      "y": 0,
+      "w": 1440,
+      "h": 1020,
+      "title": "New Lot / Recovery, explanation unavailable",
+      "is_interactive": true
+    },
+    {
+      "file": "Operator-Phone.dc.html",
+      "x": 9120,
+      "y": 0,
+      "w": 1440,
+      "h": 1200,
+      "title": "Operator phone card",
+      "is_interactive": true
+    },
+    {
+      "file": "Plant-Explorer.dc.html",
+      "x": 0,
+      "y": 1460,
+      "w": 1440,
+      "h": 900,
+      "title": "Plant Explorer",
+      "is_interactive": true
+    },
+    {
+      "file": "Prep-Flow.dc.html",
+      "x": 1520,
+      "y": 1460,
+      "w": 1440,
+      "h": 1260,
+      "title": "Preparation Flow",
+      "is_interactive": true
+    },
+    {
+      "file": "Photo-Diagnosis.dc.html",
+      "x": 3040,
+      "y": 1460,
+      "w": 1440,
+      "h": 900,
+      "title": "Photo Diagnosis",
+      "is_interactive": true
+    },
+    {
+      "file": "Planning.dc.html",
+      "x": 4560,
+      "y": 1460,
+      "w": 1440,
+      "h": 3460,
+      "title": "Planning (Future)",
+      "is_interactive": true
+    },
+    {
+      "file": "Insights.dc.html",
+      "x": 0,
+      "y": 2790,
+      "w": 1440,
+      "h": 2770,
+      "title": "Insights",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Main.dc.html",
+      "x": 0,
+      "y": 5900,
+      "w": 1440,
+      "h": 1400,
+      "title": "Home (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-NewLot-Order.dc.html",
+      "x": 1520,
+      "y": 5900,
+      "w": 1440,
+      "h": 1170,
+      "title": "New Lot / 1 Order (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-NewLot-Conditions.dc.html",
+      "x": 3040,
+      "y": 5900,
+      "w": 1440,
+      "h": 900,
+      "title": "New Lot / 2 Conditions (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-NewLot-Settings.dc.html",
+      "x": 4560,
+      "y": 5900,
+      "w": 1440,
+      "h": 1290,
+      "title": "New Lot / 3 Settings and risk (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-NewLot-Approve.dc.html",
+      "x": 6080,
+      "y": 5900,
+      "w": 1440,
+      "h": 1040,
+      "title": "New Lot / 4 Review and approve (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-NewLot-Recovery.dc.html",
+      "x": 7600,
+      "y": 5900,
+      "w": 1440,
+      "h": 1020,
+      "title": "New Lot / Recovery, explanation unavailable (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Operator-Phone.dc.html",
+      "x": 9120,
+      "y": 5900,
+      "w": 1440,
+      "h": 1200,
+      "title": "Operator phone card (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Plant-Explorer.dc.html",
+      "x": 0,
+      "y": 7360,
+      "w": 1440,
+      "h": 900,
+      "title": "Plant Explorer (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Prep-Flow.dc.html",
+      "x": 1520,
+      "y": 7360,
+      "w": 1440,
+      "h": 1260,
+      "title": "Preparation Flow (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Photo-Diagnosis.dc.html",
+      "x": 3040,
+      "y": 7360,
+      "w": 1440,
+      "h": 900,
+      "title": "Photo Diagnosis (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Planning.dc.html",
+      "x": 4560,
+      "y": 7360,
+      "w": 1440,
+      "h": 3460,
+      "title": "Planning (Future) (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Insights.dc.html",
+      "x": 0,
+      "y": 8690,
+      "w": 1440,
+      "h": 2770,
+      "title": "Insights (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "NewLot-Stale.dc.html",
+      "x": 10640,
+      "y": 0,
+      "w": 1440,
+      "h": 1010,
+      "title": "New Lot / Stale approval",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-NewLot-Stale.dc.html",
+      "x": 10640,
+      "y": 5900,
+      "w": 1440,
+      "h": 1010,
+      "title": "New Lot / Stale approval (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Prep-Flow-Held.dc.html",
+      "x": 6080,
+      "y": 1460,
+      "w": 1440,
+      "h": 1260,
+      "title": "Preparation Flow, held",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Prep-Flow-Held.dc.html",
+      "x": 6080,
+      "y": 7360,
+      "w": 1440,
+      "h": 1260,
+      "title": "Preparation Flow, held (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Prep-Flow-Partial.dc.html",
+      "x": 7600,
+      "y": 1460,
+      "w": 1440,
+      "h": 1260,
+      "title": "Preparation Flow, partly done",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Prep-Flow-Partial.dc.html",
+      "x": 7600,
+      "y": 7360,
+      "w": 1440,
+      "h": 1260,
+      "title": "Preparation Flow, partly done (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Main-Photo.dc.html",
+      "x": 9120,
+      "y": 1460,
+      "w": 1440,
+      "h": 1180,
+      "title": "Home, photo hero (backup)",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Start.dc.html",
+      "x": 0,
+      "y": 12000,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Start",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Answer-Value.dc.html",
+      "x": 1520,
+      "y": 12000,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Answer, a value",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Answer-Chart.dc.html",
+      "x": 3040,
+      "y": 12000,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Answer, a chart",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Out-Of-Scope.dc.html",
+      "x": 4560,
+      "y": 12000,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Out of scope",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-No-Data.dc.html",
+      "x": 6080,
+      "y": 12000,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Not enough data",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Defect-Photo.dc.html",
+      "x": 7600,
+      "y": 12000,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Defect check, photo",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Defect-History.dc.html",
+      "x": 9120,
+      "y": 12000,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Defect check, history",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Lot-Source.dc.html",
+      "x": 0,
+      "y": 13100,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / New lot 1 Order",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Lot-Review.dc.html",
+      "x": 1520,
+      "y": 13100,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot 1 Check the order",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Lot-Conditions.dc.html",
+      "x": 3040,
+      "y": 13100,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / New lot 2 Conditions",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Lot-Compare.dc.html",
+      "x": 4560,
+      "y": 13100,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot 3 Compare",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Lot-Approve.dc.html",
+      "x": 6080,
+      "y": 13100,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot 4 Approve",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Lot-Receipt.dc.html",
+      "x": 7600,
+      "y": 13100,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot 4 Approved",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Lot-Replaced.dc.html",
+      "x": 9120,
+      "y": 13100,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot, replaced revision",
+      "is_interactive": true
+    },
+    {
+      "file": "Arc-Phone.dc.html",
+      "x": 10640,
+      "y": 13100,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / Phone",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Start.dc.html",
+      "x": 0,
+      "y": 14700,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Start (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Answer-Value.dc.html",
+      "x": 1520,
+      "y": 14700,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Answer, a value (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Answer-Chart.dc.html",
+      "x": 3040,
+      "y": 14700,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Answer, a chart (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Out-Of-Scope.dc.html",
+      "x": 4560,
+      "y": 14700,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Out of scope (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-No-Data.dc.html",
+      "x": 6080,
+      "y": 14700,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Not enough data (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Defect-Photo.dc.html",
+      "x": 7600,
+      "y": 14700,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Defect check, photo (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Defect-History.dc.html",
+      "x": 9120,
+      "y": 14700,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / Defect check, history (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Lot-Source.dc.html",
+      "x": 0,
+      "y": 15800,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / New lot 1 Order (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Lot-Review.dc.html",
+      "x": 1520,
+      "y": 15800,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot 1 Check the order (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Lot-Conditions.dc.html",
+      "x": 3040,
+      "y": 15800,
+      "w": 1440,
+      "h": 960,
+      "title": "Arc / New lot 2 Conditions (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Lot-Compare.dc.html",
+      "x": 4560,
+      "y": 15800,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot 3 Compare (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Lot-Approve.dc.html",
+      "x": 6080,
+      "y": 15800,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot 4 Approve (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Lot-Receipt.dc.html",
+      "x": 7600,
+      "y": 15800,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot 4 Approved (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Lot-Replaced.dc.html",
+      "x": 9120,
+      "y": 15800,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / New lot, replaced revision (light)",
+      "is_interactive": true
+    },
+    {
+      "file": "Light-Arc-Phone.dc.html",
+      "x": 10640,
+      "y": 15800,
+      "w": 1440,
+      "h": 1000,
+      "title": "Arc / Phone (light)",
+      "is_interactive": true
+    }
+  ],
+  "annotations": [
+    {
+      "id": "t1",
+      "x": 0,
+      "y": -300,
+      "w": 240,
+      "maxW": 6000,
+      "text": "Momentum finals UI: flat dark",
+      "kind": "title1"
+    },
+    {
+      "id": "t2",
+      "x": 0,
+      "y": 5600,
+      "w": 240,
+      "maxW": 6000,
+      "text": "Light version",
+      "kind": "title1"
+    },
+    {
+      "id": "t3",
+      "x": 0,
+      "y": 11700,
+      "w": 240,
+      "maxW": 6000,
+      "text": "Arc by Momentum: flat dark",
+      "kind": "title1"
+    },
+    {
+      "id": "t4",
+      "x": 0,
+      "y": 14400,
+      "w": 240,
+      "maxW": 6000,
+      "text": "Arc by Momentum: light",
+      "kind": "title1"
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

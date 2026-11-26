@@ -1,0 +1,259 @@
+{
+  "generatedUtc": "2026-11-26T08:04:03Z",
+  "status": "PROPOSED, requires PD-02 and PD-07 approval",
+  "routing": "Keep hash routing already used by web/src/lib/useApp.ts",
+  "sidebarOrder": [
+    "Home",
+    "New Lot",
+    "Plant Explorer",
+    "Preparation Flow",
+    "Insights",
+    "Photo Diagnosis",
+    "Planning"
+  ],
+  "duplicateNavRule": "Legacy and React entries stay as hidden aliases only",
+  "routes": [
+    {
+      "existingRoute": "/#screen-order-input",
+      "existingName": "New Lot (legacy, hash-anchor)",
+      "newRoute": "/#/new-lot/order",
+      "newName": "New Lot",
+      "parentNavGroup": "Primary",
+      "designScreens": "NewLot-*",
+      "sourceImplementation": "src/ui/workflow.js + src/operator-ui.js",
+      "sourceBranches": "main,v2,arc/main",
+      "requiredBackend": [
+        "/orders/extract",
+        "/jobs"
+      ],
+      "migrationTreatment": "Replace presentation; reuse commands",
+      "redirectOrAlias": "/#screen-order-input -> /#/new-lot/order",
+      "navVisibility": "visible",
+      "authorization": "demo session or supervisor"
+    },
+    {
+      "existingRoute": "/app/#/lots",
+      "existingName": "Lots (React)",
+      "newRoute": "/#/new-lot/order",
+      "newName": "New Lot",
+      "parentNavGroup": "Primary",
+      "designScreens": "NewLot-*",
+      "sourceImplementation": "web/src/screens/Lots.tsx",
+      "sourceBranches": "v2,arc/main",
+      "requiredBackend": [
+        "/orders/extract",
+        "/jobs",
+        "/jobs/:id/approve"
+      ],
+      "migrationTreatment": "Rename + adapt; merge with legacy flow",
+      "redirectOrAlias": "/app/#/lots -> /#/new-lot",
+      "navVisibility": "hidden alias",
+      "authorization": "demo session or supervisor"
+    },
+    {
+      "existingRoute": "/app/#/floor",
+      "existingName": "Floor",
+      "newRoute": "/#/home",
+      "newName": "Home",
+      "parentNavGroup": "Primary",
+      "designScreens": "Main",
+      "sourceImplementation": "web/src/screens/Floor.tsx",
+      "sourceBranches": "v2,arc/main",
+      "requiredBackend": [
+        "/api/live",
+        "/api/lots",
+        "/impact/summary"
+      ],
+      "migrationTreatment": "Replace presentation; content decision PD-03",
+      "redirectOrAlias": "/app/#/floor -> /#/home",
+      "navVisibility": "hidden alias",
+      "authorization": "demo session"
+    },
+    {
+      "existingRoute": "/#screen-impact",
+      "existingName": "Impact (legacy default landing)",
+      "newRoute": "/#/insights",
+      "newName": "Insights",
+      "parentNavGroup": "Primary",
+      "designScreens": "Insights",
+      "sourceImplementation": "src/operator-ui.js + public/impact.html",
+      "sourceBranches": "main,v2,arc/main",
+      "requiredBackend": [
+        "/impact/summary"
+      ],
+      "migrationTreatment": "Relocate under Insights",
+      "redirectOrAlias": "/#screen-impact and /impact -> /#/insights",
+      "navVisibility": "hidden alias",
+      "authorization": "demo session"
+    },
+    {
+      "existingRoute": "/app/#/impact",
+      "existingName": "Impact (React placeholder)",
+      "newRoute": "/#/insights",
+      "newName": "Insights",
+      "parentNavGroup": "Primary",
+      "designScreens": "Insights",
+      "sourceImplementation": "web/src/App.tsx placeholder",
+      "sourceBranches": "v2,arc/main",
+      "requiredBackend": [
+        "/impact/summary"
+      ],
+      "migrationTreatment": "Replace placeholder",
+      "redirectOrAlias": "/app/#/impact -> /#/insights",
+      "navVisibility": "hidden alias",
+      "authorization": "demo session"
+    },
+    {
+      "existingRoute": "/app/#/models",
+      "existingName": "Models (React placeholder)",
+      "newRoute": "/#/insights",
+      "newName": "Insights (model trust section)",
+      "parentNavGroup": "Primary",
+      "designScreens": "Insights, Arc-Answer-Chart",
+      "sourceImplementation": "web/src/App.tsx placeholder",
+      "sourceBranches": "v2,arc/main",
+      "requiredBackend": [
+        "/api/status modelAcceptance"
+      ],
+      "migrationTreatment": "Fold into Insights pending PD-05",
+      "redirectOrAlias": "/app/#/models -> /#/insights",
+      "navVisibility": "hidden alias",
+      "authorization": "demo session"
+    },
+    {
+      "existingRoute": "/#screen-defect-check",
+      "existingName": "Defect Check (legacy)",
+      "newRoute": "/#/photo-diagnosis",
+      "newName": "Photo Diagnosis",
+      "parentNavGroup": "Primary",
+      "designScreens": "Photo-Diagnosis",
+      "sourceImplementation": "src/ui/workflow.js",
+      "sourceBranches": "main,v2,arc/main",
+      "requiredBackend": [
+        "/evidence/*"
+      ],
+      "migrationTreatment": "Rename + replace presentation",
+      "redirectOrAlias": "/#screen-defect-check -> /#/photo-diagnosis",
+      "navVisibility": "hidden alias",
+      "authorization": "demo session"
+    },
+    {
+      "existingRoute": "/app/#/defects",
+      "existingName": "Defects (React)",
+      "newRoute": "/#/photo-diagnosis",
+      "newName": "Photo Diagnosis",
+      "parentNavGroup": "Primary",
+      "designScreens": "Photo-Diagnosis",
+      "sourceImplementation": "web/src/screens/Defects.tsx",
+      "sourceBranches": "v2,arc/main",
+      "requiredBackend": [
+        "/evidence/diagnose-photo"
+      ],
+      "migrationTreatment": "Rename + adapt (upload state needs design G14)",
+      "redirectOrAlias": "/app/#/defects -> /#/photo-diagnosis",
+      "navVisibility": "hidden alias",
+      "authorization": "demo session"
+    },
+    {
+      "existingRoute": null,
+      "existingName": null,
+      "newRoute": "/#/plant-explorer",
+      "newName": "Plant Explorer",
+      "parentNavGroup": "Primary",
+      "designScreens": "Plant-Explorer",
+      "sourceImplementation": "none",
+      "sourceBranches": "-",
+      "requiredBackend": [
+        "/risk/predict"
+      ],
+      "migrationTreatment": "Net new screen; backend partial (D01)",
+      "redirectOrAlias": "",
+      "navVisibility": "visible",
+      "authorization": "demo session"
+    },
+    {
+      "existingRoute": null,
+      "existingName": null,
+      "newRoute": "/#/preparation-flow",
+      "newName": "Preparation Flow",
+      "parentNavGroup": "Primary",
+      "designScreens": "Prep-Flow*",
+      "sourceImplementation": "none (legacy trace stream only)",
+      "sourceBranches": "arc/main",
+      "requiredBackend": [
+        "/api/runs/:id/events (in-memory, 30 min)"
+      ],
+      "migrationTreatment": "Net new screen; durable stage record missing (D01)",
+      "redirectOrAlias": "",
+      "navVisibility": "visible",
+      "authorization": "demo session"
+    },
+    {
+      "existingRoute": null,
+      "existingName": null,
+      "newRoute": "/#/planning",
+      "newName": "Planning",
+      "parentNavGroup": "Primary (Future group)",
+      "designScreens": "Planning",
+      "sourceImplementation": "none",
+      "sourceBranches": "-",
+      "requiredBackend": [],
+      "migrationTreatment": "Static roadmap; no backend",
+      "redirectOrAlias": "",
+      "navVisibility": "visible",
+      "authorization": "none"
+    },
+    {
+      "existingRoute": null,
+      "existingName": null,
+      "newRoute": "/#/card/:jobId",
+      "newName": "Operator phone card (PROPOSED)",
+      "parentNavGroup": "none",
+      "designScreens": "Operator-Phone",
+      "sourceImplementation": "none",
+      "sourceBranches": "-",
+      "requiredBackend": [
+        "/jobs/:id",
+        "/jobs/:id/card.pdf",
+        "receipts endpoint missing"
+      ],
+      "migrationTreatment": "Net new; auth model undecided PD-07",
+      "redirectOrAlias": "",
+      "navVisibility": "hidden",
+      "authorization": "undecided"
+    },
+    {
+      "existingRoute": "/ (home)",
+      "existingName": "Legacy landing",
+      "newRoute": "/#/home",
+      "newName": "Home",
+      "parentNavGroup": "Primary",
+      "designScreens": "Main",
+      "sourceImplementation": "src/operator-ui.js",
+      "sourceBranches": "all",
+      "requiredBackend": [],
+      "migrationTreatment": "Redirect after parity",
+      "redirectOrAlias": "/ -> /app/#/home once /app is the primary UI (PD-02)",
+      "navVisibility": "n/a",
+      "authorization": "n/a"
+    },
+    {
+      "existingRoute": "(none: component state)",
+      "existingName": "Arc panel",
+      "newRoute": "Arc panel overlay (state, not route)",
+      "newName": "Arc",
+      "parentNavGroup": "Top bar launcher",
+      "designScreens": "Arc-*",
+      "sourceImplementation": "web/src/components/ArcPanel.tsx",
+      "sourceBranches": "arc/main",
+      "requiredBackend": [
+        "/api/arc/*"
+      ],
+      "migrationTreatment": "Extend merged shell; typed client pending",
+      "redirectOrAlias": "",
+      "navVisibility": "visible launcher",
+      "authorization": "demo session; approve is human only"
+    }
+  ],
+  "authModel": "Today: signed demo session cookie (src/hackathon-demo-auth.js); Firebase supervisor sign-in exists (src/user-session-auth.js) but is not used live per 03-discovery-audit.md."
+}
