@@ -5,7 +5,7 @@ For Siddhant and for any orchestrator session that picks up `arc/main` next. STA
 ## Where it ran
 - Om's laptop, Claude Code, from `momentum-arc-handover-2026-11-24.zip`. The bundle's branches were fetched as `arcbundle/*`; `arc/main` started at `a04a53a`. `v2` and `main` in the bundle matched GitHub exactly.
 - The same process as `CLAUDE.md`: a ticket for each change, builders and independent QA as separate agents in worktrees under `.claude/worktrees/`, Tier A QA for risky tickets with a fix round and a re-check, merges with `--no-ff`, hooks installed (`scripts/install-hooks.sh`) and never bypassed.
-- Nothing pushed. `arc/*` is not on the public origin. No deploys, no traffic moves, no BigQuery writes. Cloud use: read-only BigQuery (2 holdout scoring jobs, 52 MB billed each) and model metadata reads.
+- Nothing was pushed from this session on 25 Nov; `arc/main` had been on the public origin since 24 Nov by the founders' decision (corrected 26 Nov: this line first said `arc/*` was not on the origin). No deploys and no traffic moves on 25 Nov. BigQuery writes: the impact v3 tables (G2 below, with Om's approval); `npm run live:local` also wrote demo records to production Firestore, BigQuery `job_sheets` and Cloud Storage. Read-only BigQuery otherwise (2 holdout scoring jobs, 52 MB billed each) and model metadata reads.
 - Inputs studied: your handover zip, the 23 November independent audit (`Momentum_Existing_App_Coding_Agent_Handoff_2026-11-23`), and the evidence request for Om.
 
 ## What merged into `arc/main` (now `3bba53b` plus this note)

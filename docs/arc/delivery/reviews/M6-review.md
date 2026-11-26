@@ -90,3 +90,8 @@ CR-10 to CR-19 (duplicated fetch helpers and types, oversized `turn-runner.js` `
 - `cd web && npm run build`: passes.
 - Browser suite with Chrome: 195 tests, 194 pass; the failure was `local-backup.spec.js:13` under load, passing alone (QA lead).
 - During the gate the QA lead's backend mutations were applied in the shared checkout and restored; the AI evals reviewer re-ran its suite on a clean copy for that reason (EV-10). `git status` was clean at the end.
+
+## After the gate (2026-11-26, before the re-check)
+- G-1, partly answered by the founders' own records on the origin line, which the local line had not fetched: one public repository (decision log 2026-11-25, `c506fd9`), and `handover/TWO-MACHINES.md` (Om's machine is the only writer of `arc/*`; Siddhant's laptop writes `pitch/*` only). Following `handover/SYNC-AND-PUBLISH.md`, the origin line was merged into local `arc/main` with a merge commit (`cd76648`): its records, the orchestrator change and the guides came in; its disconnected panel shell (`fde411f`) was dropped because the local ARC-M6-02 merge replaced it. Still for the founders: `arc/ui-vnext` was pushed from the pitch lane and rebuilds the M6 screens, which the two-machine rule does not allow, and needs a decision on whether any of it is wanted.
+- CR-9 and QA-4 fixed (`c82dddb`): the orchestrator tests and `ticket-status.mjs` decode their paths, so the five tests blamed on "no `codex`" pass on this laptop. `npm test` after the merge: 1281 tests, 1278 pass, 1 fail (the python3 snapshot test, laptop-only), 2 skipped.
+- The re-check by the same reviewers has not run; the verdict stays NO-GO.
