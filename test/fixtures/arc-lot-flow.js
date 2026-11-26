@@ -191,6 +191,7 @@ export function lotBackend({ reviewNow = Date.now, extraction = PO1_EXTRACTION, 
         confirmedItemCode: PO1.itemCode, confirmedQuantity: String(PO1.quantity), confirmedLineIndex: "1",
         reviewId: review.reviewId, reviewFingerprint: review.reviewFingerprint, confirmedSourceLine: "true",
         ...Object.fromEntries(Object.entries(CONDITIONS).map(([field, value]) => [field, String(value)])),
+        // The real New Lot form never sends paperMoistureSource (it has no 7.3 pre-fill); it is set here to match Arc's request.
         conditionsConfirmed: "true", paperMoistureSource: "example",
         ...Object.fromEntries(Object.entries(LEVERS).map(([field, value]) => [field, String(value)])),
       },
