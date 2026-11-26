@@ -95,6 +95,14 @@ test("conditions are stored as confirmed by the operator, and moisture kept at t
     ["ambientTempC", 24.5, "confirmed", "Confirmed by operator"],
     ["paperMoisturePct", 7.3, "example", "Example value"],
   ]);
+  const { revision } = await backend.lotStore.getLot({ lotId, ownerSessionId: arc.principal.sessionId });
+  assert.deepEqual(revision.conditions.map(({ field, sourceDetail, label, provenance }) => [field, sourceDetail, label, provenance]), [
+    ["runDate", "confirmed", "Confirmed by operator", "operator_entry"],
+    ["shift", "confirmed", "Confirmed by operator", "operator_entry"],
+    ["ambientRhPct", "confirmed", "Confirmed by operator", "operator_entry"],
+    ["ambientTempC", "confirmed", "Confirmed by operator", "operator_entry"],
+    ["paperMoisturePct", "example", "Example value", "synthetic_example"],
+  ], "the planned revision keeps the example label on moisture");
 });
 
 test("a moisture value other than the example cannot carry the example label", async () => {

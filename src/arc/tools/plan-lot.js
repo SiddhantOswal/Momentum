@@ -13,6 +13,10 @@ const confirmedOrderSchema = OperatorItemConfirmationSchema.extend({
 // pressed Confirm conditions with it on screen, as New Lot plans with whatever the field holds.
 const planned = ({ confirmed, field, sourceDetail }) => confirmed || (field === "paperMoisturePct" && sourceDetail === "example");
 
+// The revision keeps the example label when the lot holds the moisture as the example value.
+const moistureSource = (lot) => (lot.draftConditions ?? [])
+  .find(({ field }) => field === "paperMoisturePct")?.sourceDetail === "example" ? "example" : "confirmed";
+
 function confirmedConditions(lot) {
   return RunConditionsSchema.safeParse(Object.fromEntries(
     (lot.draftConditions ?? []).filter(planned).map(({ field, value }) => [field, value]),
@@ -58,6 +62,7 @@ export const planLotTool = {
         ...(lineIndex === undefined ? {} : { confirmedLineIndex: String(lineIndex + 1) }),
         confirmedSourceLine: "true",
         conditionsConfirmed: "true",
+        paperMoistureSource: moistureSource(lot),
       },
     }, deps);
   },

@@ -11,6 +11,7 @@ import { LotIdSchema } from "../state-schemas.js";
 import { liveActor, liveLot } from "./live-events.js";
 import { lotFailure, lotStoreFailure } from "./lot-access.js";
 import { readPurchaseOrderUpload } from "./purchase-order-upload.js";
+import { PAPER_MOISTURE_EXAMPLE_PCT } from "./update-conditions.js";
 import { validateWith, validationFailure } from "./validation.js";
 
 const CONDITION_UNITS = [
@@ -18,13 +19,20 @@ const CONDITION_UNITS = [
 ];
 
 // The request already carried these values and a supervisor confirmed them, so they are frozen as confirmed.
-function frozenConditions(manualConditions) {
+// Paper moisture planned at its example value keeps that label: the person confirmed the plan with the
+// example on screen, but the value did not come from the reel.
+function frozenConditions(manualConditions, { moistureSource }) {
   return CONDITION_UNITS
     .filter(([field]) => manualConditions[field] !== undefined && manualConditions[field] !== null)
-    .map(([field, unit]) => ({
-      field, value: manualConditions[field], unit, provenance: "operator_entry", sourceDetail: "confirmed",
-      label: "Confirmed by operator", confirmed: true, enteredByRole: "Supervisor session",
-    }));
+    .map(([field, unit]) => (field === "paperMoisturePct" && moistureSource === "example"
+      ? {
+        field, value: manualConditions[field], unit, provenance: "synthetic_example", sourceDetail: "example",
+        label: "Example value", confirmed: true,
+      }
+      : {
+        field, value: manualConditions[field], unit, provenance: "operator_entry", sourceDetail: "confirmed",
+        label: "Confirmed by operator", confirmed: true, enteredByRole: "Supervisor session",
+      }));
 }
 
 /**
@@ -179,6 +187,10 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   };
   const manualConditions = ManualRunConditionsSchema.safeParse(rawManualConditions);
   const conditionsConfirmed = fields.conditionsConfirmed === "true";
+  // Optional; absent means the moisture was entered. Only the example value may be planned as the example.
+  const moistureSource = fields.paperMoistureSource;
+  const moistureSourceValid = moistureSource === undefined || moistureSource === "confirmed" ||
+    (moistureSource === "example" && manualConditions.success && manualConditions.data.paperMoisturePct === PAPER_MOISTURE_EXAMPLE_PCT);
   const issues = [
     ...(operatorFields.success ? [] : operatorFields.error.issues.map((issue) => ({
       field: issue.path.join("."),
@@ -216,6 +228,12 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
       code: "confirmation_required",
       message: "A supervisor must confirm or edit the manual condition values before prediction.",
     }]),
+    ...(moistureSourceValid ? [] : [{
+      field: "paperMoistureSource",
+      path: ["paperMoistureSource"],
+      code: "invalid_value",
+      message: "Only the paper moisture example value can be planned as the example.",
+    }]),
   ];
   if (issues.length) {
     return validationFailure(issues, "Job preparation requires confirmed order context, shift and actual machine settings.");
@@ -243,7 +261,7 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   }
 
   const scopedIdentity = hackathonAuth.enabled ? demoJobIdentity(principal, identity.identity) : identity.identity;
-  const conditions = frozenConditions(manualConditions.data);
+  const conditions = frozenConditions(manualConditions.data, { moistureSource });
   const lot = lotRevisions?.enabled === true && isDemoPrincipal(principal)
     ? await registerRevision({ lotId, identity: scopedIdentity, conditions, principal, lotRevisions, signal })
     : undefined;

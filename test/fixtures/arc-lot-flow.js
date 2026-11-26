@@ -177,7 +177,7 @@ export function lotBackend({ reviewNow = Date.now, extraction = PO1_EXTRACTION }
         confirmedItemCode: PO1.itemCode, confirmedQuantity: String(PO1.quantity), confirmedLineIndex: "1",
         reviewId: review.reviewId, reviewFingerprint: review.reviewFingerprint, confirmedSourceLine: "true",
         ...Object.fromEntries(Object.entries(CONDITIONS).map(([field, value]) => [field, String(value)])),
-        conditionsConfirmed: "true",
+        conditionsConfirmed: "true", paperMoistureSource: "example",
         ...Object.fromEntries(Object.entries(LEVERS).map(([field, value]) => [field, String(value)])),
       },
     }, dashboard.deps(principal)),
