@@ -38,6 +38,7 @@ export const RELEASE_FLAGS = Object.freeze({
     minuteLimit: 20, sessionMinuteLimit: 6, dayCostCapInr: 100,
     demoSessionMint: { perIpPerHour: 30 },
     pitchClaim: { attemptsPerIpPerHour: 5 },
+    lotPlans: { perSessionPerDay: 10 },
   }),
 });
 

@@ -46,7 +46,7 @@ const runKinds = new Map([
 ]);
 const blockedErrors = new Set(["CONFIRMATION_REQUIRED", "LOT_NOT_FOUND", "IN_PROGRESS", "GEMINI_CALL_REPLAYED",
   "REVISION_SUPERSEDED", "REVISION_FINGERPRINT_MISMATCH", "APPROVAL_IN_PROGRESS",
-  "ORDER_REVIEW_EXPIRED", "ORDER_LINE_NOT_CONFIRMABLE", "ORDER_SAMPLE_REQUIRED"]);
+  "ORDER_REVIEW_EXPIRED", "ORDER_LINE_NOT_CONFIRMABLE", "ORDER_SAMPLE_REQUIRED", "PLAN_DAILY_LIMIT_REACHED"]);
 // Steps that write the lot head; the next step must see what they wrote.
 const lotWriters = new Set(["set_conditions", "confirm_conditions"]);
 

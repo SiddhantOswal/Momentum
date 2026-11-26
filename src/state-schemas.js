@@ -112,6 +112,8 @@ export const BUDGET_COUNTER_SHAPE = Object.freeze({
   claim_ip_hour: ["ip", 10],
   // Rupee spend per IST day (founder decision F2); units are micro-rupees, not attempts.
   cost_day: ["all", 8],
+  // Lots planned per demo session per IST day; each plan runs BigQuery ML before any Gemini call.
+  plan_session_day: ["session", 8],
 });
 const BUDGET_SUBJECT = { all: /^all$/, session: /^[a-f0-9]{32}$/, ip: /^[a-f0-9]{16}$/ };
 
@@ -145,7 +147,7 @@ export const BudgetCounterDocSchema = z.object({
 });
 
 export const BudgetPurposeSchema = z.enum(["order_extraction", "explanation", "photo_classification",
-  "photo_diagnosis", "arc_router", "arc_answer_writer"]);
+  "photo_diagnosis", "arc_router", "arc_answer_writer", "lot_plan"]);
 
 export const BudgetReservationDocSchema = z.object({
   ...base,

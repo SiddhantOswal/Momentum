@@ -36,6 +36,31 @@ function frozenConditions(manualConditions, { moistureSource }) {
 }
 
 /**
+ * The per-session daily plan limit, checked before anything is written or planned. It applies
+ * where the budget store is configured and the caller is a demo session; the request identity is
+ * the key, so a replay of a plan already counted is not counted again. Returns a refusal or nothing.
+ */
+async function admitPlan({ principal, identity, servicePorts, signal }) {
+  const admit = servicePorts?.geminiUsage?.admitPlan;
+  if (typeof admit !== "function" || !isDemoPrincipal(principal)) return undefined;
+  let result;
+  try {
+    result = await admit({ principal, planKey: identity.keyHash, signal });
+  } catch (error) {
+    if (error?.name === "AbortError" || signal?.aborted) throw error;
+    result = { ok: false, code: "BUDGET_UNAVAILABLE" };
+  }
+  if (result?.ok) return undefined;
+  if (result?.code === "PLAN_DAILY_LIMIT_REACHED") {
+    return {
+      ok: false, status: 429,
+      error: { code: "PLAN_DAILY_LIMIT_REACHED", message: "This session has planned today's limit of lots.", retryAfterSeconds: result.retryAfterSeconds },
+    };
+  }
+  return { ok: false, status: 503, error: { code: "SERVICE_UNAVAILABLE", message: "The plan limit could not be checked, so nothing was planned." } };
+}
+
+/**
  * Registers the PENDING revision before planning (design 3.2, step 4). Without
  * an explicit lot ID the lot is derived from the request, so every plan has a
  * revision for the approve guard to check.
@@ -107,6 +132,7 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   executionMode,
   purchaseOrderPolicy,
   lotRevisions,
+  servicePorts,
 }) {
   // A lot ID is part of the request identity, so two lots with the same inputs never share a job.
   const lotField = typeof fields.lotId === "string" && fields.lotId.trim() !== "" ? validateWith(LotIdSchema, fields.lotId, "Lot ID failed validation.") : undefined;
@@ -261,6 +287,8 @@ export async function planLot({ fields = {}, idempotencyKey } = {}, {
   }
 
   const scopedIdentity = hackathonAuth.enabled ? demoJobIdentity(principal, identity.identity) : identity.identity;
+  const admitted = await admitPlan({ principal, identity: scopedIdentity, servicePorts, signal });
+  if (admitted) return admitted;
   const conditions = frozenConditions(manualConditions.data, { moistureSource });
   const lot = lotRevisions?.enabled === true && isDemoPrincipal(principal)
     ? await registerRevision({ lotId, identity: scopedIdentity, conditions, principal, lotRevisions, signal })

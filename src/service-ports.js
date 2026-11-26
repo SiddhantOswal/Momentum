@@ -521,6 +521,7 @@ export function createConfiguredServicePorts({
       ...(geminiUsage.store?.admitSession ? {
         admitSession: geminiUsage.store.admitSession, admitPitchClaim: geminiUsage.store.admitPitchClaim,
       } : {}),
+      ...(geminiUsage.store?.admitPlan ? { admitPlan: geminiUsage.store.admitPlan } : {}),
     }),
     conditionGuard,
     // The router and the answer writer share this client. Each role takes its model and region from

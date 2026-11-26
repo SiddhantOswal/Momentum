@@ -11,6 +11,8 @@ import { readFileSync } from "node:fs";
 import { createArcWriteEffects } from "../../src/arc/write-effects.js";
 import { readOrder } from "../../src/commands/read-order.js";
 import { planLot } from "../../src/commands/plan-lot.js";
+import { readGeminiBudgetConfig } from "../../src/gemini-budget-config.js";
+import { createFirestoreBudgetStore } from "../../src/google-cloud/firestore-budget-store.js";
 import { createFirestoreLotStore } from "../../src/google-cloud/firestore-lot-store.js";
 import { createFirestorePoReviewStore } from "../../src/google-cloud/firestore-po-review-store.js";
 import { createPdfOrderExtractionService } from "../../src/google-cloud/order-extraction-service.js";
@@ -87,9 +89,10 @@ export const po1File = () => new File([PO1_BYTES], SAMPLE_DOCUMENTS.PO1, { type:
 
 /**
  * Service ports and command deps for one backend. `reviewNow` is the PO review
- * service's clock, so a test can let a review expire.
+ * service's clock, so a test can let a review expire. `plansPerDay` turns on the
+ * per-session plan limit through the real budget store, as a budget-v2 deployment has it.
  */
-export function lotBackend({ reviewNow = Date.now, extraction = PO1_EXTRACTION } = {}) {
+export function lotBackend({ reviewNow = Date.now, extraction = PO1_EXTRACTION, plansPerDay } = {}) {
   const requests = { vertex: [], predict: [], optimize: [], similar: [], explainQuery: [], explainModel: [], submit: [] };
   const transport = createRecordingVertexTransport(() => vertexTextResponse(JSON.stringify(extraction)));
   requests.vertex = transport.requests;
@@ -152,7 +155,18 @@ export function lotBackend({ reviewNow = Date.now, extraction = PO1_EXTRACTION }
   };
   const lotFirestore = fakeFirestore();
   const lotStore = createFirestoreLotStore({ projectId: "prepagent-hack", fetchImpl: lotFirestore.fetchImpl, tokenProvider: async () => "offline-test" });
+  const budget = plansPerDay === undefined ? undefined : createFirestoreBudgetStore({
+    projectId: "prepagent-hack", fetchImpl: fakeFirestore().fetchImpl, tokenProvider: async () => "offline-test",
+    limits: readGeminiBudgetConfig({
+      USTAAD_GEMINI_BUDGET_POLICY: "budget-v2",
+      GEMINI_BUDGET_LIMITS: JSON.stringify({
+        pool: "live", dayLimit: 300, sessionDayLimit: 40, ipDayLimit: 120, minuteLimit: 20, sessionMinuteLimit: 6,
+        lotPlans: { perSessionPerDay: plansPerDay },
+      }),
+    }).limits,
+  });
   const servicePorts = {
+    ...(budget && { geminiUsage: { admitPlan: budget.admitPlan } }),
     extractOrderForReview: reviews.extractForReview,
     loadPurchaseOrderReview: reviews.loadReview,
     confirmPurchaseOrderReview: reviews.confirmReview,
