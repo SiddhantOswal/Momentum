@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Prints what an orchestrator needs to pick the work up cold: where arc/main is, what merged last,
+# Prints what an orchestrator needs to pick the work up cold: where v3 is, what merged last,
 # which arc branches are not merged, which worktrees exist, which sessions are running.
 set -uo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$root"
-echo "== arc/main tip"; git log -1 --format='%h %s (%cd)' --date=short arc/main
-echo "== last merges"; git log --merges -8 --format='%h %s' arc/main
-echo "== arc branches not merged into arc/main (each must be explained in STATUS.md)"
-git branch --no-merged arc/main --format='%(refname:short)' | grep '^arc/' || echo "(none)"
+echo "== v3 tip"; git log -1 --format='%h %s (%cd)' --date=short v3
+echo "== last merges"; git log --merges -8 --format='%h %s' v3
+echo "== arc branches not merged into v3 (each must be explained in STATUS.md)"
+git branch --no-merged v3 --format='%(refname:short)' | grep '^arc/' || echo "(none)"
 echo "== worktrees"; git worktree list | sed "s#$HOME/##"
 echo "== running outside-agent sessions"; pgrep -fl "codex exec" | cut -c1-120 || echo "(none)"
 echo "== running test processes"; pgrep -fl "node --test" | cut -c1-100 || echo "(none)"

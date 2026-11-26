@@ -32,7 +32,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const dir = path.join(root, "docs/arc/delivery/tickets");
   const tickets = readdirSync(dir).filter((f) => f.endsWith(".md") && f !== "README.md")
     .flatMap((f) => parseTickets(readFileSync(path.join(dir, f), "utf8")));
-  const subjects = execFileSync("git", ["log", "--merges", "--format=%s", "arc/main"], { cwd: root, encoding: "utf8" }).split("\n");
+  const subjects = execFileSync("git", ["log", "--merges", "--format=%s", "v3"], { cwd: root, encoding: "utf8" }).split("\n");
   let doneWithoutMerge = new Set();
   try { doneWithoutMerge = new Set(readFileSync(path.join(root, "docs/arc/delivery/external/done-without-merge.txt"), "utf8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"))); } catch { /* optional file */ }
   const { rows, open, openByPriority } = summarise(tickets, mergedIds(subjects), doneWithoutMerge);
