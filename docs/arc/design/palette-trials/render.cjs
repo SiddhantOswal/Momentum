@@ -58,8 +58,8 @@ async function mock(page) {
 
 const VARIANTS = [
   ["yellow", { accent: "yellow" }], ["yellow-grey", { accent: "yellow", emph: "grey" }], ["washed", { accent: "washed" }],
-  ["washed-grey", { accent: "washed", emph: "grey" }],
-];
+  ["washed-grey", { accent: "washed", emph: "grey" }], ["yellow-butter", { accent: "yellow", emph: "butter" }],
+].filter(([name]) => !process.argv[4] || name === process.argv[4]);
 
 (async () => {
   const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
