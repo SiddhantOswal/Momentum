@@ -1,7 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 const principals = new WeakSet();
-export const HACKATHON_APPROVAL_NOTE = "Hackathon Demonstration Mode: Supervisor approval is available to all participants for demonstration purposes. In production, approval is restricted to authorised supervisors.";
+export const HACKATHON_APPROVAL_NOTE = "Approval is recorded against this session.";
 const SESSION_SECONDS = 7200;
 const SID = /^[a-f0-9]{32}$/;
 const POLICY_V1 = "HACKATHON_DEMO:v1";
@@ -50,7 +50,7 @@ export function createHackathonDemoAuthenticator({ mode, signingKey, syntheticOn
   }
   return Object.freeze({ enabled, configured,
     issue() {
-      if (!configured) throw new Error("Hackathon session authorization is not configured.");
+      if (!configured) throw new Error("Session sign-in is not configured.");
       const iat = Math.floor(now() / 1000);
       return seal({ sid: randomUUID().replaceAll("-", ""), iat, exp: iat + SESSION_SECONDS, policy: POLICY_V1 });
     },
@@ -63,13 +63,13 @@ export function createHackathonDemoAuthenticator({ mode, signingKey, syntheticOn
       } catch { return undefined; }
     },
     authenticate(token) {
-      if (!configured) return { ok: false, status: 503, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Hackathon authorization requires approved-data restrictions, approval auditing and a shared signing key." } };
+      if (!configured) return { ok: false, status: 503, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Sign-in is not set up on this deployment." } };
       try {
         const data = verify(token);
         const principal = Object.freeze({ uid: `demo:${data.sid}`, sessionId: data.sid, role: "hackathon-participant", provider: "server-signed-demo-session", authorizationMode: "HACKATHON_DEMO", expiresAt: data.exp, grants: Object.freeze([...(data.grants ?? [])]) });
         principals.add(principal);
         return { ok: true, principal };
-      } catch { return { ok: false, status: 401, error: { code: "DEMO_SESSION_REQUIRED", message: "Start or renew the temporary hackathon session." } }; }
+      } catch { return { ok: false, status: 401, error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to start a new one." } }; }
     },
   });
 }

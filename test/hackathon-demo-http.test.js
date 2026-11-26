@@ -14,7 +14,8 @@ test("HTTP hackathon sessions enforce origin, record ownership, model acceptance
     const config = await (await fetch(origin + "/api/auth/config")).json();
     assert.equal(config.authorizationMode, "HACKATHON_DEMO");
     assert.equal(config.enabled, false); assert.equal(config.demoSessionConfigured, true);
-    assert.match(config.approvalNote, /available to all participants/);
+    assert.equal(config.approvalNote, "Approval is recorded against this session.");
+    assert.doesNotMatch(config.approvalNote, /hackathon/i);
     assert.equal((await fetch(origin + "/api/auth/demo-session", { method: "POST" })).status, 403);
     assert.equal((await fetch(origin + "/api/auth/demo-session", { method: "POST", headers: { Origin: "https://evil.example" } })).status, 403);
     const session = await fetch(origin + "/api/auth/demo-session", { method: "POST", headers: { Origin: requestOrigin } });

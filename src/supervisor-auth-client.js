@@ -41,7 +41,7 @@ if (statusNode && signInButton && signOutButton) {
       banner.textContent = "Prototype · modelled on our plant · simulated conditions · predicted";
       document.getElementById("main-content")?.prepend(banner);
       document.getElementById("open-session").textContent = "Demo session";
-      document.getElementById("session-title").textContent = "Hackathon session";
+      document.getElementById("session-title").textContent = "Session";
       let session;
       async function ensureSession() {
         if (!session) session = (async () => {
@@ -66,7 +66,7 @@ if (statusNode && signInButton && signOutButton) {
         return result;
       };
       if (config.demoSessionConfigured === true) await ensureSession();
-      else setStatus("Hackathon authorization is not configured. Protected actions remain blocked.");
+      else setStatus("Sign-in is not set up on this deployment. Protected actions remain blocked.");
     } else if (!response.ok || config.enabled !== true || !config.clientConfig) {
       setStatus("Supervisor sign-in is not configured. Privileged cloud actions remain unavailable.");
     } else if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {

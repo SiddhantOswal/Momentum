@@ -24,7 +24,7 @@ async function boot(page,configured=true,hackathon=false){
     await page.route('**/api/auth/config',route=>fulfill(route,{enabled:false,authorizationMode:'HACKATHON_DEMO',demoSessionConfigured:true,approvalNote:'Demonstration approval is not a production supervisor identity.'}));
     await page.route('**/api/auth/demo-session',route=>fulfill(route,{ok:true,authorizationMode:'HACKATHON_DEMO',authenticatedHuman:false}));
   }
-  await page.goto('/dashboard?mock=1#screen-order-input');await expect(page.locator('#connection-label')).toHaveText('Backend reachable');return errors;
+  await page.goto('/classic?mock=1#screen-order-input');await expect(page.locator('#connection-label')).toHaveText('Backend reachable');return errors;
 }
 const stage=(page,n)=>page.locator(`[data-dashboard-stage="${n}"]`);
 async function intake(page,status='MATCHED'){
@@ -56,8 +56,8 @@ test('canonical dashboard resolves aliases, keeps blank inputs and navigates wit
   await expect(page.locator('#extraction-order-id')).toHaveValue('KEEP-THIS-INPUT');
   for(const label of ['Defect Check','Impact']){await page.getByRole('link',{name:label,exact:true}).click();await expect(page.locator('.dashboard-stages')).toBeHidden();}
   expect(calls.some(path=>/mock\.js|\/risk\/|\/jobs$|\/conditions\//.test(path))).toBe(false);
-  expect(await(await request.get('/')).text()).toContain('class="guided-dashboard"');
-  await expect(page).toHaveURL(/\/\?mock=1#/);
+  expect(await(await request.get('/classic')).text()).toContain('class="guided-dashboard"');
+  await expect(page).toHaveURL(/\/classic\?mock=1#/);
   await expect(page.locator('.workspace-switch')).toHaveCount(0);expect(errors).toEqual([]);
 });
 
@@ -150,14 +150,13 @@ test('model and approval failures preserve the job and inputs without manufactur
 });
 
 
-test('root, dashboard bookmarks and the old job/Impact links open the same application',async({page})=>{
+test('root, dashboard bookmarks and the old Impact link open the app under /app',async({page})=>{
   await boot(page,false);
-  for(const path of ['/dashboard#dashboard-job-review','/dashboard/#screen-job-card-approval','/dasboard#dashboard-job-review']){
-    await page.goto(path);await expect(page.locator('#dashboard-job-review')).toBeVisible();
-    expect(new URL(page.url()).pathname).toBe('/');
-    await expect(stage(page,3)).toHaveAttribute('aria-current','step');
+  for(const path of ['/','/dashboard#dashboard-job-review','/dashboard/#screen-job-card-approval','/dasboard#dashboard-job-review']){
+    await page.goto(path);expect(new URL(page.url()).pathname).toBe('/app/');
+    await expect(page.getByRole('navigation',{name:'Main'})).toBeVisible();
   }
-  await page.goto('/impact');await expect(page.locator('#screen-impact')).toBeVisible();expect(new URL(page.url()).pathname).toBe('/');
-  await page.goto('/#screen-production-analysis');await expect(page.locator('#screen-production-analysis')).toBeVisible();
+  await page.goto('/impact');await expect(page).toHaveURL(/\/app\/#\/insights$/);
+  await page.goto('/classic#screen-production-analysis');await expect(page.locator('#screen-production-analysis')).toBeVisible();
   await page.getByRole('link',{name:'Review job card',exact:false}).click();await expect(page.locator('#dashboard-job-review')).toBeVisible();
 });

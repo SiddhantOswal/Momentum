@@ -83,8 +83,8 @@ test("Impact dashboard is served from the application origin and fails without s
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     const html = await response.text();
-    assert.match(html, /url=\/#screen-impact/);
-    assert.match(html, /No sample values are shown/);
+    assert.match(html, /url=\/app\/#\/insights/);
+    assert.match(html, /Impact is now part of Insights/);
     assert.doesNotMatch(html, /Showing the verified BigQuery results/);
   } finally {
     await stopServer(child);
@@ -191,10 +191,13 @@ test("health remains available while operational requests are rate limited", asy
   }
 });
 
-test("root serves the rebuilt operator UI and its complete same-origin workflow modules", async () => {
+test("root redirects to the app, and /classic serves the previous operator UI and its same-origin workflow modules", async () => {
   const { child } = await startServer();
   try {
-    const response = await fetch(`http://127.0.0.1:${PORT}/`);
+    const root = await fetch(`http://127.0.0.1:${PORT}/`, { redirect: "manual" });
+    assert.equal(root.status, 302);
+    assert.equal(root.headers.get("location"), "/app/");
+    const response = await fetch(`http://127.0.0.1:${PORT}/classic`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     const html = await response.text();
