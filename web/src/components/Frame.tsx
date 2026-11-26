@@ -5,7 +5,7 @@ import { href, type NavKey, type Route, type RouteId } from "../lib/routes";
 import type { Theme } from "../lib/useApp";
 import { ArcLauncher, ArcPanel } from "./arc/ArcPanel";
 import { useArcConversation } from "./arc/useArcConversation";
-import { Icon, ProvenanceChip, type IconName } from "./m";
+import { Icon, type IconName } from "./m";
 
 const NAV: { key: NavKey; to: RouteId; label: string; icon: IconName }[] = [
   { key: "home", to: "home", label: "Home", icon: "home" },
@@ -25,16 +25,13 @@ function NavLink({ item, active }: { item: (typeof NAV)[number]; active: boolean
   );
 }
 
+// Shown only when the server cannot be reached; a working connection needs no label.
 function BackendIndicator() {
   const state = useBackendState();
-  const view = {
-    checking: { tone: "id", text: "Checking backend" },
-    connected: { tone: "ok", text: "Backend connected" },
-    unreachable: { tone: "bd", text: "Backend not reachable" },
-  }[state];
+  if (state !== "unreachable") return null;
   return (
-    <span className={`sx ${view.tone}`} style={{ fontSize: 14 }} role="status">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" /></svg>{view.text}
+    <span className="sx bd" style={{ fontSize: 14 }} role="status">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" /></svg>Backend not reachable
     </span>
   );
 }
@@ -82,7 +79,6 @@ export function Frame({ route, theme, toggleTheme, children }: { route: Route; t
           </div>
         </nav>
         <ThemeSwitch theme={theme} toggle={toggleTheme} />
-        <div className="sess"><b>Supervisor session</b>Demo access only.</div>
       </aside>
       <div className="main">
         <header className="top">
@@ -97,7 +93,6 @@ export function Frame({ route, theme, toggleTheme, children }: { route: Route; t
               <Icon name="bell" />
             </button>
             <BackendIndicator />
-            <ProvenanceChip kind="prototype-data" />
           </div>
         </header>
         <main id="main" ref={mainRef} tabIndex={-1} inert={arcOpen} style={{ outline: "none" }}>
