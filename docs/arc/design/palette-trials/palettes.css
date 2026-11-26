@@ -81,7 +81,6 @@ html[data-palette="mono"] .m .in-track > div > span { background: var(--cd); col
 
 /* Illustrations and the logo lose their colour; the kraft boxes read as grey board. */
 html[data-palette="mono"] .m .hm-art,
-html[data-palette="mono"] .m .brand,
 html[data-palette="mono"] .m .in-mo { filter: grayscale(1) contrast(1.06); }
 html[data-palette="mono"][data-theme="dark"] .m .hm-art { filter: grayscale(1) contrast(1.06) brightness(.92); }
 
@@ -102,3 +101,30 @@ html[data-accent="yellow"] .m .hm-agrip .hm-gstrip { background: #F5C518; box-sh
 /* Yellow text on a light page fails contrast, so accent-coloured text uses the dark amber there. */
 html[data-accent="yellow"][data-theme="light"] .m .sx.ac,
 html[data-accent="yellow"][data-theme="light"] .m .lk { color: #7A5A00; }
+
+/* Emphasis card: neutral instead of kraft, so yellow is the only colour besides status marks. On a light page
+ * it is near-black with a yellow button; on a dark page it is light grey with a dark button. */
+html[data-accent="yellow"][data-theme="light"] .m .kr {
+  --cd: #141414; --rz: rgba(255,255,255,.09); --bg: rgba(255,255,255,.06); --ln: rgba(255,255,255,.2); --ln2: rgba(255,255,255,.4);
+  --tx: #F2F2F2; --mu: rgba(242,242,242,.74); --dim: rgba(242,242,242,.6); --ok: #5FBF98; --wn: #E3A340; --bd: #F0707A; --ct: #F2F2F2;
+  --bar0: rgba(255,255,255,.3); --g1: #5FBF98; --g2: rgba(255,255,255,.4); --inv: #141414; --ac: #F5C518; --arc-accent-ink: #17130A;
+  background: #141414; color: #F2F2F2; border-color: #141414; box-shadow: none;
+}
+html[data-accent="yellow"][data-theme="dark"] .m .kr {
+  --cd: #ECECEC; --rz: rgba(20,20,20,.07); --bg: rgba(20,20,20,.05); --ln: rgba(20,20,20,.18); --ln2: rgba(20,20,20,.36);
+  --tx: #141414; --mu: rgba(20,20,20,.72); --dim: rgba(20,20,20,.6); --ok: #14573C; --wn: #6E4200; --bd: #9C2430; --ct: #141414;
+  --bar0: rgba(20,20,20,.3); --g1: #14573C; --g2: rgba(20,20,20,.4); --inv: #ECECEC; --ac: #141414; --arc-accent-ink: #F2F2F2;
+  background: #ECECEC; color: #141414; border-color: #ECECEC; box-shadow: none;
+}
+html[data-accent="yellow"][data-theme="light"] .m .hm-open { background: #F5C518; color: #17130A; }
+html[data-accent="yellow"][data-theme="dark"] .m .hm-open { background: #141414; color: #F2F2F2; }
+
+/* The line illustration's kraft boxes are the last tan on the page; mute them so yellow stays the one warm colour. */
+html[data-accent="yellow"] .m .hm-art { filter: saturate(.45) contrast(1.03); }
+
+/* ============================== C. Logo, either trial ============================== */
+/* The stencil letters only, taken from the kraft-board photo into a transparent PNG (assets/). */
+html[data-palette] .m .brand, html[data-accent] .m .brand {
+  content: url("__LOGO_ON_LIGHT__"); object-fit: contain; width: 176px; height: auto; border-radius: 0; margin: 6px 0 32px 8px; filter: none;
+}
+html[data-theme="dark"][data-palette] .m .brand, html[data-theme="dark"][data-accent] .m .brand { content: url("__LOGO_ON_DARK__"); }

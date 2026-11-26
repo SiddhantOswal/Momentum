@@ -6,7 +6,9 @@ const path = require("path");
 
 const [base = "http://127.0.0.1:4190", out = path.join(__dirname, "out")] = process.argv.slice(2);
 fs.mkdirSync(out, { recursive: true });
-const css = fs.readFileSync(path.join(__dirname, "palettes.css"), "utf8");
+const uri = (f) => "data:image/png;base64," + fs.readFileSync(path.join(__dirname, "assets", f)).toString("base64");
+const css = fs.readFileSync(path.join(__dirname, "palettes.css"), "utf8")
+  .replace("__LOGO_ON_LIGHT__", uri("logo-on-light.png")).replace("__LOGO_ON_DARK__", uri("logo-on-dark.png"));
 const json = (body, status = 200) => ({ status, contentType: "application/json", body: JSON.stringify(body) });
 
 // Figures: model scores and impact month from docs/evidence (v3) and data/stale-claims.md; the PKBX0041 job

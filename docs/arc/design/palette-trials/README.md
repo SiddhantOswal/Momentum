@@ -3,7 +3,8 @@
 Two trials for Home and Insights. Neither is wired into the app: `palettes.css` changes nothing unless `data-palette="mono"` or `data-accent="yellow"` is set on `<html>`.
 
 - **Monochrome** (`data-palette="mono"`): page and ink at 95% black (`#0D0D0D`), cards at 92% (`#141414`), greys between, white text and accent. Light and dark. The kraft card becomes the one inverted card on a page. Cards get square corners and corner ticks, bars become dot-matrix segments, the logo and the line illustration go grey. Alerts keep their colour: green ok, red error and low confidence, amber warning.
-- **Yellow** (`data-accent="yellow"`): the orange accent swapped for yellow, light and dark. In light mode accent-coloured text uses a darker amber, because yellow text on a light page fails contrast.
+- **Yellow** (`data-accent="yellow"`): the orange accent swapped for yellow, light and dark. In light mode accent-coloured text uses a darker amber, because yellow text on a light page fails contrast. The tan kraft card is replaced by a neutral one (near-black on a light page, light grey on a dark page) and the line illustration's boxes are muted, so yellow is the only warm colour besides status marks.
+- **Logo** (either trial): `assets/logo-on-light.png` and `logo-on-dark.png` are the stencil letters only, cut from `web/src/assets/logo-momentum.jpg` into a transparent PNG. Adopting it means swapping the image in `Frame.tsx` per theme, or turning the letters into an SVG.
 
 ## Render the samples
 
