@@ -95,3 +95,21 @@ CR-10 to CR-19 (duplicated fetch helpers and types, oversized `turn-runner.js` `
 - G-1, partly answered by the founders' own records on the origin line, which the local line had not fetched: one public repository (decision log 2026-11-25, `c506fd9`), and `handover/TWO-MACHINES.md` (Om's machine is the only writer of `arc/*`; Siddhant's laptop writes `pitch/*` only). Following `handover/SYNC-AND-PUBLISH.md`, the origin line was merged into local `arc/main` with a merge commit (`cd76648`): its records, the orchestrator change and the guides came in; its disconnected panel shell (`fde411f`) was dropped because the local ARC-M6-02 merge replaced it. Still for the founders: `arc/ui-vnext` was pushed from the pitch lane and rebuilds the M6 screens, which the two-machine rule does not allow, and needs a decision on whether any of it is wanted.
 - CR-9 and QA-4 fixed (`c82dddb`): the orchestrator tests and `ticket-status.mjs` decode their paths, so the five tests blamed on "no `codex`" pass on this laptop. `npm test` after the merge: 1281 tests, 1278 pass, 1 fail (the python3 snapshot test, laptop-only), 2 skipped.
 - The re-check by the same reviewers has not run; the verdict stays NO-GO.
+
+## Security re-check, G-2 to G-5 (2026-11-27)
+Fixes on `arc/ARC-M6-R-security-repair` (packet `tickets/M6-security-repair-2026-11-26.md`), merged into `v3` as `25d8ef7`. Builder: backend engineer. Checked by the QA lead and the security reviewer who raised the findings, each independent of the builder.
+
+| Blocker | Fix | Security reviewer | QA lead |
+|---|---|---|---|
+| G-2 (SEC-1) | `0be0692`: IPv6 clients keyed on their /64; IPv4 and mapped forms unchanged; the unknown bucket logs `client_key_unknown` | CLOSED. Medium, open: a /48 holder still rotates through /64s; the global caps are the backstop | MERGE; 5 of 5 own mutations caught |
+| G-3 (SEC-2) | `64dbb5a`: `/api/status` without a session returns 8 availability fields and reads no budget; with a session only `callsLeftToday`; 5 s cache per session | CLOSED. Low: `callsLeftToday` reveals the global remaining once it falls below the session's | MERGE; 6 of 6 caught |
+| G-4 (SEC-12) | `a757452`: session tokens carry the issuing origin as audience and are refused elsewhere; `800db9a` (R3b): on Cloud Run no sessions without a valid https `USTAAD_PUBLIC_ORIGIN` | CLOSED, including the R3b follow-up. Low: one signing secret for every environment | MERGE on R1 to R3; 7 of 8 caught (the survivor is masked by the check before it). R3b checked by the security reviewer (reading only) and by the orchestrator's full run below |
+| G-5 (SEC-13) | Configuration in `changes/2026-11-26-v3-production-deploy.md`: `ipDayLimit` 120 below `dayLimit` 300, pitch reserve 80 on 4 December for a session holding the pitch claim | CLOSED as worded, CONDITIONAL on: cost room for the reserve (evidence added to the record), a 128-bit code, the code to the clipboard on the pitch laptop, the seven old tags removed, `USTAAD_PUBLIC_ORIGIN` read back on both revisions, two clients checked for separate keys | n/a (configuration; read-back is a deploy step) |
+
+Security verdict for moving production traffic to this code: **CONDITIONAL GO**, conditions as in the G-5 row, all written into the deploy record as steps.
+
+Tests on `v3` after the merge (orchestrator run): `npm test` 1303, 1300 pass, 1 fail (the python3 snapshot test, laptop-only), 2 skipped; `eval:offline` 215 of 215; web build passes; browser 194 of 195 in the full run, the failure being the `/classic` welcome-screen focus check, which passed 3 of 3 alone. QA lead's own runs on R1 to R3: `npm test` 1298 of 1301 (same known failure), browser 195 of 195 on a clean re-run.
+
+Follow-ups, not blocking: `callsLeftToday` ignores the per-address count, so shared venue Wi-Fi can run out while calls still show as left (`src/commands/status.js:203`); a /48 can still rotate per-IP limits; `/classic` shows its features as unavailable until a session exists.
+
+G-1 (`arc/ui-vnext`) and the before-demo should-fix items are not part of this re-check. G-6 was corrected on 2026-11-26 (`data/holdout-2026-10-11.md`).
