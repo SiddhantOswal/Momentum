@@ -22,7 +22,7 @@ export function PlantExplorer() {
 
   return (
     <>
-      <PageHeader title="Plant Explorer" sub="Stage by stage. Illustrative, no live readings." />
+      <PageHeader title="Plant Explorer" />
       <div className="g">
         <StageMap plan={view} selected={selected} onSelect={setSelected} />
         <div className="c4 pe-side">

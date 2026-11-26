@@ -84,15 +84,16 @@ for (const theme of ['dark', 'light']) {
     await expect(nav.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
     await expect(nav.getByText('Future', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Light theme' })).toHaveAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
-    await expect(page.getByText('Supervisor session')).toBeVisible();
-    await expect(page.getByText('Demo access only.')).toBeVisible();
+    // Om, 2026-11-26 (ARC-M6-20): the app frame carries no demo labels.
+    await expect(page.locator('.side')).not.toContainText('Supervisor session');
+    await expect(page.locator('.side')).not.toContainText('Demo access only.');
 
     await expect(page.locator('.bc')).toHaveText('Plant / Home');
     await expect(page.getByRole('button', { name: 'Open Arc by Momentum' })).toContainText('Tell Arc what you need');
     await expect(page.getByRole('button', { name: 'Alerts, not connected yet' })).toBeDisabled();
-    // The test server's /health answers ok, so the indicator must read connected from it.
-    await expect(page.getByRole('status').filter({ hasText: 'Backend' })).toHaveText('Backend connected');
-    await expect(page.getByText('Prototype data, not live')).toBeVisible();
+    // The test server's /health answers ok, and a working connection shows no status in the top bar.
+    await expect(page.locator('header.top')).not.toContainText(/backend/i);
+    await expect(page.locator('header.top')).not.toContainText('Prototype data, not live');
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeAttached();
     await expect(page.locator('main')).toBeVisible();
   });

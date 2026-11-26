@@ -24,7 +24,6 @@ export const PROVENANCE = {
   "modeled-records": { text: "Modeled records", tone: "modeled" },
   "held-out-test": { text: "Held-out test", tone: "modeled" },
   "reference-run": { text: "Reference run", tone: "modeled" },
-  "prototype-data": { text: "Prototype data, not live", tone: "modeled" },
   "modelled-on-plant": { text: "Modelled on our plant", tone: "example" },
   "sample": { text: "Sample", tone: "example" },
   "approved-sample": { text: "Approved sample", tone: "plain" },
