@@ -5,10 +5,8 @@ for (const theme of ['light', 'dark']) {
     test(`Arc opens a disconnected shell in ${theme} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: width === 1440 ? 960 : 812 });
       await page.emulateMedia({ colorScheme: theme });
-      const arcRequests = [];
-      page.on('request', request => {
-        if (new URL(request.url()).pathname.startsWith('/api/arc/')) arcRequests.push(request.url());
-      });
+      // The test server runs with Arc off, so the session read answers ARC_NOT_ENABLED.
+      await page.route('**/api/arc/**', route => route.fulfill({ status: 404, json: { ok: false, error: { code: 'ARC_NOT_ENABLED', message: 'Arc is not enabled.' } } }));
       await page.goto('/app/#/home');
 
       const launcher = page.getByRole('button', { name: 'Open Arc by Momentum' });
@@ -28,9 +26,7 @@ for (const theme of ['light', 'dark']) {
       await expect(messages).toHaveText('Not connected');
       await expect(dialog.getByRole('textbox', { name: 'Message Arc' })).toBeDisabled();
       await expect(dialog.getByRole('button', { name: 'Send' })).toBeDisabled();
-      for (const label of ['New lot', 'Check a defect', 'Ask about the data', 'Open a job card']) {
-        await expect(dialog.getByRole('button', { name: label, exact: true })).toBeDisabled();
-      }
+      await expect(dialog.getByRole('button', { name: 'New lot' })).toHaveCount(0);
       await expect(dialog.getByRole('button', { name: /approve/i })).toHaveCount(0);
 
       const mic = dialog.getByRole('button', { name: 'Speak to Arc' });
@@ -47,7 +43,6 @@ for (const theme of ['light', 'dark']) {
       await expect(dialog.getByRole('region', { name: 'Past work' })).toHaveText('Not connected');
       await history.click();
       await expect(messages).toBeVisible();
-      expect(arcRequests).toEqual([]);
 
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();

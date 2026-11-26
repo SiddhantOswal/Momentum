@@ -87,7 +87,7 @@ export function Shell({ route, onNavigate, theme, onToggleTheme, children }: {
         </header>
         <main id="content">{children}</main>
       </div>
-      <ArcPanel ref={arcPanel} hostTitle={route.title} showHistory={showHistory}
+      <ArcPanel ref={arcPanel} open={arcOpen} onNavigate={key => { const target = ROUTES.find(route => route.key === key); if (target) onNavigate(target); }} hostTitle={route.title} showHistory={showHistory}
         onToggleHistory={() => setShowHistory((value) => !value)}
         onClose={() => { setArcOpen(false); setShowHistory(false); }} />
     </div>

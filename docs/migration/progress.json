@@ -206,6 +206,20 @@
       "status": "PASSED_WITH_DIFFERENCES",
       "result": "72 runs, 0 sideways scroll. Viewed against the dark references: all six states at 1440x900. Viewed light: Order, Plan, Review, Stale at 1440x900, Conditions and Recovery at 1280x800. Viewed dark: Recovery 1280x800, Review 1024x768. Others were captured but not viewed. Differences are in notes of U03. tools/visual/capture.mjs was not used: it only loads the first state of a route.",
       "existing": false
+    },
+    {
+      "id": "CHK-U10-BROWSER",
+      "name": "U10 Arc panel states, browser specs",
+      "status": "PASSED",
+      "result": "npx playwright test arc-panel shell-navigation: 23 passed. Mocked /api/arc/* responses only; live routes NOT RUN.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U10-WEB",
+      "name": "U10 web unit tests and tsc",
+      "status": "PASSED",
+      "result": "npx tsc -b clean; web npm test: 12 pass, 0 fail",
+      "existing": false
     }
   ],
   "units": {
@@ -368,16 +382,22 @@
       "notes": ""
     },
     "U10": {
-      "state": "NOT_STARTED",
+      "state": "UI_IMPLEMENTED",
       "visual": {
-        "dark": null,
-        "light": null,
-        "viewports": []
+        "dark": "1440x900 and 1280x800 viewed against Arc-Start, Arc-Out-Of-Scope, Arc-No-Data (mocked answers)",
+        "light": "1440x900 and 1280x800 viewed against the light PNGs (mocked answers)",
+        "viewports": [
+          "1440x900",
+          "1280x800"
+        ]
       },
-      "functional": null,
+      "functional": "PASSED in browser against mocked responses only (CHK-U10-BROWSER). Live /api/arc routes NOT RUN: Arc is off in the test server and no Firestore or Gemini here.",
       "backend": null,
-      "evidence": [],
-      "notes": ""
+      "evidence": [
+        "CHK-U10-BROWSER",
+        "CHK-U10-WEB"
+      ],
+      "notes": "Differences from the design: the Next for you card reads Confirm conditions with Rev N because the session route returns no condition count or lot code; Why this is not built (no source for its text); Open a job card is disabled, no server action matches it; suggestion and alternative labels come from the server, so they may differ from the design copy; Prototype data, not live chip in the top bar is not part of this unit; at 1280x800 the start list scrolls inside the panel; tools/visual/capture.mjs does not open overlays, so screenshots came from a scratch Playwright script, not that tool; Past work lists real turns but has no designed state; value, chart, reference and unavailable blocks are only partly rendered (value rows only). Remaining for UI_VERIFIED: owner check of both themes."
     },
     "U11": {
       "state": "NOT_STARTED",

@@ -313,3 +313,33 @@
     padding: 10px 16px 12px;
   }
 }
+
+.arc-lede { color: var(--mu); margin-top: -8px; }
+.arc-asked { color: var(--mu); font-size: 13px; }
+.arc-question { font: 600 24px/30px var(--arc-font-display); letter-spacing: -.3px; margin-bottom: 14px; }
+.arc-exchange { display: flex; flex-direction: column; gap: 14px; }
+.arc-card, .arc-next { padding: 18px 20px; border: 1px solid var(--ln); border-radius: var(--arc-radius-card); background: var(--cd); }
+.arc-card h3, .arc-next h3 { font: 600 26px/32px var(--arc-font-display); letter-spacing: -.3px; margin: 10px 0 6px; }
+.arc-card p, .arc-next p { color: var(--mu); }
+.arc-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--mu); font-size: 15px; }
+.arc-card-top .chip:first-of-type { margin-left: auto; }
+.arc-warn { color: var(--wn); }
+.arc-next .button { margin-top: 14px; }
+.arc-subhead { color: var(--mu); font: 600 15px/20px var(--arc-font-body); }
+.arc-list { display: flex; flex-direction: column; width: 100%; border: 1px solid var(--ln); border-radius: var(--arc-radius-card); background: var(--cd); }
+.arc-row, .arc-start, .arc-value { display: flex; align-items: center; gap: 14px; padding: 16px 20px; text-align: left; color: var(--tx); font-weight: 500; }
+.arc-row { justify-content: space-between; width: 100%; }
+.arc-list > * + * { border-top: 1px solid var(--ln); }
+.arc-row svg, .arc-start > svg { width: 18px; height: 18px; fill: none; stroke: var(--mu); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.arc-start { cursor: pointer; }
+.arc-start:disabled { cursor: default; opacity: .6; }
+.arc-start:not(:disabled):hover, .arc-row:is(button):hover { background: var(--rz); }
+.arc-start-icon { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--ln2); border-radius: 10px; }
+.arc-start-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.arc-start-copy { display: flex; flex: 1; flex-direction: column; }
+.arc-start-copy span { color: var(--mu); font-size: 14px; font-weight: 400; }
+.arc-value > span:first-child { flex: 1; }
+.arc-value b { font: 600 22px/28px var(--arc-font-display); }
+.arc-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.arc-footnote { margin-top: 8px; color: var(--mu); font-size: 13px; }
+#arc-activity:empty { display: none; }

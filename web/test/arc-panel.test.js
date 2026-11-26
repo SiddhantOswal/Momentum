@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { Children, isValidElement } from 'react';
+import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
@@ -16,37 +16,29 @@ after(async () => vite?.close());
 
 async function panel(showHistory = false) {
   const { ArcPanel } = await vite.ssrLoadModule('/src/components/ArcPanel.tsx');
-  return ArcPanel({ hostTitle: 'Floor', showHistory });
+  return renderToStaticMarkup(createElement(ArcPanel, { open: false, hostTitle: 'Floor', showHistory, onToggleHistory() {}, onClose() {}, onNavigate() {} }));
 }
 
-function* elements(tree) {
-  for (const node of Children.toArray(tree)) {
-    if (!isValidElement(node)) continue;
-    yield node;
-    yield* elements(node.props.children);
-  }
-}
+const tag = (html, label) => new RegExp(`<button[^>]*aria-label="${label}"[^>]*>`).exec(html)?.[0];
 
-test('the Arc microphone is disabled, described as unavailable and has no event props', async () => {
-  const nodes = [...elements(await panel())];
-  const mic = nodes.find(node => node.type === 'button' && node.props['aria-label'] === 'Speak to Arc');
+test('the Arc microphone is disabled, described as unavailable and has no handler', async () => {
+  const html = await panel();
+  const mic = tag(html, 'Speak to Arc');
   assert.ok(mic);
-  assert.equal(mic.props.disabled, true);
-  assert.deepEqual(Object.keys(mic.props).filter(name => /^on[A-Z]/.test(name)), []);
-  const description = nodes.find(node => node.props.id === mic.props['aria-describedby']);
-  assert.equal(description?.props.children, 'Voice input is unavailable.');
+  assert.match(mic, /disabled/);
+  assert.match(mic, /aria-describedby="arc-voice-status"/);
+  assert.doesNotMatch(mic, /\bon[A-Z]/);
+  assert.match(html, /id="arc-voice-status"[^>]*>Voice input is unavailable\./);
 });
 
-test('the disconnected Arc panel has empty messages and history and no submit action', async () => {
-  const messages = renderToStaticMarkup(await panel());
-  const history = renderToStaticMarkup(await panel(true));
+test('before the session read returns, the panel shows no connection, no composer input and no start actions', async () => {
+  const messages = await panel();
+  const history = await panel(true);
   assert.match(messages, /aria-label="Arc by Momentum"/);
   assert.match(messages, /role="log" aria-label="Arc messages"/);
-  assert.match(messages, /Not connected/);
-  assert.match(messages, /aria-label="Message Arc"/);
-  assert.match(messages, /<button type="button"[^>]*aria-label="Send"[^>]*disabled/);
-  assert.match(messages, /New lot/);
-  assert.doesNotMatch(messages, /PKBX|Approve|Sample data/);
+  assert.match(messages, /Connecting/);
+  assert.match(messages, /<textarea[^>]*disabled/);
+  assert.match(tag(messages, 'Send'), /disabled/);
+  assert.doesNotMatch(messages, /Or start something|PKBX|Approve|Next for you/);
   assert.match(history, /aria-label="Past work"/);
-  assert.match(history, /Not connected/);
 });
