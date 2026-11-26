@@ -9,6 +9,7 @@ const PER_SESSION_RATE_LIMIT = 60;
 const RATE_LIMIT_REMAINING_CONTEXT_KEY = "rateLimitRemaining";
 const DEFAULT_TRUSTED_HOPS = 1;
 const MAX_TRUSTED_HOPS = 10;
+const UNKNOWN_CLIENT_LOG_INTERVAL_MS = 60_000;
 
 export const UNKNOWN_CLIENT_KEY = "unknown";
 
@@ -62,6 +63,34 @@ export function getSocketClientIp(c) {
   return address.startsWith("::ffff:") ? address.slice(7) : address;
 }
 
+function ipv6Groups(address) {
+  // The WHATWG host serializer gives one lowercase, compressed form and turns an embedded IPv4 tail into hex.
+  const [head, tail] = new URL(`http://[${address}]/`).hostname.slice(1, -1).split("::");
+  const groups = (text) => (text ? text.split(":").map((group) => Number.parseInt(group, 16)) : []);
+  const left = groups(head);
+  const right = groups(tail);
+  return [...left, ...new Array(8 - left.length - right.length).fill(0), ...right];
+}
+
+/**
+ * The rate-limit and budget key for one address. IPv4 and IPv4-mapped IPv6 key on the
+ * full IPv4 address. Other IPv6 keys on its /64, because one subscriber is usually
+ * given a whole /64 and can change the low 64 bits at will.
+ */
+export function clientKeyForAddress(address) {
+  if (typeof address !== "string") return undefined;
+  if (isIP(address) === 4) return address;
+  const bare = address.split("%")[0];
+  if (isIP(bare) !== 6) return undefined;
+  const groups = ipv6Groups(bare);
+  if (groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff) {
+    return [groups[6] >> 8, groups[6] & 0xff, groups[7] >> 8, groups[7] & 0xff].join(".");
+  }
+  return `${groups.slice(0, 4).map((group) => group.toString(16)).join(":")}::/64`;
+}
+
+const socketClientKey = (c) => clientKeyForAddress(getSocketClientIp(c));
+
 function readTrustedHops(value) {
   if (value === undefined || value === "") {
     return DEFAULT_TRUSTED_HOPS;
@@ -73,28 +102,42 @@ function readTrustedHops(value) {
   return hops;
 }
 
-function forwardedClientIp(header, trustedHops) {
+function forwardedClientKey(header, trustedHops) {
   if (typeof header !== "string") {
     return undefined;
   }
   const entries = header.split(",").map((entry) => entry.trim());
   const entry = entries[entries.length - trustedHops];
-  if (!entry) {
-    return undefined;
-  }
-  const address = entry.startsWith("::ffff:") ? entry.slice(7) : entry;
-  return isIP(address) ? address : undefined;
+  return entry ? clientKeyForAddress(entry) : undefined;
 }
+
+const logWarning = (entry) => console.warn(JSON.stringify(entry));
 
 // On Cloud Run the socket peer is Google's front end, so the client address is the
 // X-Forwarded-For entry appended by the last trusted proxy. Entries to its left are
-// client-controlled. A missing or unusable entry shares one bucket instead of going unlimited.
-export function createClientKeyResolver(env = process.env) {
+// client-controlled. A missing or unusable entry shares one bucket instead of going unlimited,
+// and a warning at most once a minute lets a log-based alert see that bucket in use.
+export function createClientKeyResolver(env = process.env, { log = logWarning, now = Date.now } = {}) {
   if (!env.K_SERVICE) {
-    return getSocketClientIp;
+    return socketClientKey;
   }
   const trustedHops = readTrustedHops(env.RATE_LIMIT_TRUSTED_HOPS);
-  return (c) => forwardedClientIp(c.req.header("x-forwarded-for"), trustedHops) ?? UNKNOWN_CLIENT_KEY;
+  let lastWarnedAt;
+  return (c) => {
+    const key = forwardedClientKey(c.req.header("x-forwarded-for"), trustedHops);
+    if (key !== undefined) return key;
+    const currentTime = now();
+    if (lastWarnedAt === undefined || currentTime - lastWarnedAt >= UNKNOWN_CLIENT_LOG_INTERVAL_MS) {
+      lastWarnedAt = currentTime;
+      log({
+        severity: "WARNING",
+        event: "client_key_unknown",
+        message: "A request had no usable X-Forwarded-For entry and was counted in the shared unknown bucket.",
+        trustedHops,
+      });
+    }
+    return UNKNOWN_CLIENT_KEY;
+  };
 }
 
 /**
@@ -115,7 +158,7 @@ export function createPerIpRateLimitMiddleware({
   windowMs = RATE_LIMIT_WINDOW_MS,
   maxTrackedClients = MAX_TRACKED_CLIENTS,
   now = () => Date.now(),
-  getClientIp = getSocketClientIp,
+  getClientIp = socketClientKey,
 } = {}) {
   return createFixedWindowMiddleware({
     limit,

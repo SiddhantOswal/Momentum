@@ -16,6 +16,8 @@ async function startCloudRunDemoServer() {
       USTAAD_AUTHORIZATION_MODE: "HACKATHON_DEMO", USTAAD_DEMO_SESSION_SIGNING_KEY: "a".repeat(64),
       USTAAD_ENABLE_APPROVAL_AUDIT: "true", USTAAD_SYNTHETIC_ONLY: "true" },
     stdio: ["ignore", "pipe", "pipe"] });
+  const logs = [];
+  child.stderr.on("data", (chunk) => logs.push(chunk.toString()));
   const stop = async () => {
     if (child.exitCode === null && child.signalCode === null) { const exited = once(child, "exit"); child.kill("SIGTERM"); await exited; }
   };
@@ -25,8 +27,43 @@ async function startCloudRunDemoServer() {
     await stop();
     throw error;
   }
-  return { origin, requestOrigin: origin.replace("http:", "https:"), stop };
+  return { origin, requestOrigin: origin.replace("http:", "https:"), stop, logs };
 }
+
+test("HTTP API on Cloud Run counts every address in one IPv6 /64 against one per-IP bucket", async () => {
+  const { origin, stop } = await startCloudRunDemoServer();
+  try {
+    const remainingFor = async (forwardedFor) => {
+      const response = await fetch(origin + "/api/auth/config", { headers: { "X-Forwarded-For": forwardedFor } });
+      assert.equal(response.status, 200);
+      return response.headers.get("ratelimit-remaining");
+    };
+    assert.equal(await remainingFor("2001:db8:5:6::1"), "299");
+    assert.equal(await remainingFor("2001:db8:5:6:aaaa:bbbb:cccc:dddd"), "298");
+    assert.equal(await remainingFor("198.51.100.1, 2001:0db8:0005:0006::ffff"), "297");
+    assert.equal(await remainingFor("2001:db8:5:7::1"), "299");
+    assert.equal(await remainingFor("::ffff:203.0.113.40"), "299");
+    assert.equal(await remainingFor("203.0.113.40"), "298");
+  } finally {
+    await stop();
+  }
+});
+
+test("HTTP API on Cloud Run logs a warning without the address when a request lands in the unknown bucket", async () => {
+  const { origin, stop, logs } = await startCloudRunDemoServer();
+  try {
+    for (const forwardedFor of ["not-an-address", "203.0.113.41, also-not"]) {
+      const response = await fetch(origin + "/api/auth/config", { headers: { "X-Forwarded-For": forwardedFor } });
+      assert.equal(response.status, 200);
+    }
+    const warnings = logs.join("").split("\n").filter((line) => line.includes("client_key_unknown")).map((line) => JSON.parse(line));
+    assert.equal(warnings.length, 1);
+    assert.equal(warnings[0].severity, "WARNING");
+    assert.equal(logs.join("").includes("203.0.113.41"), false);
+  } finally {
+    await stop();
+  }
+});
 
 test("HTTP API on Cloud Run limits each demo session to 60 a minute and keys the address on the last forwarded entry", async () => {
   const { origin, requestOrigin, stop } = await startCloudRunDemoServer();

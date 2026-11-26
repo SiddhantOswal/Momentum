@@ -3,8 +3,10 @@ import { setTimeout as delay } from "node:timers/promises";
 import { Hono } from "hono";
 import test from "node:test";
 import {
+  clientKeyForAddress,
   createApiRateLimitMiddleware,
   createClientKeyResolver,
+  createIpKeyDeriver,
   createPerIpRateLimitMiddleware,
   createPerSessionRateLimitMiddleware,
   createRequestTimeoutMiddleware,
@@ -37,7 +39,75 @@ test("on Cloud Run the key is the last forwarded entry and client-set leading en
   assert.equal(resolve(contextFor({ forwardedFor: "10.0.0.1, 192.0.2.77, 203.0.113.9" })), "203.0.113.9");
   assert.equal(resolve(contextFor({ forwardedFor: "198.51.100.1,203.0.113.9" })), "203.0.113.9");
   assert.equal(resolve(contextFor({ forwardedFor: "::ffff:203.0.113.9" })), "203.0.113.9");
-  assert.equal(resolve(contextFor({ forwardedFor: "2001:db8::1" })), "2001:db8::1");
+  assert.equal(resolve(contextFor({ forwardedFor: "2001:db8::1" })), "2001:db8:0:0::/64");
+});
+
+test("an IPv6 client is keyed on its /64 in one text form, and IPv4 keeps the full address", () => {
+  const sameSubnet = ["2001:db8::1", "2001:0db8:0:0::2", "2001:DB8:0000:0000:ffff:ffff:ffff:ffff", "2001:db8::1%eth0"];
+  for (const address of sameSubnet) assert.equal(clientKeyForAddress(address), "2001:db8:0:0::/64", address);
+  assert.equal(clientKeyForAddress("2001:db8:0:1::1"), "2001:db8:0:1::/64");
+  assert.notEqual(clientKeyForAddress("2001:db8:0:1::1"), clientKeyForAddress("2001:db8::1"));
+  assert.equal(clientKeyForAddress("2400:cb00:2048:1::c629:d7a2"), "2400:cb00:2048:1::/64");
+
+  assert.equal(clientKeyForAddress("203.0.113.9"), "203.0.113.9");
+  assert.equal(clientKeyForAddress("::ffff:203.0.113.9"), "203.0.113.9");
+  assert.equal(clientKeyForAddress("::FFFF:203.0.113.9"), "203.0.113.9");
+  assert.equal(clientKeyForAddress("::ffff:cb00:7109"), "203.0.113.9");
+  assert.notEqual(clientKeyForAddress("203.0.113.9"), clientKeyForAddress("203.0.113.10"));
+
+  for (const value of [undefined, "", "unknown", "203.0.113.9%eth0", "2001:db8::g", "[2001:db8::1]"]) {
+    assert.equal(clientKeyForAddress(value), undefined, String(value));
+  }
+});
+
+test("addresses in one /64 share the per-IP bucket and the budget key; another /64 does not", async () => {
+  const resolve = createClientKeyResolver({ K_SERVICE: "momentum" });
+  const app = new Hono();
+  app.use("*", createPerIpRateLimitMiddleware({ limit: 2, getClientIp: resolve }));
+  app.get("/", (c) => c.text("ok"));
+  const env = { incoming: { socket: { remoteAddress: "169.254.1.1" } } };
+  const request = (forwardedFor) => app.request("/", { headers: { "x-forwarded-for": forwardedFor } }, env);
+
+  assert.equal((await request("2001:db8:aa:1::1")).status, 200);
+  assert.equal((await request("2001:db8:aa:1:ffff::2")).status, 200);
+  assert.equal((await request("2001:db8:aa:1:1234:5678:9abc:def0")).status, 429);
+  assert.equal((await request("2001:db8:aa:2::1")).status, 200);
+
+  const derive = createIpKeyDeriver("a".repeat(64));
+  const keyOf = (address) => derive(resolve(contextFor({ forwardedFor: address })));
+  assert.equal(keyOf("2001:db8:aa:1::1"), keyOf("2001:db8:aa:1:ffff::2"));
+  assert.notEqual(keyOf("2001:db8:aa:1::1"), keyOf("2001:db8:aa:2::1"));
+  assert.equal(keyOf("::ffff:203.0.113.9"), derive("203.0.113.9"));
+});
+
+test("the unknown bucket still limits and logs one warning a minute with no address in it", async () => {
+  let currentTime = 0;
+  const logged = [];
+  const resolve = createClientKeyResolver({ K_SERVICE: "momentum" }, { log: (entry) => logged.push(entry), now: () => currentTime });
+  for (const forwardedFor of [undefined, "", "garbage", "192.0.2.1, 203.0.113.9%eth0"]) {
+    assert.equal(resolve(contextFor({ forwardedFor })), UNKNOWN_CLIENT_KEY);
+  }
+  assert.equal(logged.length, 1);
+  assert.deepEqual(Object.keys(logged[0]).sort(), ["event", "message", "severity", "trustedHops"]);
+  assert.equal(logged[0].severity, "WARNING");
+  assert.equal(logged[0].event, "client_key_unknown");
+  assert.doesNotMatch(JSON.stringify(logged[0]), /192\.0\.2|203\.0\.113|169\.254/);
+
+  currentTime = 59_999;
+  resolve(contextFor({ forwardedFor: "garbage" }));
+  assert.equal(logged.length, 1);
+  currentTime = 60_000;
+  resolve(contextFor({ forwardedFor: "garbage" }));
+  assert.equal(logged.length, 2);
+  assert.equal(resolve(contextFor({ forwardedFor: "203.0.113.9" })), "203.0.113.9");
+  assert.equal(logged.length, 2);
+
+  const app = new Hono();
+  app.use("*", createPerIpRateLimitMiddleware({ limit: 1, getClientIp: resolve }));
+  app.get("/", (c) => c.text("ok"));
+  const env = { incoming: { socket: { remoteAddress: "169.254.1.1" } } };
+  assert.equal((await app.request("/", {}, env)).status, 200);
+  assert.equal((await app.request("/", { headers: { "x-forwarded-for": "garbage" } }, env)).status, 429);
 });
 
 test("forged leading entries do not give a client a fresh bucket on Cloud Run", async () => {
