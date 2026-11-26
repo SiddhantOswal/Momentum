@@ -28,13 +28,31 @@ export async function readSampleFile(sampleId, signal) {
   return bytes && new File([bytes], filename, { type: filename.endsWith(".pdf") ? "application/pdf" : "image/jpeg" });
 }
 
-/** The approved sample whose bytes the stored review was read from, matched by the digest the review keeps. */
-async function sampleFileForDigest(fileDigest, signal) {
-  for (const sampleId of Object.keys(SAMPLE_DOCUMENTS)) {
-    const file = await readSampleFile(sampleId, signal);
-    if (file && sha256(new Uint8Array(await file.arrayBuffer())) === fileDigest) return file;
+// The samples are fixed files, so their digests are read once per process. A failed read is not
+// kept, so the next call tries again instead of treating every sample as unknown.
+let sampleDigests;
+function sampleIdsByDigest() {
+  sampleDigests ??= Promise.all(Object.keys(SAMPLE_DOCUMENTS).map(async (sampleId) => {
+    const file = await readSampleFile(sampleId);
+    if (!file) throw new Error(`Sample ${sampleId} could not be read.`);
+    return [sha256(new Uint8Array(await file.arrayBuffer())), sampleId];
+  })).then((entries) => new Map(entries)).catch((error) => {
+    sampleDigests = undefined;
+    throw error;
+  });
+  return sampleDigests;
+}
+
+/** The approved sample a stored review was read from, by the digest the review keeps. Any other file is refused. */
+export async function reviewSample(review) {
+  let digests;
+  try {
+    digests = await sampleIdsByDigest();
+  } catch {
+    return unavailable("The approved samples could not be read.");
   }
-  return null;
+  const sampleId = digests.get(review.fileDigest);
+  return sampleId ? { ok: true, sampleId } : failure(409, "ORDER_SAMPLE_REQUIRED", "Arc confirms and plans approved sample orders only.");
 }
 
 // Derived from the step's effect key, so a resumed step names the same record instead of making a second one.
@@ -91,8 +109,10 @@ export async function preparePlanInputs({ lot, params, principal, deps }) {
   if (!line || line.itemCode !== order.itemCode || line.quantity !== order.quantity) {
     return failure(409, "CONFIRMATION_REQUIRED", "The confirmed line no longer matches the stored review. Read the order again.");
   }
-  const file = await sampleFileForDigest(review.fileDigest, deps.signal);
-  if (!file) return failure(409, "ORDER_SAMPLE_REQUIRED", "Arc plans approved sample orders only.");
+  const sample = await reviewSample(review);
+  if (!sample.ok) return sample;
+  const file = await readSampleFile(sample.sampleId, deps.signal);
+  if (!file) return unavailable("The approved sample could not be opened.");
   return {
     ok: true,
     context: {

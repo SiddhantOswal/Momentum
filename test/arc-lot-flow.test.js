@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { fromFirestoreFields } from "../src/google-cloud/firestore-rest.js";
 import { action, arcConfig, events, fixture, text } from "./fixtures/arc-turn-runner.js";
-import { CONDITIONS, CONFIRM_CONDITIONS, LEVERS, lotBackend, PO1, PO1_EXTRACTION } from "./fixtures/arc-lot-flow.js";
+import { CONDITIONS, CONFIRM_CONDITIONS, LEVERS, lotBackend, PO1, PO1_BYTES, PO1_EXTRACTION } from "./fixtures/arc-lot-flow.js";
 
 const DOCS = "projects/prepagent-hack/databases/(default)/documents";
 const shape = (frames) => frames.map(({ type, tool, waitingFor }) => [type, tool ?? null, waitingFor ?? null].filter(Boolean).join(":"));
@@ -139,6 +139,17 @@ test("confirm_order with another session's review answers as an expired review, 
   assert.equal(frames.at(-1).errorCode, "ORDER_REVIEW_EXPIRED");
   await nothingOpened(other.arc, other.lotHeads);
   assert.deepEqual(owner.lotHeads(), []);
+});
+
+test("confirm_order refuses a review of a file that is not an approved sample, before any lot is written", async () => {
+  const { backend, arc, lotHeads } = setup();
+  const otherFile = new File([PO1_BYTES, new Uint8Array([10])], "other-order.pdf", { type: "application/pdf" });
+  const review = await backend.reviews.extractForReview({ file: otherFile, ownerSessionId: arc.principal.sessionId });
+  assert.equal(review.ok, true, JSON.stringify(review.error));
+  const frames = await events(await arc.post(action("confirm_order", { reviewId: review.reviewId, lineIndex: 0 })));
+  assert.equal(frames.at(-1).type, "step.blocked");
+  assert.equal(frames.at(-1).errorCode, "ORDER_SAMPLE_REQUIRED");
+  await nothingOpened(arc, lotHeads);
 });
 
 test("confirm_order with an expired review fails closed, and writes nothing", async () => {

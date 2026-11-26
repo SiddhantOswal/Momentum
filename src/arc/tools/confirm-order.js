@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { lotStoreFailure } from "../../commands/lot-access.js";
-import { confirmableLine, liveReview, lotIdForEffect } from "../lot-flow.js";
+import { confirmableLine, liveReview, lotIdForEffect, reviewSample } from "../lot-flow.js";
 import { failure, needWriteEffect, unavailable } from "./policy.js";
 
 const BY_ROLE = "Supervisor session";
@@ -30,6 +30,9 @@ export const confirmOrderTool = {
     if (!line) {
       return failure(409, "ORDER_LINE_NOT_CONFIRMABLE", "This line is not matched to one catalog item with a quantity.");
     }
+    // Checked before the lot exists, so a review of any other file never opens one.
+    const sample = await reviewSample(loaded.review);
+    if (!sample.ok) return sample;
     const lotId = lotIdForEffect(principal.sessionId, key);
     let saved;
     try {
