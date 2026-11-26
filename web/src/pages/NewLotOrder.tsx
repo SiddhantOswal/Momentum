@@ -54,7 +54,7 @@ function PurchaseOrderCard({ lot, onToast }: { lot: LotState; onToast: ReturnTyp
   };
 
   return (
-    <Card span={6} title="Purchase order" meta="PDF or JPEG, up to 10 MiB. Reads the file once.">
+    <Card span={6} title="Purchase order" meta="PDF or JPEG, up to 10 MiB.">
       <div aria-busy={busy !== ""}>
         <div className="file">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4" /></svg>

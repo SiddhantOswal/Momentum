@@ -40,20 +40,15 @@ export function SampleOrders({ lots, job }: { lots: LiveLot[]; job?: Result<JobR
   }));
   return (
     <Card title="Approved orders" meta="Newest first" span={8} className="hm-orders">
-      <div className="hm-cont">
-        <span style={{ fontSize: 15, fontWeight: 600 }}>Continue review</span>
-        <Chip tone="none">Not connected</Chip>
-        <span className="lb">Open reviews are not listed here yet.</span>
-      </div>
       <Table label="Lots from approved orders" rowHeight={56}
         columns={[{ label: "Lot", width: "170px" }, { label: "Stage", width: "150px" }, { label: "Model flag", width: "184px" }, { label: "Status", width: "1fr" }]}
         rows={rows} empty="No lots yet. Start an order to begin one." />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, borderTop: "1px solid var(--ln)", paddingTop: 14, marginTop: 2 }}>
+      {lots.length > 0 && <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, borderTop: "1px solid var(--ln)", paddingTop: 14, marginTop: 2 }}>
         <span className="lb" style={{ fontSize: 14, color: "var(--tx)" }}>
           {sheet && `Humidity ${formatNumber(sheet.conditions.ambientRhPct, 1)}% ${sheet.conditions.supervisorConfirmed ? "confirmed" : "entered"}. Paper moisture ${formatNumber(sheet.conditions.paperMoisturePct, 1)}%.`}
         </span>
         <a className="lk" href={href("new-lot/conditions")}>Edit conditions</a>
-      </div>
+      </div>}
     </Card>
   );
 }
@@ -93,8 +88,6 @@ export function JobCardSummary({ lot, job }: { lot?: LiveLot; job?: Result<JobRe
         : (
           <>
             <div style={{ fontSize: 15, color: "var(--mu)", marginTop: 14 }}>No draft is waiting for approval.</div>
-            <div style={{ flex: 1, minHeight: 10 }} />
-            <a className="bt hm-open" href={href("new-lot/order")}>Start an order<Icon name="arrow" /></a>
           </>
         )}
     </section>

@@ -179,10 +179,10 @@ for (const theme of ['dark', 'light']) {
     await expect(settings).toContainText('Roll temperature160 → 168 °C');
     await expect(settings).toContainText('Gum applicationHIGH → MEDIUM');
 
-    for (const title of ['Software checks', 'Photo diagnosis', 'Approved job card']) {
-      await expect(page.getByRole('region', { name: title })).toContainText('Not connected');
+    // The placeholder cards (software checks, photo accuracy, capacity, throughput) are not drawn.
+    for (const title of ['Software checks', 'Photo diagnosis', 'Approved job card', 'Capacity', 'Throughput', 'Delivery timeline']) {
+      await expect(page.getByRole('region', { name: title })).toHaveCount(0);
     }
-    await expect(page.getByRole('region', { name: 'Capacity' })).toContainText('Not connected');
     await expect(page.getByRole('status').filter({ hasText: 'Crack model: low confidence' })).toBeVisible();
     const text = await main.innerText();
     expect(text).not.toMatch(PASS_WORDING);
@@ -200,10 +200,35 @@ test('Home shows not-connected states, not numbers, when records are missing', a
   await expect(trust).toContainText('Not connected');
   await expect(trust).not.toContainText(/\d\.\d\d/);
   await expect(page.locator('main').getByText('No prepared run yet. Start an order to make one.')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Production route' })).toContainText('No stored plan yet');
+  // With no lot, the empty route, run-steps and activity cards are left out instead of drawn empty.
+  for (const name of ['Production route', 'Latest run steps']) await expect(page.getByRole('region', { name })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Job card' })).toContainText('No draft is waiting for approval.');
   await expect(page.getByRole('table', { name: 'Lots from approved orders' })).toContainText('No lots yet.');
-  await expect(page.getByRole('table', { name: 'Recent activity' })).toContainText('No activity recorded yet.');
+  await expect(page.getByRole('table', { name: 'Recent activity' })).toHaveCount(0);
+});
+
+test('Home leads with the held-out month from the impact summary and never calls it a saving', async ({ page }) => {
+  await mockApi(page);
+  await open(page, '#/home');
+  const strip = page.getByRole('region', { name: 'What the recommendations did, September 2026' });
+  for (const value of ['₹4,321', '87 kg', '5.55% → 4.44%', '120 of 123']) await expect(strip).toContainText(value);
+  await expect(strip).toContainText('A model estimate, not a measured result.');
+  await expect(strip).not.toContainText(/saving/i);
+});
+
+test('Home draws no impact strip when the impact summary cannot be read', async ({ page }) => {
+  await mockApi(page, { impact: json(503, { ok: false, error: { code: 'SERVICE_UNAVAILABLE', message: 'Down.' } }) });
+  await open(page, '#/home');
+  await expect(page.getByRole('heading', { level: 2, name: /What the recommendations did/ })).toHaveCount(0);
+});
+
+test('the model tiles say in words what the scores mean and name the lowest one', async ({ page }) => {
+  await mockApi(page);
+  await open(page, '#/home');
+  const trust = page.getByRole('region', { name: 'How far to trust each model' });
+  await expect(trust).toContainText('Scores run from 1, a perfect fit, to 0, no better than the average.');
+  await expect(trust).toContainText('Lowest: Crack, −0.06.');
+  await expect(trust).toContainText('A supervisor approves every plan.');
 });
 
 test('Home hides scrap figures from a job planned in another session', async ({ page }) => {
@@ -265,16 +290,6 @@ test('Ask Insights opens the Arc panel instead of a separate chat', async ({ pag
   await page.getByRole('button', { name: 'Ask Insights' }).click();
   await expect(page.getByRole('dialog', { name: 'Arc by Momentum' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Close Arc by Momentum' })).toBeVisible();
-});
-
-test('the pause control stops the Insights animation and is announced', async ({ page }) => {
-  await mockApi(page);
-  await open(page, '#/insights');
-  const pause = page.getByRole('button', { name: 'Pause or resume' });
-  await pause.focus();
-  await page.keyboard.press('Enter');
-  await expect(pause).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.in-mo')).toHaveClass(/paused/);
 });
 
 test('Home shows conditions as entered, not confirmed, when the record says so', async ({ page }) => {

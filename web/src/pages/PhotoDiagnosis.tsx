@@ -142,7 +142,7 @@ function PhotoView({ photos, source }: { photos: Photos; source: Source }) {
       <div className="pd-img">
         <div className="pd-empty" role={photos.state === "error" ? "alert" : "status"}>
           {photos.state === "loading" && "Reading the approved photo list."}
-          {photos.state === "error" && <><ProvenanceChip kind="not-connected" /><span>The approved photos could not be read. {photos.message}</span></>}
+          {photos.state === "error" && <><ProvenanceChip kind="not-connected" /><span>{/\b[a-z]+[A-Z]\w+\b/.test(photos.message ?? "") ? "Approved photos are not available in this deployment." : `The approved photos could not be read. ${photos.message}`}</span></>}
           {photos.state === "ready" && "No approved photos are registered."}
         </div>
       </div>

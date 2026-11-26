@@ -5,7 +5,7 @@ import { lowConfidence, newest, type StatusResponse } from "./home/data";
 import { Attribution } from "./insights/Attribution";
 import { ImpactCompare, ImpactTiles, SettingsCard, type ImpactResponse } from "./insights/Impact";
 import { ModelFit } from "./insights/ModelFit";
-import { ConveyorScene, EvidenceTiles, LowConfidenceNotice, MeasuredSavings, NotConnectedYet } from "./insights/Sections";
+import { LowConfidenceNotice } from "./insights/Sections";
 import "./insights/insights.css";
 
 // Questions about these figures go to Arc, which answers from the same routes; the page has no
@@ -44,10 +44,9 @@ export function Insights() {
             <li>Negative lowers modeled risk.</li>
           </ul>
         </section>
-        <EvidenceTiles />
-        <ConveyorScene />
-        <MeasuredSavings />
-        <NotConnectedYet />
+        <p className="lb c12" style={{ margin: 0, fontSize: 14 }}>
+          Every figure on this page is modeled. Measured results need plant outcomes recorded for each lot, a comparison across similar production runs, and a line and time window agreed with the plant.
+        </p>
       </div>
     </div>
   );

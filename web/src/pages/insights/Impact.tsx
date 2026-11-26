@@ -6,7 +6,7 @@ import { leverChange, leverLabel } from "../home/data";
 
 export type ImpactResponse = ImpactSummary & { counterfactual?: { month: string; label: string } };
 
-const monthName = (month: string | undefined) => {
+export const monthName = (month: string | undefined) => {
   const match = month?.match(/^(\d{4})-(\d{2})$/);
   return match
     ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })

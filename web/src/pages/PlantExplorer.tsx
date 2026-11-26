@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Icon, PageHeader, ProvenanceChip } from "../components/m";
+import { Card, Icon, PageHeader, ProvenanceChip } from "../components/m";
 import { href } from "../lib/routes";
 import "./explorer/explorer.css";
 import { leverLabel, leverValue, STAGES, useCurrentPlan, useModelScores, type PlanState, type PlanView, type StageId } from "./explorer/plan";
 import { StageMap } from "./explorer/StageMap";
-
-const HISTORY_CHIPS = ["Warp", "Delamination", "Strength", "Print", "Crack"];
 
 // Opens on the stage with the most changes in the plan, as the design opens on Glue.
 function busiestStage(plan: PlanView): StageId {
@@ -22,17 +20,11 @@ export function PlantExplorer() {
 
   return (
     <>
-      <PageHeader title="Plant Explorer" sub="Stage by stage. Illustrative, no live readings." />
+      <PageHeader title="Plant Explorer" sub="Stage by stage." />
       <div className="g">
         <StageMap plan={view} selected={selected} onSelect={setSelected} />
         <div className="c4 pe-side">
           <StageCard plan={plan} stage={selected} />
-          <Card title="Historical evidence" meta="Modeled lots">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {HISTORY_CHIPS.map((name) => <span key={name} className="pe-chp">{name}</span>)}
-            </div>
-            <div style={{ marginTop: 12 }}><a className="lk" href={href("insights")}>Open Insights</a></div>
-          </Card>
           <ModelWatch />
         </div>
       </div>
@@ -43,8 +35,6 @@ export function PlantExplorer() {
 function StageCard({ plan, stage }: { plan: PlanState; stage: StageId }) {
   const { name, levers } = STAGES.find((s) => s.id === stage)!;
   const view = plan.kind === "plan" ? plan.plan : undefined;
-  const firstChange = view?.changes.find((change) => levers.includes(change.lever));
-  const compareLabel = firstChange ? `Compare ${leverValue(firstChange.lever, firstChange.from)} and ${leverValue(firstChange.lever, firstChange.to)}` : "Compare settings";
   // A floor record lists only the changed settings, so unchanged ones have no value to show.
   const rows = view ? levers.flatMap((lever) => {
     const change = view.changes.find((c) => c.lever === lever);
@@ -70,14 +60,6 @@ function StageCard({ plan, stage }: { plan: PlanState; stage: StageId }) {
       {view?.source === "floor" && (
         <p className="lb pe-note" style={{ marginTop: 0, paddingTop: 8, borderTop: "1px solid var(--ln)" }}>Newest lot on the floor view, changed settings only.</p>
       )}
-      <div style={{ marginTop: 6 }}>
-        {/* The compare command (ARC-M6-12) does not exist, so the control is shown but sends nothing. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Button variant="secondary" small disabled aria-describedby="pe-compare-note">{compareLabel}</Button>
-          <ProvenanceChip kind="not-connected" />
-        </div>
-        <div className="lb pe-note" id="pe-compare-note">A comparison only. Changes go through New Lot. Comparing two estimates for one lot is not built yet.</div>
-      </div>
     </section>
   );
 }

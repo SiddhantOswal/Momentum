@@ -145,3 +145,20 @@
   .m .hm-activity [role="table"] .tb:not(.lb) { grid-template-columns: minmax(0, 1fr) !important; row-gap: 4px; padding: 10px 0; }
   .m .hm-page [role="table"] .sx { white-space: normal; }
 }
+
+/* Impact strip under the hero: four figures from /impact/summary. */
+.hm-impact-figs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.hm-impact-figs li { border-left: 1px solid var(--ln); padding-left: 16px; min-width: 0; }
+.hm-impact-figs li:first-child { border-left: 0; padding-left: 0; }
+.hm-impact-figs .n { font-size: 28px; line-height: 34px; font-weight: 600; margin: 2px 0; white-space: nowrap; }
+@media (max-width: 900px) {
+  .hm-impact-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hm-impact-figs li:nth-child(odd) { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 900px) {
+  .hm-impact-figs .n { font-size: 24px; line-height: 30px; white-space: normal; }
+}
+@media (max-width: 520px) {
+  .hm-impact-figs { grid-template-columns: minmax(0, 1fr); }
+  .hm-impact-figs li, .hm-impact-figs li:nth-child(odd) { border-left: 0; padding-left: 0; }
+}

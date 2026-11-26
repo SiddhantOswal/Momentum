@@ -75,7 +75,7 @@ for (const theme of ['dark', 'light']) {
     await open(page, '#/explorer', theme);
 
     await expect(page.getByRole('heading', { level: 1, name: 'Plant Explorer' })).toBeVisible();
-    await expect(page.getByText('Stage by stage. Illustrative, no live readings.')).toBeVisible();
+    await expect(page.getByText('Stage by stage.', { exact: true })).toBeVisible();
     await expect(page.getByText('Illustrative line, not a live view')).toBeVisible();
     await expect(page.getByRole('img', { name: /Corrugator line/ })).toBeVisible();
 
@@ -94,8 +94,6 @@ for (const theme of ['dark', 'light']) {
     await expect(page.locator('.pe-call.sel')).toHaveCount(2);
     await expect(page.locator('.pe-floor')).toHaveText(/Floor conditions\s*47% humidity confirmed/);
 
-    await expect(page.getByText('Modeled lots', { exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Open Insights' })).toHaveAttribute('href', '#/insights');
     await expect(page.getByText('0.64 on 219 test lots')).toBeVisible();
     await expect(page.getByText('Low confidence in humid months')).toBeVisible();
 
@@ -136,23 +134,6 @@ for (const theme of ['dark', 'light']) {
     await expectNoRetiredCopy(page);
   });
 }
-
-test('the compare control shows not connected and sends nothing', async ({ page }) => {
-  const calls = await mockBackend(page);
-  await open(page, '#/explorer');
-  const compare = page.getByRole('button', { name: 'Compare HIGH and MEDIUM' });
-  await expect(compare).toBeVisible();
-  await expect(compare).toBeDisabled();
-  await expect(compare).toHaveAccessibleDescription('A comparison only. Changes go through New Lot. Comparing two estimates for one lot is not built yet.');
-  await expect(page.getByRole('tabpanel').getByText('Not connected', { exact: true })).toBeVisible();
-
-  const before = calls.length;
-  await compare.click({ force: true });
-  await compare.dispatchEvent('click');
-  await page.waitForTimeout(300);
-  expect(calls.slice(before)).toEqual([]);
-  expect(calls.filter(call => call.includes('/risk/'))).toEqual([]);
-});
 
 test('stage tabs follow the keyboard and the stage card follows the tab', async ({ page }) => {
   await mockBackend(page);
@@ -399,6 +380,13 @@ test('the approved photos fail closed when the list cannot be read', async ({ pa
   await expect(page.getByRole('alert')).toContainText('The approved photos could not be read. The approved photo classification service is not enabled.');
   await expect(page.getByRole('button', { name: 'Run diagnosis' })).toBeDisabled();
   await expect(page.getByRole('group', { name: 'Approved photos' })).toHaveCount(0);
+});
+
+test('a function name in the server message is not shown as the photo error', async ({ page }) => {
+  await mockBackend(page, { '/evidence/approved-photos': json(503, { ok: false, error: { code: 'SERVICE_UNAVAILABLE', message: 'getApprovedPhotos is not configured.' } }) });
+  await open(page, '#/photo');
+  await expect(page.getByRole('alert')).toContainText('Approved photos are not available in this deployment.');
+  await expect(page.getByRole('alert')).not.toContainText('getApprovedPhotos');
 });
 
 // Lists the page, plus every element inside main whose content is wider than its box.

@@ -87,11 +87,11 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('Supervisor session')).toBeVisible();
     await expect(page.getByText('Demo access only.')).toBeVisible();
 
-    await expect(page.locator('.bc')).toHaveText('Plant / Home');
+    await expect(page.locator('.bc')).toHaveText('Home');
     await expect(page.getByRole('button', { name: 'Open Arc by Momentum' })).toContainText('Tell Arc what you need');
     await expect(page.getByRole('button', { name: 'Alerts, not connected yet' })).toBeDisabled();
-    // The test server's /health answers ok, so the indicator must read connected from it.
-    await expect(page.getByRole('status').filter({ hasText: 'Backend' })).toHaveText('Backend connected');
+    // The test server's /health answers ok, so no backend badge is shown; it appears only when the check fails.
+    await expect(page.getByRole('status').filter({ hasText: 'Backend' })).toHaveCount(0);
     await expect(page.getByText('Prototype data, not live')).toBeVisible();
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeAttached();
     await expect(page.locator('main')).toBeVisible();
@@ -111,7 +111,7 @@ test('every nav item routes to its own page', async ({ page }) => {
     await nav.getByRole('link', { name: link, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(hash.replace(/\//g, '\\/') + '$'));
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
-    await expect(page.locator('.bc')).toHaveText(`Plant / ${crumb}`);
+    await expect(page.locator('.bc')).toHaveText(crumb);
     await expect(nav.getByRole('link', { name: link, exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
   }

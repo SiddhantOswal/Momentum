@@ -349,7 +349,7 @@ export function PrepFlow() {
               </section>
             )}
         <Card span={12} className="pf-card" title={CARD_TITLES[view.kind] ?? "From order to approved card"}
-          meta={<div className="pf-legend">{legend.map((state) => <StateMark key={state} state={state} text={STATE_TEXT[state]} />)}</div>}>
+          meta={view.kind === "none" ? undefined : <div className="pf-legend">{legend.map((state) => <StateMark key={state} state={state} text={STATE_TEXT[state]} />)}</div>}>
           <FlowDrawing view={view} />
           <div className="mt" style={{ marginTop: 10, padding: "0 4px", whiteSpace: "normal" }}>Software steps, not a factory network.</div>
         </Card>

@@ -27,6 +27,8 @@ function NavLink({ item, active }: { item: (typeof NAV)[number]; active: boolean
 
 function BackendIndicator() {
   const state = useBackendState();
+  // A healthy backend needs no badge; it shows only while checking or when the backend is down.
+  if (state === "connected") return null;
   const view = {
     checking: { tone: "id", text: "Checking backend" },
     connected: { tone: "ok", text: "Backend connected" },
@@ -89,7 +91,7 @@ export function Frame({ route, theme, toggleTheme, children }: { route: Route; t
           <button type="button" className="bell menu" aria-label="Menu" aria-expanded={menuOpen} aria-controls="side-nav" onClick={() => setMenuOpen((open) => !open)}>
             <Icon name="menu" />
           </button>
-          <div className="bc">Plant / <b>{route.crumb}</b></div>
+          <div className="bc"><b>{route.crumb}</b></div>
           <ArcLauncher ref={launcherRef} open={arcOpen} onToggle={() => (arcOpen ? closeArc() : setArcOpen(true))} />
           <div className="tr">
             {/* No alert feed exists yet, so the bell is shown as designed but cannot be used. */}

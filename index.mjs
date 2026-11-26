@@ -614,7 +614,11 @@ for (const path of ["/dashboard", "/dashboard/", "/dasboard", "/dasboard/"]) {
 app.get("/dashboard.css", async (c) => c.body(await readFile(new URL("./public/dashboard.css", import.meta.url)), 200, {
   "Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-store",
 }));
-app.get("/", (c) => c.html(homePage));
+// With USTAAD_ROOT_REDIRECT_TO_APP=true the React app is the front door. Off by default, so the old
+// dashboard and its tests keep working until the release manager turns it on for a revision.
+app.get("/", (c) => (process.env.USTAAD_ROOT_REDIRECT_TO_APP === "true"
+  ? c.redirect(`/app/${new URL(c.req.url).search}`, 302)
+  : c.html(homePage)));
 
 app.get("/health", (c) => {
   return c.json({ ok: true, mode: process.env.K_SERVICE ? "cloud-run" : "local-development", executionMode });

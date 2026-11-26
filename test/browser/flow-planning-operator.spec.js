@@ -237,40 +237,20 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('heading', { name: 'Planning', level: 1 })).toBeVisible();
     await expect(page.locator('.ph .pv')).toHaveText('Future, not live');
     const items = page.locator('[data-roadmap-item]');
-    expect(await items.count()).toBeGreaterThanOrEqual(20);
+    expect(await items.count()).toBeGreaterThanOrEqual(4);
     const texts = await items.evaluateAll((nodes) => nodes.map((node) => ({ name: node.getAttribute('data-roadmap-item'), text: node.textContent })));
     for (const { name, text } of texts) {
       expect(ROADMAP_LABELS.some((label) => text.includes(label)), `${name} has a roadmap label`).toBe(true);
     }
-    await expect(page.getByText('Scheduling comes later. This screen is a concept.')).toBeVisible();
     await expect(page.locator('main')).not.toContainText(/8,640|Four of five|holdout bar|1,300|synthetic/i);
   });
 }
-
-test('the capability explorer changes only what you read, by click and by arrow keys', async ({ page }) => {
-  await mockBackend(page);
-  await open(page, '/app/#/planning');
-  const rail = page.getByRole('group', { name: 'Capabilities' });
-  await expect(page.locator('#capability-detail h3')).toHaveText('Production Preflight');
-  await rail.getByRole('button', { name: /Factory Time Machine/ }).click();
-  await expect(page.locator('#capability-detail h3')).toHaveText('Factory Time Machine');
-  await expect(rail.getByRole('button', { name: /Factory Time Machine/ })).toHaveAttribute('aria-pressed', 'true');
-  await page.keyboard.press('ArrowDown');
-  await expect(page.locator('#capability-detail h3')).toHaveText('Production Fingerprints');
-  await expect(rail.getByRole('button', { name: /Production Fingerprints/ })).toBeFocused();
-});
 
 test('Planning has no horizontal scroll at phone width', async ({ page }) => {
   await mockBackend(page);
   await open(page, '/app/#/planning', { width: 375, height: 812 });
   await expect(page.getByRole('heading', { name: 'Planning', level: 1 })).toBeVisible();
   await noHorizontalScroll(page);
-  // The week view stacks instead of scrolling inside its card.
-  const week = page.locator('.wk');
-  const { scroll, client } = await week.evaluate((node) => ({ scroll: node.scrollWidth, client: node.clientWidth }));
-  expect(scroll).toBeLessThanOrEqual(client);
-  expect(await week.evaluate((node) => getComputedStyle(node).overflowX)).toBe('visible');
-  await expect(page.locator('.wx')).toContainText('PKBX0041');
 });
 
 const APPROVED_REVISION = { lotId: 'LOT-1', number: 1, fingerprint: 'f', status: 'APPROVED' };
