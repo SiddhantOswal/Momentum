@@ -8,7 +8,7 @@ set -euo pipefail
 
 kind="${1:?builder or reviewer}"; role="${2:?role}"; packet="${3:?packet file name}"; worktree="${4:?worktree}"; report="${5:?report file}"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-ext="$root/docs/arc/delivery/external"
+ext="${EXTERNAL_DIR:-$root/docs/arc/delivery/external}"   # EXTERNAL_DIR points at another worktree's external/ folder (for example the pitch branch)
 model="${CODEX_MODEL:-gpt-6.2-sol}"
 effort="${CODEX_EFFORT:-medium}"
 

@@ -36,6 +36,14 @@ test("the model and effort can be overridden only by the environment", () => {
   assert.match(result.stdout, /model_reasoning_effort=high/);
 });
 
+test("EXTERNAL_DIR moves the role and packet paths to another worktree", () => {
+  const result = spawnSync("bash", [script("codex-session.sh"), "builder", "pitch-writer", "PITCH-01.md", "/tmp/wt", "/tmp/r.md"], {
+    encoding: "utf8", env: { ...process.env, DRY_RUN: "1", EXTERNAL_DIR: "/tmp/other/external" },
+  });
+  assert.match(result.stdout, /\/tmp\/other\/external\/roles\/pitch-writer\.md/);
+  assert.match(result.stdout, /\/tmp\/other\/external\/packets\/PITCH-01\.md/);
+});
+
 test("an unknown session kind is refused", () => {
   const result = dry("operator", "qa-lead", "p.md", "/tmp/wt", "/tmp/r.md");
   assert.equal(result.status, 2);
