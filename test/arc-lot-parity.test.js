@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { action, events, fixture } from "./fixtures/arc-turn-runner.js";
-import { CONDITIONS, CONFIRM_CONDITIONS, LEVERS, lotBackend, PO1 } from "./fixtures/arc-lot-flow.js";
+import { CONDITIONS, conditionsFor, LEVERS, lotBackend, PO1 } from "./fixtures/arc-lot-flow.js";
 
 const DRAFT_FIELDS = ["jobId", "status", "order", "conditions", "baseline", "recommended", "changes", "savings", "explanation", "evidence"];
 const pick = (record, fields) => Object.fromEntries(fields.map((field) => [field, record[field]]));
@@ -20,7 +20,7 @@ test("PO1 through Arc reaches the same job identity, settings and scrap estimate
   });
   const reviewId = succeeded(await events(await arc.post(action("read_sample_order", { sampleId: "PO1" }))), "read_order");
   const lotId = succeeded(await events(await arc.post(action("confirm_order", { reviewId, lineIndex: 0 }))), "confirm_order");
-  const planned = await events(await arc.post(action("confirm_conditions", CONFIRM_CONDITIONS)));
+  const planned = await events(await arc.post(action("confirm_conditions", conditionsFor(lotId))));
   const jobId = succeeded(planned, "plan_lot");
   const run = await arc.taskRunStore.get(planned[0].taskRunId);
   const idempotencyKey = run.steps.find(({ tool }) => tool === "plan_lot").idempotencyKey;

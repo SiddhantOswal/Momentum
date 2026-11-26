@@ -1,12 +1,15 @@
 import { z } from "zod";
 import { updateLotConditions } from "../../commands/update-conditions.js";
 import { LeversSchema, RunConditionsSchema } from "../../schemas.js";
+import { LotIdSchema } from "../../state-schemas.js";
 import { failure, needLot, needWriteEffect } from "./policy.js";
 
 const CONDITION_FIELDS = Object.keys(RunConditionsSchema.shape);
 
 // Flat scalars, as the wire contract allows for action params (06 section 4.4, decision D12).
+// The lot is the one on the card the person pressed; the runner plans it only if this session holds it.
 export const ConfirmConditionsSchema = z.strictObject({
+  lotId: LotIdSchema,
   ...RunConditionsSchema.shape,
   paperMoistureSource: z.enum(["confirmed", "example"]),
   ...LeversSchema.shape,
@@ -32,13 +35,16 @@ export const confirmConditionsTool = {
     }
   },
   effectScope: "lot_conditions",
-  execute: (params, { deps, lot }) => updateLotConditions({
-    lotId: lot.lotId,
-    body: {
-      conditions: CONDITION_FIELDS.map((field) => ({
-        field, value: params[field],
-        source: field === "paperMoisturePct" ? params.paperMoistureSource : "confirmed",
-      })),
-    },
-  }, deps),
+  execute(params, { deps, lot }) {
+    if (params.lotId !== lot.lotId) return failure(409, "LOT_NOT_FOUND", "Choose a lot in this session.");
+    return updateLotConditions({
+      lotId: lot.lotId,
+      body: {
+        conditions: CONDITION_FIELDS.map((field) => ({
+          field, value: params[field],
+          source: field === "paperMoisturePct" ? params.paperMoistureSource : "confirmed",
+        })),
+      },
+    }, deps);
+  },
 };

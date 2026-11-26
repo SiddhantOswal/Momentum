@@ -252,7 +252,11 @@ export function createArcTurnRunner({
     }
 
     // An action that opens a lot works on no earlier lot, so a resumed run matches the run it started.
-    const activeLotId = fixed?.opensLot ? undefined : session.activeLotIds.at(-1);
+    // An action that names its lot gets that lot only when this session holds it; otherwise no lot.
+    const namedLot = typeof params.lotId === "string" ? params.lotId : undefined;
+    const activeLotId = fixed?.opensLot ? undefined
+      : namedLot !== undefined ? (session.activeLotIds.includes(namedLot) ? namedLot : undefined)
+        : session.activeLotIds.at(-1);
     const loadedLot = activeLotId && lotStore ? await lotStore.getLot({
       lotId: activeLotId, ownerSessionId: sessionId, signal,
     }) : null;

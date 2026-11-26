@@ -19,6 +19,8 @@ export async function getLot({ lotId } = {}, { principal, signal, lotRevisions }
       stage: head.stage,
       currentRevision: head.currentRevision,
       currentJobId: head.currentJobId,
+      // The confirmed catalog item and quantity only; the order ID stays on the server.
+      order: head.orderRef && { itemCode: head.orderRef.itemCode, quantity: head.orderRef.quantity },
       draftConditions: head.draftConditions,
       version: head.version,
       updatedAt: head.updatedAt,

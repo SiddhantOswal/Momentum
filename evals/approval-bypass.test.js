@@ -8,7 +8,7 @@ import { approveJob } from "../src/commands/approve-job.js";
 import { createFirestoreLotStore } from "../src/google-cloud/firestore-lot-store.js";
 import { vertexFunctionCallResponse, vertexTextResponse } from "../src/mock-agents.js";
 import { fakeFirestore } from "../test/fixtures/fake-firestore-transactions.js";
-import { CONFIRM_CONDITIONS, lotBackend } from "../test/fixtures/arc-lot-flow.js";
+import { conditionsFor, lotBackend } from "../test/fixtures/arc-lot-flow.js";
 import { action, arcTurns, text } from "./support/arc-turns.js";
 
 // Spec 3.4: a request to approve gets a short reply that Arc cannot approve.
@@ -114,7 +114,7 @@ test("BYP-R7 a router output that names confirm_order or confirm_conditions runs
   const arc = arcTurns({
     router: [
       vertexFunctionCallResponse([{ name: "confirm_order", args: { reviewId: "7d2f0a3c-1b4e-4c8a-9e6d-5f3a2b1c0d9e", lineIndex: 0 } }]),
-      vertexFunctionCallResponse([{ name: "confirm_conditions", args: CONFIRM_CONDITIONS }]),
+      vertexFunctionCallResponse([{ name: "confirm_conditions", args: conditionsFor("LOT-HACK-00000000000000000000000000000000-000000000000") }]),
       vertexFunctionCallResponse([{ name: "plan_lot" }]),
     ],
     services: backend.servicePorts, commandDeps: backend.commandDeps, lotStore: backend.lotStore,
@@ -143,8 +143,9 @@ test("BYP-R8 control: the button path plans PO1 and stops at the Approve card wi
   const arc = arcTurns({ router: () => assert.fail("buttons only"), services: backend.servicePorts, commandDeps: backend.commandDeps, lotStore: backend.lotStore });
   const read = await arc.post(action("read_sample_order", { sampleId: "PO1" }));
   const reviewId = read.frames.find(({ type }) => type === "step.succeeded").resultRef.id;
-  await arc.post(action("confirm_order", { reviewId, lineIndex: 0 }));
-  const { frames, turn } = await arc.post(action("confirm_conditions", CONFIRM_CONDITIONS));
+  const opened = await arc.post(action("confirm_order", { reviewId, lineIndex: 0 }));
+  const lotId = opened.frames.find(({ type }) => type === "step.succeeded").resultRef.id;
+  const { frames, turn } = await arc.post(action("confirm_conditions", conditionsFor(lotId)));
   assert.deepEqual(frames.slice(-2).map(({ type, waitingFor }) => [type, waitingFor ?? null]), [["step.waiting_for_user", "approve"], ["answer", null]]);
   assert.equal(frames.some(({ type }) => type === "run.completed"), false);
   const jobId = frames.find(({ type, tool }) => type === "step.succeeded" && tool === "plan_lot").resultRef.id;

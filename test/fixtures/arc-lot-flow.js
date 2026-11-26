@@ -42,6 +42,8 @@ export const LEVERS = Object.freeze({
   sfSpeedMpm: 48, rollTempC: 162, gumApplication: "HIGH", gumViscositySec: 32, pastingPressure: "MED", dryingHours: 5, printSpeedSpm: 60,
 });
 export const CONFIRM_CONDITIONS = Object.freeze({ ...CONDITIONS, paperMoistureSource: "example", ...LEVERS });
+/** Confirm conditions params for the lot on the card. */
+export const conditionsFor = (lotId, patch = {}) => ({ lotId, ...CONFIRM_CONDITIONS, ...patch });
 
 // PO1's line as test/fixtures/synthetic_POs/expected_results.json records it.
 export const PO1_EXTRACTION = Object.freeze({

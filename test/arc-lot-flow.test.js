@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
+import { getLot } from "../src/commands/get-lot.js";
 import { fromFirestoreFields } from "../src/google-cloud/firestore-rest.js";
 import { action, arcConfig, events, fixture, text } from "./fixtures/arc-turn-runner.js";
-import { CONDITIONS, CONFIRM_CONDITIONS, LEVERS, lotBackend, PO1, PO1_BYTES, PO1_EXTRACTION } from "./fixtures/arc-lot-flow.js";
+import { CONDITIONS, conditionsFor, LEVERS, lotBackend, PO1, PO1_BYTES, PO1_EXTRACTION } from "./fixtures/arc-lot-flow.js";
 
 const DOCS = "projects/prepagent-hack/databases/(default)/documents";
 const shape = (frames) => frames.map(({ type, tool, waitingFor }) => [type, tool ?? null, waitingFor ?? null].filter(Boolean).join(":"));
@@ -56,7 +57,7 @@ test("PO1 runs through Arc from the sample to the Approve card with no router ca
   assert.match(order.lotId, new RegExp(`^LOT-HACK-${arc.principal.sessionId}-[a-f0-9]{12}$`));
 
   const planTurn = randomUUID();
-  const plan = await events(await arc.post(action("confirm_conditions", CONFIRM_CONDITIONS), { clientTurnId: planTurn }));
+  const plan = await events(await arc.post(action("confirm_conditions", conditionsFor(order.lotId)), { clientTurnId: planTurn }));
   assert.deepEqual(shape(plan), [
     "run.started", "step.started:confirm_conditions", "step.succeeded:confirm_conditions",
     "step.started:plan_lot", "step.succeeded:plan_lot", "step.waiting_for_user:approve:approve", "answer",
@@ -85,7 +86,7 @@ test("conditions are stored as confirmed by the operator, and moisture kept at t
   const { backend, arc } = setup();
   const { reviewId } = await readPo1(arc);
   const { lotId } = await confirmLine(arc, reviewId);
-  await events(await arc.post(action("confirm_conditions", CONFIRM_CONDITIONS)));
+  await events(await arc.post(action("confirm_conditions", conditionsFor(lotId))));
   const lot = (await backend.lotStore.getLot({ lotId, ownerSessionId: arc.principal.sessionId })).head;
   assert.deepEqual(lot.draftConditions.map(({ field, value, sourceDetail, label }) => [field, value, sourceDetail, label]), [
     ["runDate", CONDITIONS.runDate, "confirmed", "Confirmed by operator"],
@@ -99,8 +100,8 @@ test("conditions are stored as confirmed by the operator, and moisture kept at t
 test("a moisture value other than the example cannot carry the example label", async () => {
   const { backend, arc } = setup();
   const { reviewId } = await readPo1(arc);
-  await confirmLine(arc, reviewId);
-  const frames = await events(await arc.post(action("confirm_conditions", { ...CONFIRM_CONDITIONS, paperMoisturePct: 8.1 })));
+  const { lotId } = await confirmLine(arc, reviewId);
+  const frames = await events(await arc.post(action("confirm_conditions", conditionsFor(lotId, { paperMoisturePct: 8.1 }))));
   assert.deepEqual(shape(frames).slice(-1), ["step.failed:confirm_conditions"]);
   assert.equal(frames.at(-1).errorCode, "VALIDATION_ERROR");
   assert.equal(backend.requests.submit.length, 0, "nothing was planned");
@@ -179,12 +180,14 @@ test("confirm_order takes the item, quantity and order ID from the stored review
 test("confirm_conditions plans only with the confirmed order rebuilt on the server", async () => {
   const { backend, arc } = setup();
   const { reviewId } = await readPo1(arc);
-  await confirmLine(arc, reviewId);
-  for (const extra of [{ itemCode: "PKBX0099" }, { quantity: 5 }, { reviewId }, { lineIndex: 0 }, { file: "x" }]) {
-    const response = await arc.post(action("confirm_conditions", { ...CONFIRM_CONDITIONS, ...extra }));
+  const { lotId } = await confirmLine(arc, reviewId);
+  for (const extra of [{ itemCode: "PKBX0099" }, { quantity: 5 }, { reviewId }, { lineIndex: 0 }, { file: "x" }, { lotId: "LOT-1" }]) {
+    const response = await arc.post(action("confirm_conditions", conditionsFor(lotId, extra)));
     assert.equal(response.status, 400, JSON.stringify(extra));
   }
-  await events(await arc.post(action("confirm_conditions", CONFIRM_CONDITIONS)));
+  const { lotId: _omitted, ...withoutLot } = conditionsFor(lotId);
+  assert.equal((await arc.post(action("confirm_conditions", withoutLot))).status, 400, "the lot is required");
+  await events(await arc.post(action("confirm_conditions", conditionsFor(lotId))));
   const [request] = backend.requests.optimize;
   assert.equal(request.item_code, PO1.itemCode);
   assert.equal(request.quantity.value, PO1.quantity);
@@ -193,10 +196,55 @@ test("confirm_conditions plans only with the confirmed order rebuilt on the serv
 
 test("confirm_conditions without a confirmed order in the session plans nothing", async () => {
   const { backend, arc } = setup();
-  const frames = await events(await arc.post(action("confirm_conditions", CONFIRM_CONDITIONS)));
+  const frames = await events(await arc.post(action("confirm_conditions", conditionsFor(`LOT-HACK-${arc.principal.sessionId}-${"0".repeat(12)}`))));
   assert.deepEqual(shape(frames), ["run.failed"]);
   assert.equal(frames[0].errorCode, "LOT_NOT_FOUND");
   assert.equal(backend.requests.submit.length, 0);
+});
+
+test("with two lots in the session, Confirm conditions plans the lot on the card, not the newest", async () => {
+  const { backend, arc } = setup({ extraction: { ...PO1_EXTRACTION, lines: [
+    { itemCode: PO1.itemCode, quantity: 1300, sourcePage: 1 },
+    { itemCode: PO1.itemCode, quantity: 500, sourcePage: 1 },
+  ] } });
+  const { reviewId } = await readPo1(arc);
+  const lotA = (await confirmLine(arc, reviewId)).lotId;
+  const lotB = (await events(await arc.post(action("confirm_order", { reviewId, lineIndex: 1 }))))
+    .find(({ type }) => type === "step.succeeded").resultRef.id;
+  assert.notEqual(lotA, lotB);
+  const session = await arc.sessionStore.get(arc.principal.sessionId);
+  assert.deepEqual(session.activeLotIds, [lotA, lotB], "lot B is the newest");
+
+  const plan = await events(await arc.post(action("confirm_conditions", conditionsFor(lotA))));
+  const jobId = plan.find(({ type, tool }) => type === "step.succeeded" && tool === "plan_lot").resultRef.id;
+  assert.equal((await arc.taskRunStore.get(plan[0].taskRunId)).lotId, lotA);
+  assert.equal(backend.drafts.get(jobId).order.quantity, 1300);
+  const read = (lotId) => backend.lotStore.getLot({ lotId, ownerSessionId: arc.principal.sessionId });
+  assert.deepEqual([(await read(lotA)).head.currentJobId, (await read(lotA)).head.draftConditions.length], [jobId, 5]);
+  assert.deepEqual([(await read(lotB)).head.stage, (await read(lotB)).head.draftConditions], ["conditions", []]);
+});
+
+test("the lot read behind GET /lots/:lotId names the confirmed item and quantity, not the order ID", async () => {
+  const { backend, arc } = setup();
+  const { reviewId } = await readPo1(arc);
+  const { lotId } = await confirmLine(arc, reviewId);
+  const read = await getLot({ lotId }, { principal: arc.principal, lotRevisions: backend.commandDeps.lotRevisions });
+  assert.deepEqual(read.lot.order, { itemCode: PO1.itemCode, quantity: PO1.quantity });
+  assert.ok(!JSON.stringify(read).includes(PO1.context.orderId));
+});
+
+test("Confirm conditions for a lot this session does not hold plans nothing", async () => {
+  const owner = setup();
+  const { reviewId } = await readPo1(owner.arc);
+  const { lotId } = await confirmLine(owner.arc, reviewId);
+  const other = setup({ backend: owner.backend });
+  const { reviewId: ownReview } = await readPo1(other.arc);
+  await confirmLine(other.arc, ownReview);
+  const frames = await events(await other.arc.post(action("confirm_conditions", conditionsFor(lotId))));
+  assert.deepEqual(shape(frames), ["run.failed"]);
+  assert.equal(frames[0].errorCode, "LOT_NOT_FOUND");
+  assert.equal(owner.backend.requests.submit.length, 0);
+  assert.deepEqual((await owner.backend.lotStore.getLot({ lotId, ownerSessionId: owner.arc.principal.sessionId })).head.draftConditions, []);
 });
 
 test("a repeated clientTurnId for confirm_conditions replays and does not plan twice", async () => {
@@ -204,8 +252,8 @@ test("a repeated clientTurnId for confirm_conditions replays and does not plan t
   const { reviewId } = await readPo1(arc);
   const { lotId } = await confirmLine(arc, reviewId);
   const clientTurnId = randomUUID();
-  const first = await events(await arc.post(action("confirm_conditions", CONFIRM_CONDITIONS), { clientTurnId }));
-  const again = await events(await arc.post(action("confirm_conditions", CONFIRM_CONDITIONS), { clientTurnId }), "replayed");
+  const first = await events(await arc.post(action("confirm_conditions", conditionsFor(lotId)), { clientTurnId }));
+  const again = await events(await arc.post(action("confirm_conditions", conditionsFor(lotId)), { clientTurnId }), "replayed");
   assert.deepEqual(again, first);
   assert.equal(backend.requests.submit.length, 1);
   assert.equal(backend.requests.predict.length, 1);
@@ -226,7 +274,7 @@ test("a plan interrupted after the draft was stored resumes with the same key an
   const { reviewId } = await readPo1(arc);
   const { lotId } = await confirmLine(arc, reviewId);
   const clientTurnId = randomUUID();
-  const input = action("confirm_conditions", CONFIRM_CONDITIONS);
+  const input = action("confirm_conditions", conditionsFor(lotId));
   const interrupted = await events(await arc.post(input, { clientTurnId, signal: abort.signal }));
   const runId = interrupted.find(({ type }) => type === "run.started").taskRunId;
   const before = await arc.taskRunStore.get(runId);
