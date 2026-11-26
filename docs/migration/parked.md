@@ -30,10 +30,17 @@ Approving a draft writes production data. It needs the founders' approval and a 
 | U05 | Candidate count (the design's 8,640) from the backend; the API does not return it | none yet |
 | U05 | Bell badge and "Prototype data, not live" chip in the shared shell | none yet |
 | U05 | Shared toast component (New Lot and Preparation Flow each carry their own styles) | none yet |
+| U06 | Where `GET /impact/summary` (September holdout impact, monthly cost, seasonal defects) appears; the design has no tile for it | PD-23, DR-004, DR-005 |
+| U06 | "What moved the Warp estimate": attribution on the current m2_* models (`sql/explain.sql` was not run on them) | none yet |
+| U06 | Software checks, Photo diagnosis and Approved job card tiles: a stored evidence record | DR-010 |
+| U06 | Defect intelligence trend: lot history by month | DR-005, DR-009 (no live adapter for `/insights/summary`) |
+| U06 | Delivery timeline, Throughput and Capacity: dispatch feed, production log, machine and workforce data | none yet |
+| U06 | Crack low-confidence flag is hard-coded; it needs a rule from the model-acceptance record | PD-23 |
+| U06 | Bell count in the shared shell (the design shows 1 on this screen) | same as U05 bell item |
 
 ## Open decisions that touch built screens
 
-PD-04, PD-12, PD-20, PD-21, PD-22 in `11-product-decisions.md`.
+PD-04, PD-12, PD-20, PD-21, PD-22, PD-23 in `11-product-decisions.md`.
 
 ## Not tested
 
@@ -42,3 +49,5 @@ PD-04, PD-12, PD-20, PD-21, PD-22 in `11-product-decisions.md`.
 - The primary MacBook viewport is still pending (execution contract, viewport matrix).
 - U05: Prep-Flow light at 1440x900 and Prep-Flow-Partial dark after the last spacing fix were captured but not viewed (see CHK-U05-VISUAL).
 - U05: 768x1024 and 390x844 were not captured.
+- U06: Light theme at 1440x900 and dark at 1280x800 were captured but not viewed (see CHK-U06-VISUAL); 1024x768 was checked only for overflow by the browser spec, not by eye.
+- U06: No mutation check on the Insights specs.

@@ -269,6 +269,27 @@
       "status": "PASSED",
       "result": "tsc exit 0; web unit 18 of 18 (6 new in prep-flow-model.test.js); vite build ok",
       "existing": false
+    },
+    {
+      "id": "CHK-U06-BROWSER",
+      "name": "npx playwright test test/browser/insights.spec.js test/browser/shell-navigation.spec.js",
+      "status": "PASSED",
+      "result": "22 of 22 (9 Insights: labelled reference lot, retired figures absent, scores read from /api/status, failed status shows an error, not-connected cards, Dismiss, Pause or resume by keyboard, Open Planning, no overflow at 1280x800 and 1024x768). Mutation check NOT RUN.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U06-VISUAL",
+      "name": "node tools/visual/capture.mjs --ref Insights --route insights --wait .in-fit",
+      "status": "PASSED",
+      "result": "runs 4, structuralFailures 0. Viewed dark-app at 1440x900 and light-app at 1280x800 beside the references. Light 1440x900 and dark 1280x800 not viewed by eye.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U06-TSC",
+      "name": "cd web && npx tsc -b && npm run build && npm test",
+      "status": "PASSED",
+      "result": "tsc clean, build ok, 18 of 18 unit tests",
+      "existing": false
     }
   ],
   "units": {
@@ -402,16 +423,24 @@
       "notes": "Removed from the design per docs/arc/delivery/data/stale-claims.md: 'Strength risk +0.078 points' (checklist reads 'Acceptable trade-off?') and 'Only Print passes' ('Trust the models?'). The lot line shows the live lot id and quantity with no 'reference run' suffix. 'Do the three changes' uses the lot's change count; '8,640 tries' shows only when a count is supplied, otherwise '3 changes max'. The design's top bar shows 'Prototype data, not live', a bell badge and 'Prep Flow' breadcrumb; the shared shell does not, and the preview route shows 'Home' in the breadcrumb. The bell badge is not built. Toast reuses the New Lot toast measurements in prep-flow.css rather than a shared component. The 1128 px drawing scales to 80% at narrow widths and scrolls below that, scrolled to the current step; the hero row wraps at 1280 and 1024. Lists and the diagram 1440x900 page height is 1258 against 1260 in the design. live.ts gains an optional loaded flag so an empty store is not reported before the first read."
     },
     "U06": {
-      "state": "NOT_STARTED",
+      "state": "UI_IMPLEMENTED",
       "visual": {
-        "dark": null,
-        "light": null,
-        "viewports": []
+        "dark": "1440x900 viewed against png/dark/Insights.png; 1280x800 not viewed",
+        "light": "1280x800 viewed against the light reference; 1440x900 not viewed",
+        "viewports": [
+          "1440x900",
+          "1280x800"
+        ],
+        "screenshots": "docs/migration/evidence/U06/ (kept copies); regenerate with node tools/visual/capture.mjs --ref Insights --route insights --wait .in-fit (writes .visual/, not tracked)"
       },
-      "functional": null,
-      "backend": null,
-      "evidence": [],
-      "notes": ""
+      "functional": "PARTIAL: model scores read from /api/status (browser spec against the local backend); no browser run against live data",
+      "backend": "GET /api/status modelAcceptance used. GET /impact/summary NOT used: the design has no slot for it.",
+      "evidence": [
+        "CHK-U06-BROWSER",
+        "CHK-U06-VISUAL",
+        "CHK-U06-TSC"
+      ],
+      "notes": "Differences from the design: October figures replaced by the final m2 reference (62.9 to 55.1 kg, Rs 3,355 to Rs 2,934, saving Rs 421, viscosity 32 to 45 s) from docs/arc/delivery/data/PKBX0041-m2-rerun.md, provisional until Om signs off (DR-019, PD-12); title Three settings, no trade-off and the line All five modeled risks fall replace the strength trade-off; model chart shows current holdout scores with no pass levels and no Earlier check markers (stale-claims.md); September 2026 note sourced from config/model-acceptance.json; Warp attribution, Software checks, Photo diagnosis and Approved job card show the not-connected state (no source, DR-010); Crack low-confidence flag is hard-coded to match Home Model watch; bell shows no count because the shell has none; defect tabs are static spans as in the design; the conveyor scene is the design SVG as JSX. Needs a decision: where /impact/summary (September holdout impact) belongs, since the design has no tile for it (DR-004, DR-005). Decisions: PD-23. Leftover work is listed under U06 in docs/migration/parked.md."
     },
     "U07": {
       "state": "NOT_STARTED",

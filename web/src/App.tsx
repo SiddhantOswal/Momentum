@@ -6,6 +6,7 @@ import { useTheme } from "./lib/useApp";
 import { Home } from "./pages/Home";
 import { NewLot } from "./pages/NewLot";
 import { PlantExplorer } from "./pages/PlantExplorer";
+import { Insights } from "./pages/Insights";
 import { PreparationFlow } from "./pages/prep-flow/PreparationFlow";
 
 // Development-only reference for the shared components; excluded from production builds.
@@ -32,6 +33,8 @@ export function App() {
         <PlantExplorer />
       ) : route.key === "preparation-flow" ? (
         <PreparationFlow />
+      ) : route.key === "insights" ? (
+        <Insights />
       ) : (
         <>
           <PageHeader title={route.title} subtitle={route.subtitle} />
