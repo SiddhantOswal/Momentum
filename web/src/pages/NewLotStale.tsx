@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import { Banner, Button, ButtonLink, Card, LabelChip } from "../components/m";
+import { Banner, Button, ButtonLink, Card } from "../components/m";
 import type { LotRecord, PlanResult } from "./newlot/api";
 import { readLotRecord } from "./newlot/actions";
 import { CardSettings } from "./newlot/card-view";
 import { IdsBar, NewLotPage, StatusRow, Toasts, useToasts } from "./newlot/parts";
 import { CONDITION_FIELDS, type LotState } from "./newlot/store";
-
-const PROVENANCE_LABEL: Record<string, string> = { operator_entry: "Entered by operator", synthetic_example: "Example value" };
 
 /** What the lot record says replaced this revision, read from GET /lots/:lotId. */
 function WhatChanged({ lotId, jobId }: { lotId?: string; jobId: string }) {
@@ -22,11 +20,10 @@ function WhatChanged({ lotId, jobId }: { lotId?: string; jobId: string }) {
   const reason = revision?.jobId === jobId ? revision.supersededReason : null;
   const newer = record && record !== "missing" && revision && revision.jobId !== jobId ? revision.number : undefined;
   const field = reason ? CONDITION_FIELDS.find((entry) => entry.key === reason.field)?.label ?? reason.field : undefined;
-  const label = reason?.provenance ? PROVENANCE_LABEL[reason.provenance] : undefined;
 
   return (
     <section className="cd kr" aria-labelledby="nl-changed">
-      <div className="ct"><h2 className="t" id="nl-changed">What changed</h2>{label && <LabelChip label={label} />}</div>
+      <div className="ct"><h2 className="t" id="nl-changed">What changed</h2></div>
       {record === undefined ? <p className="lb" style={{ margin: 0 }}>Reading the lot record.</p>
         : reason ? (
           <>
@@ -59,9 +56,9 @@ export function NewLotStale({ lot, plan }: { lot: LotState; plan: PlanResult }) 
           </>}>
           A replaced revision cannot be approved. Plan the lot again.
         </Banner>
-        <Card span={8} title={`Job card, ${sheet.order.itemCode}${number === undefined ? "" : `, Rev ${number}`}`} meta={<LabelChip label="Replaced, read only" />}>
+        <Card span={8} title={`Job card, ${sheet.order.itemCode}${number === undefined ? "" : `, Rev ${number}`}`} >
           <div className="lb" style={{ margin: "-8px 0 10px" }}>These values no longer match the lot.</div>
-          <CardSettings sheet={sheet} columns="1fr 150px 130px" dim trailing={() => null} />
+          <CardSettings sheet={sheet} columns="1fr 150px 130px" dim />
         </Card>
         <div className="c4" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <WhatChanged lotId={lot.lotId ?? plan.revision?.lotId} jobId={sheet.jobId} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Banner, Button, ButtonLink, Card, NotConnected, ProvenanceChip } from "../components/m";
+import { Banner, Button, ButtonLink, Card, NotConnected } from "../components/m";
 import { DEFECTS, formatNumber } from "../lib/api";
 import type { ModelScore, PlanResult, Risk } from "./newlot/api";
 import { explain, readStatus } from "./newlot/actions";
@@ -30,10 +30,7 @@ function ExplainPanel({ lot }: { lot: LotState }) {
         {error && <p className="err" role="alert">{error}</p>}
         {shown && (
           <div style={{ borderTop: "1px solid var(--ln)", marginTop: 12, paddingTop: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <span className="th">Why these settings</span>
-              {shown.source === "bigquery-ml-and-gemini" && <ProvenanceChip kind="generated-by-gemini" />}
-            </div>
+            <div className="th" style={{ marginBottom: 8 }}>Why these settings</div>
             <p style={{ margin: 0, fontSize: 15, lineHeight: 1.55, whiteSpace: "pre-line" }}>{shown.explanation}</p>
             <p className="lb" style={{ fontSize: 13, margin: "8px 0 0" }}>
               {shown.source === "bigquery-ml-and-gemini" ? "Written by Gemini from the model attribution and similar past lots." : "A summary of the model attribution. Gemini did not write this text."}
@@ -89,7 +86,7 @@ function TrustCard({ risk }: { risk: Risk }) {
   if (scores === "missing") return <NotConnected span={12} title="How far to trust this" missing="The model scores are not available from the server right now." />;
   const lots = scores?.models.find((model) => model.sampleCount !== null)?.sampleCount;
   return (
-    <Card span={12} title="How far to trust this" meta={lots ? `Tested on ${formatNumber(lots)} lots.` : scores ? "Held-out test." : "Loading the model scores"}>
+    <Card span={12} title="How far to trust this" meta={lots ? `Tested on ${formatNumber(lots)} lots.` : scores ? undefined : "Loading the model scores"}>
       {scores && (
         <div role="table" aria-label="Model fit scores" className="rt trust">
           {DEFECTS.map(({ key }) => {

@@ -1,4 +1,3 @@
-import { Chip, ProvenanceChip } from "../../components/m";
 import { DEFECTS, type Defect } from "../../lib/api";
 import { LEVERS, type LeverKey } from "../../lib/session";
 import type { Change, Optimization, Risk } from "./api";
@@ -34,20 +33,19 @@ export function ExcludedNote({ risk }: { risk: Risk }) {
 }
 
 /** The changed settings, as the design's three-column table. */
-export function ChangesTable({ changes, withChip = true, rowHeight = 52 }: { changes: Change[]; withChip?: boolean; rowHeight?: number }) {
-  const columns = withChip ? "minmax(0, 1fr) minmax(90px, 130px) minmax(100px, 150px) max-content" : "minmax(0, 1fr) minmax(90px, 120px) minmax(100px, 140px)";
+export function ChangesTable({ changes, rowHeight = 52 }: { changes: Change[]; rowHeight?: number }) {
+  const columns = "minmax(0, 1fr) minmax(90px, 130px) minmax(100px, 150px)";
   return (
     <div role="table" aria-label="Settings that change" className="rt chg">
       <div role="row" className="tb h" style={{ gridTemplateColumns: columns, minHeight: 30 }}>
         <span role="columnheader" className="th">Setting</span><span role="columnheader" className="th">Entered</span>
-        <span role="columnheader" className="th">Recommended</span>{withChip && <span role="columnheader" className="th"><span className="sr-only">Change</span></span>}
+        <span role="columnheader" className="th">Recommended</span>
       </div>
       {changes.map((change) => (
         <div role="row" key={change.lever} className="tb" style={{ minHeight: rowHeight, gridTemplateColumns: columns }}>
           <span role="cell" style={{ fontSize: 16, fontWeight: 600 }}>{leverLabel(change.lever)}</span>
           <span role="cell" className="n" style={{ fontSize: 18, color: "var(--mu)" }}>{leverText(change.lever, change.from)}</span>
           <span role="cell" className="n" style={{ fontSize: 20, fontWeight: 600 }}>{leverText(change.lever, change.to)}</span>
-          {withChip && <span role="cell"><Chip tone="accent">Changed</Chip></span>}
         </div>
       ))}
     </div>
@@ -62,7 +60,7 @@ export function ScrapCard({ optimization, band }: { optimization: Optimization; 
   const bandRate = band?.ratesPct[primary];
   return (
     <section className="cd kr c4" aria-labelledby="nl-scrap">
-      <div className="ct"><h2 className="t" id="nl-scrap">Scrap for this lot</h2><ProvenanceChip kind="model-estimate" /></div>
+      <div className="ct"><h2 className="t" id="nl-scrap">Scrap for this lot</h2></div>
       <ScrapFigures optimization={optimization} />
       <div style={{ marginTop: 6, fontSize: 16 }}>
         {savings.kg > 0

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Banner, Button, ButtonLink, Card, Chip } from "../components/m";
+import { Banner, Button, ButtonLink, Card } from "../components/m";
 import { call, type JobSheet, type PlanResult, type Revision } from "./newlot/api";
 import { cardPdfHref, readJob, REPLACED_MESSAGE } from "./newlot/actions";
 import { CardSettings, RouteOnCard, cardSummary } from "./newlot/card-view";
@@ -75,7 +75,7 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
     setApproveError(result.message);
   };
 
-  const status = approved ? "Approved" : loading ? "Reading the draft back" : "Draft, not approved";
+  const status = approved ? "Approved" : loading ? "Reading the draft back" : "Waiting for approval";
   const next = approved ? "Operator: print the card" : "Supervisor approval";
   const steps: [Parameters<typeof StatusRow>[0]["kind"], string, string][] = [
     [stored ? "ok" : loading ? "now" : "bad", "Draft saved",
@@ -83,7 +83,6 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
     [approved ? "ok" : "now", "Supervisor review", approved ? "Done" : "Waiting for a decision"],
     [approved ? "ok" : "idle", "Approved", approved ? "Recorded" : "Not yet"],
     [approved?.jobSheet.cardUri ? "ok" : "idle", "PDF stored", approved?.jobSheet.cardUri ? "Stored" : "Not yet"],
-    ["idle", "Card checked", "Not connected"],
   ];
 
   return (
@@ -108,11 +107,9 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
         <section className="cd kr c8" aria-labelledby="nl-card">
           <div className="ct">
             <h2 className="t" id="nl-card">Job card, {sheet.order.itemCode}{number === undefined ? "" : `, Rev ${number}`}</h2>
-            {approved ? <Chip>Approved</Chip> : <Chip tone="modeled">Draft, not approved</Chip>}
           </div>
           <div className="lb" style={{ margin: "-8px 0 10px" }}>{cardSummary(sheet, plan)}</div>
-          <CardSettings sheet={sheet} columns="1fr 150px 130px 100px"
-            trailing={(isChanged) => <span role="cell">{isChanged ? <Chip tone="accent">Changed</Chip> : <span className="lb">Unchanged</span>}</span>} />
+          <CardSettings sheet={sheet} columns="1fr 150px 130px" />
           <div className="lb" style={{ fontSize: 13, padding: "10px 0 12px", borderTop: "1px solid var(--ln)" }}>The card shows every value with its unit.</div>
           <RouteOnCard sheet={sheet} />
         </section>

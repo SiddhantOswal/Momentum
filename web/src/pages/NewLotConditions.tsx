@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Banner, Button, ButtonLink, Card } from "../components/m";
 import { LEVERS, type LeverKey } from "../lib/session";
 import { loadPlantReading, loadWeather, planLot, recordConditionEdit } from "./newlot/actions";
-import { FieldInput, FieldSelect, IdsBar, LEVEL_OPTIONS, leverLabel, NewLotPage, StatusIcon, dateText, timeText, Toasts, useToasts } from "./newlot/parts";
-import { CONDITION_FIELDS, getLot, updateLot, useLot, type ConditionKey, type FieldSource, type LotState } from "./newlot/store";
+import { FieldInput, FieldSelect, IdsBar, LEVEL_OPTIONS, leverLabel, NewLotPage, StatusIcon, Toasts, useToasts } from "./newlot/parts";
+import { CONDITION_FIELDS, getLot, updateLot, useLot, type ConditionKey, type LotState } from "./newlot/store";
 
 const SHIFTS = [{ value: "DAY", label: "Day" }, { value: "NIGHT", label: "Night" }];
 const TOTAL_FIELDS = CONDITION_FIELDS.length + LEVERS.length;
@@ -31,14 +31,6 @@ function leverValid(key: LeverKey, value: string) {
 function doneCount(lot: LotState) {
   return CONDITION_FIELDS.filter((field) => conditionValid(field.key, lot.conditions[field.key])).length +
     LEVERS.filter((lever) => leverValid(lever.key, lot.levers[lever.key])).length;
-}
-
-/** The line under each condition says where its value came from. */
-function sourceText(source: FieldSource | undefined, filled: boolean) {
-  if (!filled) return "Required";
-  if (!source || source.kind === "operator") return "Entered by operator";
-  if (source.kind === "weather") return `Weather record${source.location ? `, ${source.location}` : ""}, ${timeText(source.observedAt)}`;
-  return `Last plant reading, ${dateText(source.recordedAt)}${source.simulated ? ", simulated" : ""}`;
 }
 
 function ConditionsCard({ lot, onToast }: { lot: LotState; onToast: ReturnType<typeof useToasts>["show"] }) {
@@ -86,7 +78,7 @@ function ConditionsCard({ lot, onToast }: { lot: LotState; onToast: ReturnType<t
         const id = `nl-${field.key}`;
         return (
           <div className="fr" key={field.key}>
-            <div><div className="nm" id={`${id}-name`}>{field.label}</div><div className="sr" id={`${id}-src`}>{invalid ? "Check this value" : sourceText(lot.sources[field.key], filled)}</div></div>
+            <div><div className="nm" id={`${id}-name`}>{field.label}</div><div className="sr" id={`${id}-src`}>{invalid ? "Check this value" : filled ? "" : "Required"}</div></div>
             {field.key === "shift"
               ? <FieldSelect id={id} label={field.label} value={value} placeholder="Select shift" options={SHIFTS} describedBy={`${id}-src`}
                   onChange={(next) => { set("shift", next); void commit("shift"); }} />
@@ -102,7 +94,6 @@ function ConditionsCard({ lot, onToast }: { lot: LotState; onToast: ReturnType<t
       </div>
       {note && <p className="err" role="alert">{note}</p>}
       <div style={{ flex: 1, minHeight: 12 }} />
-      <p className="lb" style={{ fontSize: 13, lineHeight: 1.45, margin: "12px 0 0" }}>No plant sensor is connected. Values come from the dataset, the public weather record or the operator.</p>
       <div style={{ borderTop: "1px solid var(--ln)", marginTop: 12, paddingTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
         <span className="lgd" aria-hidden="true" /><span className="lb" style={{ fontSize: 14 }}>Amber outline: still to confirm.</span>
       </div>
@@ -120,7 +111,7 @@ function SettingsCard({ lot }: { lot: LotState }) {
         const invalid = filled && !leverValid(lever.key, value);
         const id = `nl-${lever.key}`;
         const unit = "unit" in lever ? lever.unit : "";
-        const sub = !filled ? "Required" : invalid && "min" in lever ? `Enter ${lever.min} to ${lever.max} ${unit}` : "Entered by operator";
+        const sub = !filled ? "Required" : invalid && "min" in lever ? `Enter ${lever.min} to ${lever.max} ${unit}` : "";
         return (
           <div className="fr" key={lever.key}>
             <div><div className="nm">{leverLabel(lever.key)}</div><div className="sr" id={`${id}-src`}>{sub}</div></div>

@@ -1,8 +1,8 @@
 import { useRef, useState, type ReactNode } from "react";
-import { Button, Card, Chip, ProvenanceChip } from "../components/m";
+import { Button, Card } from "../components/m";
 import { formatNumber } from "../lib/api";
 import type { ExtractedLine, Extraction } from "./newlot/api";
-import { changeContext, chooseLine, chooseSample, chooseUpload, editOrderValue, lineCode, readOrder } from "./newlot/actions";
+import { changeContext, chooseLine, chooseSample, chooseUpload, editOrderValue, readOrder } from "./newlot/actions";
 import { FieldInput, FieldSelect, IdsBar, NewLotPage, StatusIcon, Toasts, useToasts } from "./newlot/parts";
 import { SAMPLES, updateLot, useLot, type LotState } from "./newlot/store";
 
@@ -54,12 +54,11 @@ function PurchaseOrderCard({ lot, onToast }: { lot: LotState; onToast: ReturnTyp
   };
 
   return (
-    <Card span={6} title="Purchase order" meta="PDF or JPEG, up to 10 MiB. Reads the file once.">
+    <Card span={6} title="Purchase order" meta="PDF or JPEG, up to 10 MiB.">
       <div aria-busy={busy !== ""}>
         <div className="file">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4" /></svg>
           <b>{lot.file?.name ?? "No order chosen"}</b>
-          <span style={{ marginLeft: "auto" }}>{lot.extraction ? <Chip>Read</Chip> : <Chip tone="none">Not read</Chip>}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, flexWrap: "wrap" }} role="group" aria-labelledby="nl-samples">
           <span className="lb" id="nl-samples" style={{ flexBasis: "100%" }}>Approved samples</span>
@@ -115,7 +114,7 @@ function CatalogCard({ lot }: { lot: LotState }) {
   const line = selectedLine(lot);
   if (!line) {
     return (
-      <Card span={6} title="Catalog match" meta={<ProvenanceChip kind="missing" />}>
+      <Card span={6} title="Catalog match">
         <p className="lb" style={{ margin: 0, fontSize: 15 }}>{lot.extraction ? "Pick the line to prepare." : "Read an order to match its item against the catalog."}</p>
       </Card>
     );
@@ -128,7 +127,7 @@ function CatalogCard({ lot }: { lot: LotState }) {
   ];
   return (
     <section className="cd c6" style={{ display: "flex", flexDirection: "column" }} aria-labelledby="nl-catalog">
-      <div className="ct"><h2 className="t" id="nl-catalog">Catalog match</h2><Chip tone="modeled">From catalog</Chip></div>
+      <div className="ct"><h2 className="t" id="nl-catalog">Catalog match</h2></div>
       <div className="n" style={{ fontSize: 36, lineHeight: "42px", fontWeight: 600, letterSpacing: "-.5px", overflowWrap: "anywhere" }}>{lot.itemCode || "No item code"}</div>
       <div className="lb" style={{ marginTop: 2 }}>{matched ? "In the plant's item catalog." : "Not matched in the plant's item catalog."}</div>
       {line.candidates.length > 0 && (
@@ -190,20 +189,14 @@ function SourceCard({ lot }: { lot: LotState }) {
   );
 }
 
-function ReadRow({ name, value, where, chip, edit }: { name: string; value: string | undefined; where: string; chip: "order" | "catalog" | "operator"; edit?: ReactNode }) {
+function ReadRow({ name, value, where, edit }: { name: string; value: string | undefined; where: string; edit?: ReactNode }) {
   const missing = value === undefined || value === "";
   return (
     <div className="rd">
       <div className="k">{name}</div>
       <div>
-        <div className="v" style={missing ? { color: "var(--mu)", fontWeight: 500 } : undefined}>{missing ? "Not read" : value}</div>
+        <div className="v" style={missing ? { color: "var(--mu)", fontWeight: 500 } : undefined}>{missing ? "Not found" : value}</div>
         <div className="w">{where}{edit}</div>
-      </div>
-      <div>
-        {missing ? <ProvenanceChip kind="missing" />
-          : chip === "order" ? <Chip>From order</Chip>
-            : chip === "catalog" ? <Chip tone="modeled">From catalog</Chip>
-              : <ProvenanceChip kind="entered-by-operator" />}
       </div>
     </div>
   );
@@ -231,20 +224,17 @@ function ReadCard({ lot }: { lot: LotState }) {
     ? `${profile.paperType ? `${titleCase(profile.paperType)} ` : ""}${profile.ply}-ply, ${profile.fluteProfile} flute` : undefined;
   const size = profile?.boxStyle && profile.lengthMm !== undefined
     ? `${profile.boxStyle}, ${profile.lengthMm} × ${profile.widthMm} × ${profile.heightMm} mm` : undefined;
-  const codeEdited = line !== undefined && lot.itemCode !== lineCode(line);
-  const quantityEdited = line !== undefined && lot.quantity !== (line.quantity === undefined ? "" : String(line.quantity));
   return (
-    <Card span={6} title="What we read from the order" meta={lot.orderConfirmed ? <ProvenanceChip kind="confirmed-by-operator" /> : <Chip tone="modeled">Draft, not confirmed</Chip>}>
+    <Card span={6} title="What we read from the order">
       {!lot.extraction ? <p className="lb" style={{ margin: 0, fontSize: 15 }}>Nothing read yet.</p> : (
         <>
-          <ReadRow name="PO number" value={document?.poNumber} where="Order header" chip="order" />
-          <ReadRow name="Item code" value={lot.itemCode} where={page} chip={codeEdited ? "operator" : "order"}
-            edit={line && <EditableValue field="itemCode" lot={lot} label="Item code" />} />
-          <ReadRow name="Quantity" value={lot.quantity && `${formatNumber(Number(lot.quantity))} boxes`} where={page} chip={quantityEdited ? "operator" : "order"}
+          <ReadRow name="PO number" value={document?.poNumber} where="Order header" />
+          <ReadRow name="Item code" value={lot.itemCode} where={page} edit={line && <EditableValue field="itemCode" lot={lot} label="Item code" />} />
+          <ReadRow name="Quantity" value={lot.quantity && `${formatNumber(Number(lot.quantity))} boxes`} where={page}
             edit={line && <EditableValue field="quantity" lot={lot} label="Quantity" />} />
-          <ReadRow name="Customer" value={document?.buyer} where="Order header" chip="order" />
-          <ReadRow name="Board" value={board} where={catalogWhere} chip="catalog" />
-          <ReadRow name="Box style and size" value={size} where={catalogWhere} chip="catalog" />
+          <ReadRow name="Customer" value={document?.buyer} where="Order header" />
+          <ReadRow name="Board" value={board} where={catalogWhere} />
+          <ReadRow name="Box style and size" value={size} where={catalogWhere} />
           <div className="lb" style={{ fontSize: 13, marginTop: 10, lineHeight: 1.45 }}>Editing a value marks the plan and approval out of date.</div>
         </>
       )}
