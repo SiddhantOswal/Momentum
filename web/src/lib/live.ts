@@ -10,7 +10,8 @@ export type LiveLot = {
 };
 export type LiveEvent = { type: string; lotId?: string; text: string; actor?: string; at: string };
 export type FloorView = { lots: LiveLot[]; events: LiveEvent[] };
-export type LiveState = { view: FloorView; status: "connecting" | "live" | "offline" };
+// loaded is true once a first snapshot or stream message has arrived, so an empty view can be told from one not yet read.
+export type LiveState = { view: FloorView; status: "connecting" | "live" | "offline"; loaded?: boolean };
 
 const EMPTY: FloorView = { lots: [], events: [] };
 
@@ -27,11 +28,11 @@ async function connect() {
     for (const listener of hub.listeners) listener(hub.state);
   };
   // A first snapshot over plain HTTP, so the screen fills even before the stream opens.
-  getJson<FloorView>("/api/lots").then((r) => { if (r.ok && hub.state.status !== "live") set({ view: { lots: r.data.lots, events: r.data.events } }); });
+  getJson<FloorView>("/api/lots").then((r) => { if (r.ok && hub.state.status !== "live") set({ view: { lots: r.data.lots, events: r.data.events }, loaded: true }); });
   const source = new EventSource("/api/live");
   hub.source = source;
   source.addEventListener("floor", (e) => {
-    try { const data = JSON.parse((e as MessageEvent).data); set({ view: { lots: data.lots ?? [], events: data.events ?? [] }, status: "live" }); } catch { /* keep the last good view */ }
+    try { const data = JSON.parse((e as MessageEvent).data); set({ view: { lots: data.lots ?? [], events: data.events ?? [] }, status: "live", loaded: true }); } catch { /* keep the last good view */ }
   });
   source.onopen = () => set({ status: "live" });
   // EventSource reconnects by itself; show "offline" until it does.

@@ -2,7 +2,7 @@
 // viewport, writes both screenshots, and runs structural checks on the app page.
 //
 //   node tools/visual/capture.mjs --ref Plant-Explorer --route plant-explorer \
-//        [--viewports 1440x900,1280x800] [--themes dark,light] [--app http://127.0.0.1:5173/app/] [--out .visual]
+//        [--wait <selector>] [--viewports 1440x900,1280x800] [--themes dark,light] [--app http://127.0.0.1:5173/app/] [--out .visual]
 //
 // The reference HTML is served from docs/arc/design/source by a local read-only server. Requests to
 // external hosts are answered locally, so the reference never touches the network.
@@ -66,6 +66,7 @@ for (const [width, height] of viewports) {
     await app.addInitScript((value) => { try { localStorage.setItem("momentum-theme", value); } catch { /* storage unavailable */ } }, theme);
     await app.goto(`${appBase}#/${args.route}`);
     await app.waitForSelector(".nav-item");
+    if (args.wait) await app.waitForSelector(args.wait);
     await app.evaluate(() => document.fonts.ready);
     await app.screenshot({ path: join(dir, `${theme}-app.png`), fullPage: true });
 

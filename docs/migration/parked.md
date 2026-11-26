@@ -10,6 +10,7 @@ Work that is deliberately not done yet. Each item names the unit it came from, w
 | U03 | Confirm the stale path: edit a condition after planning, reopen the old revision, check it is blocked | Same, plus the lot store flag |
 | U03 | Force an explanation failure to see the Recovery state for real | A way to fail the explanation step on purpose |
 | U04 | Plant Explorer against a lot in progress | DR-011, ticket ARC-M6-12 |
+| U05 | Preparation Flow against a real planned lot from /api/lots and /api/live | Backend with the live store flag on (USTAAD_ENABLE_LIVE_STORE) |
 
 Approving a draft writes production data. It needs the founders' approval and a written command, reason, cost and rollback (`CLAUDE.md` section 7).
 
@@ -25,6 +26,10 @@ Approving a draft writes production data. It needs the founders' approval and a 
 | U03 | "Card checked" status after approval | none yet |
 | U03 | Paper type and supplier for PO2 to PO5 and uploads (only PO1 is known) | PD-20 |
 | U03 | Client call to `/conditions/weather` (the server falls back to it today) | none yet |
+| U05 | Held and partial states from stored data, and any lot that is not planned (approved, running, done, blocked) | DR-006, DR-037: durable step record, ticket ARC-M6-11 |
+| U05 | Candidate count (the design's 8,640) from the backend; the API does not return it | none yet |
+| U05 | Bell badge and "Prototype data, not live" chip in the shared shell | none yet |
+| U05 | Shared toast component (New Lot and Preparation Flow each carry their own styles) | none yet |
 
 ## Open decisions that touch built screens
 
@@ -35,3 +40,5 @@ PD-04, PD-12, PD-20, PD-21, PD-22 in `11-product-decisions.md`.
 - Light theme at 1440x900 for Conditions and Recovery was captured but not viewed.
 - Screens at 1280x800 and 1024x768 were only partly viewed (see CHK-U03-VISUAL).
 - The primary MacBook viewport is still pending (execution contract, viewport matrix).
+- U05: Prep-Flow light at 1440x900 and Prep-Flow-Partial dark after the last spacing fix were captured but not viewed (see CHK-U05-VISUAL).
+- U05: 768x1024 and 390x844 were not captured.

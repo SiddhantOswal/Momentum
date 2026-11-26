@@ -241,6 +241,34 @@
       "status": "PASSED",
       "result": "tsc exit 0; build ok; 12 of 12 unit tests",
       "existing": false
+    },
+    {
+      "id": "CHK-U05-BROWSER",
+      "name": "npx playwright test test/browser/prep-flow.spec.js (with home, new-lot, shell-navigation, plant-explorer specs)",
+      "status": "PASSED",
+      "result": "54 of 54 across the five specs; prep-flow.spec.js covers a planned lot, no lot, an approved lot (not drawn), both New Lot buttons, keyboard tick with no approve or jobs request, and no sideways scroll at 1440x900, 1280x800 and 1024x768. Lot store answers are fixtures, so this is not evidence that /api/lots works.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U05-STATES",
+      "name": "node tools/visual/prep-flow-states.mjs against the Vite dev preview",
+      "status": "PASSED",
+      "result": "14 of 14 checks for held and partial: toast shows and dismisses, current step, keyboard tick, both New Lot buttons, no sideways scroll. Driven by fixtures in web/test/prep-flow-fixtures.ts.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U05-VISUAL",
+      "name": "tools/visual/capture.mjs for Prep-Flow, Prep-Flow-Held, Prep-Flow-Partial at 1440x900 and 1280x800, plus Prep-Flow at 1024x768",
+      "status": "PASSED_WITH_DIFFERENCES",
+      "result": "3 refs x 4 runs plus 2 runs at 1024x768, 0 duplicate or wrapped nav labels, 0 sideways scroll. Differences are in notes of U05.",
+      "existing": false
+    },
+    {
+      "id": "CHK-WEB-TSC-3",
+      "name": "web tsc -b, web npm test and web vite build after U05",
+      "status": "PASSED",
+      "result": "tsc exit 0; web unit 18 of 18 (6 new in prep-flow-model.test.js); vite build ok",
+      "existing": false
     }
   ],
   "units": {
@@ -352,16 +380,26 @@
       ]
     },
     "U05": {
-      "state": "NOT_STARTED",
+      "state": "UI_VERIFIED",
       "visual": {
-        "dark": null,
-        "light": null,
-        "viewports": []
+        "dark": "1440x900 Prep-Flow and Prep-Flow-Held viewed against the dark references; 1280x800 and 1024x768 Prep-Flow viewed; Prep-Flow-Partial dark viewed in the first pass only, not after the last spacing fix",
+        "light": "1440x900 Prep-Flow-Partial and Prep-Flow-Held viewed against the light references; 1280x800 and 1024x768 Prep-Flow viewed; Prep-Flow light at 1440x900 not viewed",
+        "viewports": [
+          "1440x900",
+          "1280x800",
+          "1024x768"
+        ],
+        "screenshots": "docs/migration/evidence/U05/ (app screenshots at 1440x900 for three states in both themes, plus Prep-Flow dark at 1024x768); regenerate with node tools/visual/capture.mjs --ref <ScreenId> --route '_prep-flow[?state=held|partial]' --wait .pf-page against the Vite dev server"
       },
-      "functional": null,
-      "backend": null,
-      "evidence": [],
-      "notes": ""
+      "functional": "PASSED in browser for the normal state against fixture lot answers (CHK-U05-BROWSER) and for held and partial against dev-preview fixtures (CHK-U05-STATES). Fixture-backed, so not functional verification of the backend.",
+      "backend": "PARTLY CONNECTED. The page reads the most recent lot from /api/lots and /api/live (flag USTAAD_ENABLE_LIVE_STORE) and draws only a planned lot, at step 7. Any other status shows the not-connected note. Held and partial have no source: no stored record says which step a lot stopped at (DR-006, DR-037), and /api/runs/:id/events carries seven tool events, not the nine steps, and cannot be listed. Both states render only from the dev preview (#/_prep-flow?state=held|partial), which production builds exclude. Live run not done: NOT RUN.",
+      "evidence": [
+        "CHK-U05-BROWSER",
+        "CHK-U05-STATES",
+        "CHK-U05-VISUAL",
+        "CHK-WEB-TSC-3"
+      ],
+      "notes": "Removed from the design per docs/arc/delivery/data/stale-claims.md: 'Strength risk +0.078 points' (checklist reads 'Acceptable trade-off?') and 'Only Print passes' ('Trust the models?'). The lot line shows the live lot id and quantity with no 'reference run' suffix. 'Do the three changes' uses the lot's change count; '8,640 tries' shows only when a count is supplied, otherwise '3 changes max'. The design's top bar shows 'Prototype data, not live', a bell badge and 'Prep Flow' breadcrumb; the shared shell does not, and the preview route shows 'Home' in the breadcrumb. The bell badge is not built. Toast reuses the New Lot toast measurements in prep-flow.css rather than a shared component. The 1128 px drawing scales to 80% at narrow widths and scrolls below that, scrolled to the current step; the hero row wraps at 1280 and 1024. Lists and the diagram 1440x900 page height is 1258 against 1260 in the design. live.ts gains an optional loaded flag so an empty store is not reported before the first read."
     },
     "U06": {
       "state": "NOT_STARTED",

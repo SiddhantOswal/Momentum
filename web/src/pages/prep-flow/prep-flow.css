@@ -1,0 +1,87 @@
+/* Preparation Flow. Measurements come from the approved design: Prep-Flow*.html in docs/arc/design/source/html. */
+
+.pf-page { position: relative; }
+.pf-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.pf-hero { display: grid; grid-template-columns: repeat(4, 1fr); }
+.pf-hero > div { padding: 0 20px; border-left: 1px solid var(--ln); min-width: 0; }
+.pf-hero > div:first-child { padding-left: 0; border-left: 0; }
+.pf-hero-label { font-size: 13px; color: var(--mu); }
+.pf-hero-value { margin-top: 2px; font: 600 20px/1.4 var(--arc-font-display); }
+
+.pf-flow-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; padding: 0 4px; }
+.pf-legend { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+.pf-foot { margin-top: 10px; padding: 0 4px; font-size: 13px; color: var(--mu); }
+
+.pf-sx { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; white-space: nowrap; }
+.pf-sx svg { width: 16px; height: 16px; flex: none; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pf-sx-done { color: var(--ok); } .pf-sx-done svg { stroke: var(--ok); }
+.pf-sx-needs { color: var(--ct); } .pf-sx-needs svg { stroke: var(--ac); }
+.pf-sx-held { color: var(--wn); } .pf-sx-held svg { stroke: var(--wn); }
+.pf-sx-attention { color: var(--bd); } .pf-sx-attention svg { stroke: var(--bd); }
+.pf-sx-idle { color: var(--mu); } .pf-sx-idle svg { stroke: var(--dim); }
+
+/* The diagram is a fixed 1128 x 440 drawing; narrow screens scroll it inside the card. */
+.pf-scroll { overflow-x: auto; }
+.pf-diagram { position: relative; width: 1128px; height: 440px; }
+.pf-zone { position: absolute; top: 0; height: 440px; border: 1px solid var(--ln); border-radius: 12px; background: var(--bg); }
+.pf-zone-head { height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--ln); }
+.pf-zone-head b { font: 600 16px var(--arc-font-display); }
+.pf-zone-foot { position: absolute; left: 14px; right: 14px; bottom: 12px; padding-top: 10px; border-top: 1px solid var(--ln); font-size: 13px; line-height: 1.4; color: var(--mu); }
+.pf-edges { position: absolute; left: 0; top: 0; pointer-events: none; }
+.pf-nodes { margin: 0; padding: 0; list-style: none; }
+
+.pf-node { position: absolute; padding: 9px 11px; text-align: left; border: 1px solid var(--ln2); border-radius: 10px; background: var(--rz); }
+.pf-node-row { display: flex; justify-content: space-between; align-items: center; font: 600 12px var(--arc-font-body); color: var(--dim); }
+.pf-node-row .pf-sx { gap: 0; }
+.pf-node-row svg { width: 15px; height: 15px; }
+.pf-node-title { margin-top: 3px; font: 600 15px/20px var(--arc-font-display); }
+.pf-node-text { margin-top: 2px; font-size: 12.5px; line-height: 1.35; color: var(--mu); }
+.pf-node-source { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--dim); }
+.pf-node-current { padding: 8px 10px; border: 2px solid var(--ac); }
+.pf-node-current.pf-node-held { border-color: var(--wn); }
+.pf-node-current.pf-node-attention { border-color: var(--bd); }
+.pf-node-pending { border-style: dashed; background: transparent; }
+.pf-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.pf-pill { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 6px; border: 1px solid var(--ln2); border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: .02em; color: var(--mu); }
+.pf-pill i { display: block; width: 7px; height: 7px; border-radius: 50%; }
+
+.pf-chip { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 9px; border: 1px solid rgba(232, 102, 79, .55); border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--ct); }
+.pf-chip i { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--ac); }
+.pf-lead { margin: 0; font-size: 15px; line-height: 1.5; color: var(--mu); }
+.pf-heading { margin-top: 14px; font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); }
+.pf-list { margin: 4px 0 0; padding: 0; list-style: none; }
+.pf-list li { padding: 8px 0; border-top: 1px solid var(--ln); font-size: 15px; }
+.pf-action { width: 100%; margin-top: 14px; }
+
+.pf-checks { display: flex; flex-direction: column; }
+.pf-check { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-top: 1px solid var(--ln); font-size: 16px; line-height: 1.4; cursor: pointer; }
+.pf-check:first-child { border-top: 0; }
+.pf-check input { position: absolute; opacity: 0; width: 20px; height: 20px; margin: 0; }
+.pf-box { flex: none; width: 20px; height: 20px; margin-top: 1px; border: 1.5px solid var(--ln2); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+.pf-check input:checked + .pf-box { background: var(--tx); border-color: var(--tx); }
+.pf-check input:checked + .pf-box::after { content: ""; width: 9px; height: 5px; margin-top: -2px; border: 2px solid var(--inv); border-top: 0; border-right: 0; transform: rotate(-45deg); }
+.pf-check input:focus-visible + .pf-box { outline: 2px solid var(--ac); outline-offset: 2px; }
+.pf-note { margin: auto 0 0; padding-top: 12px; font-size: 13.5px; line-height: 1.45; color: var(--mu); }
+.card:has(> .pf-checks) { display: flex; flex-direction: column; }
+
+.pf-toasts { position: absolute; z-index: 30; top: 12px; right: 0; width: min(400px, 100%); }
+.pf-toast { display: flex; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; background: var(--cd); border: 1px solid var(--ln2); border-left-width: 4px; border-radius: 12px; box-shadow: 0 16px 32px -14px rgba(0, 0, 0, .6); }
+.pf-toast-warn { border-left-color: var(--wn); } .pf-toast-bad { border-left-color: var(--bd); }
+.pf-toast > svg { flex: none; width: 22px; height: 22px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.pf-toast-warn > svg { stroke: var(--wn); } .pf-toast-bad > svg { stroke: var(--bd); }
+.pf-toast div { flex: 1; min-width: 0; }
+.pf-toast b { display: block; font-size: 15px; font-weight: 600; }
+.pf-toast span { font-size: 14px; color: var(--mu); }
+.pf-toast-close { flex: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--mu); border-radius: 8px; cursor: pointer; }
+.pf-toast-close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.pf-toast-close:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+
+/* This page's two wide cards use tighter padding than the default card. */
+.card-kraft:has(> .pf-hero) { padding: 18px 20px; }
+.card:has(> .pf-flow-head) { padding: 16px; }
+.pf-hero-label { line-height: 1.4; }
+.pf-hero-value { line-height: normal; }
+.pf-scroll { margin-right: -2px; }
+.pf-scroll:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.pf-fit { width: 1128px; height: 440px; transform-origin: 0 0; }
