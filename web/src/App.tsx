@@ -1,26 +1,29 @@
-import { Shell } from "./components/Shell";
-import { StatusStrip } from "./components/StatusStrip";
-import { Empty } from "./components/ui";
-import { Floor } from "./screens/Floor";
-import { Lots } from "./screens/Lots";
-import { Defects } from "./screens/Defects";
-import { useScreen, useTheme, type Screen } from "./lib/useApp";
+import { lazy, Suspense } from "react";
+import { Shell } from "./ui/Shell";
+import { NotConnected, PageHeader } from "./ui/components";
+import { useRoute } from "./lib/useRoute";
+import { useTheme } from "./lib/useApp";
+import { PlantExplorer } from "./pages/PlantExplorer";
 
-const TITLES: Record<Screen, { title: string; subtitle: string }> = {
-  floor: { title: "Floor", subtitle: "Pune plant · live view of Line 1" },
-  lots: { title: "Lots", subtitle: "Plan, review and approve production lots" },
-  defects: { title: "Defects", subtitle: "Diagnose a defect and find what fixed it before" },
-  impact: { title: "Impact", subtitle: "Scrap, savings and sustainability" },
-  models: { title: "Models", subtitle: "How each defect model performs" },
-};
+// Development-only reference for the shared components; excluded from production builds.
+const Preview = import.meta.env.DEV ? lazy(() => import("./preview/Foundation")) : null;
 
 export function App() {
-  const { screen, go } = useScreen();
+  const { route, hash, go } = useRoute();
   const { theme, toggle } = useTheme();
-  const { title, subtitle } = TITLES[screen];
+  const showPreview = Preview !== null && hash === "#/_foundation";
   return (
-    <Shell screen={screen} go={go} theme={theme} toggleTheme={toggle} title={title} subtitle={subtitle} status={<StatusStrip />}>
-      {screen === "floor" ? <Floor /> : screen === "lots" ? <Lots /> : screen === "defects" ? <Defects /> : <div className="panel p-6"><Empty title={`${title} is being built`} hint="Coming in the next build." /></div>}
+    <Shell route={route} onNavigate={go} theme={theme} onToggleTheme={toggle}>
+      {showPreview && Preview ? (
+        <Suspense fallback={null}><Preview /></Suspense>
+      ) : route.key === "plant-explorer" ? (
+        <PlantExplorer />
+      ) : (
+        <>
+          <PageHeader title={route.title} subtitle={route.subtitle} />
+          <NotConnected title="This page is not built yet." />
+        </>
+      )}
     </Shell>
   );
 }

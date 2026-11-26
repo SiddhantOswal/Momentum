@@ -13,7 +13,7 @@ test('the Main illustration has all 14 approved machine tokens in both themes', 
   const light = { ...dark, ...palette('.m.lt .h3') };
   expect(Object.keys(dark)).toHaveLength(14);
 
-  await page.goto('/app/#/floor');
+  await page.goto('/app/#/home');
   const illustration = page.locator('.arc-main-machine');
   await page.locator('main').evaluate(main => {
     const element = document.createElement('div');

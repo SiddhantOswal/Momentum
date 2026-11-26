@@ -1,0 +1,130 @@
+/* Plant Explorer. Measurements come from the approved design: Plant-Explorer.html in docs/arc/design/source/html. */
+
+.px-figure { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+
+.card:has(> .px-stage) { display: flex; flex-direction: column; }
+.px-stage { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.px-stage-head {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--ln);
+}
+
+/* The canvas stays black in both themes: it frames a photograph. */
+.px-canvas { position: relative; flex: 1; min-height: 512px; background: #07080A; container-type: inline-size; }
+.px-image { position: relative; width: 100%; aspect-ratio: 768 / 512; }
+.px-image img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.px-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.px-leaders path { fill: none; stroke: rgba(255,255,255,.6); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.px-leaders circle { fill: #fff; }
+
+.px-marker {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #14171B;
+  border: 1.5px solid rgba(255,255,255,.55);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 6px 14px -4px rgba(0,0,0,.8);
+}
+.px-marker-selected { background: var(--ac); border-color: var(--ac); color: var(--arc-accent-ink); }
+
+.px-readouts { position: absolute; inset: 0; pointer-events: none; }
+.px-readout { position: absolute; padding: 10px 14px; white-space: nowrap; }
+.px-readout-label { font-size: 13px; color: var(--mu); }
+.px-readout-value { margin-top: 2px; font-size: 22px; line-height: 30px; font-weight: 600; }
+.px-readout-value small { font-size: 15px; color: var(--mu); font-weight: 500; }
+.px-readout-roll { left: 16px; top: 14px; width: 206px; height: 70px; }
+.px-readout-roll .px-readout-value { font-size: 24px; }
+.px-readout-gum { left: 250px; top: 14px; width: 226px; height: 70px; border-color: rgba(232,102,79,.7); }
+.px-readout-floor { right: 16px; bottom: 8px; width: 236px; height: 56px; padding: 6px 14px; }
+.px-readout-floor .px-readout-value { font-size: 18px; line-height: 28px; }
+
+/* In a narrow card the readouts leave the photograph so they cannot cover it. */
+@container (max-width: 620px) {
+  .px-leaders { display: none; }
+  .px-readouts { position: static; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+  .px-readout { position: static; width: auto; height: auto; }
+}
+
+.px-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); flex: none; }
+.px-tab {
+  position: relative;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--ln);
+  border-right: 1px solid var(--ln);
+  background: transparent;
+  color: var(--mu);
+  font: 600 15px var(--arc-font-body);
+  cursor: pointer;
+}
+.px-tab:last-child { border-right: 0; }
+.px-tab b {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--ln2);
+  border-radius: 50%;
+  font-size: 11px;
+}
+.px-tab[aria-pressed="true"] { background: var(--rz); color: var(--tx); }
+.px-tab[aria-pressed="true"]::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 3px; background: var(--ac); }
+.px-tab[aria-pressed="true"] b { background: var(--ac); border-color: var(--ac); color: var(--arc-accent-ink); }
+.px-tab:focus-visible { outline: 2px solid var(--ac); outline-offset: -3px; }
+
+/* On a phone five labels do not fit, so the strip scrolls instead of clipping them. */
+@media (max-width: 560px) {
+  .px-stage-head { height: auto; min-height: 48px; flex-wrap: wrap; padding: 8px 16px; }
+  .px-tabs { display: flex; overflow-x: auto; }
+  .px-tab { flex: 0 0 auto; padding: 0 18px; }
+}
+
+/* Below this width the side column would be under 300px, so it moves under the stage. */
+@media (max-width: 1180px) { .px-grid > * { grid-column: 1 / -1; } }
+
+.px-side { display: flex; flex-direction: column; gap: 16px; }
+.px-side > .card:last-child { flex: 1; }
+
+.px-lever { display: flex; justify-content: space-between; align-items: center; height: 52px; border-top: 1px solid var(--ln); }
+.px-lever-name { font-size: 15px; font-weight: 600; }
+.px-lever-was { font-size: 13px; color: var(--mu); }
+.px-lever-value { font-size: 22px; font-weight: 600; }
+.px-compare { margin-top: 10px; }
+.px-note { margin-top: 8px; font-size: 12.5px; color: var(--mu); }
+
+.px-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.px-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--ln2);
+  border-radius: var(--arc-radius-control);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mu);
+}
+.px-evidence-link { margin-top: 12px; }
+
+.px-watch { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-top: 1px solid var(--ln); }
+.px-watch-icon { display: inline-flex; margin-top: 2px; }
+.px-watch-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

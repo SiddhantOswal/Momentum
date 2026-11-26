@@ -2,6 +2,7 @@
 
 @import "./arc-fonts.css";
 @import "./components/arc-panel.css";
+@import "./design/foundation.css";
 
 :root, .arc-kraft, .arc-glass {
   --panel: var(--cd);

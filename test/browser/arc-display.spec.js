@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('the approved Main hero title measures about 424 px', async ({ page }) => {
-  await page.goto('/app/#/floor');
+  await page.goto('/app/#/home');
   const measure = await page.locator('main').evaluate(async main => {
     const title = document.createElement('h2');
     title.textContent = 'Start with a sample order.';

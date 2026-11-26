@@ -9,7 +9,7 @@ for (const theme of ['light', 'dark']) {
       page.on('request', request => {
         if (new URL(request.url()).pathname.startsWith('/api/arc/')) arcRequests.push(request.url());
       });
-      await page.goto('/app/#/floor');
+      await page.goto('/app/#/home');
 
       const launcher = page.getByRole('button', { name: 'Open Arc by Momentum' });
       const dialog = page.getByRole('dialog', { name: 'Arc by Momentum' });
@@ -56,16 +56,18 @@ for (const theme of ['light', 'dark']) {
   }
 }
 
-test('the shared Arc launcher opens and closes from every existing React host', async ({ page }) => {
+test('the shared Arc launcher opens and closes from every route in the sidebar', async ({ page }) => {
   const dialog = page.getByRole('dialog', { name: 'Arc by Momentum' });
-  for (const title of ['Floor', 'Lots', 'Defects', 'Impact', 'Models']) {
-    await page.goto('/app/#/' + title.toLowerCase());
+  const hosts = [['home', 'Home'], ['new-lot', 'New lot'], ['plant-explorer', 'Plant Explorer'], ['preparation-flow', 'Preparation flow'],
+    ['insights', 'Insights'], ['photo-diagnosis', 'Photo diagnosis'], ['planning', 'Planning']];
+  for (const [path, title] of hosts) {
+    await page.goto('/app/#/' + path);
     await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
     const launcher = page.getByRole('button', { name: 'Open Arc by Momentum' });
     await expect(launcher).toBeVisible();
     await launcher.click();
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(title, { exact: true })).toBeVisible();
+    await expect(dialog.locator('.arc-panel-host')).toHaveText(title);
     await dialog.getByRole('button', { name: 'Close Arc', exact: true }).click();
     await expect(launcher).toBeFocused();
     await expect(page.getByRole('heading', { name: title, level: 1 })).toBeVisible();
