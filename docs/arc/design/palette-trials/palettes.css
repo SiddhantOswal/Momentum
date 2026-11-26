@@ -157,6 +157,16 @@ html[data-emph="butter"][data-theme="dark"] .m .kr {
 }
 html[data-emph="butter"][data-theme] .m .hm-open { background: #17130A; color: #F4EFD8; }
 
+/* Lighter washed-yellow card (data-emph="butter-light"): the same butter, lifted from #EEE0A0 to #F7EEC1. */
+html[data-emph="butter-light"][data-theme="light"] .m .kr,
+html[data-emph="butter-light"][data-theme="dark"] .m .kr {
+  --cd: #F7EEC1; --rz: rgba(20,17,8,.06); --bg: rgba(20,17,8,.045); --ln: rgba(20,17,8,.14); --ln2: rgba(20,17,8,.3);
+  --tx: #17130A; --mu: rgba(23,19,10,.76); --dim: rgba(23,19,10,.64); --ok: #14573C; --wn: #6E4200; --bd: #9C2430; --ct: #17130A;
+  --bar0: rgba(23,19,10,.3); --g1: #14573C; --g2: rgba(23,19,10,.4); --inv: #F7EEC1; --ac: #17130A; --arc-accent-ink: #F2F2F2;
+  background: #F7EEC1; color: #17130A; border-color: #F7EEC1; box-shadow: none;
+}
+html[data-emph="butter-light"][data-theme] .m .hm-open { background: #17130A; color: #F4EFD8; }
+
 /* ============================== C. Logo, either trial ============================== */
 /* The stencil letters only, taken from the kraft-board photo into a transparent PNG (assets/). */
 html[data-palette] .m .brand, html[data-accent] .m .brand {
