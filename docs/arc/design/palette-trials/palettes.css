@@ -1,0 +1,104 @@
+/*
+ * Palette trials for Home and Insights. Not linked by the app: render.cjs injects this file and sets
+ * data-palette="mono" or data-accent="yellow" on <html>. With neither attribute nothing here applies,
+ * so the shipped look is unchanged.
+ *
+ * A. Monochrome (data-palette="mono"): black at 95% (#0D0D0D) for the page and ink, 92% (#141414) for
+ *    cards, greys between, white for text and the accent. Alerts keep their colours: green for ok, red for
+ *    errors and low confidence, amber for warnings, as in the app today. The kraft card becomes the one inverted card per page.
+ * B. Yellow accent (data-accent="yellow"): the orange accent swapped for yellow. Everything else as is.
+ */
+
+/* ============================== A. Monochrome ============================== */
+html[data-palette="mono"][data-theme="dark"] {
+  --bg: #0D0D0D; --sb: #080808; --cd: #141414; --rz: #1C1C1C; --ln: #262626; --ln2: #3D3D3D;
+  --tx: #F2F2F2; --mu: #A8A8A8; --dim: #7E7E7E;
+  --ac: #F2F2F2; --arc-accent-ink: #0D0D0D; --ct: #E4E4E4;
+  --ok: #5FBF98; --wn: #E3A340; --bd: #F0707A;
+  --g1: #D0D0D0; --g2: #6E6E6E; --bar0: #4B4B4B; --stg: #0A0A0A; --pap: #BDBDBD; --inv: #0D0D0D;
+}
+html[data-palette="mono"][data-theme="light"] {
+  --bg: #F2F2F2; --sb: #E9E9E9; --cd: #FFFFFF; --rz: #ECECEC; --ln: #DADADA; --ln2: #BBBBBB;
+  --tx: #0D0D0D; --mu: #464646; --dim: #6B6B6B;
+  --ac: #0D0D0D; --arc-accent-ink: #FFFFFF; --ct: #2A2A2A;
+  --ok: #1F7A58; --wn: #8F5A00; --bd: #B8333F;
+  --g1: #2B2B2B; --g2: #8A8A8A; --bar0: #9C9C9C; --stg: #F7F7F7; --pap: #8C8C8C; --inv: #FFFFFF;
+}
+
+/* The kraft card: the page's one inverted surface. */
+html[data-palette="mono"][data-theme="dark"] .m .kr {
+  --cd: #ECECEC; --rz: rgba(13,13,13,.07); --bg: rgba(13,13,13,.05); --ln: rgba(13,13,13,.18); --ln2: rgba(13,13,13,.36);
+  --tx: #0D0D0D; --mu: rgba(13,13,13,.72); --dim: rgba(13,13,13,.6); --ok: #14573C; --wn: #6E4200; --bd: #9C2430; --ct: #0D0D0D;
+  --bar0: rgba(13,13,13,.3); --g1: #14573C; --g2: rgba(13,13,13,.4); --inv: #ECECEC; --ac: #0D0D0D; --arc-accent-ink: #F2F2F2;
+  background: #ECECEC; color: #0D0D0D; border-color: #ECECEC; box-shadow: none;
+}
+html[data-palette="mono"][data-theme="light"] .m .kr {
+  --cd: #0D0D0D; --rz: rgba(255,255,255,.09); --bg: rgba(255,255,255,.06); --ln: rgba(255,255,255,.2); --ln2: rgba(255,255,255,.4);
+  --tx: #F2F2F2; --mu: rgba(242,242,242,.74); --dim: rgba(242,242,242,.6); --ok: #5FBF98; --wn: #E3A340; --bd: #F0707A; --ct: #F2F2F2;
+  --bar0: rgba(255,255,255,.3); --g1: #7FCF9F; --g2: rgba(255,255,255,.4); --inv: #0D0D0D; --ac: #F2F2F2; --arc-accent-ink: #0D0D0D;
+  background: #0D0D0D; color: #F2F2F2; border-color: #0D0D0D; box-shadow: none;
+}
+
+/* Cards: square corners, a hairline, and the corner ticks of the reference dashboard. */
+html[data-palette="mono"] .m .cd { border-radius: 3px; position: relative; }
+html[data-palette="mono"] .m .cd::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .75;
+  background:
+    linear-gradient(var(--tx), var(--tx)) 0 0 / 9px 1px, linear-gradient(var(--tx), var(--tx)) 0 0 / 1px 9px,
+    linear-gradient(var(--tx), var(--tx)) 100% 0 / 9px 1px, linear-gradient(var(--tx), var(--tx)) 100% 0 / 1px 9px,
+    linear-gradient(var(--tx), var(--tx)) 0 100% / 9px 1px, linear-gradient(var(--tx), var(--tx)) 0 100% / 1px 9px,
+    linear-gradient(var(--tx), var(--tx)) 100% 100% / 9px 1px, linear-gradient(var(--tx), var(--tx)) 100% 100% / 1px 9px;
+  background-repeat: no-repeat;
+}
+
+/* Bars: dot-matrix segments instead of solid fills. The gaps are painted in the card colour over the fill. */
+html[data-palette="mono"] .m .hm-bar i,
+html[data-palette="mono"] .m .in-track > div {
+  background-image: repeating-linear-gradient(90deg, transparent 0 5px, var(--cd) 5px 7px) !important;
+  border-radius: 0 !important;
+}
+html[data-palette="mono"] .m .in-track { border-radius: 0; }
+
+/* The top-bar launcher, status chip, and the animated line's accent glows: grey instead of orange. */
+html[data-palette="mono"] .m .arc { border-color: var(--ln2); background: var(--rz); }
+html[data-palette="mono"] .m .arc:hover { background: var(--ln); border-color: var(--tx); }
+html[data-palette="mono"] .m .arc.on { border-color: var(--tx); background: var(--ln); }
+html[data-palette="mono"] .m .pv.ac { border-color: var(--ln2); color: var(--tx); }
+html[data-palette="mono"] .m .hm-callout { border-color: var(--ln2); }
+html[data-palette="mono"] .m .hm-stem i { background: var(--ln2); }
+html[data-palette="mono"] .m .hm-dot b.on { box-shadow: 0 0 0 4px var(--cd), 0 0 0 5px var(--ln2); }
+
+/* Button labels are hard-coded dark brown in the app (m.css lines 71, 137, 203); follow the ink token here. */
+html[data-palette="mono"] .m .bt.p, html[data-palette="mono"] .m .arc .go { color: var(--arc-accent-ink); }
+html[data-palette="mono"] .m .hm-open { background: var(--tx); color: var(--cd); }
+
+/* The Arc mark draws its glyph in a hard-coded dark brown (icons.tsx lines 45 to 47). */
+html[data-palette="mono"] .m .arc .mk path { stroke: var(--arc-accent-ink); }
+html[data-palette="mono"] .m .arc .mk circle { fill: var(--arc-accent-ink); }
+
+/* The value printed inside a bar sits in a small card-coloured label so the segments do not cut through it. */
+html[data-palette="mono"] .m .in-track > div > span { background: var(--cd); color: var(--tx) !important; padding: 0 6px; margin-right: 6px; border-radius: 2px; }
+
+/* Illustrations and the logo lose their colour; the kraft boxes read as grey board. */
+html[data-palette="mono"] .m .hm-art,
+html[data-palette="mono"] .m .brand,
+html[data-palette="mono"] .m .in-mo { filter: grayscale(1) contrast(1.06); }
+html[data-palette="mono"][data-theme="dark"] .m .hm-art { filter: grayscale(1) contrast(1.06) brightness(.92); }
+
+/* ============================== B. Yellow accent ============================== */
+html[data-accent="yellow"][data-theme="dark"] { --ac: #F5C518; --arc-accent-ink: #17130A; --ct: #F7DC6F; }
+html[data-accent="yellow"][data-theme="light"] { --ac: #F2BE00; --arc-accent-ink: #17130A; --ct: #7A5A00; }
+
+html[data-accent="yellow"] .m .pv.ac { border-color: rgba(245,197,24,.6); }
+html[data-accent="yellow"] .m .arc { border-color: rgba(245,197,24,.6); background: rgba(245,197,24,.10); }
+html[data-accent="yellow"] .m .arc:hover { background: rgba(245,197,24,.18); border-color: var(--ac); }
+html[data-accent="yellow"] .m .arc.on { border-color: var(--ac); background: rgba(245,197,24,.2); }
+html[data-accent="yellow"] .m .hm-callout { border-color: rgba(245,197,24,.7); }
+html[data-accent="yellow"] .m .hm-stem i { background: rgba(245,197,24,.7); }
+html[data-accent="yellow"] .m .hm-dot b.on { box-shadow: 0 0 0 4px var(--cd), 0 0 0 5px rgba(245,197,24,.6); }
+html[data-accent="yellow"] .m .hm-scn { background: linear-gradient(90deg, transparent, rgba(245,197,24,.34), transparent); }
+html[data-accent="yellow"] .m .hm-lens, html[data-accent="yellow"] .m .hm-abase .hm-led { background: #F5C518; box-shadow: 0 0 8px #F5C518; }
+html[data-accent="yellow"] .m .hm-agrip .hm-gstrip { background: #F5C518; box-shadow: 0 0 10px #F5C518; }
+/* Yellow text on a light page fails contrast, so accent-coloured text uses the dark amber there. */
+html[data-accent="yellow"][data-theme="light"] .m .sx.ac,
+html[data-accent="yellow"][data-theme="light"] .m .lk { color: #7A5A00; }
