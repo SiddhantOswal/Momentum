@@ -607,14 +607,17 @@ app.route("/api/arc", createArcRoutes({
   })),
 }));
 
-// One canonical application. Old dashboard bookmarks retain query/fragment state.
+// The app under /app is the product. Old dashboard bookmarks land there too.
 for (const path of ["/dashboard", "/dashboard/", "/dasboard", "/dasboard/"]) {
-  app.get(path, (c) => c.redirect("/" + new URL(c.req.url).search, 302));
+  app.get(path, (c) => c.redirect("/app/", 302));
 }
 app.get("/dashboard.css", async (c) => c.body(await readFile(new URL("./public/dashboard.css", import.meta.url)), 200, {
   "Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-store",
 }));
-app.get("/", (c) => c.html(homePage));
+// 302, not 301: browsers cache a permanent redirect, and the root may change again.
+app.get("/", (c) => c.redirect("/app/", 302));
+// The previous interface, unlinked, until it is retired (ARC-M6-22).
+app.get("/classic", (c) => c.html(homePage));
 
 app.get("/health", (c) => {
   return c.json({ ok: true, mode: process.env.K_SERVICE ? "cloud-run" : "local-development", executionMode });
@@ -649,10 +652,10 @@ async function refuseNewSession(c) {
 const PitchClaimBodySchema = z.object({ code: z.string().min(1).max(128) }).strict();
 
 app.post("/api/auth/pitch-claim", async (c) => {
-  if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Hackathon authorization is disabled or incomplete." } }, 503);
+  if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Sign-in is not set up on this deployment." } }, 503);
   if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
   const cookie = getCookie(c, "__Host-ustaad-demo");
-  if (!hackathonAuth.authenticate(cookie).ok) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Start or renew the temporary hackathon session." } }, 401);
+  if (!hackathonAuth.authenticate(cookie).ok) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to start a new one." } }, 401);
   if (!budgetPolicyRequested || !pitchExchange.configured) return c.json({ ok: false, error: { code: "PITCH_CLAIM_UNAVAILABLE", message: "The pitch claim is not available." } }, 503);
   const body = PitchClaimBodySchema.safeParse(await c.req.json().catch(() => undefined));
   if (!body.success) return c.json({ ok: false, error: { code: "INVALID_REQUEST", message: "Send a JSON body with a code of at most 128 characters." } }, 400);
@@ -667,14 +670,14 @@ app.post("/api/auth/pitch-claim", async (c) => {
     return c.json({ ok: false, error: { code: "PITCH_CODE_INVALID", message: "That code is not valid." } }, 403);
   }
   const claimed = hackathonAuth.grant(cookie, PITCH_RESERVE_GRANT);
-  if (claimed === undefined) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Start or renew the temporary hackathon session." } }, 401);
+  if (claimed === undefined) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to start a new one." } }, 401);
   console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "granted" }));
   setCookie(c, "__Host-ustaad-demo", claimed, { secure: true, httpOnly: true, sameSite: "Strict", path: "/" });
   return c.json({ ok: true, grant: PITCH_RESERVE_GRANT, expiresAt: new Date(hackathonAuth.authenticate(claimed).principal.expiresAt * 1000).toISOString() }, 200, { "Cache-Control": "no-store" });
 });
 
 app.post("/api/auth/demo-session", async (c) => {
-  if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Hackathon authorization is disabled or incomplete." } }, 503);
+  if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Sign-in is not set up on this deployment." } }, 503);
   if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
   const existing = getCookie(c, "__Host-ustaad-demo");
   let token = existing;

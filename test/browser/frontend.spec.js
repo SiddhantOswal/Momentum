@@ -12,7 +12,7 @@ const impact = { ok: true, source: 'bigquery', kpis: { lotsScored: 219, lotsChan
 
 async function fulfill(route, body, status = 200) { await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }); }
 // Lot-workflow tests start on New Lot; the app itself lands on Impact (see the landing test).
-async function boot(page, configured = false, hackathon = false, path = '/#screen-order-input') {
+async function boot(page, configured = false, hackathon = false, path = '/classic#screen-order-input') {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
@@ -278,7 +278,7 @@ test('optimization, historical evidence and explanation retain strict request sc
 
 test('local PDF utility remains separate from persisted approval and handles invalid JSON',async({page})=>{
   // The developer utility is hidden by default and shown with ?debug=1.
-  await boot(page,false,false,'/?debug=1#screen-order-input');await navigate(page,'Production analysis');await page.locator('.utility-panel').filter({has:page.locator('#job-sheet-form')}).locator('summary').click();
+  await boot(page,false,false,'/classic?debug=1#screen-order-input');await navigate(page,'Production analysis');await page.locator('.utility-panel').filter({has:page.locator('#job-sheet-form')}).locator('summary').click();
   await page.locator('#job-sheet-json').fill('invalid');await page.locator('#job-sheet-form button').click();await expect(page.locator('#job-sheet-result')).toContainText('valid JobSheet JSON');
   await page.locator('#job-sheet-json').fill(JSON.stringify(job));
   await page.route('**/job-sheets/render.pdf?lang=en',route=>route.fulfill({contentType:'application/pdf',body:Buffer.from('%PDF-1.4 supplied fixture only')}));
@@ -406,7 +406,7 @@ test('light UI: developer panels hidden by default, sample order fills the appro
 });
 
 test('the app lands on Impact, with Plan a lot leading into New Lot', async ({ page }) => {
-  await boot(page, false, false, '/');
+  await boot(page, false, false, '/classic');
   await page.locator('#welcome-login').click();
   await expect(page).toHaveURL(/#screen-impact$/);
   await expect(page.locator('#screen-impact')).toBeVisible();
@@ -418,7 +418,7 @@ test('the app lands on Impact, with Plan a lot leading into New Lot', async ({ p
 test('theme toggle switches light and dark, and remembers the choice', async ({ page }) => {
   // The theme is client-only, so this test does not wait on the (rate-limited) status API.
   await page.emulateMedia({ colorScheme: 'light' });
-  await page.goto('/#screen-order-input');
+  await page.goto('/classic#screen-order-input');
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   const lightBackground = await background();
   await expect(page.locator('#theme-toggle')).toHaveAttribute('aria-label', 'Switch to dark mode');
@@ -432,7 +432,7 @@ test('theme toggle switches light and dark, and remembers the choice', async ({ 
 
 test('demo welcome screen shows the brand once, logs in without credentials and never blocks direct links', async ({ page }) => {
   // Client-only screen: no wait on the (rate-limited) status API.
-  await page.goto('/');
+  await page.goto('/classic');
   await expect(page.locator('#welcome-screen')).toBeVisible();
   await expect(page.locator('#welcome-tagline')).toHaveText('Where manufacturing gains intelligence');
   await expect(page.locator('#welcome-screen input')).toHaveCount(0);
@@ -443,7 +443,7 @@ test('demo welcome screen shows the brand once, logs in without credentials and 
   await page.reload();
   await expect(page.locator('#welcome-screen')).toHaveCount(0);
   const fresh = await page.context().newPage();
-  await fresh.goto('/#screen-order-input');
+  await fresh.goto('/classic#screen-order-input');
   await expect(fresh.locator('#welcome-screen')).toHaveCount(0);
   await expect(fresh.locator('#screen-order-input')).toBeVisible();
 });

@@ -168,7 +168,7 @@ export function createPurchaseOrderReviewService({
       return {
         ok: false,
         status: 401,
-        error: { code: "DEMO_SESSION_REQUIRED", message: "Start or renew the temporary hackathon session to read a purchase order." },
+        error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to read the purchase order again." },
       };
     }
     const parsedOperatorFields = OrderOperatorFieldsSchema.safeParse(operatorFields);
