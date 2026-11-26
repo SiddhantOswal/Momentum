@@ -43,15 +43,44 @@ function problemOf(exchange: Exchange, retry: (exchange: Exchange) => void): Ste
   return { words: outcome.words, onRetry: outcome.retry && input ? () => retry(exchange) : undefined, retryAt: outcome.retry?.at };
 }
 
-function screenFor(exchange: Exchange, retry: (exchange: Exchange) => void): ReactNode | null {
+const refOf = (steps: Exchange["steps"], tool: string, kind: string) =>
+  steps.find((step) => step.tool === tool && step.resultRef?.kind === kind)?.resultRef?.id ?? null;
+const paramOf = (exchange: Exchange, name: string) =>
+  exchange.input?.kind === "action" && typeof exchange.input.params?.[name] === "string" ? exchange.input.params[name] as string : null;
+// The conditions card names what to fix; the general words are for a message Arc could not route.
+const CONDITIONS_INVALID = "Check the values. One is outside the plant's recorded range or is not a valid value.";
+
+/**
+ * `latest` is false once a later exchange is in the panel, so an old review card cannot open a
+ * second lot by mistake. A conditions card always names its own lot, so it stays usable.
+ */
+function screenFor(exchange: Exchange, retry: (exchange: Exchange) => void, latest: boolean): ReactNode | null {
   const { outcome, steps } = exchange;
   const last = steps.at(-1);
   if (!outcome || !last || outcome.kind === "not_connected" || outcome.kind === "error") return null;
   const problem = problemOf(exchange, retry);
   const ref = last.resultRef;
+  const params = exchange.input?.kind === "action" ? exchange.input.params : undefined;
+  if (last.status === "WAITING_FOR_USER") {
+    switch (last.waitingFor) {
+      case "confirm_order": return <LotReview reviewId={refOf(steps, "read_order", "po_review")} closed={!latest} />;
+      case "confirm_conditions": return <LotConditions lotId={refOf(steps, "confirm_order", "lot")} />;
+      case "approve": {
+        const jobId = refOf(steps, "plan_lot", "job");
+        return jobId ? <JobFlow jobId={jobId} /> : <PlanStopped problem={problem} />;
+      }
+      default: return null;
+    }
+  }
   switch (last.tool) {
     case "list_samples": return last.status === "SUCCEEDED" ? <LotSource /> : null;
-    case "read_order": return last.status === "SUCCEEDED" || last.waitingFor ? <LotReview problem={problem} /> : <LotSource problem={problem} />;
+    case "read_order": return last.status === "SUCCEEDED" && ref?.kind === "po_review"
+      ? <LotReview reviewId={ref.id} problem={problem} closed={!latest} /> : <LotSource problem={problem} />;
+    case "confirm_order": return <LotReview reviewId={paramOf(exchange, "reviewId")} problem={problem} closed={!latest} />;
+    case "confirm_conditions": return (
+      <LotConditions lotId={paramOf(exchange, "lotId")} initial={params}
+        problem={problem && last.errorCode === "VALIDATION_ERROR" ? { ...problem, words: CONDITIONS_INVALID } : problem} />
+    );
     case "set_conditions": return <LotConditions lotId={ref?.kind === "lot" ? ref.id : null} problem={problem} />;
     case "plan_lot": return ref?.kind === "job" ? <JobFlow jobId={ref.id} /> : <PlanStopped problem={problem} />;
     case "list_approved_photos": return last.status === "SUCCEEDED" ? <DefectCheck /> : null;
@@ -75,8 +104,10 @@ function Outcome({ exchange, ask, busy, retry }: { exchange: Exchange; ask: Ask;
   }
 }
 
-function ExchangeView({ exchange, ask, busy, retry }: { exchange: Exchange; ask: Ask; busy: boolean; retry: (exchange: Exchange) => void }) {
-  const screen = screenFor(exchange, retry);
+function ExchangeView({ exchange, ask, busy, retry, latest }: {
+  exchange: Exchange; ask: Ask; busy: boolean; retry: (exchange: Exchange) => void; latest: boolean;
+}) {
+  const screen = screenFor(exchange, retry, latest);
   if (screen) return <article className="stl" style={{ gap: 16 }} aria-label={`You asked: ${exchange.asked}`}>{screen}</article>;
   return (
     <article className="stl" style={{ gap: 16 }} aria-label={`You asked: ${exchange.asked}`}>
@@ -189,7 +220,7 @@ function PastWork({ onOpen }: { onOpen: (turn: TurnListItem) => void }) {
   );
 }
 
-const LOT_TOOLS = new Set(["list_samples", "read_order", "set_conditions", "plan_lot"]);
+const LOT_TOOLS = new Set(["list_samples", "read_order", "confirm_order", "confirm_conditions", "set_conditions", "plan_lot"]);
 
 export function ArcPanel({ hostName, conversation, onClose }: { hostName: string; conversation: ArcConversation; onClose: () => void }) {
   const { exchanges, connection, session, callsLeft, busy, workingOn, setWorkingOn, send, retry, showPast, checkConnection } = conversation;
@@ -271,7 +302,9 @@ export function ArcPanel({ hostName, conversation, onClose }: { hostName: string
                 {exchanges.length === 0 && <Start send={screen.send} disabled={busy || notConnected} session={session} />}
                 {exchanges.length > 0 && (
                   <div role="log" aria-label="Arc messages" aria-live="polite" className="stl" style={{ gap: 28 }}>
-                    {exchanges.map((exchange) => <ExchangeView key={exchange.id} exchange={exchange} ask={ask} busy={busy} retry={retry} />)}
+                    {exchanges.map((exchange, index) => (
+                      <ExchangeView key={exchange.id} exchange={exchange} ask={ask} busy={busy} retry={retry} latest={index === exchanges.length - 1} />
+                    ))}
                   </div>
                 )}
               </>

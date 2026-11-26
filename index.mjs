@@ -29,6 +29,7 @@ import { isSampleDocument } from "./src/synthetic-po-allowlist.js";
 import { createArcModelPorts } from "./src/arc/model-ports.js";
 import { createArcRoutes } from "./src/arc/routes.js";
 import { createArcTurnRunner } from "./src/arc/turn-runner.js";
+import { createArcWriteEffects } from "./src/arc/write-effects.js";
 import { createArcEventStore } from "./src/google-cloud/firestore-arc-event-store.js";
 import { createFirestoreArcSessionStore } from "./src/google-cloud/firestore-arc-session-store.js";
 import { createFirestoreArcTaskRunStore } from "./src/google-cloud/firestore-arc-task-run-store.js";
@@ -601,7 +602,7 @@ app.route("/api/arc", createArcRoutes({
     taskRunStore: arcTaskRunStore,
     eventStore: createArcEventStore(arcFirestore),
     lotStore: arcLotStore,
-    deps: commandDeps,
+    deps: { ...commandDeps, runWriteEffect: createArcWriteEffects({ servicePorts }) },
     ...createArcModelPorts(servicePorts, { log: (entry) => console.error(JSON.stringify(entry)) }),
   })),
 }));

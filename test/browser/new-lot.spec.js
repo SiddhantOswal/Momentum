@@ -336,6 +336,14 @@ test('planning again after the approve guard replaced the draft sends a new idem
   expect(keys[1]).not.toBe(keys[0]);
 });
 
+test('a plan refused at the daily plan limit says so in plain words and stays on Conditions', async ({ page }) => {
+  await mockBackend(page, { 'POST /jobs': json(429, { ok: false, error: { code: 'PLAN_DAILY_LIMIT_REACHED', message: "This session has planned today's limit of lots.", retryAfterSeconds: 3600 } }) });
+  await openStep(page, '#/new-lot/conditions', filled({ plan: undefined }));
+  await page.getByRole('button', { name: 'Plan this lot' }).click();
+  await expect(page.getByText('This session has planned as many lots as it can today. Planning opens again at midnight IST (02:30 in Singapore).')).toBeVisible();
+  await expect(page).toHaveURL(/#\/new-lot\/conditions$/);
+});
+
 test('a plan that comes back with a replaced revision is shown as stale, not approvable', async ({ page }) => {
   await mockBackend(page, { 'POST /jobs': json(200, { ...PLAN, revision: { ...REVISION, status: 'SUPERSEDED' } }) });
   await openStep(page, '#/new-lot/conditions', filled({ plan: undefined }));

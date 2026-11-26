@@ -21,6 +21,7 @@ const session = (patch = {}) => json(200, { ok: true, session: {
 const LABELS = {
   read_order: 'Reading the order', set_conditions: 'Saving the conditions', plan_lot: 'Planning the lot',
   diagnose_approved_photo: 'Checking the photo', get_status: 'Reading the data', query_metric: 'Reading the data',
+  confirm_order: 'Confirming the order', confirm_conditions: 'Saving the conditions', approve: 'Waiting for your approval',
 };
 const label = (tool) => LABELS[tool] ?? 'Working on this step';
 
@@ -49,6 +50,33 @@ function oneStep(clientTurnId, { tool, kind, resultRef = null, end = 'succeeded'
   }
   return events;
 }
+/**
+ * A fixed action's run as the turn runner sends it: each tool step started and succeeded, then,
+ * when the action hands over to the person, a step waiting for them and the answer with no run.completed.
+ */
+function actionRun(clientTurnId, { steps, waitingFor }) {
+  const base = { clientTurnId };
+  let sequence = 0;
+  const events = [{ ...base, sequence: ++sequence, type: 'run.started', taskRunId: RUN_ID, kind: 'lot_preparation' }];
+  steps.forEach(({ tool, resultRef = null }, index) => {
+    const step = { ...base, stepId: `step_${index + 1}`, tool, label: label(tool) };
+    events.push({ ...step, sequence: ++sequence, type: 'step.started' }, { ...step, sequence: ++sequence, type: 'step.succeeded', resultRef });
+  });
+  if (waitingFor) {
+    events.push({ ...base, sequence: ++sequence, type: 'step.waiting_for_user', stepId: `step_${steps.length + 1}`, tool: waitingFor, label: label(waitingFor), waitingFor });
+  }
+  events.push({ ...base, sequence: ++sequence, type: 'answer', resultRef: { kind: 'turn', id: clientTurnId } });
+  if (!waitingFor) events.push({ ...base, sequence: ++sequence, type: 'run.completed' });
+  return events;
+}
+const REVIEW = { reviewId: REVIEW_ID, expiresAt: '2026-11-25T10:30:00.000Z', readByGemini: true,
+  lines: [{ lineIndex: 0, sourcePage: 1, itemCode: 'PKBX0041', quantity: 1300, status: 'MATCHED' }] };
+async function mockReview(page, review = REVIEW) {
+  const reads = [];
+  await page.route(/\/api\/arc\/reviews\/[^/]+$/, (route) => { reads.push(route.request().url()); return route.fulfill(json(200, { ok: true, review })); });
+  return reads;
+}
+
 const noRun = (clientTurnId) => [{ sequence: 0, type: 'answer', clientTurnId, resultRef: { kind: 'turn', id: clientTurnId } }];
 
 function turnRecord(clientTurnId, input, answer, taskRunId = RUN_ID) {
@@ -198,20 +226,56 @@ for (const theme of ['dark', 'light']) {
 
       await expect(panel.getByRole('heading', { name: 'Check what was read' })).toBeVisible();
       expect(posts[0].input).toEqual({ kind: 'action', actionId: 'list_samples' });
-      expect(posts[1].input).toEqual({ kind: 'text', text: 'Read sample order PO2' });
+      expect(posts[1].input).toEqual({ kind: 'action', actionId: 'read_sample_order', params: { sampleId: 'PO2' } });
     });
 
-    test('Arc-Lot-Review shows the not-connected review and keeps Confirm order off', async ({ page }) => {
-      await mockTurns(page, [{ events: (id) => oneStep(id, { tool: 'read_order', kind: 'lot_preparation', resultRef: { kind: 'po_review', id: REVIEW_ID } }) }]);
+    test('Arc-Lot-Review shows the stored lines, and Confirm order needs the three checks and sends only the review and line', async ({ page }) => {
+      const posts = await mockTurns(page, [
+        { events: (id) => actionRun(id, { steps: [{ tool: 'read_order', resultRef: { kind: 'po_review', id: REVIEW_ID } }], waitingFor: 'confirm_order' }) },
+        { events: (id) => actionRun(id, { steps: [{ tool: 'confirm_order', resultRef: { kind: 'lot', id: LOT_ID } }], waitingFor: 'confirm_conditions' }) },
+      ]);
+      const reviewReads = await mockReview(page);
+      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
       const panel = await openArc(page, { theme });
       await type(panel, 'Read sample order PO1');
       await expect(panel.getByRole('heading', { name: 'Check what was read' })).toBeVisible();
-      await expect(panel.getByText('Not connected', { exact: true })).toBeVisible();
-      await expect(panel.getByText('The order review is stored, but it is not shown here yet. No route returns a stored review to Arc, so the values cannot be checked or confirmed in Arc.')).toBeVisible();
-      await expect(panel.getByRole('checkbox')).toHaveCount(3);
+      const lines = panel.getByRole('radiogroup', { name: 'Order lines' });
+      await expect(lines.getByRole('radio')).toHaveCount(1);
+      await expect(lines.getByRole('radio')).toBeChecked();
+      await expect(lines).toContainText('Line 1: PKBX0041');
+      await expect(lines).toContainText('1,300 boxes, page 1');
+      await expect(lines).toContainText('Matched');
+      await expect(panel.getByText('Read from the order by Gemini. One line on this order. The catalog match runs in code.')).toBeVisible();
+      await expect(panel.getByText('Not connected', { exact: true })).toHaveCount(0);
+      expect(decodeURIComponent(reviewReads[0])).toContain(`/api/arc/reviews/${REVIEW_ID}`);
+
+      const confirm = panel.getByRole('button', { name: 'Confirm order' });
+      const boxes = panel.getByRole('checkbox');
+      await expect(boxes).toHaveCount(3);
+      await expect(confirm).toBeDisabled();
+      await boxes.nth(0).check();
+      await boxes.nth(1).check();
+      await expect(confirm).toBeDisabled();
+      await boxes.nth(2).check();
+      await expect(confirm).toBeEnabled();
+      await confirm.click();
+      await expect(panel.getByRole('heading', { name: "Confirm today's conditions" })).toBeVisible();
+      expect(posts[1].input).toEqual({ kind: 'action', actionId: 'confirm_order', params: { reviewId: REVIEW_ID, lineIndex: 0 } });
+    });
+
+    test('Arc-Lot-Review keeps Confirm order off for a line the catalog did not match', async ({ page }) => {
+      await mockTurns(page, [{ events: (id) => actionRun(id, { steps: [{ tool: 'read_order', resultRef: { kind: 'po_review', id: REVIEW_ID } }], waitingFor: 'confirm_order' }) }]);
+      await mockReview(page, { ...REVIEW, readByGemini: false, lines: [{ lineIndex: 0, sourcePage: 1, itemCode: null, quantity: 1300, status: 'UNKNOWN_CODE' }] });
+      const panel = await openArc(page, { theme });
+      await type(panel, 'Read sample order PO1');
+      const lines = panel.getByRole('radiogroup', { name: 'Order lines' });
+      await expect(lines).toContainText('Line 1: No catalog item');
+      await expect(lines).toContainText('Not in catalog');
+      await expect(lines.getByRole('radio')).toBeDisabled();
+      await expect(panel.getByText(/Sample output, no model call\./)).toBeVisible();
       for (const box of await panel.getByRole('checkbox').all()) await expect(box).toBeDisabled();
       await expect(panel.getByRole('button', { name: 'Confirm order' })).toBeDisabled();
-      await expect(panel.getByRole('link')).toHaveCount(0);
+      await expect(panel.getByText('Pick a matched line to confirm.')).toBeVisible();
     });
 
     test('Arc-Lot-Conditions reads the lot record and labels each value', async ({ page }) => {
@@ -225,18 +289,122 @@ for (const theme of ['dark', 'light']) {
       await expect(rows.locator('.fr')).toHaveCount(5);
       await expect(rows.locator('.fr').nth(0)).toContainText('Humidity');
       await expect(rows.locator('.fr').nth(0)).toContainText('Confirmed by operator');
-      await expect(rows.locator('.fr').nth(0)).toContainText('44');
+      await expect(rows.getByLabel('Humidity')).toHaveValue('44');
       await expect(rows.locator('.fr').nth(1)).toContainText('Example value');
+      await expect(rows.getByLabel('Paper moisture')).toHaveValue('7.1');
       await expect(rows.locator('.fr').nth(2)).toContainText('Required');
-      await expect(rows.locator('.fr').nth(2)).toContainText('Enter value');
-      await expect(panel.getByRole('tab', { name: /Conditions 4 left/ })).toHaveAttribute('aria-selected', 'true');
-      await expect(panel.getByText('1 of 5 conditions confirmed.', { exact: false })).toBeVisible();
+      await expect(rows.getByLabel('Ambient temperature')).toHaveAttribute('placeholder', 'Enter value');
+      await expect(panel.getByRole('tab', { name: /Conditions 3 left/ })).toHaveAttribute('aria-selected', 'true');
+      await expect(panel.getByText('2 of 12 values entered.')).toBeVisible();
       await expect(panel.getByRole('button', { name: 'Confirm conditions' })).toBeDisabled();
       await panel.getByRole('tab', { name: /Conditions/ }).press('ArrowRight');
-      await expect(panel.getByRole('tab', { name: 'Planned settings' })).toHaveAttribute('aria-selected', 'true');
-      await expect(panel.getByText(/Arc cannot take them yet/)).toBeVisible();
+      await expect(panel.getByRole('tab', { name: /Planned settings 7 left/ })).toHaveAttribute('aria-selected', 'true');
+      await expect(panel.getByRole('region', { name: 'Planned settings' }).locator('.fr')).toHaveCount(7);
+      await expect(panel.getByText('Not connected', { exact: true })).toHaveCount(0);
       expect(lotReads).toHaveLength(1);
       expect(decodeURIComponent(lotReads[0])).toContain(`/lots/${LOT_ID}`);
+    });
+
+    test('Arc lot flow: Read this order, Confirm order and Confirm conditions reach the Approve card', async ({ page }) => {
+      const posts = await mockTurns(page, [
+        { events: (id) => oneStep(id, { tool: 'list_samples', kind: 'lot_preparation' }) },
+        { events: (id) => actionRun(id, { steps: [{ tool: 'read_order', resultRef: { kind: 'po_review', id: REVIEW_ID } }], waitingFor: 'confirm_order' }) },
+        { events: (id) => actionRun(id, { steps: [{ tool: 'confirm_order', resultRef: { kind: 'lot', id: LOT_ID } }], waitingFor: 'confirm_conditions' }) },
+        { events: (id) => actionRun(id, { steps: [
+          { tool: 'confirm_conditions', resultRef: { kind: 'lot', id: LOT_ID } }, { tool: 'plan_lot', resultRef: { kind: 'job', id: JOB_ID } },
+        ], waitingFor: 'approve' }) },
+      ]);
+      await mockReview(page);
+      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
+      const approvals = await mockJob(page);
+      const panel = await openArc(page, { theme });
+      await panel.getByRole('button', { name: /^New lot/ }).click();
+      await panel.getByRole('button', { name: 'Read this order' }).click();
+      await expect(panel.getByRole('radiogroup', { name: 'Order lines' }).getByRole('radio')).toBeChecked();
+      for (const box of await panel.getByRole('checkbox').all()) await box.check();
+      await panel.getByRole('button', { name: 'Confirm order' }).click();
+
+      const card = panel.getByRole('article').last();
+      await expect(card.getByRole('heading', { name: "Confirm today's conditions" })).toBeVisible();
+      await expect(card.getByText('For PKBX0041, 1,300 boxes.')).toBeVisible();
+      // The review card above it is closed, so it cannot open a second lot by mistake.
+      const review = panel.getByRole('article').nth(1);
+      await expect(review.getByRole('button', { name: 'Confirm order' })).toBeDisabled();
+      await expect(review.getByText('Arc has moved on from this card. Read the order again to confirm another line.')).toBeVisible();
+      for (const box of await review.getByRole('checkbox').all()) await expect(box).toBeDisabled();
+      const conditions = card.getByRole('region', { name: 'Conditions' });
+      await expect(conditions.getByLabel('Paper moisture')).toHaveValue('7.3');
+      await expect(conditions.locator('.fr').nth(1)).toContainText('Example value');
+      await conditions.getByLabel('Humidity').fill('62');
+      await conditions.getByLabel('Ambient temperature').fill('24.5');
+      await conditions.getByLabel('Run date').fill('2026-11-25');
+      await conditions.getByLabel('Shift').selectOption('DAY');
+      const confirm = card.getByRole('button', { name: 'Confirm conditions' });
+      await expect(confirm).toBeDisabled();
+      await card.getByRole('tab', { name: /Planned settings/ }).click();
+      const settings = card.getByRole('region', { name: 'Planned settings' });
+      for (const [name, value] of [['Single facer speed', '48'], ['Roll temperature', '162'], ['Gum viscosity', '32'], ['Drying time', '5'], ['Print speed', '60']]) {
+        await settings.getByLabel(name).fill(value);
+      }
+      await settings.getByLabel('Gum application').selectOption('HIGH');
+      await settings.getByLabel('Pasting pressure').selectOption('MED');
+      await expect(card.getByText('Arc saves these values and plans the lot.')).toBeVisible();
+      await confirm.click();
+
+      await expect(panel.getByRole('heading', { name: 'Compare the two plans' })).toBeVisible();
+      await panel.getByRole('button', { name: 'Prepare job-card draft' }).click();
+      await expect(panel.getByRole('heading', { name: 'Approve the job card' })).toBeVisible();
+      await expect(panel.getByRole('button', { name: 'Approve job card' })).toBeDisabled();
+      expect(approvals).toHaveLength(0);
+      expect(posts.map(({ input }) => input)).toEqual([
+        { kind: 'action', actionId: 'list_samples' },
+        { kind: 'action', actionId: 'read_sample_order', params: { sampleId: 'PO1' } },
+        { kind: 'action', actionId: 'confirm_order', params: { reviewId: REVIEW_ID, lineIndex: 0 } },
+        { kind: 'action', actionId: 'confirm_conditions', params: {
+          lotId: LOT_ID, runDate: '2026-11-25', shift: 'DAY', ambientRhPct: 62, ambientTempC: 24.5, paperMoisturePct: 7.3, paperMoistureSource: 'example',
+          sfSpeedMpm: 48, rollTempC: 162, gumApplication: 'HIGH', gumViscositySec: 32, pastingPressure: 'MED', dryingHours: 5, printSpeedSpm: 60,
+        } },
+      ]);
+    });
+
+    test('Arc-Lot-Conditions sends an edited paper moisture as confirmed, and a refused value keeps the form with the reason', async ({ page }) => {
+      const posts = await mockTurns(page, [
+        { events: (id) => actionRun(id, { steps: [{ tool: 'read_order', resultRef: { kind: 'po_review', id: REVIEW_ID } }], waitingFor: 'confirm_order' }) },
+        { events: (id) => actionRun(id, { steps: [{ tool: 'confirm_order', resultRef: { kind: 'lot', id: LOT_ID } }], waitingFor: 'confirm_conditions' }) },
+        { events: (id) => [
+          { clientTurnId: id, sequence: 1, type: 'run.started', taskRunId: RUN_ID, kind: 'lot_preparation' },
+          { clientTurnId: id, sequence: 2, type: 'step.started', stepId: 'step_1', tool: 'confirm_conditions', label: 'Saving the conditions' },
+          { clientTurnId: id, sequence: 3, type: 'step.failed', stepId: 'step_1', tool: 'confirm_conditions', label: 'Saving the conditions', errorCode: 'VALIDATION_ERROR', retrySafe: false },
+        ] },
+      ]);
+      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
+      await mockReview(page);
+      const panel = await openArc(page, { theme });
+      await type(panel, 'Read sample order PO1');
+      await expect(panel.getByRole('radiogroup', { name: 'Order lines' }).getByRole('radio')).toBeChecked();
+      for (const box of await panel.getByRole('checkbox').all()) await box.check();
+      await panel.getByRole('button', { name: 'Confirm order' }).click();
+      const card = panel.getByRole('article').last();
+      await expect(card.getByRole('heading', { name: "Confirm today's conditions" })).toBeVisible();
+      const conditions = card.getByRole('region', { name: 'Conditions' });
+      await conditions.getByLabel('Humidity').fill('99');
+      await conditions.getByLabel('Paper moisture').fill('8.1');
+      await expect(conditions.locator('.fr').nth(1)).toContainText('Entered by operator');
+      await conditions.getByLabel('Ambient temperature').fill('24.5');
+      await conditions.getByLabel('Run date').fill('2026-11-25');
+      await conditions.getByLabel('Shift').selectOption('NIGHT');
+      await card.getByRole('tab', { name: /Planned settings/ }).click();
+      const settings = card.getByRole('region', { name: 'Planned settings' });
+      for (const [name, value] of [['Single facer speed', '48'], ['Roll temperature', '162'], ['Gum viscosity', '32'], ['Drying time', '5'], ['Print speed', '60']]) {
+        await settings.getByLabel(name).fill(value);
+      }
+      await settings.getByLabel('Gum application').selectOption('HIGH');
+      await settings.getByLabel('Pasting pressure').selectOption('MED');
+      await card.getByRole('button', { name: 'Confirm conditions' }).click();
+      const stopped = panel.getByRole('article').last();
+      await expect(stopped.getByRole('alert')).toHaveText("Check the values. One is outside the plant's recorded range or is not a valid value.");
+      await expect(stopped.getByRole('region', { name: 'Conditions' }).getByLabel('Humidity')).toHaveValue('99');
+      expect(posts[2].input.params).toMatchObject({ lotId: LOT_ID, ambientRhPct: 99, paperMoisturePct: 8.1, paperMoistureSource: 'confirmed', shift: 'NIGHT' });
     });
 
     test('Arc-Lot-Compare draws the stored draft, and plan_lot blocked shows the reason', async ({ page }) => {
@@ -513,6 +681,26 @@ for (const theme of ['dark', 'light']) {
   });
 }
 
+test('a plan step stopped by the daily plan limit, a plan conflict or a revision conflict shows its own words, not the turn conflict', async ({ page }) => {
+  const stops = [
+    ['step.blocked', 'PLAN_DAILY_LIMIT_REACHED', 'This session has planned as many lots as it can today. Planning opens again at midnight IST (02:30 in Singapore).'],
+    ['step.failed', 'CONFLICT', 'These values clash with an earlier plan for the same step. Press Confirm conditions again.'],
+    ['step.failed', 'REVISION_CONFLICT', 'The lot changed while this draft was being prepared. Plan the lot again.'],
+    ['step.failed', 'DEMO_SCOPE_REQUIRED', 'This lot belongs to another demo session, so Arc cannot use it here.'],
+  ];
+  await mockTurns(page, stops.map(([type, errorCode]) => ({
+    events: (id) => oneStep(id, { tool: 'plan_lot', kind: 'lot_preparation', end: { type, errorCode, retrySafe: false } }),
+  })));
+  const panel = await openArc(page);
+  for (const [index, [, , words]] of stops.entries()) {
+    await type(panel, `Plan the lot ${index}`);
+    const stopped = panel.getByRole('article').nth(index);
+    await expect(stopped.getByRole('alert')).toHaveText(words, { useInnerText: true });
+    await expect(stopped.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+  }
+  await expect(panel.getByText('This message was already sent with different words. Send it again.')).toHaveCount(0);
+});
+
 test('after stream.error, Try again re-posts the same clientTurnId so the server replays or takes the turn over', async ({ page }) => {
   const posts = await mockTurns(page, [
     { events: (id) => [
@@ -744,5 +932,26 @@ test('long unbroken server strings wrap inside the phone sheet', async ({ page }
   await panel.getByRole('button', { name: 'Prepare job-card draft' }).click();
   await expect(panel.getByRole('heading', { name: new RegExp(`^${LONG}, Rev 1$`) })).toBeVisible();
   await expect(panel.locator('.cl')).toContainText(LONG);
+  await expectNoSidewaysScroll(page);
+});
+
+test('the phone sheet has no sideways scroll on the review and conditions cards', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await mockTurns(page, [
+    { events: (id) => actionRun(id, { steps: [{ tool: 'read_order', resultRef: { kind: 'po_review', id: REVIEW_ID } }], waitingFor: 'confirm_order' }) },
+    { events: (id) => actionRun(id, { steps: [{ tool: 'confirm_order', resultRef: { kind: 'lot', id: LOT_ID } }], waitingFor: 'confirm_conditions' }) },
+  ]);
+  await mockReview(page);
+  await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
+  const panel = await openArc(page, { hash: '#/home' });
+  await type(panel, 'Read sample order PO1');
+  await expect(panel.getByRole('radiogroup', { name: 'Order lines' }).getByRole('radio')).toBeChecked();
+  await expectNoSidewaysScroll(page);
+  for (const box of await panel.getByRole('checkbox').all()) await box.check();
+  await panel.getByRole('button', { name: 'Confirm order' }).click();
+  await expect(panel.getByRole('region', { name: 'Conditions' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  await panel.getByRole('tab', { name: /Planned settings/ }).click();
+  await expect(panel.getByRole('region', { name: 'Planned settings' })).toBeVisible();
   await expectNoSidewaysScroll(page);
 });

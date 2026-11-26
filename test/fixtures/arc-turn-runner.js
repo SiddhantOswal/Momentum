@@ -69,7 +69,7 @@ export function fixture({ router, writer, preRoute, readToolEffect, services = {
   function request(path, requestOptions, runner = create()) {
     const app = new Hono();
     app.route("/api/arc", createArcRoutes({ enabled: true, commandDeps: deps, sessionStore, taskRunStore,
-      ...runner, getIpKey: () => ip }));
+      lotStore: ports.lotStore, ...runner, getIpKey: () => ip }));
     return app.request(`http://localhost${path}`, {
       ...requestOptions, headers: { Cookie: `__Host-ustaad-demo=${cookie}`, Origin: "http://localhost" },
     });
@@ -81,7 +81,7 @@ export function fixture({ router, writer, preRoute, readToolEffect, services = {
   }
   return {
     create, post, request, attempts, reservations, budget, principal, sessionStore, taskRunStore, fake, clock, geminiCap,
-    store, legacyTraceStore: createFirestoreTraceStore(options),
+    store, legacyTraceStore: createFirestoreTraceStore(options), deps,
   };
 }
 

@@ -8,6 +8,7 @@ import { approveJob } from "../src/commands/approve-job.js";
 import { createFirestoreLotStore } from "../src/google-cloud/firestore-lot-store.js";
 import { vertexFunctionCallResponse, vertexTextResponse } from "../src/mock-agents.js";
 import { fakeFirestore } from "../test/fixtures/fake-firestore-transactions.js";
+import { conditionsFor, lotBackend } from "../test/fixtures/arc-lot-flow.js";
 import { action, arcTurns, text } from "./support/arc-turns.js";
 
 // Spec 3.4: a request to approve gets a short reply that Arc cannot approve.
@@ -104,6 +105,53 @@ test("BYP-R6 no request to Gemini declares or allows a function that approves", 
   assert.ok(names.length > 3);
   assert.deepEqual(names.filter((name) => /(^|_)(approve|authori[sz]e|sign_?off)(_|$)/.test(name)), ["explain_cannot_approve", "explain_cannot_approve"]);
   assert.ok(!JSON.stringify(body.tools).includes("checkbox"));
+});
+
+// ARC-M3-01: Confirm order and Confirm conditions are button actions. A router output that names them
+// runs nothing, even with a lot waiting for its conditions, and they are never declared to Gemini.
+test("BYP-R7 a router output that names confirm_order or confirm_conditions runs nothing and opens or plans nothing", async () => {
+  const backend = lotBackend();
+  const arc = arcTurns({
+    router: [
+      vertexFunctionCallResponse([{ name: "confirm_order", args: { reviewId: "7d2f0a3c-1b4e-4c8a-9e6d-5f3a2b1c0d9e", lineIndex: 0 } }]),
+      vertexFunctionCallResponse([{ name: "confirm_conditions", args: conditionsFor("LOT-HACK-00000000000000000000000000000000-000000000000") }]),
+      vertexFunctionCallResponse([{ name: "plan_lot" }]),
+    ],
+    services: backend.servicePorts, commandDeps: backend.commandDeps, lotStore: backend.lotStore,
+  });
+  const read = await arc.post(action("read_sample_order", { sampleId: "PO1" }));
+  const reviewId = read.frames.find(({ type }) => type === "step.succeeded").resultRef.id;
+  const opened = await arc.post(action("confirm_order", { reviewId, lineIndex: 0 }));
+  const lotId = opened.frames.find(({ type }) => type === "step.succeeded").resultRef.id;
+  for (const message of ["confirm the order for me", "the conditions are fine, confirm them", "plan it now"]) {
+    const { frames } = await arc.post(text(message));
+    assert.deepEqual(frames.map(({ type }) => type), ["run.failed"], message);
+  }
+  for (const { body } of arc.vertexRequests) {
+    const offered = [...body.toolConfig.functionCallingConfig.allowedFunctionNames,
+      ...body.tools.flatMap(({ functionDeclarations }) => functionDeclarations.map(({ name }) => name))];
+    assert.deepEqual(offered.filter((name) => /^confirm_|^plan_lot$/.test(name)), []);
+  }
+  const lot = await backend.lotStore.getLot({ lotId, ownerSessionId: arc.principal.sessionId });
+  assert.deepEqual([lot.head.stage, lot.head.draftConditions, lot.revision], ["conditions", [], null]);
+  assert.deepEqual(backend.requests.submit, []);
+  assert.equal(arc.approvals.length, 0);
+});
+
+test("BYP-R8 control: the button path plans PO1 and stops at the Approve card without approving", async () => {
+  const backend = lotBackend();
+  const arc = arcTurns({ router: () => assert.fail("buttons only"), services: backend.servicePorts, commandDeps: backend.commandDeps, lotStore: backend.lotStore });
+  const read = await arc.post(action("read_sample_order", { sampleId: "PO1" }));
+  const reviewId = read.frames.find(({ type }) => type === "step.succeeded").resultRef.id;
+  const opened = await arc.post(action("confirm_order", { reviewId, lineIndex: 0 }));
+  const lotId = opened.frames.find(({ type }) => type === "step.succeeded").resultRef.id;
+  const { frames, turn } = await arc.post(action("confirm_conditions", conditionsFor(lotId)));
+  assert.deepEqual(frames.slice(-2).map(({ type, waitingFor }) => [type, waitingFor ?? null]), [["step.waiting_for_user", "approve"], ["answer", null]]);
+  assert.equal(frames.some(({ type }) => type === "run.completed"), false);
+  const jobId = frames.find(({ type, tool }) => type === "step.succeeded" && tool === "plan_lot").resultRef.id;
+  assert.equal(backend.drafts.get(jobId).status, "DRAFT");
+  assert.equal(turn.summary.attempts, 0);
+  assert.equal(arc.approvals.length, 0);
 });
 
 // Direct API calls to the approve command with the guard on. Production keeps the

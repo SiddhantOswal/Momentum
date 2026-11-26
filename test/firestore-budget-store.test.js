@@ -275,3 +275,31 @@ test("the budget store never touches the shared gemini_daily_usage document (F1)
   assert.ok(fake.calls.length > 0);
   assert.equal(fake.calls.some((call) => call.path.includes("gemini_daily_usage")), false);
 });
+
+test("admitPlan counts one plan per request identity per session and IST day, and refuses past the limit", async () => {
+  const { store, fake, clock } = setup({ limits: { ...LIMITS, lotPlans: { perSessionPerDay: 2 } } });
+  const principal = session();
+  const plan = (key, who = principal) => store.admitPlan({ principal: who, planKey: key });
+  assert.deepEqual(await plan("a".repeat(64)), { ok: true, replayed: false, remaining: 1 });
+  assert.deepEqual(await plan("b".repeat(64)), { ok: true, replayed: false, remaining: 0 });
+  const refused = await plan("c".repeat(64));
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, "PLAN_DAILY_LIMIT_REACHED");
+  // 04:00 UTC on 3 Dec is 09:30 IST, so the IST day ends in 14.5 hours.
+  assert.equal(refused.retryAfterSeconds, 14.5 * 3600);
+  assert.deepEqual(await plan("a".repeat(64)), { ok: true, replayed: true, remaining: 0 }, "a replay is not counted again");
+  assert.equal((await plan("c".repeat(64), session())).ok, true, "another session has its own limit");
+  assert.equal(counter(fake, `live_plan_session_day_${principal.sessionId}_20261203`).units, 2);
+  clock.now += 15 * 3600 * 1000;
+  assert.equal((await plan("c".repeat(64))).ok, true, "the next IST day starts a new count");
+  await assert.rejects(store.admitPlan({ principal: { sessionId: principal.sessionId }, planKey: "d".repeat(64) }), TypeError);
+});
+
+test("admitPlan defaults to 10 plans and fails closed when Firestore cannot be read", async () => {
+  const { store } = setup();
+  const principal = session();
+  for (let n = 0; n < 10; n += 1) assert.equal((await store.admitPlan({ principal, planKey: `plan-${n}` })).ok, true);
+  assert.equal((await store.admitPlan({ principal, planKey: "plan-10" })).code, "PLAN_DAILY_LIMIT_REACHED");
+  const down = setup({ fake: fakeFirestore({ failReads: true }) });
+  assert.deepEqual(await down.store.admitPlan({ principal, planKey: "plan-0" }), { ok: false, code: "BUDGET_UNAVAILABLE" });
+});

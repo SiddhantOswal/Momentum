@@ -9,9 +9,17 @@ const confirmedOrderSchema = OperatorItemConfirmationSchema.extend({
   reviewFingerprint: Sha256HexSchema,
 });
 
+// Paper moisture kept at its example value stays labelled "Example value" on the lot; the operator
+// pressed Confirm conditions with it on screen, as New Lot plans with whatever the field holds.
+const planned = ({ confirmed, field, sourceDetail }) => confirmed || (field === "paperMoisturePct" && sourceDetail === "example");
+
+// The revision keeps the example label when the lot holds the moisture as the example value.
+const moistureSource = (lot) => (lot.draftConditions ?? [])
+  .find(({ field }) => field === "paperMoisturePct")?.sourceDetail === "example" ? "example" : "confirmed";
+
 function confirmedConditions(lot) {
   return RunConditionsSchema.safeParse(Object.fromEntries(
-    (lot.draftConditions ?? []).filter(({ confirmed }) => confirmed).map(({ field, value }) => [field, value]),
+    (lot.draftConditions ?? []).filter(planned).map(({ field, value }) => [field, value]),
   ));
 }
 
@@ -54,6 +62,7 @@ export const planLotTool = {
         ...(lineIndex === undefined ? {} : { confirmedLineIndex: String(lineIndex + 1) }),
         confirmedSourceLine: "true",
         conditionsConfirmed: "true",
+        paperMoistureSource: moistureSource(lot),
       },
     }, deps);
   },

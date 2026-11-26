@@ -1,5 +1,5 @@
 {
-  "version": "arc-v1",
+  "version": "arc-v2",
   "maxModelCalls": 2,
   "maxFunctionCalls": 3,
   "maxToolSteps": 4,
@@ -14,7 +14,16 @@
     "get_weather": { "kind": "data_question", "calls": [{ "name": "get_weather", "args": {} }] },
     "list_samples": { "kind": "lot_preparation", "calls": [{ "name": "list_samples", "args": {} }] },
     "list_approved_photos": { "kind": "photo_check", "calls": [{ "name": "list_approved_photos", "args": {} }] },
-    "list_next_actions": { "kind": "lot_preparation", "calls": [{ "name": "list_next_actions", "args": {} }] }
+    "list_next_actions": { "kind": "lot_preparation", "calls": [{ "name": "list_next_actions", "args": {} }] },
+    "read_sample_order": { "kind": "lot_preparation", "calls": [{ "name": "read_order", "args": "params" }], "waitFor": "confirm_order" },
+    "confirm_order": {
+      "kind": "lot_preparation", "opensLot": true,
+      "calls": [{ "name": "confirm_order", "args": "params" }], "waitFor": "confirm_conditions"
+    },
+    "confirm_conditions": {
+      "kind": "lot_preparation", "planInputs": true,
+      "calls": [{ "name": "confirm_conditions", "args": "params" }, { "name": "plan_lot", "args": {} }], "waitFor": "approve"
+    }
   },
   "suggestions": {
     "How far can I trust the five models?": "get_status"

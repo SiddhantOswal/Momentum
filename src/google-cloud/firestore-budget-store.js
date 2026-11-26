@@ -53,6 +53,10 @@ const secondsToNextMinute = (instant) => 60 - (Math.floor(instant / 1000) % 60);
 const secondsToNextIstHour = (instant) => 3600 - ((Math.floor(instant / 1000) + 19800) % 3600);
 const DEFAULT_MINT_PER_IP_PER_HOUR = 30;
 const DEFAULT_CLAIM_PER_IP_PER_HOUR = 5;
+// A plan runs BigQuery predict and optimize before its Gemini explanation, so the Gemini
+// limits alone do not bound it (M3-01 security review, Medium-1).
+export const DEFAULT_PLANS_PER_SESSION_PER_DAY = 10;
+const secondsToNextIstDay = (instant) => DAY_MS / 1000 - ((Math.floor(instant / 1000) + 19800) % (DAY_MS / 1000));
 
 export function createFirestoreBudgetStore({
   projectId, database = "(default)", fetchImpl = fetch, tokenProvider, limits,
@@ -290,6 +294,67 @@ export function createFirestoreBudgetStore({
       max: limits.pitchClaim?.attemptsPerIpPerHour ?? DEFAULT_CLAIM_PER_IP_PER_HOUR,
     }),
 
+    /**
+     * Counts one lot plan for the session's IST day before any planning work, and refuses once
+     * the day's limit is reached. `planKey` is the job request identity, so a replayed or resumed
+     * request for a plan already counted passes without counting again.
+     */
+    async admitPlan({ principal, planKey, signal } = {}) {
+      if (!isDemoPrincipal(principal) || typeof planKey !== "string" || !RESERVATION_KEY.test(planKey)) {
+        throw new TypeError("A demo session and a plan key are required.");
+      }
+      const instant = now();
+      if (!Number.isFinite(instant)) return unavailable(signal);
+      const { sessionId } = principal;
+      const { day } = istWindows(instant);
+      const max = limits.lotPlans?.perSessionPerDay ?? DEFAULT_PLANS_PER_SESSION_PER_DAY;
+      const entry = {
+        key: "plans", kind: "day", limit: max, scope: "plan_session_day", subject: sessionId, window: day,
+        id: budgetCounterId({ pool, scope: "plan_session_day", subject: sessionId, window: day }),
+      };
+      const keyHash = createHash("sha256").update(JSON.stringify([BUDGET_POLICY_VERSION, pool, sessionId, "lot_plan", planKey])).digest("hex");
+      const nowIso = new Date(instant).toISOString();
+      try {
+        return await withToken(signal, (context) => transact(context, async (transaction) => {
+          const scoped = { ...context, transaction };
+          const [reservation, [current]] = await Promise.all([
+            readDoc(BUDGET_RESERVATION_COLLECTION, keyHash, BudgetReservationDocSchema, scoped),
+            readCounters([entry], scoped),
+          ]);
+          const used = current.read?.doc.units ?? 0;
+          if (reservation) {
+            if (reservation.doc.keyHash !== keyHash || reservation.doc.purpose !== "lot_plan") throw new BudgetUnavailable();
+            return { result: Object.freeze({ ok: true, replayed: true, remaining: Math.max(0, max - used) }) };
+          }
+          if (used >= max) {
+            return { result: Object.freeze({ ok: false, code: "PLAN_DAILY_LIMIT_REACHED", retryAfterSeconds: secondsToNextIstDay(instant) }) };
+          }
+          const reservationDoc = {
+            schemaVersion: STATE_SCHEMA_VERSION, createdAt: nowIso, updatedAt: nowIso,
+            expiresAt: new Date(instant + RESERVATION_RETENTION_MS).toISOString(),
+            keyHash, pool, sessionId, ipKey: null, purpose: "lot_plan", dayWindow: day, units: 1, usedPitchReserve: false,
+            // The eval pool names its suite on every reservation; plans there come from the lot flow tests.
+            evalSuite: pool === "eval" ? "lot-plan" : null,
+          };
+          return {
+            writes: [
+              counterWrite(current, 1, nowIso, instant),
+              {
+                update: {
+                  name: documentName(BUDGET_RESERVATION_COLLECTION, keyHash),
+                  fields: encodeDocument(BudgetReservationDocSchema, reservationDoc, { timestamps: BASE_TIMESTAMP_FIELDS }),
+                },
+                currentDocument: currentDocumentPrecondition(null),
+              },
+            ],
+            result: Object.freeze({ ok: true, replayed: false, remaining: max - used - 1 }),
+          };
+        }));
+      } catch {
+        return unavailable(signal);
+      }
+    },
+
     async reserve({ principal, ipKey = null, purpose, units = 1, reservationKey, evalSuite = null, signal } = {}) {
       validateReserve({ ipKey, purpose, units, reservationKey, evalSuite });
       const instant = now();
@@ -435,6 +500,7 @@ export function budgetCapStore(store, { costOf = attemptCostMicroInr, log = cons
     peek: (args) => store.peek(args),
     admitSession: (args) => store.admitSession(args),
     admitPitchClaim: (args) => store.admitPitchClaim(args),
+    admitPlan: (args) => store.admitPlan(args),
 
     async reserveAttempt({ role, budget = {}, signal } = {}) {
       const purpose = budget.purpose ?? ROLE_PURPOSE[role];

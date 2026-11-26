@@ -282,6 +282,40 @@ const offlineCommand = {
   purchaseOrderPolicy: { acceptRealOrders: false, extractionAdapterConfigured: false, syntheticOnly: false },
 };
 
+test("loadReview returns only the reading session's review, marks expiry by the review clock, and needs the durable store", async () => {
+  const fake = createFakeFirestore();
+  const clock = createClock();
+  const { service } = instance(fake, { clock });
+  const reviewed = await read(service);
+  const own = await service.loadReview({ reviewId: reviewed.reviewId, ownerSessionId: SESSION_A });
+  assert.deepEqual([own.ok, own.review.reviewId, own.review.reviewFingerprint, own.review.expired], [true, reviewed.reviewId, reviewed.reviewFingerprint, false]);
+  assert.deepEqual(own.review.operatorFields, operatorFields);
+  assert.deepEqual(await service.loadReview({ reviewId: reviewed.reviewId, ownerSessionId: SESSION_B }), { ok: true, review: undefined });
+  assert.deepEqual(await service.loadReview({ reviewId: "not-a-uuid", ownerSessionId: SESSION_A }), { ok: true, review: undefined });
+  clock.advance(REVIEW_TTL_MS);
+  assert.equal((await service.loadReview({ reviewId: reviewed.reviewId, ownerSessionId: SESSION_A })).review.expired, true);
+  const memory = instance(fake, { durable: false }).service;
+  assert.equal((await memory.loadReview({ reviewId: reviewed.reviewId, ownerSessionId: SESSION_A })).error.code, "SERVICE_UNAVAILABLE");
+});
+
+test("a review ID chosen by the server is used as given, and a malformed one is refused before extraction", async () => {
+  const fake = createFakeFirestore();
+  const { service, counts } = instance(fake);
+  const reviewId = "0b1c2d3e-4f50-8617-8829-3a4b5c6d7e8f";
+  const reviewed = await service.extractForReview({ file: { arrayBuffer: async () => bytes.buffer }, operatorFields, ownerSessionId: SESSION_A, reviewId });
+  assert.equal(reviewed.reviewId, reviewId);
+  await assert.rejects(service.extractForReview({ file: { arrayBuffer: async () => bytes.buffer }, operatorFields, ownerSessionId: SESSION_A, reviewId: "x" }), TypeError);
+  assert.equal(counts.extractions, 1);
+});
+
+test("the dashboard's order read never takes a review ID from the form", async () => {
+  const requests = [];
+  const servicePorts = { extractOrderForReview: async (request) => { requests.push(request); return { ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "stub" } }; } };
+  const file = new File([purchaseOrder], "order.pdf", { type: "application/pdf" });
+  await readOrder({ fields: { file, reviewId: "0b1c2d3e-4f50-8617-8829-3a4b5c6d7e8f" } }, { ...offlineCommand, servicePorts, principal: { sessionId: SESSION_A } });
+  assert.equal("reviewId" in requests[0], false);
+});
+
 test("reading an order passes the caller's session to the review port", async () => {
   const requests = [];
   const servicePorts = { extractOrderForReview: async (request) => { requests.push(request); return { ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "stub" } }; } };

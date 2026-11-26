@@ -9,6 +9,10 @@ export type Failure = { ok: false; status?: number; code?: string; message: stri
 export type Outcome<T> = { ok: true; data: T } | Failure;
 
 const UNREACHABLE = "Can't reach Momentum. Check the connection and try again.";
+// Codes whose words the page sets itself; other failures show the server's message.
+const CODE_WORDS: Record<string, string> = {
+  PLAN_DAILY_LIMIT_REACHED: "This session has planned as many lots as it can today. Planning opens again at midnight IST (02:30 in Singapore).",
+};
 
 export async function call<T>(path: string, init: RequestInit = {}, retried = false): Promise<Outcome<T>> {
   await ensureSession();
@@ -26,9 +30,10 @@ export async function call<T>(path: string, init: RequestInit = {}, retried = fa
   const body = await response.json().catch(() => undefined);
   if (!response.ok || body?.ok === false) {
     const issue = body?.error?.issues?.[0]?.message;
+    const code = body?.error?.code;
     return {
-      ok: false, status: response.status, code: body?.error?.code, body,
-      message: issue ?? body?.error?.message ?? `Request failed (${response.status}).`,
+      ok: false, status: response.status, code, body,
+      message: (code && CODE_WORDS[code]) ?? issue ?? body?.error?.message ?? `Request failed (${response.status}).`,
     };
   }
   return { ok: true, data: body as T };

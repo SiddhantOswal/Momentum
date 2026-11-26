@@ -7,6 +7,8 @@ import { demoOwnsJob, demoOwnsLot, isDemoPrincipal } from "../../hackathon-demo-
 import { ArcSessionDocSchema, DiscoveredIdsSchema, EffectKeySchema, IpKeySchema, TaskStepSchema } from "../../state-schemas.js";
 import { canonicalJson } from "../canonical-json.js";
 import { SAMPLE_DOCUMENTS } from "../../synthetic-po-allowlist.js";
+import { confirmConditionsTool } from "./confirm-conditions.js";
+import { confirmOrderTool } from "./confirm-order.js";
 import { diagnoseApprovedPhotoTool } from "./diagnose-approved-photo.js";
 import { getJobCardTool } from "./get-job-card.js";
 import { getJobTool } from "./get-job.js";
@@ -28,6 +30,7 @@ const definitions = [
   getStatusTool, listSamplesTool, readOrderTool, getWeatherTool, setConditionsTool, planLotTool,
   retryExplanationTool, getLotTool, listNextActionsTool, getJobTool, getJobCardTool,
   listApprovedPhotosTool, diagnoseApprovedPhotoTool, searchDefectHistoryTool, queryMetricTool,
+  confirmOrderTool, confirmConditionsTool,
 ];
 
 const stepSchema = z.strictObject({
@@ -85,16 +88,19 @@ function sessionIds(schema, ids, isOwned) {
  * a typed request can name a photo or sample listed earlier. The runner
  * supplies lot, step and confirmation state from server records, separately
  * from the model's function arguments.
+ * `fixedPlan` is set for a button's fixed plan, which may read any approved
+ * sample; the model may name only the samples this session has listed.
+ * Code-only tools are never declared to the model and never allowed for it.
  * Command results stay on the server. A caller must project the permitted
  * fields before building model context or a client response.
  */
-export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}) {
+export function createToolRegistry({ principal, ipKey, session, deps = {}, fixedPlan = false } = {}) {
   if (!isDemoPrincipal(principal) || session?.sessionId !== principal.sessionId) {
     throw new TypeError("A verified Arc session is required.");
   }
   const jobIds = sessionIds(ArcSessionDocSchema.shape.jobIds, session.jobIds, (id) => demoOwnsJob(principal, id));
   const lotIds = sessionIds(ArcSessionDocSchema.shape.activeLotIds, session.activeLotIds, (id) => demoOwnsLot(principal, id));
-  let sampleIds = storedIds(DiscoveredIdsSchema.shape.sampleIds, session.discovered?.sampleIds,
+  let sampleIds = storedIds(DiscoveredIdsSchema.shape.sampleIds, fixedPlan ? Object.keys(SAMPLE_DOCUMENTS) : session.discovered?.sampleIds,
     (id) => Object.hasOwn(SAMPLE_DOCUMENTS, id), MAX_SAMPLE_IDS);
   let photoIds = storedIds(DiscoveredIdsSchema.shape.photoIds, session.discovered?.photoIds,
     (id) => listedPhotoIds([id]).length === 1, MAX_PHOTO_IDS);
@@ -162,6 +168,7 @@ export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}
   })));
 
   const declarableTools = () => Object.values(tools).flatMap((tool) => {
+    if (tool.codeOnly) return [];
     const parameters = vertexSchema(z.toJSONSchema(tool.schema()));
     return parameters === null ? [] : [{ tool, parameters }];
   });
@@ -175,7 +182,7 @@ export function createToolRegistry({ principal, ipKey, session, deps = {} } = {}
       })),
     }],
     allowedFunctionNames: (context = {}) => declarableTools()
-      .filter(({ tool }) => !tool.codeOnly && !tool.precondition(context))
+      .filter(({ tool }) => !tool.precondition(context))
       .map(({ tool }) => tool.name),
     execute(name, args, context) {
       if (typeof name !== "string" || !Object.hasOwn(tools, name)) {

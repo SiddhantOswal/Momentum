@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { formatMoney, formatNumber } from "../../lib/api";
 import {
-  approveJobCard, arcWords, getJobRecord, getLotRecord, jobCardPdfPath,
-  type Defect, type DraftCondition, type JobRecord, type LeverKey, type LotRecord, type RevisionBlock, type StoredJob,
+  approveJobCard, arcWords, getJobRecord, getLotRecord, getOrderReview, jobCardPdfPath,
+  type Defect, type DraftCondition, type JobRecord, type LeverKey, type LotRecord, type OrderReview, type OrderReviewLine,
+  type RevisionBlock, type StoredJob,
 } from "../../lib/arc";
 import { href } from "../../lib/routes";
+import { LEVERS } from "../../lib/session";
 import { Button, ButtonLink, Chip, Icon, IdleMark, LabelChip, ProvenanceChip } from "../m";
 import { ArcSteps, Loading, NotConnectedNote, Problem, ReviewCheck, ScreenHead, Tabs, useArcScreen } from "./parts";
 
@@ -92,97 +94,265 @@ export function LotSource({ problem }: { problem?: StepProblem }) {
       </div>
       {problem && <Problem {...problem} />}
       <div className="row">
-        <Button arrow disabled={busy} onClick={() => send({ kind: "text", text: `Read sample order ${chosen}` }, `Read sample order ${chosen}`)}>Read this order</Button>
+        <Button arrow disabled={busy} onClick={() => send({ kind: "action", actionId: "read_sample_order", params: { sampleId: chosen } }, `Read sample order ${chosen}`)}>Read this order</Button>
         <span className="lb" style={{ fontSize: 14 }}>Approved samples only.</span>
       </div>
     </>
   );
 }
 
-/** Arc-Lot-Review: the order was read and stored, but no route returns the stored review to Arc yet. */
-export function LotReview({ problem }: { problem?: StepProblem }) {
-  const checks = ["The source line is the one you want", "The quantity matches the order", "The catalog item is the right box"];
+const REVIEW_CHECKS = ["The source line is the one you want", "The quantity matches the order", "The catalog item is the right box"];
+const LINE_STATUS: Record<OrderReviewLine["status"], string> = {
+  MATCHED: "Matched", AMBIGUOUS: "Pick an item", UNKNOWN_CODE: "Not in catalog",
+  MISSING_ITEM_CODE: "No item code", MISSING_QTY: "No quantity", MALFORMED: "Check this line",
+};
+// The server confirms only a line matched to one catalog item with a quantity (confirmableLine in src/arc/lot-flow.js).
+const confirmable = (line: OrderReviewLine) => line.status === "MATCHED" && line.itemCode !== null && line.quantity !== null;
+
+/**
+ * Arc-Lot-Review: the lines of the stored review, read with GET /api/arc/reviews/:reviewId.
+ * Confirm order sends only the review and the line; the server takes the item and quantity
+ * from the stored review.
+ */
+export function LotReview({ reviewId, problem, closed = false }: { reviewId: string | null; problem?: StepProblem; closed?: boolean }) {
+  const { send, busy } = useArcScreen();
+  const [read, setRead] = useState<{ review?: OrderReview; words?: string } | null>(reviewId ? null : { words: arcWords("ORDER_REVIEW_EXPIRED") });
+  const [lineIndex, setLineIndex] = useState<number | null>(null);
+  const [checks, setChecks] = useState<boolean[]>(REVIEW_CHECKS.map(() => false));
+  const name = useId();
+  useEffect(() => {
+    if (!reviewId) return;
+    const controller = new AbortController();
+    void getOrderReview(reviewId, controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      if (!result.ok) return setRead({ words: arcWords(result.code === "NOT_FOUND" ? "ORDER_REVIEW_EXPIRED" : result.code) });
+      setRead({ review: result.data });
+      const usable = result.data.lines.filter(confirmable);
+      if (result.data.lines.length === 1 && usable.length === 1) setLineIndex(usable[0].lineIndex);
+    });
+    return () => controller.abort();
+  }, [reviewId]);
+
+  const review = read?.review;
+  const chosen = review?.lines.find((line) => line.lineIndex === lineIndex && confirmable(line));
+  const ready = Boolean(review && chosen && checks.every(Boolean)) && !closed;
+  const choose = (index: number) => { setLineIndex(index); setChecks(REVIEW_CHECKS.map(() => false)); };
+  const confirm = () => {
+    if (!review || !chosen) return;
+    send({ kind: "action", actionId: "confirm_order", params: { reviewId: review.reviewId, lineIndex: chosen.lineIndex } },
+      `Confirm line ${chosen.lineIndex + 1}, ${chosen.itemCode}`);
+  };
   return (
     <>
       <ArcSteps current={1} />
       <ScreenHead title="Check what was read" sub="Arc read the order and stored what it found." />
       <section className="cd" style={{ padding: "16px 20px" }}>
-        <div className="ct2"><h3 className="t" style={{ fontSize: 16 }}>What we read from the order</h3></div>
-        <NotConnectedNote>
-          The order review is stored, but it is not shown here yet. No route returns a stored review to Arc, so the values cannot be checked or confirmed in Arc.
-        </NotConnectedNote>
+        <div className="ct2"><h3 className="t" style={{ fontSize: 16 }}>What we read from the order</h3>{review && <ProvenanceChip kind="approved-sample" />}</div>
+        {!read && <Loading>Reading the order review</Loading>}
+        {read?.words && <p className="lb" style={{ margin: 0, fontSize: 15 }}>{read.words}</p>}
+        {review && (
+          <>
+            <div role="radiogroup" aria-label="Order lines">
+              {review.lines.map((line) => (
+                <label key={line.lineIndex} className={`po${line.lineIndex === lineIndex ? " on" : ""}`}>
+                  <input type="radio" className="ovl" name={name} checked={line.lineIndex === lineIndex} disabled={busy || closed || !confirmable(line)}
+                    onChange={() => choose(line.lineIndex)} />
+                  <i aria-hidden="true" />
+                  <span>
+                    <b>Line {line.lineIndex + 1}: {line.itemCode ?? "No catalog item"}</b>
+                    <span className="s">{line.quantity === null ? "No quantity" : `${formatNumber(line.quantity)} boxes`}{line.sourcePage ? `, page ${line.sourcePage}` : ""}</span>
+                  </span>
+                  <Chip tone={confirmable(line) ? "plain" : "none"}>{LINE_STATUS[line.status]}</Chip>
+                </label>
+              ))}
+            </div>
+            <p className="lb" style={{ margin: "10px 0 0", fontSize: 14 }}>
+              {review.readByGemini ? "Read from the order by Gemini." : "Sample output, no model call."}{" "}
+              {review.lines.length === 1 ? "One line on this order." : "Only the line you pick is in this lot."} The catalog match runs in code.
+            </p>
+          </>
+        )}
       </section>
       <div className="stl">
-        {checks.map((check) => <ReviewCheck key={check} checked={false} disabled onChange={() => undefined}>{check}</ReviewCheck>)}
+        {REVIEW_CHECKS.map((check, index) => (
+          <ReviewCheck key={check} checked={checks[index]} disabled={busy || closed || !chosen}
+            onChange={(on) => setChecks((list) => list.map((value, at) => (at === index ? on : value)))}>{check}</ReviewCheck>
+        ))}
       </div>
       {problem && <Problem {...problem} />}
       <div className="row">
-        <Button arrow disabled>Confirm order</Button>
+        <Button arrow disabled={busy || !ready} onClick={confirm}>Confirm order</Button>
+        {review && !ready && (
+          <span className="lb" style={{ fontSize: 14 }}>
+            {closed ? "Arc has moved on from this card. Read the order again to confirm another line."
+              : chosen ? "Tick the three checks to confirm." : "Pick a matched line to confirm."}
+          </span>
+        )}
       </div>
     </>
   );
 }
 
-const CONDITION_ROWS: { field: DraftCondition["field"]; name: string; unit: string; empty: string }[] = [
-  { field: "ambientRhPct", name: "Humidity", unit: "%", empty: "Enter value" },
-  { field: "paperMoisturePct", name: "Paper moisture", unit: "%", empty: "Enter value" },
+type ConditionField = DraftCondition["field"];
+type FieldKey = ConditionField | LeverKey;
+type Values = Record<FieldKey, string>;
+// The paper moisture pre-fill (PAPER_MOISTURE_EXAMPLE_PCT in src/commands/update-conditions.js). Only this value is labelled as the example.
+const EXAMPLE_MOISTURE = "7.3";
+
+const CONDITION_ROWS: { field: ConditionField; name: string; unit: string; empty: string; min?: number; max?: number }[] = [
+  { field: "ambientRhPct", name: "Humidity", unit: "%", empty: "Enter value", min: 0, max: 100 },
+  { field: "paperMoisturePct", name: "Paper moisture", unit: "%", empty: "Enter value", min: 0, max: 20 },
   { field: "ambientTempC", name: "Ambient temperature", unit: "°C", empty: "Enter value" },
   { field: "runDate", name: "Run date", unit: "", empty: "Select date" },
   { field: "shift", name: "Shift", unit: "", empty: "Select shift" },
 ];
+const NUMBER = /^-?\d+(?:\.\d+)?$/;
 
-/** Arc-Lot-Conditions: the lot's draft conditions as stored, read with the dashboard's lot route. */
-export function LotConditions({ lotId, problem }: { lotId: string | null; problem?: StepProblem }) {
+/** Whether a field holds a value the server's schema accepts. The plant's recorded ranges are checked on the server. */
+function valid(field: FieldKey, value: string): boolean {
+  const text = value.trim();
+  if (field === "runDate") return /^\d{4}-\d{2}-\d{2}$/.test(text);
+  if (field === "shift") return text === "DAY" || text === "NIGHT";
+  const lever = LEVERS.find((entry) => entry.key === field);
+  if (lever && "options" in lever) return (lever.options as readonly string[]).includes(text);
+  if (!NUMBER.test(text)) return false;
+  const limits = lever ?? CONDITION_ROWS.find((row) => row.field === field);
+  const number = Number(text);
+  return (limits?.min === undefined || number >= limits.min) && (limits?.max === undefined || number <= limits.max);
+}
+
+const blankValues = (): Values => ({
+  runDate: "", shift: "", ambientRhPct: "", ambientTempC: "", paperMoisturePct: EXAMPLE_MOISTURE,
+  ...Object.fromEntries(LEVERS.map((lever) => [lever.key, ""])),
+} as Values);
+
+/** Values from a turn's params, so a step that failed shows what the operator sent. */
+function valuesFrom(params: Record<string, string | number | boolean> | undefined): Partial<Values> {
+  if (!params) return {};
+  return Object.fromEntries(Object.entries(params).filter(([key]) => key !== "paperMoistureSource").map(([key, value]) => [key, String(value)]));
+}
+
+function rowLabel(field: FieldKey, value: string, stored?: DraftCondition) {
+  if (value.trim() === "") return "Required";
+  if (stored && String(stored.value) === value.trim()) return stored.label;
+  if (field === "paperMoisturePct" && Number(value) === Number(EXAMPLE_MOISTURE)) return "Example value";
+  return "Entered by operator";
+}
+
+/**
+ * Arc-Lot-Conditions: the five conditions and seven planned settings the operator confirms.
+ * Confirm conditions sends them as one action; the server saves the conditions on the lot with
+ * their labels and plans with the order it rebuilds from the lot and the stored review.
+ */
+export function LotConditions({ lotId, initial, problem }: {
+  lotId: string | null; initial?: Record<string, string | number | boolean>; problem?: StepProblem;
+}) {
+  const { send, busy } = useArcScreen();
   const [tab, setTab] = useState<"conditions" | "settings">("conditions");
   const [lot, setLot] = useState<{ record?: LotRecord; words?: string } | null>(lotId ? null : { words: arcWords("LOT_NOT_FOUND") });
+  const [values, setValues] = useState<Values>(() => ({ ...blankValues(), ...valuesFrom(initial) }));
+  const form = useId();
   useEffect(() => {
     if (!lotId) return;
     const controller = new AbortController();
     void getLotRecord(lotId, controller.signal).then((read) => {
-      if (!controller.signal.aborted) setLot(read.ok ? { record: read.data } : { words: arcWords(read.code) });
+      if (controller.signal.aborted) return;
+      setLot(read.ok ? { record: read.data } : { words: arcWords(read.code) });
+      // Values already stored on the lot fill the form unless this card was drawn from a turn's own values.
+      if (read.ok && !initial) {
+        setValues((current) => ({ ...current, ...Object.fromEntries(read.data.lot.draftConditions.map(({ field, value }) => [field, String(value)])) }));
+      }
     });
     return () => controller.abort();
-  }, [lotId]);
+  }, [lotId, initial]);
 
   const stored = lot?.record?.lot.draftConditions ?? [];
-  const confirmed = stored.filter((condition) => condition.confirmed).length;
-  const left = CONDITION_ROWS.length - confirmed;
+  const set = (field: FieldKey, value: string) => setValues((current) => ({ ...current, [field]: value }));
+  const conditionsLeft = CONDITION_ROWS.filter(({ field }) => !valid(field, values[field])).length;
+  const settingsLeft = LEVERS.filter(({ key }) => !valid(key, values[key])).length;
+  const ready = Boolean(lotId && lot?.record) && conditionsLeft === 0 && settingsLeft === 0;
+  const order = lot?.record?.lot.order;
+  const confirm = () => {
+    if (!ready || !lotId) return;
+    const number = (field: FieldKey) => Number(values[field].trim());
+    const moisture = number("paperMoisturePct");
+    send({
+      kind: "action", actionId: "confirm_conditions",
+      params: {
+        lotId, runDate: values.runDate.trim(), shift: values.shift.trim(),
+        ambientRhPct: number("ambientRhPct"), ambientTempC: number("ambientTempC"), paperMoisturePct: moisture,
+        paperMoistureSource: moisture === Number(EXAMPLE_MOISTURE) ? "example" : "confirmed",
+        ...Object.fromEntries(LEVERS.map((lever) => [lever.key, "options" in lever ? values[lever.key].trim() : number(lever.key)])),
+      },
+    }, "Confirm conditions and plan the lot");
+  };
+
+  const field = (key: FieldKey, unit: string, placeholder: string, options?: readonly { value: string; label: string }[]) => {
+    const id = `${form}-${key}`;
+    const value = values[key];
+    const bad = value.trim() !== "" && !valid(key, value);
+    return (
+      <div className={`fld${value.trim() === "" ? " rq" : ""}`}>
+        {options
+          ? (
+            <select id={id} value={value} disabled={busy} aria-invalid={bad} onChange={(event) => set(key, event.target.value)}>
+              <option value="">{placeholder}</option>
+              {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          )
+          : (
+            <input id={id} value={value} disabled={busy} aria-invalid={bad} placeholder={placeholder}
+              type={key === "runDate" ? "date" : "text"} inputMode={key === "runDate" ? undefined : "decimal"}
+              onChange={(event) => set(key, event.target.value)} />
+          )}
+        {unit && <small>{unit}</small>}
+      </div>
+    );
+  };
+
   return (
     <>
       <ArcSteps current={2} />
       <ScreenHead title="Confirm today's conditions" sub="Type what you see on the floor. Sensor readings are not connected yet." />
+      {order && <p className="lb" style={{ margin: 0, fontSize: 15 }}>For <b>{order.itemCode}</b>, {formatNumber(order.quantity)} boxes.</p>}
       <Tabs label="Lot inputs" selected={tab} onSelect={setTab} tabs={[
-        { key: "conditions", text: <>Conditions {lot?.record && left > 0 && <small>{left} left</small>}</> },
-        { key: "settings", text: "Planned settings" },
+        { key: "conditions", text: <>Conditions {conditionsLeft > 0 && <small>{conditionsLeft} left</small>}</> },
+        { key: "settings", text: <>Planned settings {settingsLeft > 0 && <small>{settingsLeft} left</small>}</> },
       ]} />
-      {tab === "settings" && (
-        <section className="cd"><NotConnectedNote>Planned machine settings are entered on the New Lot page. Arc cannot take them yet.</NotConnectedNote></section>
-      )}
-      {tab === "conditions" && !lot && <Loading>Reading the lot</Loading>}
-      {tab === "conditions" && lot?.words && <section className="cd"><NotConnectedNote>{lot.words}</NotConnectedNote></section>}
-      {tab === "conditions" && lot?.record && (
+      {!lot && <Loading>Reading the lot</Loading>}
+      {lot?.words && <section className="cd"><p className="lb" style={{ margin: 0, fontSize: 15 }}>{lot.words}</p></section>}
+      {lot?.record && tab === "conditions" && (
         <section className="cd" style={{ padding: "6px 20px" }} aria-label="Conditions">
-          {CONDITION_ROWS.map((row) => {
-            const value = stored.find((condition) => condition.field === row.field);
-            return (
-              <div key={row.field} className="fr">
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 600 }}>{row.name}</div>
-                  <div className="lb" style={{ fontSize: 13 }}>{value ? value.label : "Required"}</div>
-                </div>
-                {value
-                  ? <div className="fld">{typeof value.value === "number" ? formatNumber(value.value, 1) : value.value}<small>{row.unit}</small></div>
-                  : <div className="fld rq">{row.empty}<small>{row.unit}</small></div>}
+          {CONDITION_ROWS.map((row) => (
+            <div key={row.field} className="fr">
+              <div>
+                <label htmlFor={`${form}-${row.field}`} style={{ display: "block", fontSize: 16, fontWeight: 600 }}>{row.name}</label>
+                <div className="lb" style={{ fontSize: 13 }}>{rowLabel(row.field, values[row.field], stored.find((entry) => entry.field === row.field))}</div>
               </div>
-            );
-          })}
+              {field(row.field, row.unit, row.empty, row.field === "shift" ? [{ value: "DAY", label: "Day" }, { value: "NIGHT", label: "Night" }] : undefined)}
+            </div>
+          ))}
+        </section>
+      )}
+      {lot?.record && tab === "settings" && (
+        <section className="cd" style={{ padding: "6px 20px" }} aria-label="Planned settings">
+          {LEVERS.map((lever) => (
+            <div key={lever.key} className="fr">
+              <div>
+                <label htmlFor={`${form}-${lever.key}`} style={{ display: "block", fontSize: 16, fontWeight: 600 }}>{lever.label}</label>
+                <div className="lb" style={{ fontSize: 13 }}>{values[lever.key].trim() === "" ? "Required" : "Your planned setting"}</div>
+              </div>
+              {field(lever.key, "unit" in lever ? lever.unit : "", "options" in lever ? "Select" : "Enter value",
+                "options" in lever ? lever.options.map((option) => ({ value: option, label: LEVELS[option] })) : undefined)}
+            </div>
+          ))}
         </section>
       )}
       {problem && <Problem {...problem} />}
       <div className="row">
-        <Button arrow disabled>Confirm conditions</Button>
+        <Button arrow disabled={busy || !ready} onClick={confirm}>Confirm conditions</Button>
         <span className="lb" style={{ fontSize: 14 }}>
-          {lot?.record ? `${confirmed} of ${CONDITION_ROWS.length} conditions confirmed. ` : ""}Confirming in Arc is not connected yet.
+          {ready ? "Arc saves these values and plans the lot." : `${CONDITION_ROWS.length + LEVERS.length - conditionsLeft - settingsLeft} of ${CONDITION_ROWS.length + LEVERS.length} values entered.`}
         </span>
       </div>
     </>

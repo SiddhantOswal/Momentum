@@ -37,6 +37,7 @@ const LimitsSchema = z.object({
   dayCostCapInr: z.number().positive().max(MAX_DAY_COST_CAP_INR).optional(),
   demoSessionMint: z.object({ perIpPerHour: limit }).strict().optional(),
   pitchClaim: z.object({ attemptsPerIpPerHour: limit }).strict().optional(),
+  lotPlans: z.object({ perSessionPerDay: limit }).strict().optional(),
   reserve: z.object({
     units: limit,
     windowStart: TimestampSchema,

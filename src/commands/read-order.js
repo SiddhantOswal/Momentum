@@ -6,9 +6,11 @@ import { validationFailure } from "./validation.js";
 /**
  * Reads one purchase order into a review record. `fields` holds the upload
  * as multipart fields: `file`, optional `orderId`, `paperType`,
- * `paperSupplier` and a zero-based `selectedLineIndex`.
+ * `paperSupplier` and a zero-based `selectedLineIndex`. `reviewId` is set
+ * only by Arc, derived from its step's effect key, so a resumed step finds
+ * the review it already stored; a client never chooses it.
  */
-export async function readOrder({ fields = {} } = {}, {
+export async function readOrder({ fields = {}, reviewId } = {}, {
   principal,
   signal,
   servicePorts,
@@ -58,6 +60,7 @@ export async function readOrder({ fields = {} } = {}, {
     operatorFields: operatorFields.data,
     ...(selectedLineIndex === undefined ? {} : { selectedLineIndex }),
     ...(typeof principal?.sessionId === "string" ? { ownerSessionId: principal.sessionId } : {}),
+    ...(reviewId === undefined ? {} : { reviewId }),
     signal,
   });
   if (extraction?.ok && Array.isArray(extraction.lines)) {

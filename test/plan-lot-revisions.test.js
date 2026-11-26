@@ -84,6 +84,24 @@ test("planning registers a PENDING revision first and makes it CURRENT after the
   assert.equal(context.read("lot_heads", stored.lotId).currentJobId, result.jobSheet.jobId);
 });
 
+test("POST /jobs freezes paper moisture planned at the example value with the example label, and refuses the label on any other value", async () => {
+  const context = setup();
+  const example = await context.plan(jobFields({ paperMoisturePct: "7.3", paperMoistureSource: "example" }), "key-example-01");
+  assert.equal(example.ok, true, JSON.stringify(example.error));
+  const moisture = context.read("lot_revisions", example.jobSheet.jobId).conditions.find(({ field }) => field === "paperMoisturePct");
+  assert.deepEqual([moisture.value, moisture.sourceDetail, moisture.label, moisture.provenance], [7.3, "example", "Example value", "synthetic_example"]);
+  const entered = await context.plan(jobFields({ paperMoisturePct: "8.5", paperMoistureSource: "confirmed" }), "key-entered-01");
+  const own = context.read("lot_revisions", entered.jobSheet.jobId).conditions.find(({ field }) => field === "paperMoisturePct");
+  assert.deepEqual([own.sourceDetail, own.label], ["confirmed", "Confirmed by operator"]);
+  const seen = context.seen.length;
+  for (const source of ["example", "weather"]) {
+    const refused = await context.plan(jobFields({ paperMoisturePct: "8.5", paperMoistureSource: source }), `key-refused-${source}`);
+    assert.equal(refused.ok, false, source);
+    assert.equal(refused.error.issues.some(({ field }) => field === "paperMoistureSource"), true, source);
+  }
+  assert.equal(context.seen.length, seen, "a refused label plans nothing");
+});
+
 test("a second plan for the same lot with a changed condition replaces Rev 1", async () => {
   const context = setup();
   const lotId = `LOT-HACK-${context.principal.sessionId}-${"c".repeat(12)}`;

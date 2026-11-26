@@ -17,6 +17,9 @@ const STEP_LABELS = Object.freeze({
   search_defect_history: "Searching defect history",
   diagnose_approved_photo: "Checking the photo",
   get_job_card: "Checking the job card",
+  confirm_order: "Confirming the order",
+  confirm_conditions: "Saving the conditions",
+  approve: "Waiting for your approval",
 });
 const FALLBACK_LABEL = "Working on this step";
 

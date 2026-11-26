@@ -18,7 +18,10 @@ const names = [
   "get_status", "list_samples", "read_order", "get_weather", "set_conditions", "plan_lot",
   "retry_explanation", "get_lot", "list_next_actions", "get_job", "get_job_card",
   "list_approved_photos", "diagnose_approved_photo", "search_defect_history", "query_metric",
+  "confirm_order", "confirm_conditions",
 ];
+// Reached only from a fixed plan: never declared to the model and never in its allow-list.
+const codeOnly = ["retry_explanation", "confirm_order", "confirm_conditions"];
 const auth = createHackathonDemoAuthenticator({
   mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "a".repeat(64),
 });
@@ -87,7 +90,6 @@ test("Vertex declarations match the full parameter contract at each discovery st
       required: ["conditions"],
     },
     plan_lot: empty,
-    retry_explanation: empty,
     get_lot: empty,
     list_next_actions: empty,
     list_approved_photos: empty,
@@ -118,6 +120,7 @@ test("Vertex declarations match the full parameter contract at each discovery st
   };
   function assertContract(arc, allowed, context) {
     const expectedNames = names.filter((name) => Object.hasOwn(parameters, name));
+    assert.deepEqual(expectedNames.filter((name) => codeOnly.includes(name)), []);
     assert.deepEqual(arc.declarations(), [{
       functionDeclarations: expectedNames.map((name) => ({
         name, description: arc.tools[name].description, parameters: parameters[name],
@@ -343,7 +346,8 @@ test("effect keys are canonical and absent on reads without model spend", () => 
   const hash = createHash("sha256").update('{"conditions":{"ambientRhPct":42,"shift":"DAY"}}').digest("hex");
   const expected = `arc1.6f1c2a448b0e4d519c7a3e5d1b7f0a21.read_order.0.${hash.slice(0, 16)}`;
   for (const name of names) {
-    const keyed = ["read_order", "set_conditions", "plan_lot", "retry_explanation", "diagnose_approved_photo"].includes(name);
+    const keyed = ["read_order", "set_conditions", "plan_lot", "retry_explanation", "diagnose_approved_photo",
+      "confirm_order", "confirm_conditions"].includes(name);
     if (keyed) {
       assert.notEqual(arc.tools[name].key(step, { conditions: { shift: "DAY", ambientRhPct: 43 } }),
         arc.tools[name].key(step, args), `${name} must key different argument values separately`);
