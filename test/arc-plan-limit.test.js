@@ -64,6 +64,47 @@ test("POST /jobs past the limit is refused with 429 and writes nothing; the same
   assert.equal(lot.revision, null);
 });
 
+// The limit fails closed: a store that cannot answer stops the plan, as an exhausted limit does.
+const unreadable = [
+  ["answers BUDGET_UNAVAILABLE", async () => ({ ok: false, code: "BUDGET_UNAVAILABLE" })],
+  ["throws", async () => { throw new Error("Firestore did not answer."); }],
+];
+
+for (const [name, admitPlan] of unreadable) {
+  test(`when the plan limit store ${name}, POST /jobs answers 503 and registers, submits and predicts nothing`, async () => {
+    const backend = lotBackend();
+    backend.servicePorts.geminiUsage = { admitPlan };
+    const arc = fixture({ services: backend.servicePorts, commandDeps: backend.commandDeps, lotStore: backend.lotStore });
+    const review = await backend.dashboard.readOrder(arc.principal);
+    const lotId = `LOT-HACK-${arc.principal.sessionId}-${"b".repeat(12)}`;
+    const result = await backend.dashboard.planLot(arc.principal, { review, lotId, idempotencyKey: "limit-down-key-0001" });
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 503);
+    assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+    assert.deepEqual([backend.requests.submit.length, backend.requests.predict.length], [0, 0]);
+    assert.equal(await backend.lotStore.getLot({ lotId, ownerSessionId: arc.principal.sessionId }), null, "no lot or revision was registered");
+  });
+
+  test(`when the plan limit store ${name}, Arc's plan step fails and registers, submits and predicts nothing`, async () => {
+    const backend = lotBackend();
+    backend.servicePorts.geminiUsage = { admitPlan };
+    const arc = fixture({
+      router: () => assert.fail("buttons only"),
+      services: backend.servicePorts, commandDeps: backend.commandDeps, lotStore: backend.lotStore,
+    });
+    const reviewId = succeeded(await events(await arc.post(action("read_sample_order", { sampleId: "PO1" }))), "read_order");
+    const lotId = succeeded(await events(await arc.post(action("confirm_order", { reviewId, lineIndex: 0 }))), "confirm_order");
+    const frames = await events(await arc.post(action("confirm_conditions", conditionsFor(lotId))));
+    assert.deepEqual(frames.slice(-2).map(({ type, tool, errorCode }) => [type, tool, errorCode ?? null]), [
+      ["step.started", "plan_lot", null], ["step.failed", "plan_lot", "SERVICE_UNAVAILABLE"],
+    ]);
+    assert.deepEqual([backend.requests.submit.length, backend.requests.predict.length], [0, 0]);
+    const lot = await backend.lotStore.getLot({ lotId, ownerSessionId: arc.principal.sessionId });
+    assert.deepEqual([lot.head.currentRevision, lot.revision], [0, null], "no revision was registered");
+    assert.deepEqual((await arc.sessionStore.get(arc.principal.sessionId)).jobIds, []);
+  });
+}
+
 test("with room under the limit, a resumed or repeated plan counts once", async () => {
   const { backend, arc } = setup(2);
   const { lotA, lotB } = await twoLots(arc);
