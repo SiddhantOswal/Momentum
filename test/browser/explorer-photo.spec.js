@@ -98,7 +98,8 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('Low confidence in humid months')).toBeVisible();
 
     const kraft = page.locator('.kr');
-    await expect(kraft).toHaveCSS('background-color', 'rgb(215, 195, 154)');
+    // The emphasis card is the page's card with a yellow outline and a faint yellow wash.
+    await expect(kraft).toHaveCSS('border-top-color', 'rgba(245, 197, 24, 0.55)');
     await expect(page.locator('.m')).toHaveCSS('background-color', theme === 'dark' ? 'rgb(18, 21, 25)' : 'rgb(238, 240, 242)');
     expect((await page.locator('.pe-map').boundingBox()).width).toBe(768);
     await expectNoRetiredCopy(page);
@@ -129,7 +130,7 @@ for (const theme of ['dark', 'light']) {
     await expect(trust.getByRole('heading', { name: 'How far to trust this' })).toBeVisible();
     await expect(trust.getByText('Not connected', { exact: true })).toBeVisible();
     await expect(trust).not.toContainText('7 of 10');
-    await expect(trust).toHaveCSS('background-color', 'rgb(215, 195, 154)');
+    await expect(trust).toHaveCSS('border-top-color', 'rgba(245, 197, 24, 0.55)');
     await expect(page.locator('.m')).toHaveCSS('background-color', theme === 'dark' ? 'rgb(18, 21, 25)' : 'rgb(238, 240, 242)');
     await expectNoRetiredCopy(page);
   });

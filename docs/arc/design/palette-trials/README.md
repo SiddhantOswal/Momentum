@@ -1,6 +1,8 @@
 # Palette trials
 
-Two trials for Home and Insights. Neither is wired into the app: `palettes.css` changes nothing unless `data-palette="mono"` or `data-accent="yellow"` is set on `<html>`.
+**Adopted on 26 Nov: the yellow accent with the faint tint plus outline card (variant H), the transparent logo and the muted illustrations, applied across `web/`.** The monochrome trial and the other card treatments were not adopted. What follows describes the trials as they were rendered.
+
+Two trials for Home and Insights. Neither was wired into the app when rendered: `palettes.css` changes nothing unless `data-palette="mono"` or `data-accent="yellow"` is set on `<html>`.
 
 - **Monochrome** (`data-palette="mono"`): page and ink at 95% black (`#0D0D0D`), cards at 92% (`#141414`), greys between, white text and accent. Light and dark. The kraft card becomes the one inverted card on a page. Cards get square corners and corner ticks, bars become dot-matrix segments, the logo and the line illustration go grey. Alerts keep their colour: green ok, red error and low confidence, amber warning.
 - **Yellow** (`data-accent="yellow"`): the orange accent swapped for yellow, light and dark. In light mode accent-coloured text uses a darker amber, because yellow text on a light page fails contrast. The tan kraft card is replaced by a neutral one (near-black on a light page, light grey on a dark page) and the line illustration's boxes are muted, so yellow is the only warm colour besides status marks.

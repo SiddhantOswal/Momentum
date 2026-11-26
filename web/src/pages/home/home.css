@@ -44,8 +44,8 @@
 .m .hm-crt .hm-arw:before { content: ""; position: absolute; left: -6px; top: 0; width: 0; height: 0; border: 8px solid transparent; border-bottom: 10px solid rgba(0,0,0,.22); border-top: 0; margin-left: 0; }
 .m .hm-shd { position: absolute; left: 8px; top: 8px; width: 70px; height: 70px; border-radius: 8px; background: rgba(0,0,0,.42); filter: blur(7px); transform: translateZ(.6px); }
 :root[data-theme="light"] .m .hm-shd { background: rgba(0,0,0,.3); }
-.m .hm-scn { position: absolute; left: -22px; top: -75px; width: 44px; height: 150px; background: linear-gradient(90deg, transparent, rgba(232,102,79,.34), transparent); transform: translateZ(1px); animation: hm-led 4.2s infinite; }
-.m .hm-lens, .m .hm-abase .hm-led { position: absolute; left: 8px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: #E8664F; box-shadow: 0 0 8px #E8664F; animation: hm-led 4.2s infinite; }
+.m .hm-scn { position: absolute; left: -22px; top: -75px; width: 44px; height: 150px; background: linear-gradient(90deg, transparent, rgba(var(--ac-rgb), .34), transparent); transform: translateZ(1px); animation: hm-led 4.2s infinite; }
+.m .hm-lens, .m .hm-abase .hm-led { position: absolute; left: 8px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: rgb(var(--ac-rgb)); box-shadow: 0 0 8px rgb(var(--ac-rgb)); animation: hm-led 4.2s infinite; }
 .m .hm-rail > .hm-ft { background: var(--h-rail); }
 .m .hm-rail > .hm-fs { background: var(--h-rail2); }
 .m .hm-rail > .hm-fe { background: var(--h-rail3); }
@@ -53,7 +53,7 @@
 .m .hm-abase > .hm-fs, .m .hm-agrip > .hm-fs { background: var(--h-metal); }
 .m .hm-abase > .hm-fe, .m .hm-agrip > .hm-fe { background: var(--h-metal3); }
 .m .hm-alink > .hm-fs, .m .hm-alink > .hm-fe { background: var(--h-metal); }
-.m .hm-agrip .hm-gstrip { position: absolute; left: 5px; right: 5px; top: 2px; height: 6px; border-radius: 3px; background: #E8664F; box-shadow: 0 0 10px #E8664F; animation: hm-nn3 4.2s ease-in-out infinite; }
+.m .hm-agrip .hm-gstrip { position: absolute; left: 5px; right: 5px; top: 2px; height: 6px; border-radius: 3px; background: rgb(var(--ac-rgb)); box-shadow: 0 0 10px rgb(var(--ac-rgb)); animation: hm-nn3 4.2s ease-in-out infinite; }
 .m .hm-sl { animation-duration: 4.2s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
 .m .hm-sl.hm-sp { animation-name: hm-gp; }
 .m .hm-sl.hm-sn { animation-name: hm-gn; }
@@ -85,18 +85,18 @@
 .m .hm-stages { position: relative; }
 .m .hm-stage-list { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
 .m .hm-callouts { position: absolute; left: 0; right: 0; top: 0; height: 66px; }
-.m .hm-callout { position: absolute; bottom: 12px; height: 60px; border: 1px solid rgba(232,102,79,.7); border-radius: 10px; background: var(--rz); padding: 6px 14px; display: flex; gap: 16px; align-items: center; z-index: 2; }
+.m .hm-callout { position: absolute; bottom: 12px; height: 60px; border: 1px solid rgba(var(--ac-rgb), .7); border-radius: 10px; background: var(--rz); padding: 6px 14px; display: flex; gap: 16px; align-items: center; z-index: 2; }
 .m .hm-callout > div + div { border-left: 1px solid var(--ln2); padding-left: 16px; }
 .m .hm-callout .v { font-size: 20px; line-height: 26px; font-weight: 600; white-space: nowrap; }
 .m .hm-stage { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .m .hm-stem { position: relative; height: 66px; width: 100%; }
-.m .hm-stem i { position: absolute; left: 50%; bottom: 0; width: 1px; height: 12px; background: rgba(232,102,79,.7); }
+.m .hm-stem i { position: absolute; left: 50%; bottom: 0; width: 1px; height: 12px; background: rgba(var(--ac-rgb), .7); }
 .m .hm-dot { position: relative; height: 18px; width: 100%; display: flex; align-items: center; justify-content: center; }
 .m .hm-dot > span:first-child { position: absolute; left: 0; right: 0; top: 8px; height: 2px; background: var(--ln2); }
 .m .hm-stage:first-child .hm-dot > span:first-child { left: 50%; }
 .m .hm-stage:last-child .hm-dot > span:first-child { right: 50%; }
 .m .hm-dot b { position: relative; z-index: 1; width: 12px; height: 12px; border-radius: 50%; background: var(--cd); border: 2px solid var(--ln2); display: block; }
-.m .hm-dot b.on { width: 16px; height: 16px; background: var(--ac); border: 0; box-shadow: 0 0 0 4px var(--cd), 0 0 0 5px rgba(232,102,79,.6); }
+.m .hm-dot b.on { width: 16px; height: 16px; background: var(--ac); border: 0; box-shadow: 0 0 0 4px var(--cd), 0 0 0 5px rgba(var(--ac-rgb), .6); }
 .m .hm-name { margin-top: 8px; font-size: 14px; font-weight: 500; color: var(--mu); text-align: center; overflow-wrap: anywhere; }
 .m .hm-name.on { font-weight: 600; color: var(--tx); }
 /* Read by screen readers on wide screens, where the callouts above carry the same text. */
@@ -113,7 +113,7 @@
 .m .hm-step > i { position: absolute; left: 7px; top: 22px; bottom: -8px; width: 1px; background: var(--ln2); }
 .m .hm-card-row { padding: 14px 0; border-top: 1px solid var(--ln2); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .m .hm-card-row .n { font-size: 24px; line-height: 28px; font-weight: 700; white-space: nowrap; }
-.m .hm-open { background: #1F1810; color: #F3E9D2; }
+.m .hm-open { background: var(--ac); color: var(--arc-accent-ink); }
 
 @media (max-width: 1023px) {
   .m .hm-art { opacity: .45; }
@@ -162,3 +162,6 @@
   .hm-impact-figs { grid-template-columns: minmax(0, 1fr); }
   .hm-impact-figs li, .hm-impact-figs li:nth-child(odd) { border-left: 0; padding-left: 0; }
 }
+
+/* The line illustration's cardboard is muted so yellow stays the one warm colour. */
+.m .hm-art { filter: saturate(.45) contrast(1.03); }

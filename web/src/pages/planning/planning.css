@@ -65,7 +65,7 @@
 .m .pl-page .lr { display: grid; grid-template-columns: 36px 1fr auto; column-gap: 14px; align-items: center; min-height: 68px; border-top: 1px solid var(--ln); }
 .m .pl-page .lr:first-child { border-top: 0; }
 .m .pl-page .lr .no { width: 28px; height: 28px; border-radius: 50%; border: 1.5px dashed var(--ln2); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--mu); }
-.m .pl-page .lr.td .no { border: none; background: var(--ac); color: #18110E; }
+.m .pl-page .lr.td .no { border: none; background: var(--ac); color: var(--arc-accent-ink); }
 .m .pl-page .lr.out { opacity: .7; }
 .m .pl-page .lr b { display: block; font: 600 17px/24px var(--arc-font-display); }
 .m .pl-page .lr span.s { display: block; font-size: 14px; line-height: 20px; color: var(--mu); }
@@ -87,7 +87,7 @@
 .m .pl-page .wk .wd { border-left: 1px solid var(--ln); padding: 0 8px; display: flex; align-items: center; height: 36px; }
 .m .pl-page .wk .wl { display: flex; align-items: center; height: 112px; border-top: 1px solid var(--ln); font-size: 15px; font-weight: 600; }
 .m .pl-page .wk .wc { height: 112px; border-top: 1px solid var(--ln); border-left: 1px solid var(--ln); padding: 10px 4px; display: flex; align-items: center; min-width: 0; }
-.m .pl-page .wk .wx { height: 78px; border-radius: 10px; border: 1.5px dashed var(--ac); padding: 10px 7px; width: 100%; background: rgba(232,102,79,.08); min-width: 0; }
+.m .pl-page .wk .wx { height: 78px; border-radius: 10px; border: 1.5px dashed var(--ac); padding: 10px 7px; width: 100%; background: rgba(var(--ac-rgb), .08); min-width: 0; }
 /* Inter is wider than the design's Inter Tight, so the example code is set at 14 px to stay on one line. */
 .m .pl-page .wk .wx div:first-child { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .m .pl-page .cks { margin: 0; padding: 0; list-style: none; }

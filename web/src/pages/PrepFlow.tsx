@@ -103,7 +103,7 @@ const TONE_NOTE = { ok: "", wn: ", low confidence", bd: ", no estimate", dim: ""
 
 function FlowDrawing({ view }: { view: FlowView }) {
   const markerId = useId().replace(/:/g, "");
-  const tones = { g1: "var(--g1)", ac: "#E8664F", wn: "#E3A340", bd: "#F0707A", g2: "var(--g2)" } as const;
+  const tones = { g1: "var(--g1)", ac: "var(--ac)", wn: "#E3A340", bd: "#F0707A", g2: "var(--g2)" } as const;
   return (
     <div className="pf-wrap">
       <div className="pf">

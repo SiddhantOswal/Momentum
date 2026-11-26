@@ -3,7 +3,7 @@
 @import "./arc-fonts.css";
 @import "./m.css";
 
-:root, .arc-kraft, .arc-glass {
+:root, .arc-glass {
   --panel: var(--cd);
   --panel-2: var(--rz);
   --raised: var(--rz);

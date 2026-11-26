@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import logo from "../assets/logo-momentum.jpg";
+import logoOnDark from "../assets/logo-on-dark.png";
+import logoOnLight from "../assets/logo-on-light.png";
 import { useBackendState } from "../lib/backend";
 import { href, type NavKey, type Route, type RouteId } from "../lib/routes";
 import type { Theme } from "../lib/useApp";
@@ -75,7 +76,7 @@ export function Frame({ route, theme, toggleTheme, children }: { route: Route; t
     <div className="m">
       <a className="sr-only skip" href="#main" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to content</a>
       <aside id="side-nav" className={`side${menuOpen ? " open" : ""}`} inert={arcOpen}>
-        <img className="brand" src={logo} alt="Momentum" />
+        <img className="brand" src={theme === "dark" ? logoOnDark : logoOnLight} alt="Momentum" />
         <nav aria-label="Main">
           {NAV.map((item) => <NavLink key={item.key} item={item} active={route.nav === item.key} />)}
           <div className="grp" id="nav-future">Future</div>

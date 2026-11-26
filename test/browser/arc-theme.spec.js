@@ -27,6 +27,9 @@ for (const theme of ['dark', 'light']) {
     await expect(root).toHaveCSS('color-scheme', theme);
     await expectTokens(root, {
       ...referenceColors(theme === 'light' ? '.m.lt' : '.m'),
+      // The accent is yellow since 2026-11-26. Every other token still matches the approved design.
+      '--ac': theme === 'light' ? '#F2BE00' : '#F5C518',
+      '--ct': theme === 'light' ? '#7A5A00' : '#F7DC6F',
       '--arc-font-body': "'Inter', system-ui, sans-serif",
       '--arc-font-display': "'Inter', sans-serif",
       '--arc-text-body': '15px',
@@ -50,7 +53,7 @@ for (const theme of ['dark', 'light']) {
       '--arc-radius-card': '12px',
       '--arc-radius-control': '10px',
       '--arc-radius-chip': '6px',
-      '--arc-accent-ink': '#18110E',
+      '--arc-accent-ink': '#17130A',
     });
 
     const interLoaded = await page.evaluate(async () => {
@@ -63,13 +66,12 @@ for (const theme of ['dark', 'light']) {
     expect(interLoaded).toBe(true);
 
     await page.locator('body').evaluate(body => {
-      for (const className of ['arc-kraft', 'arc-glass', 'arc-machine']) {
+      for (const className of ['arc-glass', 'arc-machine']) {
         const element = document.createElement('div');
         element.className = className;
         body.append(element);
       }
     });
-    await expectTokens(page.locator('.arc-kraft'), referenceColors('.m .kr,.m.lt .kr'));
     await expectTokens(page.locator('.arc-machine'), referenceColors(theme === 'light' ? '.m.lt .mo' : '.mo', insights));
     if (theme === 'light') {
       await expectTokens(page.locator('.arc-glass'), referenceColors('.m.lt .gl'));

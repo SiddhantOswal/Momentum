@@ -4,7 +4,7 @@ type Span = 3 | 4 | 5 | 6 | 7 | 8 | 12;
 
 /**
  * The design's card: a title row with the card name on the left and meta (a short note or a
- * chip) on the right. `kraft` is the one emphasis surface a page may have.
+ * chip) on the right. `kraft` is the one emphasis surface a page may have: a faint yellow wash with a yellow outline.
  */
 export function Card({ title, meta, span, kraft, flush, className = "", children }: {
   title?: ReactNode; meta?: ReactNode; span?: Span; kraft?: boolean; flush?: boolean;

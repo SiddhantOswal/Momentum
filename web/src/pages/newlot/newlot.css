@@ -62,13 +62,13 @@
 .m .nl .rd .ed .fld input { font-size: 15px; }
 
 /* the order excerpt on the Source card */
-.m .nl .po { background: #D7C39A; color: #1F1810; border-radius: 10px; padding: 20px 22px; min-height: 318px; display: flex; flex-direction: column; }
+.m .nl .po { background: color-mix(in srgb, var(--ac) 9%, var(--cd)); border: 1px solid rgba(var(--ac-rgb), .55); color: var(--tx); border-radius: 10px; padding: 20px 22px; min-height: 318px; display: flex; flex-direction: column; }
 .m .nl .po .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .m .nl .po .hd b { font: 700 15px var(--arc-font-display); letter-spacing: .06em; }
 .m .nl .po .row { display: grid; grid-template-columns: 44px 110px 1fr 90px; gap: 8px; align-items: center; }
-.m .nl .po .row.h { margin-top: 18px; font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid rgba(27,23,18,.35); padding-bottom: 6px; }
+.m .nl .po .row.h { margin-top: 18px; font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid var(--ln2); padding-bottom: 6px; }
 .m .nl .po .row.l { margin-top: 8px; padding: 8px 6px; margin-left: -6px; margin-right: -6px; font-size: 14px; border: 2px solid transparent; border-radius: 6px; }
-.m .nl .po .row.l.on { border-color: #C4442F; background: rgba(196,68,47,.08); font-weight: 600; }
+.m .nl .po .row.l.on { border-color: var(--ac); background: rgba(var(--ac-rgb), .14); font-weight: 600; }
 .m .nl .po .row span:last-child { text-align: right; }
 .m .nl .po .ft { margin-top: auto; padding-top: 16px; font-size: 12.5px; color: rgba(27,23,18,.72); }
 

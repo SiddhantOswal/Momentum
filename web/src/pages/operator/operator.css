@@ -27,8 +27,7 @@
 .m .op .sr .sv .was { font-size: 13px; color: var(--mu); }
 .m .op-rows { margin: 14px 0 0; padding: 0; list-style: none; }
 .m .op .mb { display: flex; align-items: center; justify-content: center; gap: 10px; height: 56px; border-radius: 12px; font: 600 18px var(--arc-font-body); text-decoration: none; border: 1px solid transparent; width: 100%; cursor: pointer; }
-.m .op .mb.p { background: var(--ac); color: #18110E; }
-:root[data-theme="light"] .m .op .mb.p { color: #1B0F0B; }
+.m .op .mb.p { background: var(--ac); color: var(--arc-accent-ink); }
 .m .op .mb.s { border-color: var(--ln2); color: var(--tx); background: transparent; }
 /* Unavailable until ARC-M6-13: the design's colours, faded, so nothing looks ready to use. */
 .m .op .mb[aria-disabled="true"] { cursor: not-allowed; opacity: .45; }

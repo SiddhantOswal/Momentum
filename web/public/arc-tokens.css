@@ -28,7 +28,8 @@
   --arc-radius-card: 12px;
   --arc-radius-control: 10px;
   --arc-radius-chip: 6px;
-  --arc-accent-ink: #18110E;
+  --arc-accent-ink: #17130A;
+  --ac-rgb: 245, 197, 24;
 }
 
 :root, [data-theme="dark"] {
@@ -42,12 +43,12 @@
   --tx: #EAEDF0;
   --mu: #A3ACB6;
   --dim: #7B8590;
-  --ac: #E8664F;
+  --ac: #F5C518;
   --ok: #5FBF98;
   --wn: #E3A340;
   --bd: #F0707A;
   --inv: #111;
-  --ct: #F3A394;
+  --ct: #F7DC6F;
   --g1: #4E9E7F;
   --g2: #6A7683;
   --pap: #D8C6A3;
@@ -66,12 +67,12 @@
   --tx: #14181C;
   --mu: #46515C;
   --dim: #66717C;
-  --ac: #E8664F;
+  --ac: #F2BE00;
   --ok: #1F7A58;
   --wn: #8F5A00;
   --bd: #B8333F;
   --inv: #FFFFFF;
-  --ct: #B23F2A;
+  --ct: #7A5A00;
   --g1: #1F7A58;
   --g2: #7E8995;
   --pap: #B38D52;
@@ -79,24 +80,6 @@
   --stg: #F6F4EE;
 }
 
-.arc-kraft {
-  --cd: #D7C39A;
-  --rz: rgba(255,255,255,.38);
-  --bg: rgba(255,255,255,.42);
-  --ln: rgba(31,24,16,.22);
-  --ln2: rgba(31,24,16,.4);
-  --tx: #1F1810;
-  --mu: rgba(31,24,16,.76);
-  --dim: rgba(31,24,16,.68);
-  --ok: #14573C;
-  --wn: #6E4200;
-  --bd: #9C2430;
-  --ct: #9E3320;
-  --bar0: rgba(31,24,16,.3);
-  --g1: #14573C;
-  --g2: rgba(31,24,16,.4);
-  --inv: #D7C39A;
-}
 
 [data-theme="light"] .arc-glass {
   --tx: #EAEDF0;
