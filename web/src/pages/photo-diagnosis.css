@@ -1,0 +1,26 @@
+/* Photo Diagnosis. Measurements come from the approved design: Photo-Diagnosis.html in docs/arc/design/source/html. */
+
+.pd-bar { height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--ln); }
+.pd-bar b { font-size: 15px; font-weight: 600; }
+.pd-stage { height: 376px; background: #07080A; display: flex; align-items: center; justify-content: center; padding: 24px; }
+/* The stage stays black in both themes, as designed, so its message uses fixed light colours. */
+.pd-stage .not-connected { max-width: 420px; background: transparent; color: #A3ACB6; border-color: #3A434D; }
+.pd-stage .not-connected strong { color: #EAEDF0; }
+.pd-thumbs { display: flex; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--ln); overflow-x: auto; }
+.pd-thumb { flex: 0 1 64px; min-width: 40px; height: 48px; border-radius: 6px; border: 1px solid var(--ln2); background: var(--bg); color: var(--mu); font: 600 13px var(--arc-font-body, 'Inter', sans-serif); cursor: pointer; }
+.pd-thumb[aria-pressed="true"] { border: 2px solid var(--ac); color: var(--tx); background: var(--rz); }
+.pd-thumb:disabled { cursor: default; opacity: .6; }
+.pd-thumb:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.pd-row { padding: 12px 0; border-top: 1px solid var(--ln); }
+.pd-row-label { font-size: 13px; color: var(--mu); }
+.pd-row-value { margin-top: 2px; font-size: 16px; color: var(--mu); }
+.pd-row-value-set { color: var(--tx); }
+.pd-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--ln); }
+.pd-actions .button-primary { flex: 1 1 auto; }
+.pd-error { margin-top: 12px; }
+.pd-trust { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+.pd-dots { display: flex; gap: 6px; }
+.pd-dot { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--dim); }
+.pd-trust-figure { font: 600 28px/32px var(--arc-font-display); font-variant-numeric: tabular-nums; }
+.pd-trust-figure small { font-size: 15px; font-weight: 500; color: var(--mu); }
+.pd-trust-note { margin-left: auto; max-width: 360px; font-size: 14px; line-height: 1.5; color: var(--mu); }

@@ -34,6 +34,8 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
 }
 
 export const getJson = <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal });
+export const postJson = <T>(path: string, body: unknown, signal?: AbortSignal) =>
+  request<T>(path, { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 export type Defect = "WARP" | "DELAM" | "STRENGTH" | "PRINT" | "CRACK";
 export const DEFECTS: { key: Defect; label: string; short: string }[] = [

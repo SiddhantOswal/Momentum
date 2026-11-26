@@ -290,6 +290,27 @@
       "status": "PASSED",
       "result": "tsc clean, build ok, 18 of 18 unit tests",
       "existing": false
+    },
+    {
+      "id": "CHK-U07-BROWSER",
+      "name": "npx playwright test test/browser/photo-diagnosis.spec.js",
+      "status": "PASSED",
+      "result": "6 of 6, routes mocked in the spec: opens on photo 1 with no accuracy figure; Run diagnosis posts the selected photo id and shows a Model estimate chip; Other photo advances and clears the result; failed classification shows the error; a wrong label or photo is rejected; unavailable list disables both buttons. Not run against a live backend or live Gemini. Mutation check NOT RUN.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U07-VISUAL",
+      "name": "node tools/visual/capture.mjs --ref Photo-Diagnosis --route photo-diagnosis",
+      "status": "PASSED",
+      "result": "runs 4, structuralFailures 0, no horizontal overflow at 1440x900 and 1280x800. Viewed dark and light at both sizes. Only the backend-unavailable state was captured because no backend ran; the loaded state was not captured. 1024x768 and the mobile sizes were rendered by the tool but not viewed by eye.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U07-TSC",
+      "name": "cd web && npx tsc -b && npm run build && npm test",
+      "status": "PASSED",
+      "result": "tsc clean, build ok, 21 of 21 unit tests (3 new for the photo model)",
+      "existing": false
     }
   ],
   "units": {
@@ -443,16 +464,24 @@
       "notes": "Differences from the design: October figures replaced by the final m2 reference (62.9 to 55.1 kg, Rs 3,355 to Rs 2,934, saving Rs 421, viscosity 32 to 45 s) from docs/arc/delivery/data/PKBX0041-m2-rerun.md, provisional until Om signs off (DR-019, PD-12); title Three settings, no trade-off and the line All five modeled risks fall replace the strength trade-off; model chart shows current holdout scores with no pass levels and no Earlier check markers (stale-claims.md); September 2026 note sourced from config/model-acceptance.json; Warp attribution, Software checks, Photo diagnosis and Approved job card show the not-connected state (no source, DR-010); Crack low-confidence flag is hard-coded to match Home Model watch; bell shows no count because the shell has none; defect tabs are static spans as in the design; the conveyor scene is the design SVG as JSX. Needs a decision: where /impact/summary (September holdout impact) belongs, since the design has no tile for it (DR-004, DR-005). Decisions: PD-23. Leftover work is listed under U06 in docs/migration/parked.md."
     },
     "U07": {
-      "state": "NOT_STARTED",
+      "state": "UI_IMPLEMENTED",
       "visual": {
-        "dark": null,
-        "light": null,
-        "viewports": []
+        "dark": "1440x900 and 1280x800 viewed against png/dark/Photo-Diagnosis.png, backend-unavailable state only",
+        "light": "1440x900 and 1280x800 viewed against png/light/Photo-Diagnosis.png, backend-unavailable state only",
+        "viewports": [
+          "1440x900",
+          "1280x800"
+        ],
+        "screenshots": "docs/migration/evidence/U07/ (kept copies); regenerate with node tools/visual/capture.mjs --ref Photo-Diagnosis --route photo-diagnosis (writes .visual/, not tracked)"
       },
-      "functional": null,
-      "backend": null,
-      "evidence": [],
-      "notes": ""
+      "functional": "PARTIAL: control paths covered by a browser spec with mocked routes; no run against the live backend or Gemini",
+      "backend": "GET /evidence/approved-photos and POST /evidence/classify-photo used. POST /evidence/diagnose-photo (upload, no design, G14) and POST /evidence/seen-before NOT used: the design has no upload control and no slot for past cases.",
+      "evidence": [
+        "CHK-U07-BROWSER",
+        "CHK-U07-VISUAL",
+        "CHK-U07-TSC"
+      ],
+      "notes": "Differences from the design: the photograph is not shown, the area reads 'The photo image is not connected.' because approved-photos returns ids and labels only and the service does not expose image bytes (specimen.jpg is a design asset, not an approved photo); the caption 'Side view of a board cross-section' is omitted (no source per photo); the trust card shows 'Not recorded' with 'No stored accuracy run for the ten photos.' instead of '7 of 10 labels matched / 3 did not match', because the figure has only a README source (data-audit Q17, stale-claims.md) and the dots are all empty; 'What it looked at' and 'Suggested follow-up' read 'Not recorded' after a run because classify-photo returns a label only; the result carries a 'Model estimate' chip; top bar shows live backend state and no 'Prototype data, not live' chip (shell, PD-15); 'Other photo' advances to the next approved photo, as no upload design exists (G14), a reading of the label that needs founder confirmation. Needs a decision: whether to restore '7 of 10' with a stored evaluation run (ARC-M6-14), and an image route for the approved photos. DR-029 (seen_before.sql dry-runs) not affected here. Loaded state and Run diagnosis result were not captured visually."
     },
     "U08": {
       "state": "NOT_STARTED",
