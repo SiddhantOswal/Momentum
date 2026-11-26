@@ -681,6 +681,26 @@ for (const theme of ['dark', 'light']) {
   });
 }
 
+test('a plan step stopped by the daily plan limit, a plan conflict or a revision conflict shows its own words, not the turn conflict', async ({ page }) => {
+  const stops = [
+    ['step.blocked', 'PLAN_DAILY_LIMIT_REACHED', 'This session has planned as many lots as it can today. Planning opens again at midnight IST (02:30 in Singapore).'],
+    ['step.failed', 'CONFLICT', 'These values clash with an earlier plan for the same step. Press Confirm conditions again.'],
+    ['step.failed', 'REVISION_CONFLICT', 'The lot changed while this draft was being prepared. Plan the lot again.'],
+    ['step.failed', 'DEMO_SCOPE_REQUIRED', 'This lot belongs to another demo session, so Arc cannot use it here.'],
+  ];
+  await mockTurns(page, stops.map(([type, errorCode]) => ({
+    events: (id) => oneStep(id, { tool: 'plan_lot', kind: 'lot_preparation', end: { type, errorCode, retrySafe: false } }),
+  })));
+  const panel = await openArc(page);
+  for (const [index, [, , words]] of stops.entries()) {
+    await type(panel, `Plan the lot ${index}`);
+    const stopped = panel.getByRole('article').nth(index);
+    await expect(stopped.getByRole('alert')).toHaveText(words, { useInnerText: true });
+    await expect(stopped.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+  }
+  await expect(panel.getByText('This message was already sent with different words. Send it again.')).toHaveCount(0);
+});
+
 test('after stream.error, Try again re-posts the same clientTurnId so the server replays or takes the turn over', async ({ page }) => {
   const posts = await mockTurns(page, [
     { events: (id) => [

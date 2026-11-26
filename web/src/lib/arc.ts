@@ -290,12 +290,15 @@ function stepRetry(errorCode: string, retrySafe: boolean, retryAfterSeconds?: nu
   return { mode: "new_turn", at: Date.now() + (retryAfterSeconds ?? RATE_LIMIT_WAIT_SECONDS) * 1000 };
 }
 
+// A CONFLICT from a step is the plan's idempotency check, not the turn route's reused-turn conflict.
+const stepWords = (code: string, retryAfterSeconds?: number) => arcWords(code === "CONFLICT" ? "PLAN_CONFLICT" : code, retryAfterSeconds);
+
 function stoppedOutcome(event: ArcEvent): TurnOutcome {
   switch (event.type) {
-    case "step.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode), retry: stepRetry(event.errorCode, event.retrySafe) };
+    case "step.failed": return { kind: "stopped", code: event.errorCode, words: stepWords(event.errorCode), retry: stepRetry(event.errorCode, event.retrySafe) };
     case "run.failed": return { kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode), retry: null };
     case "step.blocked": return {
-      kind: "stopped", code: event.errorCode, words: arcWords(event.errorCode, event.retryAfterSeconds),
+      kind: "stopped", code: event.errorCode, words: stepWords(event.errorCode, event.retryAfterSeconds),
       retry: stepRetry(event.errorCode, event.retrySafe, event.retryAfterSeconds),
     };
     case "step.waiting_for_user": return { kind: "stopped", code: event.waitingFor, words: WAITING_WORDS[event.waitingFor], retry: null };
@@ -373,6 +376,10 @@ const WORDS: Record<string, string> = {
   ORDER_REVIEW_EXPIRED: "This order review has expired. Read the order again.",
   ORDER_LINE_NOT_CONFIRMABLE: "This line is not matched to one catalog item with a quantity, so Arc cannot confirm it. Read the order again or use New Lot.",
   ORDER_SAMPLE_REQUIRED: "Arc reads the approved sample orders only. Choose PO1 to PO5.",
+  PLAN_DAILY_LIMIT_REACHED: "This session has planned as many lots as it can today. Planning opens again at midnight IST (02:30 in Singapore).",
+  PLAN_CONFLICT: "These values clash with an earlier plan for the same step. Press Confirm conditions again.",
+  REVISION_CONFLICT: "The lot changed while this draft was being prepared. Plan the lot again.",
+  DEMO_SCOPE_REQUIRED: "This lot belongs to another demo session, so Arc cannot use it here.",
   TOOL_RESULT_TOO_LARGE: "That result was too large for Arc to show. Ask for less at once.",
   VALIDATION_ERROR: "Arc could not turn that into a step it can run. Rephrase it, or use the buttons.",
   APPROVAL_IN_PROGRESS: "This step is already running in another tab. Arc will show the result here.",
