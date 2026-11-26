@@ -8,6 +8,7 @@ import { NewLot } from "./pages/NewLot";
 import { PlantExplorer } from "./pages/PlantExplorer";
 import { Insights } from "./pages/Insights";
 import { PhotoDiagnosis } from "./pages/PhotoDiagnosis";
+import { Planning } from "./pages/Planning";
 import { PreparationFlow } from "./pages/prep-flow/PreparationFlow";
 
 // Development-only reference for the shared components; excluded from production builds.
@@ -38,6 +39,8 @@ export function App() {
         <Insights />
       ) : route.key === "photo-diagnosis" ? (
         <PhotoDiagnosis />
+      ) : route.key === "planning" ? (
+        <Planning />
       ) : (
         <>
           <PageHeader title={route.title} subtitle={route.subtitle} />
