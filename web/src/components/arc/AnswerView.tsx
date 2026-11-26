@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { formatNumber } from "../../lib/api";
 import { jobCardPdfPath, type AnswerBlock, type AnswerBlockKind, type AnswerView as Answer, type ResultRef, type Suggestion } from "../../lib/arc";
-import { Icon, IdleMark, LabelChip, ProvenanceChip } from "../m";
+import { Icon, IdleMark } from "../m";
 import { PhotoResult } from "./DefectScreens";
 import { JobFlow, LotConditions, LotReview } from "./LotScreens";
 
@@ -9,13 +9,6 @@ export type Ask = (suggestion: Suggestion) => void;
 /** `text` is the answer text when this block carries it, as the value and chart designs do; otherwise null. */
 export type BlockProps<K extends AnswerBlockKind> = { block: Extract<AnswerBlock, { kind: K }>; answer: Answer; text: string | null; ask: Ask; busy: boolean };
 type Renderers = { [K in AnswerBlockKind]: (props: BlockProps<K>) => ReactNode };
-
-const GEMINI = <ProvenanceChip kind="generated-by-gemini" />;
-
-function Labels({ labels, gemini }: { labels: string[]; gemini?: boolean }) {
-  if (!labels.length && !gemini) return null;
-  return <span className="chips">{labels.map((label) => <LabelChip key={label} label={label} />)}{gemini && GEMINI}</span>;
-}
 
 function SuggestionRows({ title, suggestions, ask, busy }: { title: string; suggestions: Suggestion[]; ask: Ask; busy: boolean }) {
   if (!suggestions.length) return null;
@@ -58,9 +51,9 @@ const UNAVAILABLE_WORDS: Record<string, string> = {
  * dashboard route that serves it, so Arc and the dashboard show the same stored data.
  */
 export const BLOCK_RENDERERS: Renderers = {
-  value: ({ block, answer, text }) => (
+  value: ({ block, text }) => (
     <section className="cd">
-      <div className="ct2"><span className="t" style={{ fontSize: 15, color: "var(--mu)" }}>{text ? "Answer" : block.title}</span><Labels labels={block.labels} gemini={Boolean(text) && answer.generatedByGemini} /></div>
+      <div className="ct2"><span className="t" style={{ fontSize: 15, color: "var(--mu)" }}>{text ? "Answer" : block.title}</span></div>
       {text && <div className="lb" style={{ fontSize: 15, marginBottom: 6 }}>{block.title}</div>}
       {block.value === null
         ? <div style={{ fontSize: 20, color: "var(--mu)", fontWeight: 500 }}>Not recorded</div>
@@ -74,11 +67,11 @@ export const BLOCK_RENDERERS: Renderers = {
       {text && <p className="ans" style={{ marginTop: 12 }}>{text}</p>}
     </section>
   ),
-  chart: ({ block, answer, text }) => {
+  chart: ({ block, text }) => {
     const isR2 = /\bR2\b|R²/.test(block.title);
     return (
       <section className="cd">
-        <div className="ct2"><span className="t" style={{ fontSize: 15, color: "var(--mu)" }}>{text ? "Answer" : r2(block.title)}</span><Labels labels={block.labels} gemini={Boolean(text) && answer.generatedByGemini} /></div>
+        <div className="ct2"><span className="t" style={{ fontSize: 15, color: "var(--mu)" }}>{text ? "Answer" : r2(block.title)}</span></div>
         {text && <p className="ans">{r2(text)}</p>}
         <div role="table" aria-label={r2(block.title)} style={{ marginTop: 14, borderTop: "1px solid var(--ln)" }}>
           {block.series.map((point) => (
@@ -106,7 +99,6 @@ export const BLOCK_RENDERERS: Renderers = {
         <section className="cd">
           <div className="ct2">
             <span className="sx wn" style={{ fontSize: 15 }}><Icon name="warn" />Not enough data</span>
-            <span className="chips"><ProvenanceChip kind="insufficient-data" />{answer.generatedByGemini && GEMINI}</span>
           </div>
           {lead && <div className="d" style={{ fontSize: 26, lineHeight: "32px", fontWeight: 600, letterSpacing: "-.3px" }}>{lead}</div>}
           {rest && <div className="lb" style={{ marginTop: 6, fontSize: 16, lineHeight: 1.5 }}>{rest}</div>}
@@ -123,7 +115,6 @@ export const BLOCK_RENDERERS: Renderers = {
         <section className="cd">
           <div className="ct2">
             <span className="sx id" style={{ fontSize: 15 }}><IdleMark />Outside Arc</span>
-            <span className="chips"><ProvenanceChip kind="out-of-scope" />{answer.generatedByGemini && GEMINI}</span>
           </div>
           {lead && <div className="d" style={{ fontSize: 26, lineHeight: "32px", fontWeight: 600, letterSpacing: "-.3px" }}>{lead}</div>}
           {rest && <div className="lb" style={{ marginTop: 6, fontSize: 16, lineHeight: 1.5 }}>{rest}</div>}
@@ -148,13 +139,13 @@ export const BLOCK_RENDERERS: Renderers = {
       case "photo": return <PhotoResult photoId={block.ref.id} />;
       case "card": return (
         <section className="cd">
-          <div className="ct2"><span className="t" style={{ fontSize: 15 }}>Job card PDF</span><Labels labels={block.labels} gemini={block.generatedByGemini} /></div>
+          <div className="ct2"><span className="t" style={{ fontSize: 15 }}>Job card PDF</span></div>
           <a className="bt s sm" href={jobCardPdfPath(block.ref.id)} target="_blank" rel="noopener">Open PDF</a>
         </section>
       );
       default: return (
         <section className="cd">
-          <div className="ct2"><span className="t" style={{ fontSize: 15 }}>{REF_NAMES[block.ref.kind]}</span><Labels labels={block.labels} gemini={block.generatedByGemini} /></div>
+          <div className="ct2"><span className="t" style={{ fontSize: 15 }}>{REF_NAMES[block.ref.kind]}</span></div>
           <div className="n" style={{ fontSize: 16, fontWeight: 600, overflowWrap: "anywhere" }}>{block.ref.id}</div>
         </section>
       );
@@ -178,7 +169,7 @@ function renderBlock(block: AnswerBlock, answer: Answer, text: string | null, as
 /**
  * The reply to one turn. The value and chart designs put the answer text inside the card, so a
  * leading value or chart block carries it; refusal and no-data cards carry it as their headline.
- * Any other answer shows the text in its own card first. The Gemini chip goes with the text.
+ * Any other answer shows the text in its own card first.
  */
 export function AnswerView({ answer, ask, busy }: { answer: Answer; ask: Ask; busy: boolean }) {
   const textInBlock = answer.blocks.some((block) => block.kind === "refusal" || block.kind === "no_data");
@@ -188,7 +179,7 @@ export function AnswerView({ answer, ask, busy }: { answer: Answer; ask: Ask; bu
     <>
       {answer.text && !textInBlock && !carried && (
         <section className="cd">
-          <div className="ct2"><span className="t" style={{ fontSize: 15, color: "var(--mu)" }}>Answer</span>{answer.generatedByGemini && GEMINI}</div>
+          <div className="ct2"><span className="t" style={{ fontSize: 15, color: "var(--mu)" }}>Answer</span></div>
           <p className="ans">{answer.text}</p>
         </section>
       )}

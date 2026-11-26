@@ -109,21 +109,24 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeAttached();
     await expect(page.getByRole('heading', { name: 'Start with a sample order.' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Try a sample order' }).first()).toHaveAttribute('href', '#/new-lot/order');
-    await expect(main.getByText('Modelled on our plant')).toBeVisible();
+    await expect(main.getByText('Modelled on our plant')).toHaveCount(0);
 
     await expect(main.getByText('Latest prepared run, TESTITEM1')).toBeVisible();
     await expect(main.getByText('70.2 → 61.5')).toBeVisible();
-    await expect(main.getByText('Model estimate, predicted')).toBeVisible();
+    await expect(main.getByText('Model estimate, predicted')).toHaveCount(0);
 
     const route = page.getByRole('region', { name: 'Production route' });
     await expect(route).toContainText('2 settings change, at Single facer and Pasting');
     await expect(route).toContainText('160 → 168 °C');
     await expect(route).toContainText('HIGH → MEDIUM');
 
+    const orders = page.getByRole('region', { name: 'Approved sample orders' });
+    await expect(orders).not.toContainText('Newest first');
+    await expect(orders).not.toContainText('Not connected');
     const table = page.getByRole('table', { name: 'Lots from approved sample orders' });
     const first = table.getByRole('row').nth(1);
     await expect(first).toContainText('TESTITEM1');
-    await expect(first).toContainText('Not connected');
+    await expect(first).toContainText('Stage not recorded');
     await expect(first).toContainText('Crack: low confidence');
     await expect(first).toContainText('Ready for review');
     await expect(table.getByRole('row').nth(2)).toContainText('Approved');
@@ -133,6 +136,7 @@ for (const theme of ['dark', 'light']) {
     await expect(card).toContainText('TESTITEM1');
     await expect(card).toContainText('Recycled 5-ply BC, 900 boxes');
     await expect(card).toContainText('160 → 168 °C');
+    await expect(card).not.toContainText('Sample, not approved');
 
     const trust = page.getByRole('region', { name: 'How far to trust each model' });
     await expect(trust).toContainText('Fit score on 150 test lots.');
@@ -145,6 +149,7 @@ for (const theme of ['dark', 'light']) {
     await expect(steps).toContainText('2 settings changed');
 
     await expect(page.getByRole('table', { name: 'Recent activity' })).toContainText('Lot TESTITEM1 planned · 900 units');
+    await expect(page.getByRole('region', { name: 'Activity' })).not.toContainText(/\b(Live|Connecting|Offline)\b/);
     expect(await main.innerText()).not.toMatch(PASS_WORDING);
   });
 
@@ -179,8 +184,11 @@ for (const theme of ['dark', 'light']) {
     await expect(settings).toContainText('Roll temperature160 → 168 °C');
     await expect(settings).toContainText('Gum applicationHIGH → MEDIUM');
 
+    await expect(page.getByRole('region', { name: 'Software checks' })).toContainText('No stored test-run summary yet.');
+    await expect(page.getByRole('region', { name: 'Photo diagnosis' })).toContainText('No stored accuracy run over the ten approved photos yet');
+    await expect(page.getByRole('region', { name: 'Approved job card' })).toContainText('The card check does not return a page count or file size yet.');
     for (const title of ['Software checks', 'Photo diagnosis', 'Approved job card']) {
-      await expect(page.getByRole('region', { name: title })).toContainText('Not connected');
+      await expect(page.getByRole('region', { name: title })).not.toContainText('Not connected');
     }
     await expect(page.getByRole('region', { name: 'Capacity' })).toContainText('Not connected');
     await expect(page.getByRole('status').filter({ hasText: 'Crack model: low confidence' })).toBeVisible();
@@ -197,7 +205,8 @@ test('Home shows not-connected states, not numbers, when records are missing', a
   });
   await open(page, '#/home');
   const trust = page.getByRole('region', { name: 'How far to trust each model' });
-  await expect(trust).toContainText('Not connected');
+  await expect(trust).toContainText('Model scores could not be read from the status route, so no score is shown.');
+  await expect(trust).not.toContainText('Not connected');
   await expect(trust).not.toContainText(/\d\.\d\d/);
   await expect(page.locator('main').getByText('No prepared run yet. Try a sample order to make one.')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Production route' })).toContainText('No stored plan yet');
@@ -210,7 +219,6 @@ test('Home hides scrap figures from a job planned in another session', async ({ 
   await mockApi(page, { job: json(403, { ok: false, error: { code: 'DEMO_SCOPE_REQUIRED', message: 'This record does not belong to this demo session.' } }) });
   await open(page, '#/home');
   await expect(page.locator('main').getByText('Its scrap figures open in the session that planned it.')).toBeVisible();
-  await expect(page.locator('main').getByText('Model estimate, predicted')).toHaveCount(0);
   await expect(page.locator('main')).not.toContainText('70.2');
   await expect(page.getByRole('region', { name: 'Job card' })).toContainText('900 boxes');
 });
@@ -219,8 +227,11 @@ test('Insights shows not-connected states when impact and scores are missing', a
   const down = json(503, { ok: false, error: { code: 'SERVICE_UNAVAILABLE', message: 'Down.' } });
   await mockApi(page, { impact: down, status: down, lots: json(200, { ok: true, lots: [], events: [] }) });
   await open(page, '#/insights');
-  await expect(page.getByRole('region', { name: 'Impact' })).toContainText('Not connected');
-  await expect(page.getByRole('region', { name: 'How well the five models hold up' })).toContainText('Not connected');
+  await expect(page.getByRole('region', { name: 'Impact' })).toContainText('The impact summary could not be read, so no saving or scrap figure is shown.');
+  await expect(page.getByRole('region', { name: 'How well the five models hold up' })).toContainText('Model scores could not be read from the status route, so no score is shown.');
+  for (const title of ['Impact', 'How well the five models hold up']) {
+    await expect(page.getByRole('region', { name: title })).not.toContainText('Not connected');
+  }
   await expect(page.getByRole('region', { name: 'What moved the estimate' })).toContainText('No stored lot to explain yet.');
   await expect(page.locator('main')).not.toContainText('₹');
   await expect(page.getByRole('status').filter({ hasText: 'low confidence' })).toHaveCount(0);

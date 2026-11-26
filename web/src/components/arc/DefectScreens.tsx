@@ -4,7 +4,7 @@ import {
   arcWords, listApprovedPhotos, searchDefectHistory,
   type ApprovedPhoto, type Defect, type DefectHistory, type SettingsSummary,
 } from "../../lib/arc";
-import { Button, IdleMark, LabelChip, ProvenanceChip } from "../m";
+import { Button, IdleMark } from "../m";
 import { Loading, NotConnectedNote, Problem, ScreenHead, Tabs, useArcScreen } from "./parts";
 
 /*
@@ -46,7 +46,6 @@ function PhotoTab() {
       <section className="cd flush" aria-label="Approved photos">
         <div className="ct2" style={{ minHeight: 44, padding: "6px 16px", margin: 0, borderBottom: "1px solid var(--ln)", flexWrap: "wrap" }}>
           <span style={{ fontSize: 15, fontWeight: 600 }}>Approved photo {number} of {photos.list.length}</span>
-          <LabelChip label="Approved reference photo" />
         </div>
         <div className="pic">
           <span className="sx id" style={{ fontSize: 14 }}><IdleMark />The photo itself is not served to the browser yet, so it is not shown.</span>
@@ -66,8 +65,6 @@ function PhotoTab() {
         <Button arrow disabled={busy} onClick={() => send({ kind: "text", text: `Check approved photo ${photo.id}` }, `Check ${photo.label.toLowerCase()}`)}>Run diagnosis</Button>
       </section>
       <div className="drop">
-        <LabelChip label="Uploaded photo" />
-        <ProvenanceChip kind="not-connected" />
         <span>Uploading your own photo is not connected to Arc. Arc checks approved reference photos only.</span>
       </div>
     </>
@@ -96,7 +93,7 @@ function HistoryResult({ result, defectName, humidity }: { result: DefectHistory
   const { goodRuns, badRuns } = result;
   return (
     <section className="cd" role="status" aria-label="Search results">
-      <div className="ct2"><h3 className="t">Similar lots</h3><ProvenanceChip kind="modeled-records" /></div>
+      <div className="ct2"><h3 className="t">Similar lots</h3></div>
       <div className="n" style={{ fontSize: 40, lineHeight: "46px", fontWeight: 600 }}>
         {formatNumber(result.caseCount)}<span style={{ fontSize: 18, color: "var(--mu)", marginLeft: 8, fontWeight: 500 }}>lots</span>
       </div>
@@ -146,7 +143,7 @@ function HistoryTab() {
   return (
     <>
       <section className="cd">
-        <div className="ct2"><h3 className="t">Find similar lots</h3><ProvenanceChip kind="modeled-records" /></div>
+        <div className="ct2"><h3 className="t">Find similar lots</h3></div>
         <div className="fgrid">
           <div>
             <label className="lb" htmlFor={`${id}-defect`} style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Defect</label>
@@ -170,7 +167,7 @@ function HistoryTab() {
           </div>
           <div>
             <label className="lb" htmlFor={`${id}-board`} style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Board</label>
-            <div className="fld empty"><select id={`${id}-board`} disabled><option>Not connected</option></select><small aria-hidden="true">▾</small></div>
+            <div className="fld empty"><select id={`${id}-board`} disabled><option>Any board</option></select><small aria-hidden="true">▾</small></div>
           </div>
           <div>
             <label className="lb" htmlFor={`${id}-date`} style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Run date</label>
@@ -210,16 +207,12 @@ export function DefectCheck() {
   );
 }
 
-/**
- * A diagnosis the turn ran. The record is named, but the label Gemini gave is not returned to Arc
- * yet. The Gemini chip marks Gemini text on screen, and this card shows none, so it carries no chip.
- */
+/** A diagnosis the turn ran. The record is named, but the label Gemini gave is not returned to Arc yet. */
 export function PhotoResult({ photoId }: { photoId: string }) {
   return (
     <section className="cd">
       <div className="ct2" style={{ flexWrap: "wrap" }}>
         <h3 className="t" style={{ fontSize: 15 }}>Photo diagnosis</h3>
-        <span className="chips"><LabelChip label="Approved reference photo" /></span>
       </div>
       <div style={{ fontSize: 16, fontWeight: 600, overflowWrap: "anywhere" }}>{photoId}</div>
       <div style={{ marginTop: 10 }}>

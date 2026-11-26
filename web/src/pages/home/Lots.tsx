@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Card, Chip, Icon, IdleMark, Table } from "../../components/m";
+import { Card, Icon, IdleMark, Table } from "../../components/m";
 import { formatNumber, type Result } from "../../lib/api";
-import { timeAgo, type LiveEvent, type LiveLot, type LiveState } from "../../lib/live";
+import { timeAgo, type LiveEvent, type LiveLot } from "../../lib/live";
 import { href } from "../../lib/routes";
 import { DEFECT_NAME, STATUS_VIEW, leverChange, leverLabel, sheetFor, type JobResponse } from "./data";
 
@@ -26,23 +26,22 @@ function ModelFlag({ lot }: { lot: LiveLot }) {
 }
 
 /** Stored lots, newest first, from /api/lots and the live stream. Lot heads cannot be listed
- * yet, so the stage column shows the not-connected state rather than a guessed stage. */
+ * yet, so the stage column shows a dash rather than a guessed stage. */
 export function SampleOrders({ lots, job }: { lots: LiveLot[]; job?: Result<JobResponse> }) {
   const sheet = sheetFor(job, lots[0]);
   const rows = lots.slice(0, 5).map((lot) => ({
     key: lot.lotId,
     cells: [
       <div key="lot"><div style={{ fontWeight: 600, fontSize: 16 }}>{lot.itemCode}</div><div className="lb" style={{ fontSize: 13, overflowWrap: "anywhere" }}>{lot.orderId}</div></div>,
-      <Chip key="stage" tone="none">Not connected</Chip>,
+      <span key="stage" className="lb">–<span className="sr-only">Stage not recorded</span></span>,
       <ModelFlag key="flag" lot={lot} />,
       <Status key="status" status={lot.status} />,
     ],
   }));
   return (
-    <Card title="Approved sample orders" meta="Newest first" span={8} className="hm-orders">
+    <Card title="Approved sample orders" span={8} className="hm-orders">
       <div className="hm-cont">
         <span style={{ fontSize: 15, fontWeight: 600 }}>Continue review</span>
-        <Chip tone="none">Not connected</Chip>
         <span className="lb">Open reviews are not listed here yet.</span>
       </div>
       <Table label="Lots from approved sample orders" rowHeight={56}
@@ -65,10 +64,7 @@ export function JobCardSummary({ lot, job }: { lot?: LiveLot; job?: Result<JobRe
   const order = sheetFor(job, lot)?.order;
   return (
     <section className="cd kr c4" aria-labelledby="hm-card-title" style={{ display: "flex", flexDirection: "column", padding: 22 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <h2 id="hm-card-title" style={{ margin: 0, font: "700 13px 'Inter',sans-serif", letterSpacing: ".16em", textTransform: "uppercase" }}>Job card</h2>
-        {lot && <Chip tone="example">Sample, not approved</Chip>}
-      </div>
+      <h2 id="hm-card-title" style={{ margin: 0, font: "700 13px 'Inter',sans-serif", letterSpacing: ".16em", textTransform: "uppercase" }}>Job card</h2>
       {lot
         ? (
           <>
@@ -154,21 +150,10 @@ export function RunSteps({ lot, job }: { lot?: LiveLot; job?: Result<JobResponse
   );
 }
 
-const LIVE_VIEW: Record<LiveState["status"], { tone: string; text: string }> = {
-  live: { tone: "ok", text: "Live" },
-  connecting: { tone: "id", text: "Connecting" },
-  offline: { tone: "bd", text: "Offline" },
-};
-
 /** Floor events from /api/live (B9). The approved Main screen has no activity list yet. */
-export function Activity({ events, status }: { events: LiveEvent[]; status: LiveState["status"] }) {
-  const view = LIVE_VIEW[status];
+export function Activity({ events }: { events: LiveEvent[] }) {
   return (
-    <Card title="Activity" span={12} className="hm-activity" meta={
-      <span className={`sx ${view.tone}`} style={{ fontSize: 14 }}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" /></svg>{view.text}
-      </span>
-    }>
+    <Card title="Activity" span={12} className="hm-activity">
       <Table label="Recent activity" columns={[{ label: "When", width: "120px" }, { label: "What happened", width: "1fr" }, { label: "By", width: "200px" }]}
         rows={events.slice(0, 8).map((event, index) => ({
           key: `${event.at}-${index}`,

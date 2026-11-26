@@ -95,7 +95,7 @@
 .m .arcp .bar > i { position: absolute; left: 0; top: 0; height: 6px; border-radius: 4px; background: var(--tx); display: block; }
 
 /* compare table (Arc-Lot-Compare) */
-.m .arcp .cmp { grid-template-columns: 1fr 100px 120px 90px; }
+.m .arcp .cmp { grid-template-columns: 1fr 100px 120px; }
 
 /* In the panel the stepper takes the column gap only, as the Arc-Lot designs space it. */
 .m .arcp .stp { margin: 0; }
@@ -131,7 +131,6 @@
   .m .arcp .kvr2 { grid-template-columns: 84px 1fr; font-size: 14px; }
   .m .arcp .fgrid { grid-template-columns: 1fr; }
   .m .arcp .cmp { grid-template-columns: 1fr 64px 72px; }
-  .m .arcp .cmp > :nth-child(4) { display: none; }
   .m .arcp .tb { column-gap: 8px; }
   .m .arcp .row .bt { flex: 1 1 auto; padding: 0 14px; }
   .m .arcp .bt { white-space: normal; text-align: center; min-height: 44px; height: auto; }

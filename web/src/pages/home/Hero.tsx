@@ -1,5 +1,5 @@
 import machine from "./machine.html?raw";
-import { ButtonLink, Chip, IdleMark, ProvenanceChip } from "../../components/m";
+import { ButtonLink, IdleMark } from "../../components/m";
 import { href } from "../../lib/routes";
 import type { LiveLot } from "../../lib/live";
 import type { Result } from "../../lib/api";
@@ -14,20 +14,17 @@ function RunLine({ lot, job }: { lot?: LiveLot; job?: Result<JobResponse> }) {
   }
   const sheet = sheetFor(job, lot);
   return (
-    <>
-      <div>
-        <div className="lb" style={{ fontSize: 13 }}>Latest prepared run, {lot.itemCode}</div>
-        {sheet
-          ? (
-            <div className="n" style={{ fontSize: 22, lineHeight: "28px", fontWeight: 600, whiteSpace: "nowrap" }}>
-              {kg(sheet.baseline.risk.totalScrapKg)} → {kg(sheet.recommended.risk.totalScrapKg)}{" "}
-              <span style={{ fontSize: 15, color: "var(--mu)", fontWeight: 500 }}>kg modeled scrap</span>
-            </div>
-          )
-          : <div style={{ fontSize: 15, color: "var(--mu)", marginTop: 2 }}>{job ? "Its scrap figures open in the session that planned it." : "Reading the job record…"}</div>}
-      </div>
-      {sheet && <Chip tone="modeled">Model estimate, predicted</Chip>}
-    </>
+    <div>
+      <div className="lb" style={{ fontSize: 13 }}>Latest prepared run, {lot.itemCode}</div>
+      {sheet
+        ? (
+          <div className="n" style={{ fontSize: 22, lineHeight: "28px", fontWeight: 600, whiteSpace: "nowrap" }}>
+            {kg(sheet.baseline.risk.totalScrapKg)} → {kg(sheet.recommended.risk.totalScrapKg)}{" "}
+            <span style={{ fontSize: 15, color: "var(--mu)", fontWeight: 500 }}>kg modeled scrap</span>
+          </div>
+        )
+        : <div style={{ fontSize: 15, color: "var(--mu)", marginTop: 2 }}>{job ? "Its scrap figures open in the session that planned it." : "Reading the job record…"}</div>}
+    </div>
   );
 }
 
@@ -41,7 +38,6 @@ export function Hero({ lots, job }: { lots: LiveLot[]; job?: Result<JobResponse>
           {waiting
             ? <span className="sx ac" style={{ fontSize: 14, fontWeight: 600 }}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.6" fill="currentColor" /></svg>Draft waiting for approval</span>
             : <span className="sx id" style={{ fontSize: 14, fontWeight: 600 }}><IdleMark />No review in progress</span>}
-          <ProvenanceChip kind="modelled-on-plant" />
         </div>
         <h2 id="hm-hero-title" className="d" style={{ margin: "14px 0 6px", fontSize: 36, lineHeight: "42px", fontWeight: 600, letterSpacing: "-.8px" }}>Start with a sample order.</h2>
         <div style={{ fontSize: 16, color: "var(--mu)", maxWidth: 520 }}>Open a sample order and prepare a job card.</div>
