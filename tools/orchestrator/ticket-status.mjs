@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HEADING = /^### (ARC-[A-Z0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)?) (.+?)(?: \((P[0-9])\b.*\))?\s*$/;
 
@@ -26,8 +27,8 @@ export function summarise(tickets, merged, doneWithoutMerge = new Set()) {
   return { rows, open, openByPriority: Object.fromEntries(["P0", "P1", "P2", "P?"].map((p) => [p, open.filter((row) => row.priority === p).length])) };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const root = path.resolve(new URL("../..", import.meta.url).pathname);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const root = fileURLToPath(new URL("../..", import.meta.url));
   const dir = path.join(root, "docs/arc/delivery/tickets");
   const tickets = readdirSync(dir).filter((f) => f.endsWith(".md") && f !== "README.md")
     .flatMap((f) => parseTickets(readFileSync(path.join(dir, f), "utf8")));

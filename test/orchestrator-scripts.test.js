@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { accessSync, constants } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-const script = (name) => new URL(`../tools/orchestrator/${name}`, import.meta.url).pathname;
+// fileURLToPath decodes %20, so the scripts are found when the checkout path has spaces.
+const script = (name) => fileURLToPath(new URL(`../tools/orchestrator/${name}`, import.meta.url));
 const dry = (...args) => spawnSync("bash", [script("codex-session.sh"), ...args], { encoding: "utf8", env: { ...process.env, DRY_RUN: "1" } });
 
 test("a builder session has no network, a fixed model and effort, and no sandbox bypass", () => {
