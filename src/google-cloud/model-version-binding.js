@@ -68,6 +68,7 @@ export function createModelVersionBinding({
   checkIntervalMs = bindingConfig.checkIntervalMs,
   requestTimeoutMs = bindingConfig.requestTimeoutMs,
   maxVerifiedAgeMs = bindingConfig.maxVerifiedAgeMs,
+  recheckUnverifiedAfterMs = bindingConfig.recheckUnverifiedAfterMs,
   now = () => new Date(),
   log = (entry) => console.error(JSON.stringify(entry)),
 } = {}) {
@@ -79,8 +80,9 @@ export function createModelVersionBinding({
   }
   if (!Number.isSafeInteger(checkIntervalMs) || checkIntervalMs < 1000 ||
       !Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1 || requestTimeoutMs >= checkIntervalMs ||
-      !Number.isSafeInteger(maxVerifiedAgeMs) || maxVerifiedAgeMs <= checkIntervalMs) {
-    throw new TypeError("The model version check interval, timeout or maximum age is out of range.");
+      !Number.isSafeInteger(maxVerifiedAgeMs) || maxVerifiedAgeMs <= checkIntervalMs ||
+      !Number.isSafeInteger(recheckUnverifiedAfterMs) || recheckUnverifiedAfterMs < 1000) {
+    throw new TypeError("The model version check interval, timeout, maximum age or re-check delay is out of range.");
   }
   const targets = bindingTargets(modelAcceptance);
   const provideToken = tokenProvider ?? createCloudRunAccessTokenProvider({ fetchImpl });
@@ -88,6 +90,7 @@ export function createModelVersionBinding({
     { observed: null, state: "unchecked", checkedAt: null, reason: null }]));
   let lastCheckedAt = null;
   let lastCheckedMs = null;
+  let lastStartedMs = null;
   let inFlight;
   let timer;
 
@@ -155,18 +158,32 @@ export function createModelVersionBinding({
   // One check at a time; callers during a check share its result. A check that
   // fails unexpectedly leaves every target unverified instead of keeping old state.
   function check() {
-    inFlight ??= runCheck()
-      .catch(() => {
-        results = new Map(targets.map((target) => [target.defect,
-          { observed: null, state: "unverified", checkedAt: null, reason: "CHECK_FAILED" }]));
-      })
-      .finally(() => { inFlight = undefined; });
+    if (!inFlight) {
+      lastStartedMs = now().getTime();
+      inFlight = runCheck()
+        .catch(() => {
+          results = new Map(targets.map((target) => [target.defect,
+            { observed: null, state: "unverified", checkedAt: null, reason: "CHECK_FAILED" }]));
+        })
+        .finally(() => { inFlight = undefined; });
+    }
     return inFlight;
   }
 
   // Cloud Run throttles CPU between requests, so the interval timer may not have
   // fired for a while. An old pass must not keep serving.
   const isStale = () => lastCheckedMs !== null && now().getTime() - lastCheckedMs > maxVerifiedAgeMs;
+
+  // A startup check on a CPU-throttled instance can time out with BigQuery healthy,
+  // and the interval timer may not run again until the instance is busy. A guarded
+  // request therefore retries an unverified result itself, at most once per delay.
+  // A mismatch is a real answer from BigQuery and is not retried here.
+  function recheckIfUnverified() {
+    if (overallState([...results.values()]) !== "unverified") return undefined;
+    if (inFlight) return inFlight;
+    if (lastStartedMs !== null && now().getTime() - lastStartedMs < recheckUnverifiedAfterMs) return undefined;
+    return check();
+  }
 
   function snapshot() {
     const entries = targets.map((target) => {
@@ -189,6 +206,7 @@ export function createModelVersionBinding({
       ...(stale ? { stale: true } : {}),
       checkIntervalMs,
       maxVerifiedAgeMs,
+      recheckUnverifiedAfterMs,
       lastCheckedAt,
       targets: entries,
     };
@@ -229,6 +247,7 @@ export function createModelVersionBinding({
     guard(port, operation) {
       return async (input) => {
         if (isStale()) await check();
+        else await recheckIfUnverified();
         return gate(operation) ?? port(input);
       };
     },
