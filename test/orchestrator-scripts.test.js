@@ -55,6 +55,6 @@ test("every orchestrator script is executable and the resume script reports the 
   for (const name of ["codex-session.sh", "suite-twice.sh", "new-worktree.sh", "resume.sh"]) accessSync(script(name), constants.X_OK);
   const result = spawnSync("bash", [script("resume.sh")], { encoding: "utf8" });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /== arc\/main tip/);
+  assert.match(result.stdout, /== v3 tip/);
   assert.match(result.stdout, /== arc branches not merged/);
 });

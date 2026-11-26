@@ -15,12 +15,12 @@ mkdir -p "$stage/repo" "$stage/private" "$out"
 
 # A key, token or private key in committed work must never travel in a zip. tools/prepare-release-snapshot.py is
 # excluded because it lists the key markers it searches for; it holds no key.
-if git -C "$root" grep -nIE 'AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|-----BEGIN ([A-Z]+ )?PRIVATE KEY-----|ya29\.[0-9A-Za-z_-]{20,}' arc/main -- . ':!docs/arc/delivery/handover' ':!test' ':!tools/prepare-release-snapshot.py' >/dev/null; then
-  echo "A secret-like string was found in arc/main. Stopping." >&2; exit 1
+if git -C "$root" grep -nIE 'AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|-----BEGIN ([A-Z]+ )?PRIVATE KEY-----|ya29\.[0-9A-Za-z_-]{20,}' v3 -- . ':!docs/arc/delivery/handover' ':!test' ':!tools/prepare-release-snapshot.py' >/dev/null; then
+  echo "A secret-like string was found in v3. Stopping." >&2; exit 1
 fi
 
-# HEAD goes in the bundle so that a plain clone starts on the branch checked out here, which must be arc/main.
-[ "$(git -C "$root" rev-parse --abbrev-ref HEAD)" = "arc/main" ] || { echo "Run this from the arc/main checkout." >&2; exit 1; }
+# HEAD goes in the bundle so that a plain clone starts on the branch checked out here, which must be v3.
+[ "$(git -C "$root" rev-parse --abbrev-ref HEAD)" = "v3" ] || { echo "Run this from the v3 checkout." >&2; exit 1; }
 git -C "$root" bundle create "$stage/repo/momentum-arc.bundle" HEAD --branches --tags >/dev/null 2>&1
 git -C "$root" bundle verify "$stage/repo/momentum-arc.bundle" >/dev/null 2>&1
 
@@ -40,7 +40,7 @@ node "$root/tools/orchestrator/ticket-status.mjs" > "$stage/TICKETS.txt" 2>&1 ||
 {
   echo "# Manifest"
   echo
-  echo "Built: $(date '+%F %T %Z') from \`arc/main\` at \`$(git -C "$root" rev-parse --short arc/main)\` ($(git -C "$root" log -1 --format=%s arc/main))."
+  echo "Built: $(date '+%F %T %Z') from \`v3\` at \`$(git -C "$root" rev-parse --short v3)\` ($(git -C "$root" log -1 --format=%s v3))."
   echo "Branches in the bundle: $(git -C "$root" branch --list | wc -l | tr -d ' ')."
   echo
   echo "| SHA-256 | File |"
