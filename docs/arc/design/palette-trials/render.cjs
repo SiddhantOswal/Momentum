@@ -58,7 +58,7 @@ async function mock(page) {
 
 const VARIANTS = [
   ["yellow", { accent: "yellow" }], ["yellow-grey", { accent: "yellow", emph: "grey" }], ["washed", { accent: "washed" }],
-  ["washed-grey", { accent: "washed", emph: "grey" }], ["yellow-butter", { accent: "yellow", emph: "butter" }], ["yellow-butter-light", { accent: "yellow", emph: "butter-light" }],
+  ["washed-grey", { accent: "washed", emph: "grey" }], ["yellow-butter", { accent: "yellow", emph: "butter" }], ["yellow-butter-light", { accent: "yellow", emph: "butter-light" }], ["yellow-outline", { accent: "yellow", emph: "outline" }], ["yellow-rail", { accent: "yellow", emph: "rail" }], ["yellow-tint", { accent: "yellow", emph: "tint" }],
 ].filter(([name]) => !process.argv[4] || name === process.argv[4]);
 
 (async () => {

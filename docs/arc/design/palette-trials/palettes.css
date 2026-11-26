@@ -167,6 +167,36 @@ html[data-emph="butter-light"][data-theme="dark"] .m .kr {
 }
 html[data-emph="butter-light"][data-theme] .m .hm-open { background: #17130A; color: #F4EFD8; }
 
+/* Quiet emphasis cards: the same surface as every other card, with yellow only as a line.
+ * data-emph="outline" (border), "rail" (left bar), "tint" (faint wash plus border). */
+html[data-emph="outline"][data-theme="light"] .m .kr {
+  --cd:#FFFFFF; --rz:#E5E8EB; --bg:#EEF0F2; --ln:#D5DADF; --ln2:#B3BCC5; --tx:#14181C; --mu:#46515C; --dim:#66717C; --ok:#1F7A58; --wn:#8F5A00; --bd:#B8333F; --ct:#7A5A00; --bar0:#8F99A4; --g1:#1F7A58; --g2:#7E8995; --inv:#FFFFFF; --ac:rgb(var(--ac-rgb)); --arc-accent-ink:#17130A;
+  color: var(--tx); background: var(--cd); border: 1.5px solid rgb(var(--ac-rgb)); box-shadow: none;
+}
+html[data-emph="outline"][data-theme="dark"] .m .kr {
+  --cd:#1A1E23; --rz:#21262C; --bg:#121519; --ln:#2A3038; --ln2:#3A434D; --tx:#EAEDF0; --mu:#A3ACB6; --dim:#7B8590; --ok:#5FBF98; --wn:#E3A340; --bd:#F0707A; --ct:#F7DC6F; --bar0:#4A5460; --g1:#4E9E7F; --g2:#6A7683; --inv:#111111; --ac:rgb(var(--ac-rgb)); --arc-accent-ink:#17130A;
+  color: var(--tx); background: var(--cd); border: 1.5px solid rgb(var(--ac-rgb)); box-shadow: none;
+}
+html[data-emph="outline"][data-theme] .m .hm-open { background: rgb(var(--ac-rgb)); color: #17130A; }
+html[data-emph="rail"][data-theme="light"] .m .kr {
+  --cd:#FFFFFF; --rz:#E5E8EB; --bg:#EEF0F2; --ln:#D5DADF; --ln2:#B3BCC5; --tx:#14181C; --mu:#46515C; --dim:#66717C; --ok:#1F7A58; --wn:#8F5A00; --bd:#B8333F; --ct:#7A5A00; --bar0:#8F99A4; --g1:#1F7A58; --g2:#7E8995; --inv:#FFFFFF; --ac:rgb(var(--ac-rgb)); --arc-accent-ink:#17130A;
+  color: var(--tx); background: var(--cd); border: 1px solid var(--ln); box-shadow: inset 4px 0 0 rgb(var(--ac-rgb));
+}
+html[data-emph="rail"][data-theme="dark"] .m .kr {
+  --cd:#1A1E23; --rz:#21262C; --bg:#121519; --ln:#2A3038; --ln2:#3A434D; --tx:#EAEDF0; --mu:#A3ACB6; --dim:#7B8590; --ok:#5FBF98; --wn:#E3A340; --bd:#F0707A; --ct:#F7DC6F; --bar0:#4A5460; --g1:#4E9E7F; --g2:#6A7683; --inv:#111111; --ac:rgb(var(--ac-rgb)); --arc-accent-ink:#17130A;
+  color: var(--tx); background: var(--cd); border: 1px solid var(--ln); box-shadow: inset 4px 0 0 rgb(var(--ac-rgb));
+}
+html[data-emph="rail"][data-theme] .m .hm-open { background: rgb(var(--ac-rgb)); color: #17130A; }
+html[data-emph="tint"][data-theme="light"] .m .kr {
+  --cd:#FFFFFF; --rz:#E5E8EB; --bg:#EEF0F2; --ln:#D5DADF; --ln2:#B3BCC5; --tx:#14181C; --mu:#46515C; --dim:#66717C; --ok:#1F7A58; --wn:#8F5A00; --bd:#B8333F; --ct:#7A5A00; --bar0:#8F99A4; --g1:#1F7A58; --g2:#7E8995; --inv:#FFFFFF; --ac:rgb(var(--ac-rgb)); --arc-accent-ink:#17130A;
+  color: var(--tx); background: color-mix(in srgb, rgb(var(--ac-rgb)) 9%, var(--cd)); border: 1px solid rgba(var(--ac-rgb), .55); box-shadow: none;
+}
+html[data-emph="tint"][data-theme="dark"] .m .kr {
+  --cd:#1A1E23; --rz:#21262C; --bg:#121519; --ln:#2A3038; --ln2:#3A434D; --tx:#EAEDF0; --mu:#A3ACB6; --dim:#7B8590; --ok:#5FBF98; --wn:#E3A340; --bd:#F0707A; --ct:#F7DC6F; --bar0:#4A5460; --g1:#4E9E7F; --g2:#6A7683; --inv:#111111; --ac:rgb(var(--ac-rgb)); --arc-accent-ink:#17130A;
+  color: var(--tx); background: color-mix(in srgb, rgb(var(--ac-rgb)) 9%, var(--cd)); border: 1px solid rgba(var(--ac-rgb), .55); box-shadow: none;
+}
+html[data-emph="tint"][data-theme] .m .hm-open { background: rgb(var(--ac-rgb)); color: #17130A; }
+
 /* ============================== C. Logo, either trial ============================== */
 /* The stencil letters only, taken from the kraft-board photo into a transparent PNG (assets/). */
 html[data-palette] .m .brand, html[data-accent] .m .brand {
