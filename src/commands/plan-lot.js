@@ -68,7 +68,7 @@ async function admitPlan({ principal, identity, servicePorts, signal }) {
 async function registerRevision({ lotId: requestedLotId, identity, conditions, principal, lotRevisions, signal }) {
   const lotId = requestedLotId ?? `LOT-HACK-${principal.sessionId}-${identity.keyHash.slice(0, 12)}`;
   if (!demoOwnsLot(principal, lotId)) {
-    return lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
+    return lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this session.");
   }
   try {
     const registered = await lotRevisions.store.registerPending({
@@ -78,7 +78,7 @@ async function registerRevision({ lotId: requestedLotId, identity, conditions, p
     if (registered.ok) return { ok: true, lotId, registered };
     return registered.code === "REVISION_CONFLICT"
       ? { ok: false, error: { code: "CONFLICT", message: "This idempotency key was used for a different request." } }
-      : lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
+      : lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this session.");
   } catch (error) {
     return lotStoreFailure(error);
   }

@@ -49,11 +49,11 @@ export async function authorizeSupervisor({
     if (path === "/insights/summary") return rejection(403, "DEMO_SCOPE_REQUIRED", "Use the anonymized impact summary.");
     const jobMatch = /^\/jobs\/([^/]+)/.exec(path);
     if (jobMatch && !demoOwnsJob(result.principal, jobId ?? jobMatch[1])) {
-      return rejection(403, "DEMO_SCOPE_REQUIRED", "This record does not belong to this demo session.");
+      return rejection(403, "DEMO_SCOPE_REQUIRED", "This record does not belong to this session.");
     }
     const lotMatch = /^\/lots\/([^/]+)/.exec(path);
     if (lotMatch && !demoOwnsLot(result.principal, lotMatch[1])) {
-      return rejection(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
+      return rejection(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this session.");
     }
     if (path.startsWith("/api/runs/") && traceOwnerLookup) {
       let owner;
@@ -67,7 +67,7 @@ export async function authorizeSupervisor({
         return rejection(404, "TRACE_NOT_FOUND", "Trace run was not found or has expired.");
       }
     } else if (path.startsWith("/api/runs/") && traceOwners.get(path.split("/")[3]) !== result.principal.sessionId) {
-      return rejection(403, "DEMO_SCOPE_REQUIRED", "This trace does not belong to this demo session.");
+      return rejection(403, "DEMO_SCOPE_REQUIRED", "This trace does not belong to this session.");
     }
     return { ok: true, principal: result.principal };
   }

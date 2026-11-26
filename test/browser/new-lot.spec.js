@@ -210,7 +210,8 @@ test('the manual route reads the order, plans the lot and approves through the b
   expect(sent).toHaveLength(1);
   expect(sent[0].json).toEqual({ reviewConfirmed: true, revisionFingerprint: READ_BACK_FINGERPRINT });
   await expect(page.getByRole('link', { name: 'Open the job card PDF' })).toHaveAttribute('href', `/jobs/${JOB_ID}/card.pdf?lang=en&currency=INR`);
-  await expect(page.locator('section').filter({ hasText: 'Supervisor decision' }).getByText('Demo session, simulated').first()).toBeVisible();
+  await expect(page.locator('section').filter({ hasText: 'Supervisor decision' }).first()).toContainText('No machine setting changes until someone acts on the card.');
+  await expect(page.locator('main')).not.toContainText(/demo session|simulated/i);
 });
 
 test('Approve stays disabled until the box is ticked, and nothing is sent before then', async ({ page }) => {
@@ -226,7 +227,7 @@ test('Approve stays disabled until the box is ticked, and nothing is sent before
   await box.uncheck();
   await expect(approve).toBeDisabled();
   expect(calls.filter((call) => call.key === 'POST /jobs/:job/approve')).toHaveLength(0);
-  await expect(page.getByText('The approval is recorded as a simulated demo-session approval.')).toBeVisible();
+  await expect(page.getByText('Approving saves the job card and its PDF. No machine setting changes.')).toBeVisible();
 });
 
 test('the Gemini chip shows only when the explanation response says Gemini wrote it', async ({ page }) => {

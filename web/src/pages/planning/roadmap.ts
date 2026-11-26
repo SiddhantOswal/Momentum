@@ -2,13 +2,13 @@ import type { ChipTone } from "../../components/m";
 
 /**
  * The roadmap on the Planning page (ARC-M6-17), from Planning.html. Nothing here is built
- * unless its label says "Working prototype" or "Today". Three lines differ from the design:
+ * unless its label says "Available now" or "Today". Three lines differ from the design:
  * pass-level and "8,640 options" wording is retired (data/stale-claims.md, Planning:274 and 279).
  */
 export type Label = { text: string; tone: ChipTone };
 
 const L = {
-  prototype: { text: "Working prototype", tone: "plain" },
+  available: { text: "Available now", tone: "plain" },
   today: { text: "Today", tone: "plain" },
   planned: { text: "Planned", tone: "none" },
   research: { text: "Research direction", tone: "example" },
@@ -21,7 +21,7 @@ const L = {
 } as const satisfies Record<string, Label>;
 
 export const STAGES = [
-  { when: "Today", title: "Prepare", text: "Order to approved job card.", label: L.prototype, needs: "Order, catalog, five models", now: true },
+  { when: "Today", title: "Prepare", text: "Order to approved job card.", label: L.available, needs: "Order, catalog, five models", now: true },
   { when: "Next", title: "Guide", text: "Voice, briefings, scan access.", label: L.planned, needs: "Shift and asset records" },
   { when: "Explore", title: "Challenge and remember", text: "Test plans. Keep the reasons.", label: L.research, needs: "Validated models and outcomes" },
   { when: "Long term", title: "Observe and learn", text: "See the floor. Learn from it.", label: L.hardware, needs: "Safety review and consent" },

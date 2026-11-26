@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Banner, Button, ButtonLink, Card, Chip, ProvenanceChip } from "../components/m";
+import { Banner, Button, ButtonLink, Card, Chip } from "../components/m";
 import { call, type JobSheet, type PlanResult, type Revision } from "./newlot/api";
 import { cardPdfHref, readJob, REPLACED_MESSAGE } from "./newlot/actions";
 import { CardSettings, RouteOnCard, cardSummary } from "./newlot/card-view";
@@ -65,7 +65,7 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
     setBusy(false);
     if (result.ok) {
       updateLot({ approved: { jobSheet: result.data.jobSheet, revision: result.data.revision } });
-      show({ id: "approved", tone: "ok", title: "Job card approved", text: "Demo session, simulated. The PDF is stored." });
+      show({ id: "approved", tone: "ok", title: "Job card approved", text: "The PDF is stored." });
       return;
     }
     if (result.status === 409 && result.code && REPLACED.has(result.code)) {
@@ -75,13 +75,13 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
     setApproveError(result.message);
   };
 
-  const status = approved ? "Approved, demo session" : loading ? "Reading the draft back" : "Draft, not approved";
+  const status = approved ? "Approved" : loading ? "Reading the draft back" : "Draft, not approved";
   const next = approved ? "Operator: print the card" : "Supervisor approval";
   const steps: [Parameters<typeof StatusRow>[0]["kind"], string, string][] = [
     [stored ? "ok" : loading ? "now" : "bad", "Draft saved",
       !stored ? (loading ? "Reading it back" : "Not read back") : revision ? `Rev ${revision.number}, stored` : "Stored, no revision"],
     [approved ? "ok" : "now", "Supervisor review", approved ? "Done" : "Waiting for a decision"],
-    [approved ? "ok" : "idle", "Approved", approved ? "Demo session, simulated" : "Not yet"],
+    [approved ? "ok" : "idle", "Approved", approved ? "Recorded" : "Not yet"],
     [approved?.jobSheet.cardUri ? "ok" : "idle", "PDF stored", approved?.jobSheet.cardUri ? "Stored" : "Not yet"],
     ["idle", "Card checked", "Not connected"],
   ];
@@ -118,12 +118,11 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
         </section>
         <div className="c4" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card title="Supervisor decision">
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, paddingBottom: 8, gap: 12 }}><span className="lb">Acting as</span><b>Supervisor, demo session</b></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, paddingBottom: 8, gap: 12 }}><span className="lb">Acting as</span><b>Supervisor</b></div>
             {steps.map(([kind, name, state]) => <StatusRow key={name} kind={kind} name={name} state={state} />)}
             {approved ? (
               <div style={{ borderTop: "1px solid var(--ln)", marginTop: 4, paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                <ProvenanceChip kind="demo-session" />
-                <span className="lb" style={{ lineHeight: 1.45 }}>A simulated approval in a demo session, not a named supervisor. No machine setting changes until someone acts on the card.</span>
+                <span className="lb" style={{ lineHeight: 1.45 }}>No machine setting changes until someone acts on the card.</span>
               </div>
             ) : (
               <>
@@ -141,7 +140,7 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
                   <ButtonLink variant="secondary" href="#/home">Keep as draft</ButtonLink>
                 </div>
                 <p className="lb" id="nl-approve-note" style={{ fontSize: 13, margin: "10px 0 0", lineHeight: 1.45 }}>
-                  <ProvenanceChip kind="demo-session" /> The approval is recorded as a simulated demo-session approval.
+                  Approving saves the job card and its PDF. No machine setting changes.
                 </p>
                 {approveError && <p className="err" role="alert">{approveError}</p>}
               </>
@@ -149,7 +148,7 @@ function ApproveView({ lot, plan }: { lot: LotState; plan: PlanResult }) {
           </Card>
           <section className="cd" style={{ flex: 1, display: "flex", flexDirection: "column" }} aria-labelledby="nl-pdf">
             <div className="ct"><h2 className="t" id="nl-pdf">Approved PDF</h2><span className="mt">{approved?.jobSheet.cardUri ? "Stored" : "Not created yet"}</span></div>
-            <div className="lb" style={{ lineHeight: 1.5 }}>Saves the PDF. Demo session only.</div>
+            <div className="lb" style={{ lineHeight: 1.5 }}>Saves the PDF.</div>
             <div style={{ flex: 1, marginTop: 14, minHeight: 110, border: "1.5px dashed var(--ln2)", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--mu)", padding: 12 }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4" /></svg>
               {approved?.jobSheet.cardUri

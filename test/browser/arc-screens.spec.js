@@ -446,7 +446,7 @@ for (const theme of ['dark', 'light']) {
       await expect(panel.getByRole('heading', { name: 'Approve the job card' })).toBeVisible();
       await expect(panel.getByRole('heading', { name: 'PKBX0041, Rev 1' })).toBeVisible();
       await expect(panel.getByText('Draft, not approved')).toBeVisible();
-      await expect(panel.getByText('Supervisor session, demo access. This approval is simulated.')).toBeVisible();
+      await expect(panel).not.toContainText(/demo|simulated/i);
       await expect(panel.getByText(/pass level/i)).toHaveCount(0);
       await expect(panel.locator('.cl')).toContainText('Working on');
       await expect(panel.locator('.cl')).toContainText('PKBX0041, Rev 1');
@@ -470,8 +470,8 @@ for (const theme of ['dark', 'light']) {
       expect(approvals).toHaveLength(1);
       expect(approvals[0].body).toEqual({ reviewConfirmed: true, revisionFingerprint: FINGERPRINT });
       expect(approvals[0].headers['content-type']).toBe('application/json');
-      await expect(panel.getByText('Demo session, simulated', { exact: true })).toBeVisible();
-      await expect(panel.getByText('This approval came from a demo session. It is simulated.')).toBeVisible();
+      await expect(panel.locator('.hrow', { hasText: 'Approval recorded' })).toContainText('Recorded');
+      await expect(panel).not.toContainText(/demo|simulated/i);
       const card = panel.locator('.hrow', { hasText: 'Card checked' });
       await expect(card).toContainText('Not connected');
       await expect(panel.getByRole('link', { name: 'Open PDF' })).toHaveAttribute('href', `/jobs/${JOB_ID}/card.pdf`);
@@ -686,7 +686,7 @@ test('a plan step stopped by the daily plan limit, a plan conflict or a revision
     ['step.blocked', 'PLAN_DAILY_LIMIT_REACHED', 'This session has planned as many lots as it can today. Planning opens again at midnight IST (02:30 in Singapore).'],
     ['step.failed', 'CONFLICT', 'These values clash with an earlier plan for the same step. Press Confirm conditions again.'],
     ['step.failed', 'REVISION_CONFLICT', 'The lot changed while this draft was being prepared. Plan the lot again.'],
-    ['step.failed', 'DEMO_SCOPE_REQUIRED', 'This lot belongs to another demo session, so Arc cannot use it here.'],
+    ['step.failed', 'DEMO_SCOPE_REQUIRED', 'This lot belongs to another session, so Arc cannot use it here.'],
   ];
   await mockTurns(page, stops.map(([type, errorCode]) => ({
     events: (id) => oneStep(id, { tool: 'plan_lot', kind: 'lot_preparation', end: { type, errorCode, retrySafe: false } }),

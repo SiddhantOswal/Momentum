@@ -7,11 +7,11 @@ import { findReadableJob, pageParam, readJob, readLotHead, readLots, readTrace, 
 import "./prepflow/prepflow.css";
 
 const JOB_FAILURES: Record<number, string> = {
-  403: "This lot belongs to another demo session, so its steps cannot be shown here.",
+  403: "This lot belongs to another session, so its steps cannot be shown here.",
   404: "No stored job has this ID, so no step can be shown.",
 };
 const LOT_FAILURES: Record<number, string> = {
-  403: "This lot belongs to another demo session, so its steps cannot be shown here.",
+  403: "This lot belongs to another session, so its steps cannot be shown here.",
   404: "No lot has this ID, so no step can be shown.",
 };
 
@@ -49,7 +49,7 @@ function useFlowSources(): { loading: boolean; sources: FlowSources } {
         else {
           const found = await findReadableJob(lots.data.lots, signal);
           if (found.ok) Object.assign(sources, { lot: found.lot, job: found.job });
-          else if (found.reason === "other-sessions") sources.failure = "The newest lots belong to other demo sessions. Plan a lot in New Lot to see its steps.";
+          else if (found.reason === "other-sessions") sources.failure = "The newest lots belong to other sessions. Plan a lot in New Lot to see its steps.";
           else if (found.reason === "failed") sources.failure = JOB_FAILURES[found.status ?? 0] ?? "The stored job could not be read, so no step can be shown.";
         }
       }
@@ -167,13 +167,13 @@ function stripFor(view: FlowView): Strip {
   switch (view.kind) {
     case "held":
       return [["Lot", view.itemCode ?? "Not confirmed", "Order line not chosen"], ["Now at", "Catalog match", "Step 2 of 9, Ingestion zone"],
-        ["Held for", "Supervisor", "Demo session, no named person"], ["Next", "Choose the line", "Then continue, or leave on hold"]];
+        ["Held for", "Supervisor", "Choose the order line"], ["Next", "Choose the line", "Then continue, or leave on hold"]];
     case "partial":
       return [lot, ["Now at", "Risk evidence", "Step 6 of 9, Intelligence zone"],
-        ["Waiting on", "Supervisor", "Demo session, no named person"], ["Next", "Retry, continue or hold", "See New Lot, recovery"]];
+        ["Waiting on", "Supervisor", "Decide how to continue"], ["Next", "Retry, continue or hold", "See New Lot, recovery"]];
     case "held-job":
       return [lot, ["Now at", "On hold", "The lot record does not say where"],
-        ["Held for", "Supervisor", "Demo session, no named person"], ["Next", "Open the lot in New Lot", "Then continue, or leave on hold"]];
+        ["Held for", "Supervisor", "The lot is on hold"], ["Next", "Open the lot in New Lot", "Then continue, or leave on hold"]];
     case "replaced":
       return [lot, view.notCurrent === "replaced"
         ? ["Now at", "Replaced, read only", `${view.revisionNumber ? `Rev ${view.revisionNumber}` : "This revision"} was replaced. Plan the lot again.`]
@@ -181,10 +181,10 @@ function stripFor(view: FlowView): Strip {
         ["Waiting on", "No one", "This revision is read only"], ["Next", "Plan the lot again", "In New Lot"]];
     case "approved":
       return [lot, ["Now at", "Approved", "Step 9 of 9, Decision zone"],
-        ["Waiting on", "No one", "Approved in a demo session"], ["Next", "Hand the card to the floor", "Open it on the operator's phone"]];
+        ["Waiting on", "No one", "The job card is approved"], ["Next", "Hand the card to the floor", "Open it on the operator's phone"]];
     default:
       return [lot, ["Now at", "Review plan", "Step 7 of 9, Decision zone"],
-        ["Waiting on", "Supervisor", "Demo session, no named person"], ["Next", "Approve, then store PDF", "Or keep as draft"]];
+        ["Waiting on", "Supervisor", "Review and approve"], ["Next", "Approve, then store PDF", "Or keep as draft"]];
   }
 }
 
@@ -269,7 +269,7 @@ function SidePanels({ view }: { view: FlowView }) {
           [["Inputs", ["Approved plan"]], ["Output", ["Job card PDF"]]],
           <ButtonLink href={operator} arrow>Open on the operator's phone</ButtonLink>)}
         {choices("What you are deciding", null, "Approving saves a job card. Not a machine command.",
-          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.4 }}>Nothing waits on you. The card was approved in a demo session.</p>)}
+          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.4 }}>Nothing waits on you. The card is approved.</p>)}
       </>
     );
   }

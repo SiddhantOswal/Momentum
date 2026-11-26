@@ -1,5 +1,4 @@
 import { useRef, type KeyboardEvent } from "react";
-import { Chip } from "../../components/m";
 import line from "./line.jpg";
 import { leverLabel, leverNumber, leverUnit, stageOf, STAGES, type PlanView, type StageId } from "./plan";
 
@@ -33,7 +32,6 @@ export function StageMap({ plan, selected, onSelect }: { plan?: PlanView; select
   return (
     <section className="cd flush c8 pe-map" aria-label="Stage map">
       <div className="pe-bar">
-        <Chip tone="example">Illustrative line, not a live view</Chip>
         <span className="mt">
           {plan ? `${plan.itemCode}, stage` : "Stage"} {stage.id} of {STAGES.length}, {stage.name.toLowerCase()}
         </span>

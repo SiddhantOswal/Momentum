@@ -10,7 +10,7 @@ export async function getLot({ lotId } = {}, { principal, signal, lotRevisions }
   } catch (error) {
     return lotStoreFailure(error);
   }
-  if (!found) return lotFailure(404, "LOT_NOT_FOUND", "No lot with this ID in this demo session.");
+  if (!found) return lotFailure(404, "LOT_NOT_FOUND", "No lot with this ID in this session.");
   const { head, revision } = found;
   return {
     ok: true,

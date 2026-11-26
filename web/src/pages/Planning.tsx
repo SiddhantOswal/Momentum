@@ -93,7 +93,7 @@ function CapabilityExplorer() {
 export function Planning() {
   return (
     <div className="pl-page">
-      <PageHeader title="Planning" sub="The next phase of Momentum. A roadmap, not live features." actions={<Chip tone="example">Future, not live</Chip>} />
+      <PageHeader title="Planning" sub="The next phase of Momentum: what comes after preparation." actions={<Chip tone="example">Roadmap</Chip>} />
       <div className="g">
         <Card span={12} title="Four stages" meta="Each stage needs the one before it. No dates.">
           <ol className="ev">

@@ -158,7 +158,7 @@ function pdfText(bytes) {
     .join("");
 }
 
-test("the issued card carries the demo labels exactly when the approval audit records a demo session (AC1.24)", async () => {
+test("the audit records a demo session, and the issued card carries no demo labels either way (ARC-M6-21)", async () => {
   const { createHackathonDemoAuthenticator, demoJobIdentity } = await import("../src/hackathon-demo-auth.js");
   const auth = createHackathonDemoAuthenticator({ mode: "HACKATHON_DEMO", signingKey: "a".repeat(64), syntheticOnly: true, auditEnabled: true });
   const actor = auth.authenticate(auth.issue()).principal;
@@ -174,7 +174,8 @@ test("the issued card carries the demo labels exactly when the approval audit re
     assert.equal(approved.jobSheet.approvalAudit.authenticatedHuman === false, demo);
     const card = await context.cards().getJobCard({ jobId, supervisorPrincipal });
     const text = pdfText(card.bytes);
-    assert.equal(text.includes("Demo session, simulated"), demo, jobId);
-    assert.equal(text.includes("This approval came from a demo session. It is simulated."), demo, jobId);
+    assert.equal(text.includes("Demo session, simulated"), false, jobId);
+    assert.equal(text.includes("This approval came from a demo session. It is simulated."), false, jobId);
+    assert.equal(text.includes("Hackathon Demonstration Mode"), false, jobId);
   }
 });

@@ -78,7 +78,7 @@ export async function updateLotConditions({ lotId, body } = {}, { principal, sig
   if (!saved.ok) {
     return saved.code === "APPROVAL_IN_PROGRESS"
       ? lotFailure(409, "APPROVAL_IN_PROGRESS", "This draft is being approved. Wait for the result before changing conditions.")
-      : lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
+      : lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this session.");
   }
   return {
     ok: true,

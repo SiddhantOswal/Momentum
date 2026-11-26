@@ -24,7 +24,7 @@ function RunLine({ lot, job }: { lot?: LiveLot; job?: Result<JobResponse> }) {
               <span style={{ fontSize: 15, color: "var(--mu)", fontWeight: 500 }}>kg modeled scrap</span>
             </div>
           )
-          : <div style={{ fontSize: 15, color: "var(--mu)", marginTop: 2 }}>{job ? "Its scrap figures open in the demo session that planned it." : "Reading the job record…"}</div>}
+          : <div style={{ fontSize: 15, color: "var(--mu)", marginTop: 2 }}>{job ? "Its scrap figures open in the session that planned it." : "Reading the job record…"}</div>}
       </div>
       {sheet && <Chip tone="modeled">Model estimate, predicted</Chip>}
     </>
@@ -55,10 +55,9 @@ export function Hero({ lots, job }: { lots: LiveLot[]; job?: Result<JobResponse>
       </div>
       <div className="hm-art">
         <div className="hm-h3" role="img"
-          aria-label="Illustrative 3D view: stacks of board stop at two stations while four arms close on them, then move on. A schematic, not a view of your line."
+          aria-label="3D view: stacks of board stop at two stations while four arms close on them, then move on. A schematic, not a view of your line."
           // Static markup copied from the approved design; it holds no data and no user input.
           dangerouslySetInnerHTML={{ __html: machine }} />
-        <span className="pv hm-tag">Illustrative line</span>
       </div>
     </section>
   );

@@ -161,12 +161,12 @@ test("JobSheet renderer reports approval only when the supplied status says APPR
   assert.match(renderedText, /Status: APPROVED/);
 });
 
-test("session-scoped hackathon cards carry the exact demonstration approval disclaimer", async () => {
+test("session-scoped cards print the approval status and no demonstration disclaimer (ARC-M6-21)", async () => {
   const { HACKATHON_APPROVAL_NOTE } = await import("../src/hackathon-demo-auth.js");
   const jobId = `JOB-HACK-${"a".repeat(32)}-${"b".repeat(40)}`;
   const pdf = await renderJobSheetPdf({ ...jobSheetFixture, jobId, status: "APPROVED" }, { approval: demoApproval });
   const text = extractBuiltInFontText(pdf);
-  assert.ok(text.includes(HACKATHON_APPROVAL_NOTE));
+  assert.ok(!text.includes(HACKATHON_APPROVAL_NOTE));
   assert.match(text, /Status: APPROVED/);
 });
 
@@ -186,25 +186,19 @@ test("estimate heading is labelled as a model estimate and never as savings (AC1
   }
 });
 
-test("a demo-session approval prints both simulated-approval strings whatever the job ID (AC1.24)", async () => {
+test("a demo-session approval prints no simulated-approval wording whatever the job ID (ARC-M6-21)", async () => {
   const jobIds = [`JOB-HACK-${"a".repeat(32)}-${"b".repeat(40)}`, "JOB-TEST-42", "JOB-HACK-not-a-session-id"];
-  for (const jobId of jobIds) {
-    const text = extractBuiltInFontText(await renderJobSheetPdf(
-      { ...jobSheetFixture, jobId, status: "APPROVED" },
-      { approval: demoApproval },
-    ));
-    assert.ok(text.includes(DEMO_LABEL), jobId);
-    assert.ok(text.includes(DEMO_NOTE), jobId);
+  for (const approval of [demoApproval, { authenticatedHuman: false }]) {
+    for (const jobId of jobIds) {
+      const text = extractBuiltInFontText(await renderJobSheetPdf({ ...jobSheetFixture, jobId, status: "APPROVED" }, { approval }));
+      assert.ok(!text.includes(DEMO_LABEL), jobId);
+      assert.ok(!text.includes(DEMO_NOTE), jobId);
+      assert.match(text, /Status: APPROVED/, jobId);
+    }
   }
-  const fromFlagOnly = extractBuiltInFontText(await renderJobSheetPdf(
-    { ...jobSheetFixture, status: "APPROVED" },
-    { approval: { authenticatedHuman: false } },
-  ));
-  assert.ok(fromFlagOnly.includes(DEMO_LABEL));
-  assert.ok(fromFlagOnly.includes(DEMO_NOTE));
 });
 
-test("the demo note follows the approval record, not the JOB-HACK job ID pattern (AC1.24)", async () => {
+test("no approval record prints demo wording on a JOB-HACK job ID", async () => {
   const hackId = `JOB-HACK-${"a".repeat(32)}-${"b".repeat(40)}`;
   for (const approval of [undefined, {}]) {
     const text = extractBuiltInFontText(await renderJobSheetPdf({ ...jobSheetFixture, jobId: hackId, status: "APPROVED" }, { approval }));
