@@ -6,11 +6,12 @@ import { createFirestoreLotStore } from "../src/google-cloud/firestore-lot-store
 import { fromFirestoreFields } from "../src/google-cloud/firestore-rest.js";
 import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
+const AUDIENCE = "https://momentum.example";
 
 const authenticator = createHackathonDemoAuthenticator({
   mode: "HACKATHON_DEMO", signingKey: "a".repeat(64), syntheticOnly: true, auditEnabled: true,
 });
-const principalFor = () => authenticator.authenticate(authenticator.issue()).principal;
+const principalFor = () => authenticator.authenticate(authenticator.issue(AUDIENCE), AUDIENCE).principal;
 const lotFor = (principal, suffix = "b") => `LOT-HACK-${principal.sessionId}-${suffix.repeat(12)}`;
 const DOCS = "projects/prepagent-hack/databases/(default)/documents";
 

@@ -15,12 +15,13 @@ import { budgetCapStore, createFirestoreBudgetStore } from "../src/google-cloud/
 import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
 import { createFakeFirestore, FAKE_PROJECT_ID } from "./fixtures/fake-firestore.js";
+const AUDIENCE = "https://momentum.example";
 
 const SID = "a".repeat(32);
 const SESSION_EXPIRES = "2026-11-24T11:00:00.000Z";
 const ipKey = "a".repeat(16);
 const auth = createHackathonDemoAuthenticator({ mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "a".repeat(64) });
-const principalOf = (cookie) => auth.authenticate(cookie).principal;
+const principalOf = (cookie) => auth.authenticate(cookie, AUDIENCE).principal;
 const call = (name, args = {}) => ({ name, args });
 
 const photos = Array.from({ length: 10 }, (_, index) => ({ id: `photo-${String(index + 1).padStart(2, "0")}` }));
@@ -65,7 +66,7 @@ test("a session record written before this field existed still reads and accepts
 });
 
 test("a registry built from stored IDs accepts them and nothing else", () => {
-  const principal = principalOf(auth.issue());
+  const principal = principalOf(auth.issue(AUDIENCE));
   const session = { sessionId: principal.sessionId, activeLotIds: [], jobIds: [], discovered: { sampleIds: ["PO2"], photoIds: ["photo-03"] } };
   const registry = createToolRegistry({ principal, ipKey, session, deps: {} });
   assert.equal(registry.tools.diagnose_approved_photo.schema().safeParse({ photoId: "photo-03" }).success, true);
@@ -93,7 +94,7 @@ function turnFixture(router) {
       GEMINI_BUDGET_LIMITS: JSON.stringify({ pool: "live", dayLimit: 300, sessionDayLimit: 40, ipDayLimit: 120, minuteLimit: 20, sessionMinuteLimit: 6 }),
     }).limits,
   });
-  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, servicePorts: services, modelAcceptanceConfig };
+  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, sessionAudience: () => AUDIENCE, servicePorts: services, modelAcceptanceConfig };
   const runner = createArcTurnRunner({
     sessionStore, taskRunStore, eventStore: createArcEventStore(options), deps,
     geminiCap: readDailyGeminiCallCapConfig({}), attemptStore: budgetCapStore(budget), router,
@@ -114,8 +115,8 @@ test("a later turn can use a photo listed earlier, and another session cannot", 
     seen.push(request.allowedFunctionNames);
     return { calls: plans.shift() };
   });
-  const alice = auth.issue();
-  const bob = auth.issue();
+  const alice = auth.issue(AUDIENCE);
+  const bob = auth.issue(AUDIENCE);
   assert.match(await post(alice, "List the approved photos"), /"type":"run.completed"/);
   assert.deepEqual((await sessionStore.get(principalOf(alice).sessionId)).discovered.photoIds, photos.map(({ id }) => id));
   assert.equal(seen[0].includes("diagnose_approved_photo"), false);
@@ -135,7 +136,7 @@ test("listing the sample orders is remembered for read_order", { timeout: 5000 }
   const plans = [[call("list_samples")], []];
   const seen = [];
   const { post, sessionStore } = turnFixture(async (request) => { seen.push(request.allowedFunctionNames); return { calls: plans.shift() }; });
-  const cookie = auth.issue();
+  const cookie = auth.issue(AUDIENCE);
   await post(cookie, "Which sample orders are there?");
   assert.deepEqual((await sessionStore.get(principalOf(cookie).sessionId)).discovered.sampleIds, ["PO1", "PO2", "PO3", "PO4", "PO5"]);
 });

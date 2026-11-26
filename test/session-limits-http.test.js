@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHmac } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
@@ -69,6 +70,7 @@ async function startApp(googleApisOrigin, extraEnv = {}) {
       GEMINI_BUDGET_LIMITS: JSON.stringify(LIMITS),
       ARC_PITCH_RESERVE_CODE: PITCH_CODE,
       TEST_GOOGLE_APIS_ORIGIN: googleApisOrigin,
+      USTAAD_PUBLIC_ORIGIN: `https://127.0.0.1:${port}`,
       ...extraEnv,
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -82,7 +84,7 @@ async function startApp(googleApisOrigin, extraEnv = {}) {
   ]);
   const origin = `https://127.0.0.1:${port}`;
   return {
-    child, logs, url: `http://127.0.0.1:${port}`,
+    child, logs, origin, url: `http://127.0.0.1:${port}`,
     post: (path, { ip = "203.0.113.7", cookie, body } = {}) => fetch(`http://127.0.0.1:${port}${path}`, {
       method: "POST",
       headers: {
@@ -169,12 +171,31 @@ test("the right code turns a session cookie into a pitch claim for the same sess
     assert.equal(payloadOf(claimed).sid, payloadOf(session).sid);
     assert.equal(payloadOf(claimed).exp, payloadOf(session).exp);
     assert.deepEqual(payloadOf(claimed).grants, ["pitch_reserve"]);
+    assert.equal(payloadOf(claimed).aud, app.origin);
+    assert.equal(payloadOf(session).aud, app.origin);
     const body = await claim.json();
     assert.equal(body.ok, true);
     assert.equal(JSON.stringify(body).includes(PITCH_CODE), false);
     // Presenting the claimed cookie again keeps it and mints nothing new.
     const again = await app.post("/api/auth/demo-session", { cookie: claimed });
     assert.equal(cookieOf(again), claimed);
+  });
+});
+
+test("a session signed with the shared key for another origin cannot claim the pitch reserve here", async () => {
+  await withApp({}, async (app) => {
+    const own = payloadOf(cookieOf(await app.post("/api/auth/demo-session", { ip: "203.0.113.55" })));
+    const sign = (data) => {
+      const body = Buffer.from(JSON.stringify(data)).toString("base64url");
+      return `__Host-ustaad-demo=${body}.${createHmac("sha256", Buffer.from("a".repeat(64), "hex")).update(body).digest("base64url")}`;
+    };
+    for (const forged of [sign({ ...own, aud: "https://arc-test---momentum.example" }), sign({ ...own, aud: undefined })]) {
+      const claim = await app.post("/api/auth/pitch-claim", { ip: "203.0.113.56", cookie: forged, body: { code: PITCH_CODE } });
+      assert.equal(claim.status, 401);
+      assert.equal((await claim.json()).error.code, "DEMO_SESSION_REQUIRED");
+      assert.equal(claim.headers.get("set-cookie"), null);
+    }
+    assert.equal((await app.post("/api/auth/pitch-claim", { ip: "203.0.113.56", cookie: sign(own), body: { code: PITCH_CODE } })).status, 200);
   });
 });
 
@@ -226,5 +247,39 @@ test("the pitch code never appears in responses or logs, whatever the outcome", 
     assert.equal(seen.join("").includes(PITCH_CODE), false);
     assert.equal(app.logs.join("").includes(PITCH_CODE), false);
     assert.ok(app.logs.join("").includes("arc_pitch_claim"));
+  });
+});
+
+test("HTTP status gives the public no budget detail and no budget read, and a session only its own calls left", async () => {
+  await withApp({}, async (app, google) => {
+    const firestoreReads = () => google.firestore.calls.filter((call) => call.method === "GET").length;
+    const status = (headers = {}) => fetch(`${app.url}/api/status`, { headers: { "X-Forwarded-For": "203.0.113.90", ...headers } });
+
+    const before = firestoreReads();
+    for (const headers of [{}, { Cookie: "__Host-ustaad-demo=forged.token" }]) {
+      const response = await status(headers);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      const body = await response.json();
+      assert.deepEqual(Object.keys(body).sort(),
+        ["app", "authorizationMode", "backendReachable", "executionMode", "mode", "modelAcceptance", "ok", "status"]);
+      assert.equal(body.modelAcceptance.models.length, 5);
+      const { modelAcceptance: _scores, ...rest } = body;
+      assert.doesNotMatch(JSON.stringify(rest), /limit|cap|reserve|spend|cost|remaining|counter/i);
+    }
+    assert.equal(firestoreReads(), before);
+
+    const session = cookieOf(await app.post("/api/auth/demo-session", { ip: "203.0.113.91" }));
+    const afterMint = firestoreReads();
+    const first = await (await status({ Cookie: session })).json();
+    assert.deepEqual(first.runtimeAvailability.geminiBudget,
+      { policy: "budget-v2", configured: true, status: "configured", available: true, callsLeftToday: 40 });
+    assert.doesNotMatch(JSON.stringify(first), /dayLimit|ipDayLimit|CostCap|costInr|reserveUnits|"remaining"|"limits"/);
+    assert.equal("limit" in first.runtimeAvailability.dailyGeminiCallCap, false);
+    assert.equal(first.modelAcceptance.models.length, 5);
+    const oneRead = firestoreReads() - afterMint;
+    assert.ok(oneRead > 0);
+    await status({ Cookie: session });
+    assert.equal(firestoreReads() - afterMint, oneRead, "a second call inside the cache window reads nothing");
   });
 });

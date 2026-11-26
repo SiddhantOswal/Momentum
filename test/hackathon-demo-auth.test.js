@@ -4,19 +4,21 @@ import { createHackathonDemoAuthenticator, demoOwnsJob, demoJobIdentity, isDemoP
 import { canAccessApprovalJob } from "../src/approval-authorization.js";
 import { isVerifiedSupervisorPrincipal } from "../src/firebase-supervisor-auth.js";
 import { ApprovalAuditSchema } from "../src/schemas.js";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 const config = { mode: "HACKATHON_DEMO", signingKey: "a".repeat(64), syntheticOnly: true, auditEnabled: true };
+const AUDIENCE = "https://momentum.example";
+const OTHER_AUDIENCE = "https://arc-test---momentum.example";
 const identity = { keyHash: "b".repeat(64), fingerprint: "c".repeat(64) };
 test("hackathon policy is explicit, disabled on incomplete configuration and never fabricates a supervisor", () => {
-  for (const change of [{ mode: undefined }, { signingKey: undefined }, { signingKey: "short" }, { syntheticOnly: false }, { auditEnabled: false }]) {
+  for (const change of [{ mode: undefined }, { signingKey: undefined }, { signingKey: "short" }, { syntheticOnly: false }, { auditEnabled: false }, { originConfigured: false }]) {
     const auth = createHackathonDemoAuthenticator({ ...config, ...change });
     assert.equal(auth.configured, false);
-    assert.equal(auth.authenticate("arbitrary").ok, false);
-    assert.throws(() => auth.issue());
+    assert.equal(auth.authenticate("arbitrary", AUDIENCE).ok, false);
+    assert.throws(() => auth.issue(AUDIENCE));
   }
   const auth = createHackathonDemoAuthenticator(config);
-  const principal = auth.authenticate(auth.issue()).principal;
+  const principal = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
   assert.equal(isDemoPrincipal(principal), true);
   assert.equal(isVerifiedSupervisorPrincipal(principal), false);
   assert.equal(isDemoPrincipal({ ...principal }), false);
@@ -25,17 +27,50 @@ test("hackathon policy is explicit, disabled on incomplete configuration and nev
 test("signed sessions expire, reject forged identity, survive instance changes only with matching key", () => {
   let time = Date.now();
   const a = createHackathonDemoAuthenticator({ ...config, now: () => time });
-  const token = a.issue();
+  const token = a.issue(AUDIENCE);
   const b = createHackathonDemoAuthenticator({ ...config, now: () => time });
-  assert.equal(b.authenticate(token).ok, true);
-  for (const invalid of [undefined, "", token + "x", token.replace(/^./, "!"), "Bearer " + token]) assert.equal(a.authenticate(invalid).ok, false);
-  assert.equal(createHackathonDemoAuthenticator({ ...config, signingKey: "d".repeat(64) }).authenticate(token).ok, false);
+  assert.equal(b.authenticate(token, AUDIENCE).ok, true);
+  for (const invalid of [undefined, "", token + "x", token.replace(/^./, "!"), "Bearer " + token]) assert.equal(a.authenticate(invalid, AUDIENCE).ok, false);
+  assert.equal(createHackathonDemoAuthenticator({ ...config, signingKey: "d".repeat(64) }).authenticate(token, AUDIENCE).ok, false);
   time += 7200000;
-  assert.equal(a.authenticate(token).ok, false);
+  assert.equal(a.authenticate(token, AUDIENCE).ok, false);
+});
+
+const sealWith = (signingKey, payload) => {
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${body}.${createHmac("sha256", Buffer.from(signingKey, "hex")).update(body).digest("base64url")}`;
+};
+const payloadOf = (token) => JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString());
+
+test("a session is accepted only by the origin it was issued for", () => {
+  const auth = createHackathonDemoAuthenticator(config);
+  const token = auth.issue(AUDIENCE);
+  assert.equal(payloadOf(token).aud, AUDIENCE);
+  assert.equal(auth.authenticate(token, AUDIENCE).ok, true);
+  for (const other of [OTHER_AUDIENCE, "http://momentum.example", "https://momentum.example:8443", "http://127.0.0.1:4100"]) {
+    const refused = auth.authenticate(token, other);
+    assert.equal(refused.ok, false, other);
+    assert.equal(refused.status, 401);
+    assert.equal(refused.error.code, "DEMO_SESSION_REQUIRED");
+  }
+  for (const missing of [undefined, "", "momentum.example", `${AUDIENCE}/`, `${AUDIENCE}/app`, "null"]) {
+    assert.equal(auth.authenticate(token, missing).ok, false, String(missing));
+    assert.throws(() => auth.issue(missing), TypeError, String(missing));
+  }
+});
+
+test("a token signed with the right key is refused with the wrong audience or none", () => {
+  const auth = createHackathonDemoAuthenticator(config);
+  const valid = payloadOf(auth.issue(AUDIENCE));
+  assert.equal(auth.authenticate(sealWith(config.signingKey, valid), AUDIENCE).ok, true);
+  assert.equal(auth.authenticate(sealWith(config.signingKey, { ...valid, aud: OTHER_AUDIENCE }), AUDIENCE).ok, false);
+  const { aud: _aud, ...issuedBeforeAudience } = valid;
+  assert.equal(auth.authenticate(sealWith(config.signingKey, issuedBeforeAudience), AUDIENCE).ok, false);
+  assert.equal(auth.authenticate(sealWith(config.signingKey, { ...valid, aud: [AUDIENCE] }), AUDIENCE).ok, false);
 });
 test("concurrent sessions isolate deterministic job identities and reject legacy TEST records", async () => {
   const auth = createHackathonDemoAuthenticator(config);
-  const actors = await Promise.all(Array.from({ length: 20 }, async () => auth.authenticate(auth.issue()).principal));
+  const actors = await Promise.all(Array.from({ length: 20 }, async () => auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal));
   const jobs = actors.map(actor => demoJobIdentity(actor, identity));
   assert.equal(new Set(jobs.map(job => job.jobId)).size, 20);
   actors.forEach((actor, i) => {
@@ -48,7 +83,7 @@ test("concurrent sessions isolate deterministic job identities and reject legacy
 });
 test("audit requires truthful complete demo provenance tied to the exact session namespace", () => {
   const auth = createHackathonDemoAuthenticator(config);
-  const actor = auth.authenticate(auth.issue()).principal;
+  const actor = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
   const audit = { jobId: demoJobIdentity(actor, identity).jobId, actorUid: actor.uid,
     actorType: "HACKATHON_DEMO_PARTICIPANT", authorizationMode: "HACKATHON_DEMO",
     identityProvider: "server-signed-demo-session", authenticatedHuman: false,
@@ -70,7 +105,7 @@ test("hackathon mode cannot select local mock adapters or per-process Gemini acc
 test("session-scoped identities retain the existing idempotent persistence contract", async () => {
   const { createIdempotentJobService, InMemoryIdempotencyStore } = await import("../src/job-idempotency.js");
   const auth = createHackathonDemoAuthenticator(config);
-  const actor = auth.authenticate(auth.issue()).principal;
+  const actor = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
   const scoped = demoJobIdentity(actor, identity);
   let writes = 0;
   const service = createIdempotentJobService({ store: new InMemoryIdempotencyStore(), leaseMs: 30000,

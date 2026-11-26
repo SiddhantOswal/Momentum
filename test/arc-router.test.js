@@ -19,6 +19,7 @@ import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js"
 import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
 import { createFakeFirestore, FAKE_PROJECT_ID } from "./fixtures/fake-firestore.js";
+const AUDIENCE = "https://momentum.example";
 
 async function loadNewModule(path) {
   try {
@@ -153,14 +154,14 @@ function turnFixture({ orderRef, router }) {
     }).limits,
   });
   const auth = createHackathonDemoAuthenticator({ mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "a".repeat(64) });
-  const cookie = auth.issue();
-  const principal = auth.authenticate(cookie).principal;
+  const cookie = auth.issue(AUDIENCE);
+  const principal = auth.authenticate(cookie, AUDIENCE).principal;
   const lotId = `LOT-HACK-${principal.sessionId}-${"0".repeat(12)}`;
   const lotStore = {
     getLot: async () => ({ head: { lotId, ownerSessionId: principal.sessionId, reviewId: null, orderRef,
       draftConditions: [], conditionsFingerprint: null, currentRevision: 0, currentJobId: null, stage: "order_review", version: 1 } }),
   };
-  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, servicePorts: {}, modelAcceptanceConfig };
+  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, sessionAudience: () => AUDIENCE, servicePorts: {}, modelAcceptanceConfig };
   const scope = createScopeRules();
   const runner = createArcTurnRunner({
     sessionStore, taskRunStore, eventStore: createArcEventStore(options), lotStore, deps,

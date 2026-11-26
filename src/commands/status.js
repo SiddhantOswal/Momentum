@@ -1,5 +1,5 @@
 import { readDailyGeminiCallCapConfig } from "../daily-gemini-call-cap.js";
-import { readGeminiBudgetConfig } from "../gemini-budget-config.js";
+import { isDemoPrincipal } from "../hackathon-demo-auth.js";
 import { getModelAcceptanceSummary, isModelSetAccepted } from "../model-acceptance.js";
 import { SUPPORTED_CURRENCIES, SUPPORTED_LANGUAGES } from "../schemas.js";
 import { getJobLifecycleAvailability } from "../service-ports.js";
@@ -84,8 +84,6 @@ export function getStatus(_input, {
     (servicePorts.availability.extractOrder || servicePorts.availability.explainRisk);
   const globalGeminiCapEnforced = liveModelCallsEnabled && servicePorts.geminiUsage.sharedCounterConfigured;
   const budgetPolicy = servicePorts.geminiUsage.policy;
-  // Under budget-v2 the enforced day limit comes from GEMINI_BUDGET_LIMITS, not GEMINI_DAILY_ATTEMPT_CAP.
-  const budgetLimits = budgetPolicy ? readGeminiBudgetConfig(env).limits : undefined;
   return {
     ok: true,
     app: "Momentum",
@@ -109,8 +107,8 @@ export function getStatus(_input, {
         globalScopeEnforced: globalGeminiCapEnforced,
         ...(servicePorts.geminiUsage.sharedCounterConfigured ? { liveConnectivityVerified: false } : {}),
         ...(budgetPolicy ? { policy: budgetPolicy } : {}),
+        // The day limit is left out: the global cap is not shown to callers (SEC-2).
         ...(geminiCapConfig.configured ? {
-          limit: budgetLimits?.dayLimit ?? geminiCapConfig.limit,
           timeZone: geminiCapConfig.timeZone,
           countingPolicy: geminiCapConfig.countingPolicy,
           reset: "midnight-in-configured-time-zone",
@@ -168,13 +166,55 @@ export function getStatus(_input, {
   };
 }
 
+const PUBLIC_STATUS_FIELDS = ["ok", "app", "status", "backendReachable", "mode", "executionMode", "authorizationMode", "modelAcceptance"];
+
+/** What a caller without a session may see: that the service runs, in which mode, and the model scores Home shows before a session exists. */
+export function publicStatus(status) {
+  return Object.fromEntries(PUBLIC_STATUS_FIELDS.filter((field) => field in status).map((field) => [field, status[field]]));
+}
+
+// 5 s keeps one session's status reads to at most 12 budget reads a minute, and is shorter
+// than an Arc turn that spends Gemini, so the count read after a turn is normally fresh.
+export const BUDGET_VIEW_TTL_MS = 5_000;
+const BUDGET_VIEW_MAX_ENTRIES = 1_000;
+
+/** In-process cache of budget reads by session, so repeated status calls do not each read Firestore. */
+export function createBudgetViewCache({ ttlMs = BUDGET_VIEW_TTL_MS, maxEntries = BUDGET_VIEW_MAX_ENTRIES, now = Date.now } = {}) {
+  const entries = new Map();
+  return Object.freeze({
+    read(key, load) {
+      const currentTime = now();
+      const cached = entries.get(key);
+      if (cached && currentTime < cached.expiresAt) return cached.value;
+      entries.delete(key);
+      if (entries.size >= maxEntries) {
+        for (const [trackedKey, entry] of entries) if (currentTime >= entry.expiresAt) entries.delete(trackedKey);
+        if (entries.size >= maxEntries) entries.delete(entries.keys().next().value);
+      }
+      const value = Promise.resolve().then(load);
+      entries.set(key, { expiresAt: currentTime + ttlMs, value });
+      return value;
+    },
+  });
+}
+
+function callsLeftToday(view) {
+  if (!(view.costInr > 0)) return 0;
+  const counts = [view.day, view.session].filter((count) => Number.isSafeInteger(count));
+  return counts.length > 0 ? Math.min(...counts) : null;
+}
+
 /**
- * The status command plus what remains of the Gemini budget for the caller,
- * read without writing (design 5.2 `peek`). Without budget-v2 it returns the
- * status command's result unchanged.
+ * The status the /api/status route returns. Where this deployment issues sessions, a
+ * caller without a verified one gets `publicStatus` only. With a session, budget-v2
+ * adds the Gemini calls this session can still make today, read without writing
+ * (design 5.2 `peek`) through `deps.budgetViewCache`; the global cap, spend, reserve
+ * and limits are never returned.
  */
 export async function getStatusWithBudget(input, deps) {
   const status = getStatus(input, deps);
+  const issuesSessions = deps.hackathonAuth?.enabled === true || Boolean(deps.userSessionAuth);
+  if (issuesSessions && deps.sessionVerified !== true) return publicStatus(status);
   const usage = deps.servicePorts.geminiUsage;
   if (!usage.policy) return status;
   let geminiBudget = {
@@ -183,12 +223,13 @@ export async function getStatusWithBudget(input, deps) {
     status: usage.budgetStatus,
     available: false,
   };
-  if (typeof usage.peek === "function") {
-    const view = await usage.peek({ principal: deps.principal, signal: deps.signal });
-    if (view.ok) {
-      const { ok: _ok, pool, reserveWindowActive, limits, ...remaining } = view;
-      geminiBudget = { ...geminiBudget, available: true, pool, remaining, limits, reserveWindowActive };
-    }
+  const principal = deps.principal;
+  if (isDemoPrincipal(principal) && typeof usage.peek === "function") {
+    const peek = () => usage.peek({ principal, signal: deps.signal });
+    const key = `${principal.sessionId}:${principal.grants.join(",")}`;
+    const read = deps.budgetViewCache ? deps.budgetViewCache.read(key, peek) : Promise.resolve().then(peek);
+    const view = await read.catch(() => ({ ok: false }));
+    if (view.ok) geminiBudget = { ...geminiBudget, available: true, callsLeftToday: callsLeftToday(view) };
   }
   return { ...status, runtimeAvailability: { ...status.runtimeAvailability, geminiBudget } };
 }

@@ -23,7 +23,7 @@ import { createJobCoordinator } from "../src/job-coordinator.js";
 import { createJobSubmissionHandler } from "../src/job-draft-persistence.js";
 import { InMemoryIdempotencyStore } from "../src/job-idempotency.js";
 import { isModelSetAccepted } from "../src/model-acceptance.js";
-import { isSameApplicationOrigin } from "../src/request-origin.js";
+import { isSameApplicationOrigin, sessionOrigin } from "../src/request-origin.js";
 import { createConfiguredServicePorts } from "../src/service-ports.js";
 import { createStoredJobSheetLookup } from "../src/stored-job-sheet-lookup.js";
 import { createTraceRegistry } from "../src/trace-registry.js";
@@ -120,7 +120,8 @@ async function buildDeps(env) {
   const hackathonAuth = createHackathonDemoAuthenticator({ mode: env.USTAAD_AUTHORIZATION_MODE,
     signingKey: env.USTAAD_DEMO_SESSION_SIGNING_KEY,
     syntheticOnly: env.USTAAD_SYNTHETIC_ONLY === "true",
-    auditEnabled: env.USTAAD_ENABLE_APPROVAL_AUDIT === "true" });
+    auditEnabled: env.USTAAD_ENABLE_APPROVAL_AUDIT === "true",
+    originConfigured: !isCloudRun || sessionOrigin({ cloudRun: true, configuredOrigin: env.USTAAD_PUBLIC_ORIGIN }) !== undefined });
   const approvalAuthorizationConfigured = hackathonAuth.enabled ? hackathonAuth.configured : supervisorAuthenticator.configured;
   const plantId = env.USTAAD_PLANT_ID ?? (demoMode ? "PLANT-DEMO-01" : undefined);
   const prepareJob = createJobCoordinator({ services: servicePorts, traceRegistry: createTraceRegistry(), plantId, allowSyntheticDemoConditions: demoMode });
@@ -145,6 +146,7 @@ async function buildDeps(env) {
       localPrivilegedAdapterConfigured: false,
       traceOwners: new Map(),
       isSameOrigin: ({ origin, requestUrl }) => isSameApplicationOrigin({ origin, requestUrl, cloudRun: isCloudRun, configuredOrigin: env.USTAAD_PUBLIC_ORIGIN }),
+      sessionAudience: (requestUrl) => sessionOrigin({ requestUrl, cloudRun: isCloudRun, configuredOrigin: env.USTAAD_PUBLIC_ORIGIN }),
       jobSheetPersistenceAvailable,
       jobCreationAvailable,
       idempotencyStore,

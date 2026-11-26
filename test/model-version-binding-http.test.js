@@ -44,16 +44,17 @@ async function withServer(etags, run) {
     BUCKET: "prepagent-hack-data", USTAAD_ENABLE_LIVE_MODEL_CALLS: "true",
     USTAAD_GEMINI_BUDGET_POLICY: "budget-v2", GEMINI_BUDGET_LIMITS: JSON.stringify(BUDGET_LIMITS),
     USTAAD_ENFORCE_MODEL_VERSIONS: "true", FAKE_MODEL_ETAGS: JSON.stringify(etags),
+    USTAAD_PUBLIC_ORIGIN: "https://momentum.example",
   }, { entry: "test/helpers/fake-models-api-entry.mjs" });
   const origin = `http://127.0.0.1:${port}`;
   try {
-    const requestOrigin = origin.replace("http:", "https:");
+    const requestOrigin = "https://momentum.example";
     const session = await fetch(origin + "/api/auth/demo-session", { method: "POST", headers: { Origin: requestOrigin } });
     assert.equal(session.status, 200, await session.clone().text());
     const headers = { Cookie: session.headers.get("set-cookie").split(";")[0], Origin: requestOrigin, "Content-Type": "application/json" };
     let status;
     for (let attempt = 0; attempt < 40; attempt += 1) {
-      status = await (await fetch(origin + "/api/status")).json();
+      status = await (await fetch(origin + "/api/status", { headers: { Cookie: headers.Cookie } })).json();
       if (status.modelVersions?.state !== "unchecked") break;
       await new Promise((resolve) => setTimeout(resolve, 25));
     }

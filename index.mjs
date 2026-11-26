@@ -1,4 +1,4 @@
-import { isSameApplicationOrigin } from "./src/request-origin.js";
+import { isSameApplicationOrigin, sessionOrigin } from "./src/request-origin.js";
 import { getCookie, setCookie } from "hono/cookie";
 import { createHackathonDemoAuthenticator, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
 import { createGeminiCallerMiddleware } from "./src/gemini-caller-context.js";
@@ -50,7 +50,7 @@ import { selectJobIdempotencyStore } from "./src/job-idempotency.js";
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
 import { authorizeSupervisor } from "./src/commands/authorize.js";
 import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
-import { getStatusWithBudget, impactSummary } from "./src/commands/status.js";
+import { createBudgetViewCache, getStatusWithBudget, impactSummary } from "./src/commands/status.js";
 import { liveActor } from "./src/commands/live-events.js";
 import { readOrder } from "./src/commands/read-order.js";
 import { planLot } from "./src/commands/plan-lot.js";
@@ -91,10 +91,18 @@ const supervisorWebConfig = firebaseWebClientConfig(process.env);
 // Production sign-in (USTAAD_AUTH_MODE=FIREBASE_SESSION): Google accounts, session cookie, roles by email.
 const userSessionAuth = await initializeUserSessionAuth(process.env);
 const sessionWebConfig = userSessionAuth ? firebaseWebClientConfig({ ...process.env, USTAAD_FIREBASE_AUTH_ENABLED: "true" }) : undefined;
+// On Cloud Run sessions are bound only to a configured public origin, never to the request host.
+const sessionOriginConfigured = !isCloudRun ||
+  sessionOrigin({ cloudRun: true, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN }) !== undefined;
 const hackathonAuth = createHackathonDemoAuthenticator({ mode: process.env.USTAAD_AUTHORIZATION_MODE,
   signingKey: process.env.USTAAD_DEMO_SESSION_SIGNING_KEY,
   syntheticOnly: process.env.USTAAD_SYNTHETIC_ONLY === "true",
-  auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true" });
+  auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true",
+  originConfigured: sessionOriginConfigured });
+if (hackathonAuth.enabled && !sessionOriginConfigured) {
+  console.warn(JSON.stringify({ severity: "WARNING", event: "session_origin_missing",
+    message: "USTAAD_PUBLIC_ORIGIN is unset or not an https origin, so this service issues and accepts no sessions." }));
+}
 const approvalAuthorizationConfigured = hackathonAuth.enabled ? hackathonAuth.configured : supervisorAuthenticator.configured;
 const demoTraceOwners = new Map();
 // USTAAD_ENABLE_DURABLE_TRACES: trace events and owners also go to Firestore, so any instance can serve a run.
@@ -114,6 +122,13 @@ function isSameOrigin({ origin, requestUrl }) {
 }
 function sameOrigin(c) {
   return isSameOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url });
+}
+// A session is bound to this service's origin, so a cookie from another service or a laptop run is refused here.
+function sessionAudience(requestUrl) {
+  return sessionOrigin({ requestUrl, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
+}
+function demoSession(c) {
+  return hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"), sessionAudience(c.req.url));
 }
 
 const plantId = process.env.USTAAD_PLANT_ID ??
@@ -179,7 +194,7 @@ const apiRateLimit = createApiRateLimitMiddleware({
   getClientIp: resolveClientKey,
   getSessionId: (c) => {
     if (!hackathonAuth.configured) return undefined;
-    const session = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
+    const session = demoSession(c);
     return session.ok ? session.principal.sessionId : undefined;
   },
 });
@@ -193,7 +208,7 @@ app.use("/api/arc/*", async (c, next) => {
 app.use("*", createGeminiCallerMiddleware({
   getPrincipal: (c) => {
     if (!hackathonAuth.configured) return undefined;
-    const session = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
+    const session = demoSession(c);
     return session.ok ? session.principal : undefined;
   },
   getIpKey: clientIpKey,
@@ -288,6 +303,7 @@ const commandDeps = Object.freeze({
   traceOwners: demoTraceOwners,
   traceOwnerLookup: durableTraces.ownerOf,
   isSameOrigin,
+  sessionAudience,
   env: process.env,
   servicePorts,
   lotRevisions: servicePorts.lotRevisions,
@@ -655,7 +671,8 @@ app.post("/api/auth/pitch-claim", async (c) => {
   if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Sign-in is not set up on this deployment." } }, 503);
   if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
   const cookie = getCookie(c, "__Host-ustaad-demo");
-  if (!hackathonAuth.authenticate(cookie).ok) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to start a new one." } }, 401);
+  const audience = sessionAudience(c.req.url);
+  if (!hackathonAuth.authenticate(cookie, audience).ok) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to start a new one." } }, 401);
   if (!budgetPolicyRequested || !pitchExchange.configured) return c.json({ ok: false, error: { code: "PITCH_CLAIM_UNAVAILABLE", message: "The pitch claim is not available." } }, 503);
   const body = PitchClaimBodySchema.safeParse(await c.req.json().catch(() => undefined));
   if (!body.success) return c.json({ ok: false, error: { code: "INVALID_REQUEST", message: "Send a JSON body with a code of at most 128 characters." } }, 400);
@@ -669,25 +686,27 @@ app.post("/api/auth/pitch-claim", async (c) => {
     console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "rejected" }));
     return c.json({ ok: false, error: { code: "PITCH_CODE_INVALID", message: "That code is not valid." } }, 403);
   }
-  const claimed = hackathonAuth.grant(cookie, PITCH_RESERVE_GRANT);
+  const claimed = hackathonAuth.grant(cookie, PITCH_RESERVE_GRANT, audience);
   if (claimed === undefined) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to start a new one." } }, 401);
   console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "granted" }));
   setCookie(c, "__Host-ustaad-demo", claimed, { secure: true, httpOnly: true, sameSite: "Strict", path: "/" });
-  return c.json({ ok: true, grant: PITCH_RESERVE_GRANT, expiresAt: new Date(hackathonAuth.authenticate(claimed).principal.expiresAt * 1000).toISOString() }, 200, { "Cache-Control": "no-store" });
+  return c.json({ ok: true, grant: PITCH_RESERVE_GRANT, expiresAt: new Date(hackathonAuth.authenticate(claimed, audience).principal.expiresAt * 1000).toISOString() }, 200, { "Cache-Control": "no-store" });
 });
 
 app.post("/api/auth/demo-session", async (c) => {
   if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Sign-in is not set up on this deployment." } }, 503);
   if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
   const existing = getCookie(c, "__Host-ustaad-demo");
+  // The same-origin check above passed, so the audience is defined here.
+  const audience = sessionAudience(c.req.url);
   let token = existing;
-  if (!hackathonAuth.authenticate(existing).ok) {
+  if (!hackathonAuth.authenticate(existing, audience).ok) {
     const refused = await refuseNewSession(c);
     if (refused) return refused;
-    token = hackathonAuth.issue();
+    token = hackathonAuth.issue(audience);
   }
   setCookie(c, "__Host-ustaad-demo", token, { secure: true, httpOnly: true, sameSite: "Strict", path: "/" });
-  return c.json({ ok: true, authorizationMode: "HACKATHON_DEMO", authenticatedHuman: false, expiresAt: new Date(hackathonAuth.authenticate(token).principal.expiresAt * 1000).toISOString(), approvalNote: HACKATHON_APPROVAL_NOTE }, 200, { "Cache-Control": "no-store" });
+  return c.json({ ok: true, authorizationMode: "HACKATHON_DEMO", authenticatedHuman: false, expiresAt: new Date(hackathonAuth.authenticate(token, audience).principal.expiresAt * 1000).toISOString(), approvalNote: HACKATHON_APPROVAL_NOTE }, 200, { "Cache-Control": "no-store" });
 });
 
 // Google sign-in: a fresh Firebase ID token becomes an HttpOnly session cookie.
@@ -733,12 +752,16 @@ app.get("/api/auth/config", (c) => {
   }, 200, { "Cache-Control": "no-store" });
 });
 
+const statusBudgetViews = createBudgetViewCache();
 app.get("/api/status", async (c) => {
-  // The session comes only from a verified demo cookie, never from the request body or query.
-  const session = hackathonAuth.configured ? hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo")) : undefined;
+  // The session comes only from a verified cookie, never from the request body or query.
+  const session = hackathonAuth.configured ? demoSession(c) : undefined;
+  const userSession = userSessionAuth ? await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE)) : undefined;
   return c.json(await getStatusWithBudget({}, {
-    ...commandDeps, principal: session?.ok ? session.principal : undefined, signal: c.req.raw.signal,
-  }));
+    ...commandDeps, principal: session?.ok ? session.principal : undefined,
+    sessionVerified: session?.ok === true || userSession?.ok === true,
+    budgetViewCache: statusBudgetViews, signal: c.req.raw.signal,
+  }), 200, { "Cache-Control": "no-store" });
 });
 
 app.post("/orders/extract", async (c) => {

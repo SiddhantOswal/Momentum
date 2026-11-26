@@ -10,13 +10,19 @@ if (!base || !out) throw new Error("Set BASE and pass an output directory.");
 const anon = await fetch(base + "/health");
 console.log("unauthenticated /health", anon.status);
 const idToken = execFileSync("gcloud", ["auth", "print-identity-token"], { encoding: "utf8" }).trim();
+const serverless = { "X-Serverless-Authorization": "Bearer " + idToken };
+// /api/status gives configuration detail only to a session holder, so the preflight opens one first.
+const minted = await fetch(base + "/api/auth/demo-session", { method: "POST", headers: { ...serverless, Origin: new URL(base).origin } });
+console.log("/api/auth/demo-session", minted.status);
+const cookie = minted.headers.get("set-cookie")?.split(";")[0];
 const get = async (path) => {
-  const r = await fetch(base + path, { headers: { "X-Serverless-Authorization": "Bearer " + idToken } });
+  const r = await fetch(base + path, { headers: { ...serverless, ...(cookie ? { Cookie: cookie } : {}) } });
   return { status: r.status, data: await r.json() };
 };
 const health = await get("/health");
 console.log("/health", health.status, JSON.stringify(health.data));
 const status = await get("/api/status");
+if (!status.data.runtimeAvailability) throw new Error("/api/status returned the public view; the session was not accepted.");
 writeFileSync(out + "/status.json", JSON.stringify(status.data, null, 2), { mode: 0o600 });
 const m = status.data.modelAcceptance, ra = status.data.runtimeAvailability;
 console.log("/api/status", status.status, status.data.executionMode, status.data.authorizationMode);
@@ -26,7 +32,7 @@ const mv = status.data.modelVersions;
 console.log("modelVersions", mv
   ? `${mv.state} checked ${mv.lastCheckedAt} ` + mv.targets.map((x) => `${x.defect}:${x.observed ?? "none"}/${x.state}`).join(" ")
   : "not enforced (USTAAD_ENFORCE_MODEL_VERSIONS is not true)");
-console.log("jobCreationAvailable", ra.jobCreationAvailable, "persistence", ra.jobSheetPersistenceAvailable, "geminiCap", ra.dailyGeminiCallCap.limit, ra.dailyGeminiCallCap.enforced);
+console.log("jobCreationAvailable", ra.jobCreationAvailable, "persistence", ra.jobSheetPersistenceAvailable, "geminiCapEnforced", ra.dailyGeminiCallCap.enforced, "sessionCallsLeft", ra.geminiBudget?.callsLeftToday ?? "n/a");
 console.log("integrations", Object.entries(status.data.integrations).filter(([, v]) => typeof v === "boolean").map(([k, v]) => k + (v ? "+" : "-")).join(" "));
 const accessToken = execFileSync("gcloud", ["auth", "print-access-token"], { encoding: "utf8" }).trim();
 const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());

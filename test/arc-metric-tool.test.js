@@ -4,11 +4,12 @@ import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js"
 import { createToolRegistry } from "../src/arc/tools/index.js";
 import { loadMetricDictionary } from "../src/arc/metrics/dictionary.js";
 import { createServicePorts } from "../src/service-ports.js";
+const AUDIENCE = "https://momentum.example";
 
 const auth = createHackathonDemoAuthenticator({
   mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "a".repeat(64),
 });
-const principal = auth.authenticate(auth.issue()).principal;
+const principal = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
 const session = { sessionId: principal.sessionId, activeLotIds: [], jobIds: [] };
 const ids = loadMetricDictionary().metrics.map((m) => m.id);
 

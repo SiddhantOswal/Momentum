@@ -4,6 +4,7 @@ import { getJob } from "../src/commands/get-job.js";
 import { createFirestoreLotStore } from "../src/google-cloud/firestore-lot-store.js";
 import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
+const AUDIENCE = "https://momentum.example";
 
 const authenticator = createHackathonDemoAuthenticator({
   mode: "HACKATHON_DEMO", signingKey: "a".repeat(64), syntheticOnly: true, auditEnabled: true,
@@ -14,7 +15,7 @@ function setup({ enabled = true, failReads = false } = {}) {
   const store = createFirestoreLotStore({
     projectId: "prepagent-hack", fetchImpl: firestore.fetchImpl, tokenProvider: async () => "token",
   });
-  const principal = authenticator.authenticate(authenticator.issue()).principal;
+  const principal = authenticator.authenticate(authenticator.issue(AUDIENCE), AUDIENCE).principal;
   const jobId = `JOB-HACK-${principal.sessionId}-${"1".repeat(40)}`;
   const lotId = `LOT-HACK-${principal.sessionId}-${"b".repeat(12)}`;
   const deps = {

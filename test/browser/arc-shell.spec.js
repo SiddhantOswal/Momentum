@@ -308,9 +308,14 @@ test('the header shows Gemini calls left only when the status reports them', asy
   await expect(panel.getByText(/Gemini left today/)).toHaveCount(0);
 
   await page.route('**/api/status', route => route.fulfill(json(200, { ok: true, runtimeAvailability: { geminiBudget: {
-    available: true, remaining: { day: 40, session: 7, ip: 12, minute: 3, sessionMinute: 2, costInr: 80 } } } })));
+    available: true, callsLeftToday: 7 } } })));
   panel = await openArc(page);
   await expect(panel.getByText('Gemini left today: 7 calls')).toBeVisible();
+
+  await page.route('**/api/status', route => route.fulfill(json(200, { ok: true, runtimeAvailability: { geminiBudget: {
+    available: false, callsLeftToday: 7 } } })));
+  panel = await openArc(page);
+  await expect(panel.getByText(/Gemini left today/)).toHaveCount(0);
 });
 
 test('at phone width Arc is a full-width sheet and the page does not scroll sideways', async ({ page }) => {

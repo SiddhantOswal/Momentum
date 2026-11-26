@@ -8,6 +8,7 @@ import { createBigQueryWriteClient } from "../src/google-cloud/bigquery-write-cl
 import { renderJobSheetPdf } from "../src/job-sheet-pdf.js";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
 import { testSupervisor } from "./fixtures/verified-supervisor.js";
+const AUDIENCE = "https://momentum.example";
 
 const fixedTime = "2026-10-15T10:00:00.000Z";
 const job = { ...jobSheetFixture, order: { ...jobSheetFixture.order, orderId: "TEST-AUDIT-1" } };
@@ -125,8 +126,8 @@ test("approval SQL stores actor audit in the same conditional TEST-only update",
 test("hackathon approval persists honest actor provenance, replays and retrieves only within its session", async () => {
   const { createHackathonDemoAuthenticator, demoJobIdentity } = await import("../src/hackathon-demo-auth.js");
   const auth = createHackathonDemoAuthenticator({ mode: "HACKATHON_DEMO", signingKey: "a".repeat(64), syntheticOnly: true, auditEnabled: true });
-  const actor = auth.authenticate(auth.issue()).principal;
-  const other = auth.authenticate(auth.issue()).principal;
+  const actor = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
+  const other = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
   const jobId = demoJobIdentity(actor, { keyHash: "c".repeat(64), fingerprint: "d".repeat(64) }).jobId;
   const context = environment({ scopedJob: { ...job, jobId } });
   for (const supervisorPrincipal of [other, { ...actor }]) {
@@ -161,7 +162,7 @@ function pdfText(bytes) {
 test("the audit records a demo session, and the issued card carries no demo labels either way (ARC-M6-21)", async () => {
   const { createHackathonDemoAuthenticator, demoJobIdentity } = await import("../src/hackathon-demo-auth.js");
   const auth = createHackathonDemoAuthenticator({ mode: "HACKATHON_DEMO", signingKey: "a".repeat(64), syntheticOnly: true, auditEnabled: true });
-  const actor = auth.authenticate(auth.issue()).principal;
+  const actor = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
   const demoJobId = demoJobIdentity(actor, { keyHash: "c".repeat(64), fingerprint: "d".repeat(64) }).jobId;
   const cases = [
     { supervisorPrincipal: actor, jobId: demoJobId, demo: true },

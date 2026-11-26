@@ -8,6 +8,7 @@ import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "../src/dai
 import { createApprovedPhotoService } from "../src/google-cloud/approved-photo-service.js";
 import { budgetCapStore, createFirestoreBudgetStore } from "../src/google-cloud/firestore-budget-store.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
+const AUDIENCE = "https://momentum.example";
 
 const module = await import("../src/arc/tools/index.js").catch((error) => {
   if (error.code !== "ERR_MODULE_NOT_FOUND" || !error.url?.endsWith("/src/arc/tools/index.js")) throw error;
@@ -25,7 +26,7 @@ const codeOnly = ["retry_explanation", "confirm_order", "confirm_conditions"];
 const auth = createHackathonDemoAuthenticator({
   mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "a".repeat(64),
 });
-const principal = auth.authenticate(auth.issue()).principal;
+const principal = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
 const ipKey = "a".repeat(16);
 const lotId = `LOT-HACK-${principal.sessionId}-${"a".repeat(12)}`;
 const jobId = `JOB-HACK-${principal.sessionId}-${"b".repeat(40)}`;

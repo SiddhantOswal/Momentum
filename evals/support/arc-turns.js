@@ -67,8 +67,9 @@ export function arcTurns({ router, routerResponses, writer, renderTemplate, serv
   const auth = createHackathonDemoAuthenticator({
     mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "e".repeat(64),
   });
-  const cookie = auth.issue();
-  const principal = auth.authenticate(cookie).principal;
+  const audience = "https://momentum.example";
+  const cookie = auth.issue(audience);
+  const principal = auth.authenticate(cookie, audience).principal;
   const servicePorts = {
     ...services,
     approveJob: async (request) => {
@@ -77,7 +78,7 @@ export function arcTurns({ router, routerResponses, writer, renderTemplate, serv
     },
   };
   const deps = {
-    hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, servicePorts, modelAcceptanceConfig, ...commandDeps,
+    hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, sessionAudience: () => audience, servicePorts, modelAcceptanceConfig, ...commandDeps,
   };
   const scope = createScopeRules();
   let vertex = { requests: [] };

@@ -8,6 +8,7 @@ import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js"
 import { createTraceRoutes } from "../src/trace-routes.js";
 import { createTraceRegistry, createWriteThroughTraceRegistry } from "../src/trace-registry.js";
 import { createFakeFirestore, FAKE_PROJECT_ID } from "./fixtures/fake-firestore.js";
+const AUDIENCE = "https://momentum.example";
 
 function createApp(registry) {
   const app = new Hono();
@@ -129,8 +130,8 @@ const demoAuth = createHackathonDemoAuthenticator({
 });
 
 function demoSession() {
-  const token = demoAuth.issue();
-  return { cookie: `__Host-ustaad-demo=${token}`, sessionId: demoAuth.authenticate(token).principal.sessionId };
+  const token = demoAuth.issue(AUDIENCE);
+  return { cookie: `__Host-ustaad-demo=${token}`, sessionId: demoAuth.authenticate(token, AUDIENCE).principal.sessionId };
 }
 
 // One Cloud Run instance: its own in-memory registry, the shared store, and
@@ -153,7 +154,7 @@ function createInstance(fake, { routeOptions = {}, durable = true } = {}) {
       hackathonAuth: demoAuth,
       traceOwners: new Map(),
       ...(durable ? { traceOwnerLookup: traces.ownerOf } : {}),
-      isSameOrigin: () => true,
+      isSameOrigin: () => true, sessionAudience: () => AUDIENCE,
     });
     if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
     return next();

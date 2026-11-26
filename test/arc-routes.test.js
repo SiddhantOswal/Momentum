@@ -6,9 +6,11 @@ import { createArcRoutes } from "../src/arc/routes.js";
 import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
 import { createFirestoreArcSessionStore } from "../src/google-cloud/firestore-arc-session-store.js";
 import { createFirestoreArcTaskRunStore } from "../src/google-cloud/firestore-arc-task-run-store.js";
-import { isSameApplicationOrigin } from "../src/request-origin.js";
+import { applicationOrigin, isSameApplicationOrigin } from "../src/request-origin.js";
 import { createFakeFirestore, FAKE_PROJECT_ID } from "./fixtures/fake-firestore.js";
 
+// The requests below go to http://localhost, so that is the origin a session must be issued for.
+const AUDIENCE = "http://localhost";
 const COOKIE_NAME = "__Host-ustaad-demo";
 const hackathonAuth = createHackathonDemoAuthenticator({
   mode: "HACKATHON_DEMO", signingKey: "a".repeat(64), syntheticOnly: true, auditEnabled: true,
@@ -18,13 +20,14 @@ const commandDeps = {
   executionMode: "live-service",
   traceOwners: new Map(),
   isSameOrigin: ({ origin, requestUrl }) => isSameApplicationOrigin({ origin, requestUrl }),
+  sessionAudience: (requestUrl) => applicationOrigin({ requestUrl }),
 };
 const ACTIONS = ["open_last_card", "plan_lot"];
 const BUYER = "Zephyr Kartonagen GmbH";
 
 function newSession() {
-  const cookie = hackathonAuth.issue();
-  return { cookie: `${COOKIE_NAME}=${cookie}`, sessionId: hackathonAuth.authenticate(cookie).principal.sessionId };
+  const cookie = hackathonAuth.issue(AUDIENCE);
+  return { cookie: `${COOKIE_NAME}=${cookie}`, sessionId: hackathonAuth.authenticate(cookie, AUDIENCE).principal.sessionId };
 }
 
 function build({ enabled = true, fake = createFakeFirestore(), runTurn, readEvents, lotStore, actionIds = ACTIONS } = {}) {
@@ -92,6 +95,20 @@ test("without the signed cookie every Arc route is 401 DEMO_SESSION_REQUIRED", a
   const forged = await send(app, "GET", "/api/arc/session", { session: { cookie: `${COOKIE_NAME}=abc.def` } });
   assert.equal(forged.status, 401);
   assert.equal(fake.calls.length, 0);
+});
+
+test("a session issued for another origin is 401 DEMO_SESSION_REQUIRED on every Arc route", async () => {
+  const { app, fake } = build();
+  const elsewhere = { cookie: `${COOKIE_NAME}=${hackathonAuth.issue("https://arc-test---momentum.example")}` };
+  for (const [method, path, body] of [
+    ["GET", "/api/arc/session"], ["GET", "/api/arc/turns"], ["POST", "/api/arc/turns", textTurn("hello")],
+  ]) {
+    const response = await send(app, method, path, { session: elsewhere, body });
+    assert.equal(response.status, 401, `${method} ${path}`);
+    assert.equal((await response.json()).error.code, "DEMO_SESSION_REQUIRED");
+  }
+  assert.equal(fake.calls.length, 0);
+  assert.equal((await send(app, "GET", "/api/arc/session", { session: newSession() })).status, 200);
 });
 
 test("a POST without a same-origin Origin is 403 ORIGIN_REQUIRED, even before the cookie is checked", async () => {

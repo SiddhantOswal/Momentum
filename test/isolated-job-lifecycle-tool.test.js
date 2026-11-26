@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { isolatedTransportFixture, isolatedPlan } from '../tools/accept-isolated-job-lifecycle.mjs';
 import { createHackathonDemoAuthenticator, demoOwnsJob } from '../src/hackathon-demo-auth.js';
 import { JobSheetSchema } from '../src/schemas.js';
+const AUDIENCE = "https://momentum.example";
 
 test('isolated lifecycle harness defaults to plan-only with fixed TEST resources and no provider calls',()=>{
   const result=JSON.parse(execFileSync(process.execPath,['tools/accept-isolated-job-lifecycle.mjs'],{encoding:'utf8'}));
@@ -13,7 +14,7 @@ test('isolated lifecycle harness defaults to plan-only with fixed TEST resources
 });
 test('isolated fixture requires a genuine local demo capability and makes no model/human/confirmation claim',()=>{
   const auth=createHackathonDemoAuthenticator({mode:'HACKATHON_DEMO',signingKey:'a'.repeat(64),syntheticOnly:true,auditEnabled:true});
-  const actor=auth.authenticate(auth.issue()).principal,job=isolatedTransportFixture(actor,randomUUID());
+  const actor=auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal,job=isolatedTransportFixture(actor,randomUUID());
   assert.equal(JobSheetSchema.safeParse(job).success,true);assert.equal(demoOwnsJob(actor,job.jobId),true);
   assert.match(job.order.orderId,/^TEST-ISOLATED-TRANSPORT-/);assert.match(job.explanation,/NOT model output/);assert.match(job.explanation,/NOT a confirmed operator plan/);
   assert.equal(job.conditions.supervisorConfirmed,false);assert.deepEqual(job.changes,[]);assert.equal(job.savings.inr,0);

@@ -34,6 +34,7 @@ export async function authorizeSupervisor({
   traceOwners,
   traceOwnerLookup,
   isSameOrigin,
+  sessionAudience,
 }) {
   const crossOriginWrite = () => !READ_METHODS.includes(method) && !isSameOrigin({ origin, requestUrl });
   if (userSessionAuth) {
@@ -43,7 +44,7 @@ export async function authorizeSupervisor({
     return { ok: true, principal: result.principal };
   }
   if (hackathonAuth.enabled) {
-    const result = hackathonAuth.authenticate(demoCookie);
+    const result = hackathonAuth.authenticate(demoCookie, sessionAudience?.(requestUrl));
     if (!result.ok) return authenticatorRejection(result);
     if (crossOriginWrite()) return rejection(403, "ORIGIN_REQUIRED", "A same-origin request is required.");
     if (path === "/insights/summary") return rejection(403, "DEMO_SCOPE_REQUIRED", "Use the anonymized impact summary.");

@@ -409,20 +409,18 @@ export function arcWords(code: string, retryAfterSeconds?: number): string {
   return WORDS[code] ?? "Arc could not complete the request. Try again.";
 }
 
-type GeminiBudget = { available: boolean; remaining?: { day: number | null; session: number | null; ip: number | null } };
+type GeminiBudget = { available: boolean; callsLeftToday?: number | null };
 type StatusBody = { runtimeAvailability?: { geminiBudget?: GeminiBudget } };
 
 /**
- * Gemini calls this caller can still make today, from /api/status (gap B7). The smallest of
- * the day, session and network counters applies. Null when the server does not report it.
+ * Gemini calls this session can still make today, from /api/status (gap B7). The server
+ * works out the count from the counters that apply. Null when the server does not report it.
  */
 export async function geminiCallsLeftToday(signal?: AbortSignal): Promise<number | null> {
   await ensureSession();
   const status = await getJson<StatusBody>("/api/status", signal);
   const budget = status.ok ? status.data.runtimeAvailability?.geminiBudget : undefined;
-  if (!budget?.available || !budget.remaining) return null;
-  const counts = [budget.remaining.day, budget.remaining.session, budget.remaining.ip].filter((n): n is number => typeof n === "number");
-  return counts.length ? Math.min(...counts) : null;
+  return budget?.available && typeof budget.callsLeftToday === "number" ? budget.callsLeftToday : null;
 }
 
 /*
