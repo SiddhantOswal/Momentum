@@ -97,7 +97,6 @@
 }
 .m .in-scene-txt { position: absolute; left: 28px; top: 28px; width: 300px; z-index: 2; }
 .m .in-scene-txt .t { text-wrap: balance; }
-.m .in-scene-chip { position: absolute; left: 28px; bottom: 28px; z-index: 2; }
 
 /* The low-confidence notice, placed as the design's toast under the top bar. */
 .m .in-tsts { position: fixed; right: 24px; top: 68px; width: 400px; max-width: calc(100vw - 48px); display: flex; flex-direction: column; gap: 10px; z-index: 30; }

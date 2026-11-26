@@ -22,7 +22,7 @@ export function ConveyorScene() {
   return (
     <section className={`cd c8 in-mo${paused ? " paused" : ""}`} aria-labelledby="in-scene-title">
       <svg className="in-stage" viewBox="0 0 768 612" preserveAspectRatio="xMidYMid slice" role="img"
-        aria-label="Illustrative top view of a conveyor that stops at two stations while four robotic arms close on the stacks of board, then moves on. A schematic, not a view of your line."
+        aria-label="Top view of a conveyor that stops at two stations while four robotic arms close on the stacks of board, then moves on. A schematic, not a view of your line."
         // Static markup copied from the approved design; it holds no data and no user input.
         dangerouslySetInnerHTML={{ __html: conveyor }} />
       <div className="in-scene-txt">
@@ -30,7 +30,6 @@ export function ConveyorScene() {
         <div className="lb" style={{ margin: "6px 0 16px", fontSize: 15, lineHeight: 1.5 }}>A schematic, not your line.</div>
         <button type="button" className="bt s sm" style={{ background: "var(--cd)" }} aria-pressed={paused} onClick={() => setPaused((p) => !p)}>Pause or resume</button>
       </div>
-      <div className="in-scene-chip"><Chip tone="example">Illustrative animation</Chip></div>
     </section>
   );
 }

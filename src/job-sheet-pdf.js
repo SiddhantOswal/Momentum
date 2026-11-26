@@ -1,4 +1,3 @@
-import { HACKATHON_APPROVAL_NOTE } from "./hackathon-demo-auth.js";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -272,15 +271,10 @@ function textRuns(text, locale, configuredFonts) {
   return runs;
 }
 
-function isDemoSessionApproval(approval) {
-  return approval?.authenticatedHuman === false || approval?.authorizationMode === "HACKATHON_DEMO";
-}
-
 export async function renderJobSheetPdf(input, {
   locale = "en",
   fontPaths = {},
   localSyntheticDemo = false,
-  approval,
   explanationSource,
 } = {}) {
   const jobSheet = JobSheetSchema.parse(input);
@@ -299,12 +293,6 @@ export async function renderJobSheetPdf(input, {
   };
   const lines = collectText(jobSheet, explanationHeading);
   if (localSyntheticDemo) lines.splice(1, 0, ["line", "LOCAL MOCK BACKUP - mock outputs and simulated approval; not cloud persisted."]);
-  if (isDemoSessionApproval(approval)) {
-    lines.splice(3, 0,
-      ["line", "Demo session, simulated"],
-      ["line", "This approval came from a demo session. It is simulated."],
-      ["line", HACKATHON_APPROVAL_NOTE]);
-  }
   const resolvedTextRuns = lines.map(([kind, text]) => ({
     kind,
     text,

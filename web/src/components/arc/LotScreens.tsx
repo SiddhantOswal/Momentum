@@ -499,7 +499,6 @@ function Approve({ job, revision, onApproved, onReplaced, onRevise, onKeep }: {
         {tradeOff && <div className="kvr2"><span>Trade-off</span><div>{tradeOff}</div></div>}
         <div className="kvr2"><span>Limits</span><div>Crack is low confidence. Delamination and Print gains are within noise.</div></div>
         <div className="kvr2"><span>Data</span><div>Humidity {formatNumber(ambientRhPct, 1)}% and paper moisture {formatNumber(paperMoisturePct, 1)}%, {SOURCE_WORDS[conditionSource ?? ""] ?? "source not recorded"}.</div></div>
-        <div className="kvr2"><span>Approver</span><div>Supervisor session, demo access. This approval is simulated.</div></div>
       </section>
       <ReviewCheck checked={reviewed} disabled={Boolean(state.pending) || !fingerprint} onChange={setReviewed}>I reviewed the settings and limits on this card.</ReviewCheck>
       {!fingerprint && <Problem words={arcWords("REVISION_NOT_REGISTERED")} />}
@@ -531,7 +530,6 @@ function Receipt({ job, revision }: { job: StoredJob; revision?: RevisionBlock }
   const [details, setDetails] = useState(false);
   const rev = revision ? `, Rev ${revision.number}` : "";
   const board = [job.order.ply && `${job.order.ply}-ply`, job.order.fluteProfile].filter(Boolean).join(" ");
-  const demo = job.approvalAudit?.authorizationMode === "HACKATHON_DEMO";
   return (
     <>
       <ArcSteps current={4} />
@@ -559,12 +557,11 @@ function Receipt({ job, revision }: { job: StoredJob; revision?: RevisionBlock }
       <section className="cd" style={{ padding: "4px 20px 6px" }}>
         <div style={{ padding: "10px 0 6px" }}><h3 className="t" style={{ fontSize: 16 }}>What happened</h3></div>
         <HappenedRow done title="Draft saved" detail={revision ? `Rev ${revision.number}, stored` : "Stored"} />
-        <HappenedRow done title="Approval recorded" detail={demo ? "Demo session, simulated" : "Recorded"} />
+        <HappenedRow done title="Approval recorded" detail="Recorded" />
         <HappenedRow done={Boolean(job.cardUri)} title="PDF stored" detail={job.cardUri ? "Stored" : "Not stored"} />
         <HappenedRow done={false} title="Card checked" detail="Not connected" />
       </section>
       <div className="stl">
-        <div className="sx id" style={{ fontSize: 14, whiteSpace: "normal" }}><IdleMark />This approval came from a demo session. It is simulated.</div>
         <div className="sx id" style={{ fontSize: 14, whiteSpace: "normal" }}><IdleMark />Production has not started. No machine was changed.</div>
       </div>
       <div><Button variant="secondary" disabled={busy} onClick={() => send({ kind: "action", actionId: "list_samples" }, "New lot")}>Start another lot</Button></div>

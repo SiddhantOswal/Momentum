@@ -22,12 +22,12 @@ const unitOf = (key: LeverKey) => {
 const shown = (value: string | number) => (typeof value === "string" ? LEVEL_WORDS[value] ?? value : String(value));
 
 const READ_FAILURES: Record<number, string> = {
-  403: "This card belongs to another demo session, so it cannot be shown here.",
+  403: "This card belongs to another session, so it cannot be shown here.",
   404: "No stored card has this ID.",
 };
 const SEARCH_FAILURES = {
   none: "No card has been approved yet. An approved card shows here.",
-  "other-sessions": "The newest approved cards belong to other demo sessions. Approve a card in this session to see it here.",
+  "other-sessions": "The newest approved cards belong to other sessions. Approve a card in this session to see it here.",
   failed: "The stored card could not be read.",
 } as const;
 
@@ -121,7 +121,6 @@ function CardView({ job, currentJobId, onReport }: { job: JobRead; currentJobId?
               ? <span className="sx ok"><Icon name="ok" />{latest ? "Approved, latest revision" : "Approved"}</span>
             : <span className="sx wn"><Icon name="warn" />Draft, not approved</span>}
       </div>
-      {approved && <div className="lb" style={{ fontSize: 13.5, marginTop: 4 }}>Approved in a demo session. Not a named supervisor.</div>}
       {approved && sheet.cardUri && (
         <a className="lk" style={{ display: "inline-block", marginTop: 10 }} href={cardPdfPath(sheet.jobId)} target="_blank" rel="noopener">Open the approved PDF</a>
       )}
@@ -157,7 +156,7 @@ function CardView({ job, currentJobId, onReport }: { job: JobRead; currentJobId?
         )}
       <div style={{ borderTop: "1px solid var(--ln)", marginTop: 20, paddingTop: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <h3 className="th" style={{ margin: 0 }}>Three separate records</h3><ProvenanceChip kind="demo-session" />
+          <h3 className="th" style={{ margin: 0 }}>Three separate records</h3>
         </div>
         <ul className="op-recs">
           {RECORDS.map((record) => (

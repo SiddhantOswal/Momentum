@@ -209,7 +209,7 @@ test('Home shows not-connected states, not numbers, when records are missing', a
 test('Home hides scrap figures from a job planned in another session', async ({ page }) => {
   await mockApi(page, { job: json(403, { ok: false, error: { code: 'DEMO_SCOPE_REQUIRED', message: 'This record does not belong to this demo session.' } }) });
   await open(page, '#/home');
-  await expect(page.locator('main').getByText('Its scrap figures open in the demo session that planned it.')).toBeVisible();
+  await expect(page.locator('main').getByText('Its scrap figures open in the session that planned it.')).toBeVisible();
   await expect(page.locator('main').getByText('Model estimate, predicted')).toHaveCount(0);
   await expect(page.locator('main')).not.toContainText('70.2');
   await expect(page.getByRole('region', { name: 'Job card' })).toContainText('900 boxes');
@@ -292,7 +292,7 @@ test('Home shows no figures from a job record that belongs to another lot', asyn
   other.jobSheet.jobId = 'JOB-TEST-9999';
   await mockApi(page, { job: json(200, other) });
   await open(page, '#/home');
-  await expect(page.locator('main').getByText('Its scrap figures open in the demo session that planned it.')).toBeVisible();
+  await expect(page.locator('main').getByText('Its scrap figures open in the session that planned it.')).toBeVisible();
   await expect(page.locator('main')).not.toContainText('70.2');
   await expect(page.locator('main')).not.toContainText('Recycled 5-ply');
   await expect(page.getByRole('region', { name: 'Latest run steps' }).getByRole('listitem').nth(2)).toHaveText('Not done: Conditions confirmedNot known here');

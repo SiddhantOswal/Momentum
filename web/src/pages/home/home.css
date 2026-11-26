@@ -15,8 +15,6 @@
   perspective: 1100px; perspective-origin: 58% 38%;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 34%); mask-image: linear-gradient(90deg, transparent 0, #000 34%);
 }
-.m .hm-tag { position: absolute; right: 24px; top: 24px; background: rgba(22,26,31,.6); border-color: rgba(255,255,255,.22); color: var(--tx); }
-:root[data-theme="light"] .m .hm-tag { color: #EAEDF0; background: rgba(22,26,31,.62); border-color: rgba(255,255,255,.28); }
 
 .m .hm-bp { position: absolute; left: 372px; top: 124px; width: 0; height: 0; transform-style: preserve-3d; transform: scale(.56) rotateX(58deg) rotateZ(-34deg); }
 .m .hm-bp * { transform-style: preserve-3d; }

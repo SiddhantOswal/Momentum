@@ -178,7 +178,7 @@ for (const [status, nowAt] of [['SUPERSEDED', 'Replaced, read only'], ['FAILED',
   });
 }
 
-for (const [status, message] of [[404, 'No lot has this ID'], [403, 'This lot belongs to another demo session']]) {
+for (const [status, message] of [[404, 'No lot has this ID'], [403, 'This lot belongs to another session']]) {
   test(`a named lot that reads as ${status} says what failed`, async ({ page }) => {
     await mockBackend(page, { '/lots/LOT-X': json(status, { ok: false, error: { code: 'X', message: 'x' } }) });
     await open(page, '/app/?lot=LOT-X#/prep-flow');
@@ -195,7 +195,7 @@ test('Prep Flow reads at most five jobs when the newest lots belong to other ses
     '/jobs/*': json(403, { ok: false, error: { code: 'DEMO_SCOPE_REQUIRED', message: 'x' } }),
   });
   await open(page, '/app/#/prep-flow');
-  await expect(page.getByText('The newest lots belong to other demo sessions.')).toBeVisible();
+  await expect(page.getByText('The newest lots belong to other sessions.')).toBeVisible();
   expect(requests.filter((request) => new URL(request.url).pathname.startsWith('/jobs/'))).toHaveLength(5);
 });
 
@@ -235,7 +235,7 @@ for (const theme of ['dark', 'light']) {
     await mockBackend(page);
     await open(page, '/app/#/planning', { theme });
     await expect(page.getByRole('heading', { name: 'Planning', level: 1 })).toBeVisible();
-    await expect(page.locator('.ph .pv')).toHaveText('Future, not live');
+    await expect(page.locator('.ph .pv')).toHaveText('Roadmap');
     const items = page.locator('[data-roadmap-item]');
     expect(await items.count()).toBeGreaterThanOrEqual(20);
     const texts = await items.evaluateAll((nodes) => nodes.map((node) => ({ name: node.getAttribute('data-roadmap-item'), text: node.textContent })));
@@ -305,7 +305,7 @@ for (const theme of ['dark', 'light']) {
     await expect(card).toContainText('was 32 s');
     await expect(card).toContainText('MEDIUM');
     await expect(card.getByRole('link', { name: 'Open the approved PDF' })).toHaveAttribute('href', `/jobs/${JOB_ID}/card.pdf`);
-    await expect(card).toContainText('Demo session, simulated');
+    await expect(card).not.toContainText(/demo|simulated/i);
     await expect(page.locator('.side')).toHaveCount(0);
     await expect(page.locator('main')).not.toContainText(/synthetic/i);
     await noHorizontalScroll(page);
@@ -403,7 +403,7 @@ test('when every listed lot belongs to another session, Prep Flow says so and sh
     [`/jobs/${OTHER}`]: DEMO_SCOPE,
   });
   await open(page, '/app/#/prep-flow');
-  await expect(page.getByText('The newest lots belong to other demo sessions.')).toBeVisible();
+  await expect(page.getByText('The newest lots belong to other sessions.')).toBeVisible();
   expect(await stepStates(page)).toEqual(Array(9).fill('nc'));
 });
 
@@ -414,6 +414,6 @@ test('the operator page skips approved cards from other demo sessions', async ({
   });
   await open(page, '/app/#/operator', { width: 375, height: 812 });
   const card = page.getByRole('region', { name: 'Approved job card' });
-  await expect(card).toContainText('The newest approved cards belong to other demo sessions.');
+  await expect(card).toContainText('The newest approved cards belong to other sessions.');
   await expect(card.getByRole('button')).toHaveCount(0);
 });

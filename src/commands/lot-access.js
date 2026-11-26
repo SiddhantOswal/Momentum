@@ -15,11 +15,11 @@ export const lotsUnavailable = () => lotFailure(503, "SERVICE_UNAVAILABLE", "Lot
  */
 export function checkLotAccess(lotId, { principal, lotRevisions }) {
   if (lotRevisions?.enabled !== true || typeof lotRevisions.store?.getLot !== "function") return lotsUnavailable();
-  if (!principal) return lotFailure(403, "DEMO_SCOPE_REQUIRED", "A demo session is required for lot records.");
+  if (!principal) return lotFailure(403, "DEMO_SCOPE_REQUIRED", "A session is required for lot records.");
   const validated = validateWith(LotIdSchema, lotId, "Lot ID failed validation.");
   if (!validated.ok) return validated.failure;
   if (!demoOwnsLot(principal, validated.data)) {
-    return lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
+    return lotFailure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this session.");
   }
   return { ok: true, lotId: validated.data, store: lotRevisions.store };
 }

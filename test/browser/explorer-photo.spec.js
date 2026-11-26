@@ -76,7 +76,7 @@ for (const theme of ['dark', 'light']) {
 
     await expect(page.getByRole('heading', { level: 1, name: 'Plant Explorer' })).toBeVisible();
     await expect(page.getByText('Stage by stage. Illustrative, no live readings.')).toHaveCount(0);
-    await expect(page.getByText('Illustrative line, not a live view')).toBeVisible();
+    await expect(page.locator('main')).not.toContainText(/illustrative/i);
     await expect(page.getByRole('img', { name: /Corrugator line/ })).toBeVisible();
 
     // Opens on Glue, the stage with the most changes, and every value is the stored plan's.

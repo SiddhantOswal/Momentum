@@ -176,7 +176,7 @@ export function createArcRoutes({
     }, commandDeps);
     if (!result.ok) return json(c, result.status, { ok: false, error: result.error });
     if (!isDemoPrincipal(result.principal)) {
-      return fail(c, 503, "DEMO_AUTHORIZATION_NOT_CONFIGURED", "Arc needs the hackathon demo session.");
+      return fail(c, 503, "DEMO_AUTHORIZATION_NOT_CONFIGURED", "Arc could not start a session on this deployment.");
     }
     c.set(PRINCIPAL_KEY, result.principal);
     return next();

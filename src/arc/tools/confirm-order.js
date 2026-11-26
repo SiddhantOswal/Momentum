@@ -47,7 +47,7 @@ export const confirmOrderTool = {
     } catch (error) {
       return lotStoreFailure(error);
     }
-    if (!saved.ok) return failure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this demo session.");
+    if (!saved.ok) return failure(403, "DEMO_SCOPE_REQUIRED", "This lot does not belong to this session.");
     return { ok: true, lot: { lotId, stage: saved.head.stage } };
   },
 };
