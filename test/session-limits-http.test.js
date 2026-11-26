@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHmac } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
@@ -82,7 +83,7 @@ async function startApp(googleApisOrigin, extraEnv = {}) {
   ]);
   const origin = `https://127.0.0.1:${port}`;
   return {
-    child, logs, url: `http://127.0.0.1:${port}`,
+    child, logs, origin, url: `http://127.0.0.1:${port}`,
     post: (path, { ip = "203.0.113.7", cookie, body } = {}) => fetch(`http://127.0.0.1:${port}${path}`, {
       method: "POST",
       headers: {
@@ -169,12 +170,31 @@ test("the right code turns a session cookie into a pitch claim for the same sess
     assert.equal(payloadOf(claimed).sid, payloadOf(session).sid);
     assert.equal(payloadOf(claimed).exp, payloadOf(session).exp);
     assert.deepEqual(payloadOf(claimed).grants, ["pitch_reserve"]);
+    assert.equal(payloadOf(claimed).aud, app.origin);
+    assert.equal(payloadOf(session).aud, app.origin);
     const body = await claim.json();
     assert.equal(body.ok, true);
     assert.equal(JSON.stringify(body).includes(PITCH_CODE), false);
     // Presenting the claimed cookie again keeps it and mints nothing new.
     const again = await app.post("/api/auth/demo-session", { cookie: claimed });
     assert.equal(cookieOf(again), claimed);
+  });
+});
+
+test("a session signed with the shared key for another origin cannot claim the pitch reserve here", async () => {
+  await withApp({}, async (app) => {
+    const own = payloadOf(cookieOf(await app.post("/api/auth/demo-session", { ip: "203.0.113.55" })));
+    const sign = (data) => {
+      const body = Buffer.from(JSON.stringify(data)).toString("base64url");
+      return `__Host-ustaad-demo=${body}.${createHmac("sha256", Buffer.from("a".repeat(64), "hex")).update(body).digest("base64url")}`;
+    };
+    for (const forged of [sign({ ...own, aud: "https://arc-test---momentum.example" }), sign({ ...own, aud: undefined })]) {
+      const claim = await app.post("/api/auth/pitch-claim", { ip: "203.0.113.56", cookie: forged, body: { code: PITCH_CODE } });
+      assert.equal(claim.status, 401);
+      assert.equal((await claim.json()).error.code, "DEMO_SESSION_REQUIRED");
+      assert.equal(claim.headers.get("set-cookie"), null);
+    }
+    assert.equal((await app.post("/api/auth/pitch-claim", { ip: "203.0.113.56", cookie: sign(own), body: { code: PITCH_CODE } })).status, 200);
   });
 });
 

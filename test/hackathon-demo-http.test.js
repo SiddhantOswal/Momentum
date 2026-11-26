@@ -1,7 +1,94 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { once } from "node:events";
+import { connect } from "node:net";
 import test from "node:test";
 import { startIndexServer } from "./helpers/server.js";
+
+const SIGNING_KEY = "a".repeat(64);
+const HACKATHON_ENV = { PATH: process.env.PATH, K_SERVICE: "prepagent", PROJECT_ID: "prepagent-hack",
+  USTAAD_AUTHORIZATION_MODE: "HACKATHON_DEMO", USTAAD_DEMO_SESSION_SIGNING_KEY: SIGNING_KEY,
+  USTAAD_ENABLE_APPROVAL_AUDIT: "true", USTAAD_SYNTHETIC_ONLY: "true", USTAAD_ENABLE_DEMO_MODE: "true" };
+
+async function stop(child) {
+  if (child.exitCode === null && child.signalCode === null) { const exited = once(child, "exit"); child.kill("SIGTERM"); await exited; }
+}
+
+test("a local run with no public origin will not mint a session for a deployed https origin", async () => {
+  const { K_SERVICE: _cloudRun, ...localEnv } = HACKATHON_ENV;
+  const local = await startIndexServer(localEnv);
+  try {
+    const socket = connect(local.port, "127.0.0.1");
+    await once(socket, "connect");
+    socket.end("POST https://momentum.example/api/auth/demo-session HTTP/1.1\r\nHost: momentum.example\r\n" +
+      "Origin: https://momentum.example\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+    let raw = "";
+    for await (const chunk of socket) raw += chunk;
+    assert.match(raw, /^HTTP\/1\.1 403/);
+    assert.match(raw, /ORIGIN_REQUIRED/);
+    assert.doesNotMatch(raw, /set-cookie/i);
+
+    const origin = `http://127.0.0.1:${local.port}`;
+    const minted = await fetch(origin + "/api/auth/demo-session", { method: "POST", headers: { Origin: origin } });
+    assert.equal(minted.status, 200);
+    const cookie = minted.headers.get("set-cookie").split(";")[0];
+    assert.equal(JSON.parse(Buffer.from(cookie.split("=")[1].split(".")[0], "base64url").toString()).aud, origin);
+  } finally {
+    await stop(local.child);
+  }
+});
+
+test("HTTP sessions are refused by a service on another origin, even with the shared signing key", async () => {
+  const servingOrigin = "https://momentum.example";
+  const testOrigin = "https://arc-test---momentum.example";
+  const serving = await startIndexServer({ ...HACKATHON_ENV, USTAAD_PUBLIC_ORIGIN: servingOrigin });
+  const tagged = await startIndexServer({ ...HACKATHON_ENV, USTAAD_PUBLIC_ORIGIN: testOrigin });
+  const at = (server, path) => `http://127.0.0.1:${server.port}${path}`;
+  try {
+    const minted = await fetch(at(serving, "/api/auth/demo-session"), { method: "POST", headers: { Origin: servingOrigin } });
+    assert.equal(minted.status, 200);
+    const cookie = minted.headers.get("set-cookie").split(";")[0];
+    const payload = JSON.parse(Buffer.from(cookie.split("=")[1].split(".")[0], "base64url").toString());
+    assert.equal(payload.aud, servingOrigin);
+    const owned = `JOB-HACK-${payload.sid}-${"b".repeat(40)}`;
+
+    const refusedOn = async (server, origin, sessionCookie) => {
+      for (const [method, path] of [["POST", "/jobs"], ["POST", `/jobs/${owned}/approve`], ["GET", `/jobs/${owned}`]]) {
+        const response = await fetch(at(server, path), { method, headers: { Cookie: sessionCookie, Origin: origin } });
+        assert.equal(response.status, 401, `${method} ${path}`);
+        assert.equal((await response.json()).error.code, "DEMO_SESSION_REQUIRED", `${method} ${path}`);
+      }
+      const status = await (await fetch(at(server, "/api/status"), { headers: { Cookie: sessionCookie } })).json();
+      assert.equal(status.runtimeAvailability, undefined);
+    };
+    await refusedOn(tagged, testOrigin, cookie);
+
+    // A cookie re-sent to the mint route on the other service is replaced, never reused.
+    const remint = await fetch(at(tagged, "/api/auth/demo-session"), { method: "POST", headers: { Origin: testOrigin, Cookie: cookie } });
+    assert.equal(remint.status, 200);
+    const reminted = remint.headers.get("set-cookie").split(";")[0];
+    assert.notEqual(reminted, cookie);
+    assert.equal(JSON.parse(Buffer.from(reminted.split("=")[1].split(".")[0], "base64url").toString()).aud, testOrigin);
+
+    // Right signature, wrong audience: the key is shared, so only the audience tells the services apart.
+    const sign = (data) => {
+      const body = Buffer.from(JSON.stringify(data)).toString("base64url");
+      return `__Host-ustaad-demo=${body}.${createHmac("sha256", Buffer.from(SIGNING_KEY, "hex")).update(body).digest("base64url")}`;
+    };
+    await refusedOn(serving, servingOrigin, sign({ ...payload, aud: testOrigin }));
+    const { aud: _aud, ...withoutAudience } = payload;
+    await refusedOn(serving, servingOrigin, sign(withoutAudience));
+
+    const approve = await fetch(at(serving, `/jobs/${owned}/approve`), { method: "POST", headers: { Cookie: cookie, Origin: servingOrigin } });
+    assert.equal(approve.status, 503, "the issuing service accepts the session and reaches its approval gate");
+    assert.equal((await approve.json()).error.code, "SERVICE_UNAVAILABLE");
+    const ownStatus = await (await fetch(at(serving, "/api/status"), { headers: { Cookie: cookie } })).json();
+    assert.equal(typeof ownStatus.runtimeAvailability, "object");
+  } finally {
+    await stop(serving.child);
+    await stop(tagged.child);
+  }
+});
 
 test("HTTP hackathon sessions enforce origin, record ownership, model acceptance and mock isolation without Firebase", async () => {
   // No cloud credentials/adapters. Real HTTP and signed session cookies; provider calls absent.

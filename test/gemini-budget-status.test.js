@@ -5,6 +5,7 @@ import { BUDGET_VIEW_TTL_MS, createBudgetViewCache, getStatus, getStatusWithBudg
 import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js";
 import { createConfiguredServicePorts } from "../src/service-ports.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
+const AUDIENCE = "https://momentum.example";
 
 const LIMITS = {
   pool: "live",
@@ -35,7 +36,7 @@ const BUDGET_WORDS = /limit|cap|reserve|spend|cost|remaining|counter|pool|minute
 
 function demoPrincipal() {
   const auth = createHackathonDemoAuthenticator({ mode: "HACKATHON_DEMO", signingKey: "c".repeat(64), syntheticOnly: true, auditEnabled: true });
-  return auth.authenticate(auth.issue()).principal;
+  return auth.authenticate(auth.issue(AUDIENCE), AUDIENCE).principal;
 }
 
 const reads = (fake) => fake.calls.filter((call) => call.method === "GET").length;

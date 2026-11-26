@@ -14,6 +14,7 @@ import { createArcTurnRunner } from "../src/arc/turn-runner.js";
 import { createArcEventStore } from "../src/google-cloud/firestore-arc-event-store.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
 import { createFakeFirestore, FAKE_PROJECT_ID } from "./fixtures/fake-firestore.js";
+const AUDIENCE = "https://momentum.example";
 
 async function loadNewModule(path) {
   try {
@@ -199,8 +200,8 @@ function runnerFixture(overrides = {}) {
   });
   const store = budgetCapStore({ ...budget, async reserve(request) { attempts.push(request); return budget.reserve(request); } });
   const auth = createHackathonDemoAuthenticator({ mode: "HACKATHON_DEMO", syntheticOnly: true, auditEnabled: true, signingKey: "a".repeat(64) });
-  const cookie = auth.issue();
-  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, servicePorts: {}, modelAcceptanceConfig };
+  const cookie = auth.issue(AUDIENCE);
+  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, sessionAudience: () => AUDIENCE, servicePorts: {}, modelAcceptanceConfig };
   const scope = rules();
   const runner = createArcTurnRunner({
     sessionStore, taskRunStore, eventStore: createArcEventStore(options), deps, geminiCap: readDailyGeminiCallCapConfig({}),
@@ -210,7 +211,7 @@ function runnerFixture(overrides = {}) {
   });
   const app = new Hono();
   app.route("/api/arc", createArcRoutes({ enabled: true, commandDeps: deps, sessionStore, taskRunStore, ...runner, getIpKey: () => "a".repeat(16) }));
-  const principal = auth.authenticate(cookie).principal;
+  const principal = auth.authenticate(cookie, AUDIENCE).principal;
   const post = (text, clientTurnId = randomUUID()) => app.request("http://localhost/api/arc/turns", {
     method: "POST", body: JSON.stringify({ clientTurnId, input: { kind: "text", text } }),
     headers: { Cookie: `__Host-ustaad-demo=${cookie}`, Origin: "http://localhost" },

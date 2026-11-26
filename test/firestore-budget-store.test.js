@@ -7,6 +7,7 @@ import { hasPitchReserveClaim } from "../src/pitch-claim.js";
 import { BudgetCounterDocSchema, BudgetReservationDocSchema } from "../src/state-schemas.js";
 import { parseDocument } from "../src/google-cloud/firestore-rest.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
+const AUDIENCE = "https://momentum.example";
 
 const IP_A = "0123456789abcdef";
 const IP_B = "fedcba9876543210";
@@ -27,7 +28,7 @@ const auth = createHackathonDemoAuthenticator({
   now: () => BEFORE_PITCH,
 });
 function session() {
-  const result = auth.authenticate(auth.issue());
+  const result = auth.authenticate(auth.issue(AUDIENCE), AUDIENCE);
   assert.equal(result.ok, true);
   return result.principal;
 }

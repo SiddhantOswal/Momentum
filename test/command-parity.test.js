@@ -23,7 +23,7 @@ import { createJobCoordinator } from "../src/job-coordinator.js";
 import { createJobSubmissionHandler } from "../src/job-draft-persistence.js";
 import { InMemoryIdempotencyStore } from "../src/job-idempotency.js";
 import { isModelSetAccepted } from "../src/model-acceptance.js";
-import { isSameApplicationOrigin } from "../src/request-origin.js";
+import { applicationOrigin, isSameApplicationOrigin } from "../src/request-origin.js";
 import { createConfiguredServicePorts } from "../src/service-ports.js";
 import { createStoredJobSheetLookup } from "../src/stored-job-sheet-lookup.js";
 import { createTraceRegistry } from "../src/trace-registry.js";
@@ -145,6 +145,7 @@ async function buildDeps(env) {
       localPrivilegedAdapterConfigured: false,
       traceOwners: new Map(),
       isSameOrigin: ({ origin, requestUrl }) => isSameApplicationOrigin({ origin, requestUrl, cloudRun: isCloudRun, configuredOrigin: env.USTAAD_PUBLIC_ORIGIN }),
+      sessionAudience: (requestUrl) => applicationOrigin({ requestUrl, cloudRun: isCloudRun, configuredOrigin: env.USTAAD_PUBLIC_ORIGIN }),
       jobSheetPersistenceAvailable,
       jobCreationAvailable,
       idempotencyStore,

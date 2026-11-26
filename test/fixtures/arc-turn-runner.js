@@ -14,6 +14,7 @@ import { createFirestoreTraceStore } from "../../src/google-cloud/firestore-trac
 import { createHackathonDemoAuthenticator } from "../../src/hackathon-demo-auth.js";
 import { fakeFirestore } from "./fake-firestore-transactions.js";
 import { createFakeFirestore, FAKE_PROJECT_ID } from "./fake-firestore.js";
+const AUDIENCE = "https://momentum.example";
 
 /**
  * A turn runner behind the Arc routes over fake Firestore and the real budget
@@ -59,9 +60,9 @@ export function fixture({ router, writer, preRoute, readToolEffect, services = {
     },
   });
   const geminiCap = readDailyGeminiCallCapConfig({});
-  const cookie = auth.issue();
-  const principal = auth.authenticate(cookie).principal;
-  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, servicePorts: services, modelAcceptanceConfig, ...commandDeps };
+  const cookie = auth.issue(AUDIENCE);
+  const principal = auth.authenticate(cookie, AUDIENCE).principal;
+  const deps = { hackathonAuth: auth, executionMode: "live-service", isSameOrigin: () => true, sessionAudience: () => AUDIENCE, servicePorts: services, modelAcceptanceConfig, ...commandDeps };
   const create = (overrides = {}) => createArcTurnRunner({
     sessionStore, taskRunStore, eventStore, deps, now, geminiCap, attemptStore: store,
     router, writer, preRoute, readToolEffect, ...ports, ...overrides,

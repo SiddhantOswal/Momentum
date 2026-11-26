@@ -8,6 +8,7 @@ import { createHackathonDemoAuthenticator } from "../src/hackathon-demo-auth.js"
 import { revisionFingerprint } from "../src/revision-fingerprint.js";
 import { fakeFirestore } from "./fixtures/fake-firestore-transactions.js";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
+const AUDIENCE = "https://momentum.example";
 
 const purchaseOrder = await readFile(new URL("./fixtures/synthetic_POs/PO1_ClientA_single_B1047.pdf", import.meta.url));
 const authenticator = createHackathonDemoAuthenticator({
@@ -32,7 +33,7 @@ function setup({ enabled = true, failReads = false, submit } = {}) {
   const store = createFirestoreLotStore({
     projectId: "prepagent-hack", fetchImpl: firestore.fetchImpl, tokenProvider: async () => "token",
   });
-  const principal = authenticator.authenticate(authenticator.issue()).principal;
+  const principal = authenticator.authenticate(authenticator.issue(AUDIENCE), AUDIENCE).principal;
   const seen = [];
   const read = (collection, id) => {
     const doc = firestore.docs.get(`${DOCS}/${collection}/${id}`);
