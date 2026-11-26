@@ -45,19 +45,16 @@ function problemOf(exchange: Exchange, retry: (exchange: Exchange) => void): Ste
 
 const refOf = (steps: Exchange["steps"], tool: string, kind: string) =>
   steps.find((step) => step.tool === tool && step.resultRef?.kind === kind)?.resultRef?.id ?? null;
-/** The lot the most recent Confirm order in these exchanges opened; Confirm conditions works on that lot. */
-const openedLot = (exchanges: Exchange[]) =>
-  exchanges.map(({ steps }) => refOf(steps, "confirm_order", "lot")).filter((id): id is string => id !== null).at(-1) ?? null;
 const paramOf = (exchange: Exchange, name: string) =>
   exchange.input?.kind === "action" && typeof exchange.input.params?.[name] === "string" ? exchange.input.params[name] as string : null;
 // The conditions card names what to fix; the general words are for a message Arc could not route.
 const CONDITIONS_INVALID = "Check the values. One is outside the plant's recorded range or is not a valid value.";
 
 /**
- * `lotId` is the lot the latest Confirm order opened, for a conditions card drawn from a turn
- * that failed before the server named its lot.
+ * `latest` is false once a later exchange is in the panel, so an old review card cannot open a
+ * second lot by mistake. A conditions card always names its own lot, so it stays usable.
  */
-function screenFor(exchange: Exchange, retry: (exchange: Exchange) => void, lotId: string | null): ReactNode | null {
+function screenFor(exchange: Exchange, retry: (exchange: Exchange) => void, latest: boolean): ReactNode | null {
   const { outcome, steps } = exchange;
   const last = steps.at(-1);
   if (!outcome || !last || outcome.kind === "not_connected" || outcome.kind === "error") return null;
@@ -66,7 +63,7 @@ function screenFor(exchange: Exchange, retry: (exchange: Exchange) => void, lotI
   const params = exchange.input?.kind === "action" ? exchange.input.params : undefined;
   if (last.status === "WAITING_FOR_USER") {
     switch (last.waitingFor) {
-      case "confirm_order": return <LotReview reviewId={refOf(steps, "read_order", "po_review")} />;
+      case "confirm_order": return <LotReview reviewId={refOf(steps, "read_order", "po_review")} closed={!latest} />;
       case "confirm_conditions": return <LotConditions lotId={refOf(steps, "confirm_order", "lot")} />;
       case "approve": {
         const jobId = refOf(steps, "plan_lot", "job");
@@ -78,10 +75,10 @@ function screenFor(exchange: Exchange, retry: (exchange: Exchange) => void, lotI
   switch (last.tool) {
     case "list_samples": return last.status === "SUCCEEDED" ? <LotSource /> : null;
     case "read_order": return last.status === "SUCCEEDED" && ref?.kind === "po_review"
-      ? <LotReview reviewId={ref.id} problem={problem} /> : <LotSource problem={problem} />;
-    case "confirm_order": return <LotReview reviewId={paramOf(exchange, "reviewId")} problem={problem} />;
+      ? <LotReview reviewId={ref.id} problem={problem} closed={!latest} /> : <LotSource problem={problem} />;
+    case "confirm_order": return <LotReview reviewId={paramOf(exchange, "reviewId")} problem={problem} closed={!latest} />;
     case "confirm_conditions": return (
-      <LotConditions lotId={lotId} initial={params}
+      <LotConditions lotId={paramOf(exchange, "lotId")} initial={params}
         problem={problem && last.errorCode === "VALIDATION_ERROR" ? { ...problem, words: CONDITIONS_INVALID } : problem} />
     );
     case "set_conditions": return <LotConditions lotId={ref?.kind === "lot" ? ref.id : null} problem={problem} />;
@@ -107,10 +104,10 @@ function Outcome({ exchange, ask, busy, retry }: { exchange: Exchange; ask: Ask;
   }
 }
 
-function ExchangeView({ exchange, ask, busy, retry, lotId }: {
-  exchange: Exchange; ask: Ask; busy: boolean; retry: (exchange: Exchange) => void; lotId: string | null;
+function ExchangeView({ exchange, ask, busy, retry, latest }: {
+  exchange: Exchange; ask: Ask; busy: boolean; retry: (exchange: Exchange) => void; latest: boolean;
 }) {
-  const screen = screenFor(exchange, retry, lotId);
+  const screen = screenFor(exchange, retry, latest);
   if (screen) return <article className="stl" style={{ gap: 16 }} aria-label={`You asked: ${exchange.asked}`}>{screen}</article>;
   return (
     <article className="stl" style={{ gap: 16 }} aria-label={`You asked: ${exchange.asked}`}>
@@ -306,7 +303,7 @@ export function ArcPanel({ hostName, conversation, onClose }: { hostName: string
                 {exchanges.length > 0 && (
                   <div role="log" aria-label="Arc messages" aria-live="polite" className="stl" style={{ gap: 28 }}>
                     {exchanges.map((exchange, index) => (
-                      <ExchangeView key={exchange.id} exchange={exchange} ask={ask} busy={busy} retry={retry} lotId={openedLot(exchanges.slice(0, index + 1)) ?? session?.activeLots.at(-1)?.lotId ?? null} />
+                      <ExchangeView key={exchange.id} exchange={exchange} ask={ask} busy={busy} retry={retry} latest={index === exchanges.length - 1} />
                     ))}
                   </div>
                 )}

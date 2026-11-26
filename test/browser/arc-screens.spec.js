@@ -235,7 +235,7 @@ for (const theme of ['dark', 'light']) {
         { events: (id) => actionRun(id, { steps: [{ tool: 'confirm_order', resultRef: { kind: 'lot', id: LOT_ID } }], waitingFor: 'confirm_conditions' }) },
       ]);
       const reviewReads = await mockReview(page);
-      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, draftConditions: [] }, revision: null })));
+      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
       const panel = await openArc(page, { theme });
       await type(panel, 'Read sample order PO1');
       await expect(panel.getByRole('heading', { name: 'Check what was read' })).toBeVisible();
@@ -315,7 +315,7 @@ for (const theme of ['dark', 'light']) {
         ], waitingFor: 'approve' }) },
       ]);
       await mockReview(page);
-      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, draftConditions: [] }, revision: null })));
+      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
       const approvals = await mockJob(page);
       const panel = await openArc(page, { theme });
       await panel.getByRole('button', { name: /^New lot/ }).click();
@@ -326,6 +326,12 @@ for (const theme of ['dark', 'light']) {
 
       const card = panel.getByRole('article').last();
       await expect(card.getByRole('heading', { name: "Confirm today's conditions" })).toBeVisible();
+      await expect(card.getByText('For PKBX0041, 1,300 boxes.')).toBeVisible();
+      // The review card above it is closed, so it cannot open a second lot by mistake.
+      const review = panel.getByRole('article').nth(1);
+      await expect(review.getByRole('button', { name: 'Confirm order' })).toBeDisabled();
+      await expect(review.getByText('Arc has moved on from this card. Read the order again to confirm another line.')).toBeVisible();
+      for (const box of await review.getByRole('checkbox').all()) await expect(box).toBeDisabled();
       const conditions = card.getByRole('region', { name: 'Conditions' });
       await expect(conditions.getByLabel('Paper moisture')).toHaveValue('7.3');
       await expect(conditions.locator('.fr').nth(1)).toContainText('Example value');
@@ -355,7 +361,7 @@ for (const theme of ['dark', 'light']) {
         { kind: 'action', actionId: 'read_sample_order', params: { sampleId: 'PO1' } },
         { kind: 'action', actionId: 'confirm_order', params: { reviewId: REVIEW_ID, lineIndex: 0 } },
         { kind: 'action', actionId: 'confirm_conditions', params: {
-          runDate: '2026-11-25', shift: 'DAY', ambientRhPct: 62, ambientTempC: 24.5, paperMoisturePct: 7.3, paperMoistureSource: 'example',
+          lotId: LOT_ID, runDate: '2026-11-25', shift: 'DAY', ambientRhPct: 62, ambientTempC: 24.5, paperMoisturePct: 7.3, paperMoistureSource: 'example',
           sfSpeedMpm: 48, rollTempC: 162, gumApplication: 'HIGH', gumViscositySec: 32, pastingPressure: 'MED', dryingHours: 5, printSpeedSpm: 60,
         } },
       ]);
@@ -371,7 +377,7 @@ for (const theme of ['dark', 'light']) {
           { clientTurnId: id, sequence: 3, type: 'step.failed', stepId: 'step_1', tool: 'confirm_conditions', label: 'Saving the conditions', errorCode: 'VALIDATION_ERROR', retrySafe: false },
         ] },
       ]);
-      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, draftConditions: [] }, revision: null })));
+      await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
       await mockReview(page);
       const panel = await openArc(page, { theme });
       await type(panel, 'Read sample order PO1');
@@ -398,7 +404,7 @@ for (const theme of ['dark', 'light']) {
       const stopped = panel.getByRole('article').last();
       await expect(stopped.getByRole('alert')).toHaveText("Check the values. One is outside the plant's recorded range or is not a valid value.");
       await expect(stopped.getByRole('region', { name: 'Conditions' }).getByLabel('Humidity')).toHaveValue('99');
-      expect(posts[2].input.params).toMatchObject({ ambientRhPct: 99, paperMoisturePct: 8.1, paperMoistureSource: 'confirmed', shift: 'NIGHT' });
+      expect(posts[2].input.params).toMatchObject({ lotId: LOT_ID, ambientRhPct: 99, paperMoisturePct: 8.1, paperMoistureSource: 'confirmed', shift: 'NIGHT' });
     });
 
     test('Arc-Lot-Compare draws the stored draft, and plan_lot blocked shows the reason', async ({ page }) => {
@@ -916,7 +922,7 @@ test('the phone sheet has no sideways scroll on the review and conditions cards'
     { events: (id) => actionRun(id, { steps: [{ tool: 'confirm_order', resultRef: { kind: 'lot', id: LOT_ID } }], waitingFor: 'confirm_conditions' }) },
   ]);
   await mockReview(page);
-  await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, draftConditions: [] }, revision: null })));
+  await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
   const panel = await openArc(page, { hash: '#/home' });
   await type(panel, 'Read sample order PO1');
   await expect(panel.getByRole('radiogroup', { name: 'Order lines' }).getByRole('radio')).toBeChecked();

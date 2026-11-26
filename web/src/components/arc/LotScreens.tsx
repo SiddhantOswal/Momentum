@@ -114,7 +114,7 @@ const confirmable = (line: OrderReviewLine) => line.status === "MATCHED" && line
  * Confirm order sends only the review and the line; the server takes the item and quantity
  * from the stored review.
  */
-export function LotReview({ reviewId, problem }: { reviewId: string | null; problem?: StepProblem }) {
+export function LotReview({ reviewId, problem, closed = false }: { reviewId: string | null; problem?: StepProblem; closed?: boolean }) {
   const { send, busy } = useArcScreen();
   const [read, setRead] = useState<{ review?: OrderReview; words?: string } | null>(reviewId ? null : { words: arcWords("ORDER_REVIEW_EXPIRED") });
   const [lineIndex, setLineIndex] = useState<number | null>(null);
@@ -135,7 +135,7 @@ export function LotReview({ reviewId, problem }: { reviewId: string | null; prob
 
   const review = read?.review;
   const chosen = review?.lines.find((line) => line.lineIndex === lineIndex && confirmable(line));
-  const ready = Boolean(review && chosen && checks.every(Boolean));
+  const ready = Boolean(review && chosen && checks.every(Boolean)) && !closed;
   const choose = (index: number) => { setLineIndex(index); setChecks(REVIEW_CHECKS.map(() => false)); };
   const confirm = () => {
     if (!review || !chosen) return;
@@ -155,7 +155,7 @@ export function LotReview({ reviewId, problem }: { reviewId: string | null; prob
             <div role="radiogroup" aria-label="Order lines">
               {review.lines.map((line) => (
                 <label key={line.lineIndex} className={`po${line.lineIndex === lineIndex ? " on" : ""}`}>
-                  <input type="radio" className="ovl" name={name} checked={line.lineIndex === lineIndex} disabled={busy || !confirmable(line)}
+                  <input type="radio" className="ovl" name={name} checked={line.lineIndex === lineIndex} disabled={busy || closed || !confirmable(line)}
                     onChange={() => choose(line.lineIndex)} />
                   <i aria-hidden="true" />
                   <span>
@@ -175,14 +175,19 @@ export function LotReview({ reviewId, problem }: { reviewId: string | null; prob
       </section>
       <div className="stl">
         {REVIEW_CHECKS.map((check, index) => (
-          <ReviewCheck key={check} checked={checks[index]} disabled={busy || !chosen}
+          <ReviewCheck key={check} checked={checks[index]} disabled={busy || closed || !chosen}
             onChange={(on) => setChecks((list) => list.map((value, at) => (at === index ? on : value)))}>{check}</ReviewCheck>
         ))}
       </div>
       {problem && <Problem {...problem} />}
       <div className="row">
         <Button arrow disabled={busy || !ready} onClick={confirm}>Confirm order</Button>
-        {review && !ready && <span className="lb" style={{ fontSize: 14 }}>{chosen ? "Tick the three checks to confirm." : "Pick a matched line to confirm."}</span>}
+        {review && !ready && (
+          <span className="lb" style={{ fontSize: 14 }}>
+            {closed ? "Arc has moved on from this card. Read the order again to confirm another line."
+              : chosen ? "Tick the three checks to confirm." : "Pick a matched line to confirm."}
+          </span>
+        )}
       </div>
     </>
   );
@@ -265,15 +270,16 @@ export function LotConditions({ lotId, initial, problem }: {
   const set = (field: FieldKey, value: string) => setValues((current) => ({ ...current, [field]: value }));
   const conditionsLeft = CONDITION_ROWS.filter(({ field }) => !valid(field, values[field])).length;
   const settingsLeft = LEVERS.filter(({ key }) => !valid(key, values[key])).length;
-  const ready = Boolean(lot?.record) && conditionsLeft === 0 && settingsLeft === 0;
+  const ready = Boolean(lotId && lot?.record) && conditionsLeft === 0 && settingsLeft === 0;
+  const order = lot?.record?.lot.order;
   const confirm = () => {
-    if (!ready) return;
+    if (!ready || !lotId) return;
     const number = (field: FieldKey) => Number(values[field].trim());
     const moisture = number("paperMoisturePct");
     send({
       kind: "action", actionId: "confirm_conditions",
       params: {
-        runDate: values.runDate.trim(), shift: values.shift.trim(),
+        lotId, runDate: values.runDate.trim(), shift: values.shift.trim(),
         ambientRhPct: number("ambientRhPct"), ambientTempC: number("ambientTempC"), paperMoisturePct: moisture,
         paperMoistureSource: moisture === Number(EXAMPLE_MOISTURE) ? "example" : "confirmed",
         ...Object.fromEntries(LEVERS.map((lever) => [lever.key, "options" in lever ? values[lever.key].trim() : number(lever.key)])),
@@ -308,6 +314,7 @@ export function LotConditions({ lotId, initial, problem }: {
     <>
       <ArcSteps current={2} />
       <ScreenHead title="Confirm today's conditions" sub="Type what you see on the floor. Sensor readings are not connected yet." />
+      {order && <p className="lb" style={{ margin: 0, fontSize: 15 }}>For <b>{order.itemCode}</b>, {formatNumber(order.quantity)} boxes.</p>}
       <Tabs label="Lot inputs" selected={tab} onSelect={setTab} tabs={[
         { key: "conditions", text: <>Conditions {conditionsLeft > 0 && <small>{conditionsLeft} left</small>}</> },
         { key: "settings", text: <>Planned settings {settingsLeft > 0 && <small>{settingsLeft} left</small>}</> },

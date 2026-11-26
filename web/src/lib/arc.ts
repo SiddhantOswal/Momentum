@@ -455,7 +455,12 @@ export type DraftCondition = {
   observedAt?: string; enteredByRole?: string; confirmed: boolean;
 };
 export type LotRecord = {
-  lot: { lotId: string; stage: LotStage; currentRevision: number; currentJobId: string | null; draftConditions: DraftCondition[]; updatedAt: string };
+  lot: {
+    lotId: string; stage: LotStage; currentRevision: number; currentJobId: string | null;
+    /** The confirmed catalog item and quantity, once an order line is confirmed. */
+    order?: { itemCode: string; quantity: number } | null;
+    draftConditions: DraftCondition[]; updatedAt: string;
+  };
   revision: null | {
     jobId: string; number: number; status: RevisionStatus; fingerprint: string | null; supersededBy: string | null;
     supersededReason: { field: string; from: number | string; to: number | string; provenance: string; byRole: string } | null;
