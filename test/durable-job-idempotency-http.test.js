@@ -154,7 +154,7 @@ test("Cloud Run rejects authenticated job creation when Firestore idempotency is
     });
     assert.equal(google.firestore.calls.length, 0);
 
-    const status = await (await fetch(`${app.origin}/api/status`)).json();
+    const status = await (await fetch(`${app.origin}/api/status`, { headers: { Cookie: cookie } })).json();
     assert.equal(status.runtimeAvailability.jobSheetPersistenceAvailable, true);
     assert.equal(status.runtimeAvailability.jobCreationAvailable, false);
     for (const section of [status.runtimeAvailability, status.integrations]) {
@@ -175,13 +175,13 @@ test("index.mjs routes /jobs through the Firestore store: a replay on a second a
     first = await startApp(google.origin);
     second = await startApp(google.origin);
 
-    const status = await (await fetch(`${first.origin}/api/status`)).json();
-    assert.equal(status.runtimeAvailability.jobCreationAvailable, true);
-    assert.equal(status.runtimeAvailability.idempotencyScope, "shared-firestore");
-
     const session = await fetch(`${first.origin}/api/auth/demo-session`, { method: "POST", headers: { Origin: first.origin } });
     assert.equal(session.status, 200);
     const cookie = session.headers.get("set-cookie").split(";")[0];
+
+    const status = await (await fetch(`${first.origin}/api/status`, { headers: { Cookie: cookie } })).json();
+    assert.equal(status.runtimeAvailability.jobCreationAvailable, true);
+    assert.equal(status.runtimeAvailability.idempotencyScope, "shared-firestore");
 
     // No model or prediction adapter is configured, so this first run fails
     // after its claim and releases it. The claim it wrote shows which store

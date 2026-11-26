@@ -53,7 +53,7 @@ async function withServer(etags, run) {
     const headers = { Cookie: session.headers.get("set-cookie").split(";")[0], Origin: requestOrigin, "Content-Type": "application/json" };
     let status;
     for (let attempt = 0; attempt < 40; attempt += 1) {
-      status = await (await fetch(origin + "/api/status")).json();
+      status = await (await fetch(origin + "/api/status", { headers: { Cookie: headers.Cookie } })).json();
       if (status.modelVersions?.state !== "unchecked") break;
       await new Promise((resolve) => setTimeout(resolve, 25));
     }

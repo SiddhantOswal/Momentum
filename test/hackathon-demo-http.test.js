@@ -60,7 +60,12 @@ test("HTTP hackathon sessions enforce origin, record ownership, model acceptance
     assert.equal(forgedPhoto.status,400);
     const mock = await fetch(origin + "/api/agents/predictRisk", { method: "POST", headers, body: "{}" });
     assert.equal(mock.status, 503);
-    const status = await (await fetch(origin + "/api/status")).json();
+    const publicStatus = await (await fetch(origin + "/api/status")).json();
+    assert.equal(publicStatus.executionMode, "live-service");
+    assert.equal(publicStatus.authorizationMode, "HACKATHON_DEMO");
+    assert.equal(publicStatus.runtimeAvailability, undefined);
+    assert.equal(publicStatus.integrations, undefined);
+    const status = await (await fetch(origin + "/api/status", { headers: { Cookie: cookie } })).json();
     assert.equal(status.executionMode, "live-service");
     assert.equal(status.runtimeAvailability.jobCreationAvailable, false);
     assert.equal(status.runtimeAvailability.liveModelCallsEnabled, false);

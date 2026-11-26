@@ -228,3 +228,37 @@ test("the pitch code never appears in responses or logs, whatever the outcome", 
     assert.ok(app.logs.join("").includes("arc_pitch_claim"));
   });
 });
+
+test("HTTP status gives the public no budget detail and no budget read, and a session only its own calls left", async () => {
+  await withApp({}, async (app, google) => {
+    const firestoreReads = () => google.firestore.calls.filter((call) => call.method === "GET").length;
+    const status = (headers = {}) => fetch(`${app.url}/api/status`, { headers: { "X-Forwarded-For": "203.0.113.90", ...headers } });
+
+    const before = firestoreReads();
+    for (const headers of [{}, { Cookie: "__Host-ustaad-demo=forged.token" }]) {
+      const response = await status(headers);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      const body = await response.json();
+      assert.deepEqual(Object.keys(body).sort(),
+        ["app", "authorizationMode", "backendReachable", "executionMode", "mode", "modelAcceptance", "ok", "status"]);
+      assert.equal(body.modelAcceptance.models.length, 5);
+      const { modelAcceptance: _scores, ...rest } = body;
+      assert.doesNotMatch(JSON.stringify(rest), /limit|cap|reserve|spend|cost|remaining|counter/i);
+    }
+    assert.equal(firestoreReads(), before);
+
+    const session = cookieOf(await app.post("/api/auth/demo-session", { ip: "203.0.113.91" }));
+    const afterMint = firestoreReads();
+    const first = await (await status({ Cookie: session })).json();
+    assert.deepEqual(first.runtimeAvailability.geminiBudget,
+      { policy: "budget-v2", configured: true, status: "configured", available: true, callsLeftToday: 40 });
+    assert.doesNotMatch(JSON.stringify(first), /dayLimit|ipDayLimit|CostCap|costInr|reserveUnits|"remaining"|"limits"/);
+    assert.equal("limit" in first.runtimeAvailability.dailyGeminiCallCap, false);
+    assert.equal(first.modelAcceptance.models.length, 5);
+    const oneRead = firestoreReads() - afterMint;
+    assert.ok(oneRead > 0);
+    await status({ Cookie: session });
+    assert.equal(firestoreReads() - afterMint, oneRead, "a second call inside the cache window reads nothing");
+  });
+});

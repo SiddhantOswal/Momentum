@@ -50,7 +50,7 @@ import { selectJobIdempotencyStore } from "./src/job-idempotency.js";
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
 import { authorizeSupervisor } from "./src/commands/authorize.js";
 import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
-import { getStatusWithBudget, impactSummary } from "./src/commands/status.js";
+import { createBudgetViewCache, getStatusWithBudget, impactSummary } from "./src/commands/status.js";
 import { liveActor } from "./src/commands/live-events.js";
 import { readOrder } from "./src/commands/read-order.js";
 import { planLot } from "./src/commands/plan-lot.js";
@@ -733,12 +733,16 @@ app.get("/api/auth/config", (c) => {
   }, 200, { "Cache-Control": "no-store" });
 });
 
+const statusBudgetViews = createBudgetViewCache();
 app.get("/api/status", async (c) => {
-  // The session comes only from a verified demo cookie, never from the request body or query.
+  // The session comes only from a verified cookie, never from the request body or query.
   const session = hackathonAuth.configured ? hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo")) : undefined;
+  const userSession = userSessionAuth ? await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE)) : undefined;
   return c.json(await getStatusWithBudget({}, {
-    ...commandDeps, principal: session?.ok ? session.principal : undefined, signal: c.req.raw.signal,
-  }));
+    ...commandDeps, principal: session?.ok ? session.principal : undefined,
+    sessionVerified: session?.ok === true || userSession?.ok === true,
+    budgetViewCache: statusBudgetViews, signal: c.req.raw.signal,
+  }), 200, { "Cache-Control": "no-store" });
 });
 
 app.post("/orders/extract", async (c) => {
