@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { connect } from "node:net";
 import test from "node:test";
-import { startIndexServer } from "./helpers/server.js";
+import { freePort, startIndexServer } from "./helpers/server.js";
 
 const SIGNING_KEY = "a".repeat(64);
 const HACKATHON_ENV = { PATH: process.env.PATH, K_SERVICE: "prepagent", PROJECT_ID: "prepagent-hack",
@@ -13,6 +14,44 @@ const HACKATHON_ENV = { PATH: process.env.PATH, K_SERVICE: "prepagent", PROJECT_
 async function stop(child) {
   if (child.exitCode === null && child.signalCode === null) { const exited = once(child, "exit"); child.kill("SIGTERM"); await exited; }
 }
+
+test("on Cloud Run without a valid public origin no session is issued or accepted, and startup warns once", async () => {
+  for (const configured of [undefined, "", "http://momentum.example", "https://momentum.example/", "not an origin"]) {
+    const port = await freePort();
+    const env = { ...HACKATHON_ENV, PORT: String(port), ...(configured === undefined ? {} : { USTAAD_PUBLIC_ORIGIN: configured }) };
+    const child = spawn(process.execPath, ["index.mjs"], { cwd: new URL("..", import.meta.url), env, stdio: ["ignore", "pipe", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    try {
+      await once(child.stdout, "data");
+      const at = (path) => `http://127.0.0.1:${port}${path}`;
+      const hostOrigin = `https://127.0.0.1:${port}`;
+      const minted = await fetch(at("/api/auth/demo-session"), { method: "POST", headers: { Origin: hostOrigin } });
+      assert.equal(minted.status, 503, String(configured));
+      const body = await minted.json();
+      assert.equal(body.error.code, "DEMO_AUTHORIZATION_NOT_CONFIGURED");
+      assert.doesNotMatch(body.error.message, /demo|hackathon/i);
+      assert.equal(minted.headers.get("set-cookie"), null);
+
+      // A correctly signed cookie naming the request host, which a fallback would accept.
+      const data = { sid: "c".repeat(32), iat: Math.floor(Date.now() / 1000), policy: "HACKATHON_DEMO:v1", aud: hostOrigin };
+      const payload = Buffer.from(JSON.stringify({ ...data, exp: data.iat + 7200 })).toString("base64url");
+      const cookie = `__Host-ustaad-demo=${payload}.${createHmac("sha256", Buffer.from(SIGNING_KEY, "hex")).update(payload).digest("base64url")}`;
+      const job = await fetch(at(`/jobs/JOB-HACK-${data.sid}-${"b".repeat(40)}`), { headers: { Cookie: cookie } });
+      assert.equal(job.status, 503);
+      assert.equal((await job.json()).error.code, "DEMO_AUTHORIZATION_NOT_CONFIGURED");
+      const status = await (await fetch(at("/api/status"), { headers: { Cookie: cookie } })).json();
+      assert.equal(status.runtimeAvailability, undefined);
+      assert.equal((await (await fetch(at("/api/auth/config"))).json()).demoSessionConfigured, false);
+
+      const warnings = stderr.split("\n").filter((line) => line.includes("session_origin_missing"));
+      assert.equal(warnings.length, 1, String(configured));
+      assert.equal(JSON.parse(warnings[0]).severity, "WARNING");
+    } finally {
+      await stop(child);
+    }
+  }
+});
 
 test("a local run with no public origin will not mint a session for a deployed https origin", async () => {
   const { K_SERVICE: _cloudRun, ...localEnv } = HACKATHON_ENV;
@@ -92,11 +131,9 @@ test("HTTP sessions are refused by a service on another origin, even with the sh
 
 test("HTTP hackathon sessions enforce origin, record ownership, model acceptance and mock isolation without Firebase", async () => {
   // No cloud credentials/adapters. Real HTTP and signed session cookies; provider calls absent.
-  const { child, port } = await startIndexServer({ PATH: process.env.PATH, K_SERVICE: "prepagent", PROJECT_ID: "prepagent-hack",
-      USTAAD_AUTHORIZATION_MODE: "HACKATHON_DEMO", USTAAD_DEMO_SESSION_SIGNING_KEY: "a".repeat(64),
-      USTAAD_ENABLE_APPROVAL_AUDIT: "true", USTAAD_SYNTHETIC_ONLY: "true", USTAAD_ENABLE_DEMO_MODE: "true" });
+  const requestOrigin = "https://momentum.example";
+  const { child, port } = await startIndexServer({ ...HACKATHON_ENV, USTAAD_PUBLIC_ORIGIN: requestOrigin });
   const origin = `http://127.0.0.1:${port}`;
-  const requestOrigin = origin.replace("http:", "https:"); // Cloud Run TLS termination emulation.
   try {
     const config = await (await fetch(origin + "/api/auth/config")).json();
     assert.equal(config.authorizationMode, "HACKATHON_DEMO");

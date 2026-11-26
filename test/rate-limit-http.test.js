@@ -14,7 +14,7 @@ async function startCloudRunDemoServer() {
   const child = spawn(process.execPath, ["index.mjs"], { cwd: new URL("..", import.meta.url),
     env: { PATH: process.env.PATH, PORT: String(port), K_SERVICE: "momentum", PROJECT_ID: "prepagent-hack",
       USTAAD_AUTHORIZATION_MODE: "HACKATHON_DEMO", USTAAD_DEMO_SESSION_SIGNING_KEY: "a".repeat(64),
-      USTAAD_ENABLE_APPROVAL_AUDIT: "true", USTAAD_SYNTHETIC_ONLY: "true" },
+      USTAAD_ENABLE_APPROVAL_AUDIT: "true", USTAAD_SYNTHETIC_ONLY: "true", USTAAD_PUBLIC_ORIGIN: `https://127.0.0.1:${port}` },
     stdio: ["ignore", "pipe", "pipe"] });
   const logs = [];
   child.stderr.on("data", (chunk) => logs.push(chunk.toString()));

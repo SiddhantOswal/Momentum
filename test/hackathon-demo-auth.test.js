@@ -11,7 +11,7 @@ const AUDIENCE = "https://momentum.example";
 const OTHER_AUDIENCE = "https://arc-test---momentum.example";
 const identity = { keyHash: "b".repeat(64), fingerprint: "c".repeat(64) };
 test("hackathon policy is explicit, disabled on incomplete configuration and never fabricates a supervisor", () => {
-  for (const change of [{ mode: undefined }, { signingKey: undefined }, { signingKey: "short" }, { syntheticOnly: false }, { auditEnabled: false }]) {
+  for (const change of [{ mode: undefined }, { signingKey: undefined }, { signingKey: "short" }, { syntheticOnly: false }, { auditEnabled: false }, { originConfigured: false }]) {
     const auth = createHackathonDemoAuthenticator({ ...config, ...change });
     assert.equal(auth.configured, false);
     assert.equal(auth.authenticate("arbitrary", AUDIENCE).ok, false);

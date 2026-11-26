@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applicationOrigin, isSameApplicationOrigin } from '../src/request-origin.js';
+import { applicationOrigin, isSameApplicationOrigin, sessionOrigin } from '../src/request-origin.js';
 
 test('managed TLS termination accepts the exact configured HTTPS origin without trusting proxy headers',()=>{
   const config={requestUrl:'http://backend.internal/api/auth/demo-session',cloudRun:true,configuredOrigin:'https://private-candidate.run.app'};
@@ -25,4 +25,13 @@ test('the session audience is the origin the same-origin check accepts',()=>{
   assert.equal(applicationOrigin({requestUrl:'https://momentum-ai.example/x'}),undefined);
   assert.equal(isSameApplicationOrigin({requestUrl:'https://momentum-ai.example/x',origin:'https://momentum-ai.example'}),false);
   assert.equal(applicationOrigin({requestUrl:'http://x/y',configuredOrigin:'https://momentum.example'}),'https://momentum.example');
+});
+test('on Cloud Run the session origin is only ever the configured https origin, never the request host',()=>{
+  assert.equal(sessionOrigin({requestUrl:'http://momentum-ai.example/x',cloudRun:true}),undefined);
+  assert.equal(sessionOrigin({requestUrl:'https://attacker.example/x',cloudRun:true}),undefined);
+  for(const configuredOrigin of ['','http://momentum.example','https://momentum.example/','not an origin'])assert.equal(sessionOrigin({requestUrl:'http://momentum.example/x',cloudRun:true,configuredOrigin}),undefined,configuredOrigin);
+  assert.equal(sessionOrigin({requestUrl:'https://attacker.example/x',cloudRun:true,configuredOrigin:'https://momentum.example'}),'https://momentum.example');
+  assert.equal(sessionOrigin({cloudRun:true,configuredOrigin:'https://momentum.example'}),'https://momentum.example');
+  assert.equal(sessionOrigin({requestUrl:'http://localhost:4100/x'}),'http://localhost:4100');
+  assert.equal(sessionOrigin({requestUrl:'https://momentum.example/x'}),undefined);
 });

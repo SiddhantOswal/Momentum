@@ -73,6 +73,7 @@ async function startApp(googleApisOrigin, limits) {
       USTAAD_ENABLE_LIVE_MODEL_CALLS: "true", USTAAD_ENABLE_DEFECT_DIAGNOSIS: "true",
       USTAAD_GEMINI_BUDGET_POLICY: "budget-v2", GEMINI_BUDGET_LIMITS: JSON.stringify(limits),
       ARC_PITCH_RESERVE_CODE: PITCH_CODE, TEST_GOOGLE_APIS_ORIGIN: googleApisOrigin,
+      USTAAD_PUBLIC_ORIGIN: `https://127.0.0.1:${port}`,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

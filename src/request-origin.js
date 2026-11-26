@@ -19,6 +19,16 @@ export function applicationOrigin({ requestUrl, cloudRun = false, configuredOrig
   } catch { return undefined; }
 }
 
+/**
+ * The origin sessions are bound to. On Cloud Run only a valid https `USTAAD_PUBLIC_ORIGIN`
+ * counts: the request URL there can come from an absolute-form request line the caller
+ * writes, so it never names the audience. Undefined means sessions must stay off.
+ */
+export function sessionOrigin({ requestUrl, cloudRun = false, configuredOrigin } = {}) {
+  if (cloudRun && configuredOrigin === undefined) return undefined;
+  return applicationOrigin({ requestUrl, cloudRun, configuredOrigin });
+}
+
 export function isSameApplicationOrigin({ origin, requestUrl, cloudRun = false, configuredOrigin } = {}) {
   try {
     if (typeof origin !== "string") return false;

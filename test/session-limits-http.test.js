@@ -70,6 +70,7 @@ async function startApp(googleApisOrigin, extraEnv = {}) {
       GEMINI_BUDGET_LIMITS: JSON.stringify(LIMITS),
       ARC_PITCH_RESERVE_CODE: PITCH_CODE,
       TEST_GOOGLE_APIS_ORIGIN: googleApisOrigin,
+      USTAAD_PUBLIC_ORIGIN: `https://127.0.0.1:${port}`,
       ...extraEnv,
     },
     stdio: ["ignore", "pipe", "pipe"],

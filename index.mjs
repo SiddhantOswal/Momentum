@@ -1,4 +1,4 @@
-import { applicationOrigin, isSameApplicationOrigin } from "./src/request-origin.js";
+import { isSameApplicationOrigin, sessionOrigin } from "./src/request-origin.js";
 import { getCookie, setCookie } from "hono/cookie";
 import { createHackathonDemoAuthenticator, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
 import { createGeminiCallerMiddleware } from "./src/gemini-caller-context.js";
@@ -91,10 +91,18 @@ const supervisorWebConfig = firebaseWebClientConfig(process.env);
 // Production sign-in (USTAAD_AUTH_MODE=FIREBASE_SESSION): Google accounts, session cookie, roles by email.
 const userSessionAuth = await initializeUserSessionAuth(process.env);
 const sessionWebConfig = userSessionAuth ? firebaseWebClientConfig({ ...process.env, USTAAD_FIREBASE_AUTH_ENABLED: "true" }) : undefined;
+// On Cloud Run sessions are bound only to a configured public origin, never to the request host.
+const sessionOriginConfigured = !isCloudRun ||
+  sessionOrigin({ cloudRun: true, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN }) !== undefined;
 const hackathonAuth = createHackathonDemoAuthenticator({ mode: process.env.USTAAD_AUTHORIZATION_MODE,
   signingKey: process.env.USTAAD_DEMO_SESSION_SIGNING_KEY,
   syntheticOnly: process.env.USTAAD_SYNTHETIC_ONLY === "true",
-  auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true" });
+  auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true",
+  originConfigured: sessionOriginConfigured });
+if (hackathonAuth.enabled && !sessionOriginConfigured) {
+  console.warn(JSON.stringify({ severity: "WARNING", event: "session_origin_missing",
+    message: "USTAAD_PUBLIC_ORIGIN is unset or not an https origin, so this service issues and accepts no sessions." }));
+}
 const approvalAuthorizationConfigured = hackathonAuth.enabled ? hackathonAuth.configured : supervisorAuthenticator.configured;
 const demoTraceOwners = new Map();
 // USTAAD_ENABLE_DURABLE_TRACES: trace events and owners also go to Firestore, so any instance can serve a run.
@@ -115,9 +123,9 @@ function isSameOrigin({ origin, requestUrl }) {
 function sameOrigin(c) {
   return isSameOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url });
 }
-// A session is bound to the origin the same-origin check accepts, so a cookie from another service or a laptop run is refused here.
+// A session is bound to this service's origin, so a cookie from another service or a laptop run is refused here.
 function sessionAudience(requestUrl) {
-  return applicationOrigin({ requestUrl, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
+  return sessionOrigin({ requestUrl, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
 }
 function demoSession(c) {
   return hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"), sessionAudience(c.req.url));

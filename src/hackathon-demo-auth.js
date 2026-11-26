@@ -27,10 +27,12 @@ export function demoJobIdentity(principal, identity) {
     jobNamespace: `HACK-${principal.sessionId}`,
     jobId: `JOB-HACK-${principal.sessionId}-${keyHash.slice(0, 40)}` };
 }
-export function createHackathonDemoAuthenticator({ mode, signingKey, syntheticOnly = false, auditEnabled = false, now = Date.now } = {}) {
+export function createHackathonDemoAuthenticator({ mode, signingKey, syntheticOnly = false, auditEnabled = false, originConfigured = true, now = Date.now } = {}) {
   const enabled = mode === "HACKATHON_DEMO";
   // A stable shared secret must be provisioned separately, never generated per instance.
-  const configured = enabled && syntheticOnly && auditEnabled && typeof signingKey === "string" && /^[a-f0-9]{64}$/.test(signingKey);
+  // Without a known origin to bind sessions to, none are issued or accepted.
+  const configured = enabled && syntheticOnly && auditEnabled && originConfigured === true &&
+    typeof signingKey === "string" && /^[a-f0-9]{64}$/.test(signingKey);
   const mac = (payload) => createHmac("sha256", Buffer.from(signingKey, "hex")).update(payload).digest("base64url");
   const seal = (data) => {
     const payload = Buffer.from(JSON.stringify(data)).toString("base64url");
