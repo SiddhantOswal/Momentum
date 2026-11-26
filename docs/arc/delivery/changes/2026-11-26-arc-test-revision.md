@@ -31,4 +31,8 @@ One Cloud Build (a few rupees), Cloud Run only while the tag URL is used (min in
 Nothing to roll back for users: no traffic moves. To retire the test link: `gcloud run services update-traffic momentum --project=prepagent-hack --region=asia-south1 --remove-tags=arc-test`. The revision can stay (no cost at zero instances); deleting it needs a separate approval.
 
 ## Result
-Filled in after the run.
+Run 2026-11-26.
+- Build 1 (`arc/main` `ead7a5f`, manifest `28da5d79…`): image `prepagent@sha256:8b71fdac…`, revision `momentum-arc-test-v1`. Pages, demo sessions and an Arc answer worked on the tag URL, but `modelVersions` stayed `unverified` (`TIMEOUT` on all five targets): the startup check ran on an idle, CPU-throttled instance, and requests re-checked only after 30 minutes, so planning returned `MODEL_VERSION_UNVERIFIED`. Fixed in ARC-ML-04b (requests re-check an unverified result, at most once per 15 s).
+- Build 2 (`arc/main` `9f0b2e3`, manifest `15b76ae7…`, Cloud Build `f9e8eb4c`): image `prepagent@sha256:6c9d6d52…`, revision `momentum-arc-test-v2`, tag `arc-test`, max 2 instances, concurrency 20, `USTAAD_PUBLIC_ORIGIN` the tag URL, every Arc and M1 flag on, budget-v2 live pool with `dayCostCapInr` 100 and `lotPlans.perSessionPerDay` 10 (read back from the revision).
+- Traffic read back after both deploys: `momentum-00023-yaz` 100%, unchanged.
+- Live check on the tag URL: Arc read PO1 (Gemini), the line was confirmed, conditions (62% RH, 24.5 °C, moisture 7.3 example, 26 Nov, DAY) and settings (48, 162, HIGH, 32, MED, 5, 60) confirmed, and the plan ran: roll 170 °C, gum MEDIUM, viscosity 45 s, modeled scrap 56.4 to 49.2 kg, 7.2 kg and ₹384 lower, the same figures New Lot gave on the laptop for the same inputs. The Approve card was reached; nothing was approved. Gemini left today went from 40 to 38.
