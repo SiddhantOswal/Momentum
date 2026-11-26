@@ -49,8 +49,8 @@
     {
       "id": "CHK-ROOT-TEST",
       "name": "npm test after the foundation",
-      "status": "FAILED",
-      "result": "1108 tests, 1106 pass, 1 fail, 1 cancelled. New failure: test/approve-client-body.test.js asserts the removed web/src/screens/Lots.tsx; U03 re-points it. Cancelled: same weather test as the baseline.",
+      "status": "SUPERSEDED",
+      "result": "1108 tests, 1106 pass, 1 fail, 1 cancelled. New failure: test/approve-client-body.test.js asserts the removed web/src/screens/Lots.tsx; U03 re-points it. Cancelled: same weather test as the baseline. Fixed in U03: see CHK-U03-ROOT.",
       "existing": false
     },
     {
@@ -171,6 +171,41 @@
       "status": "NOT RUN",
       "result": "No backend or root test file was changed. CHK-ROOT-TEST (approve-client-body.test.js, ENOENT on removed Lots.tsx) is unchanged and belongs to U03.",
       "existing": false
+    },
+    {
+      "id": "CHK-U03-BROWSER",
+      "name": "npx playwright test test/browser/new-lot.spec.js",
+      "status": "PASSED",
+      "result": "10 of 10 against mocked responses (test/browser/new-lot-mock.js): sample read, confirm gating, 12-field gating, plan request body and idempotency key, plan failure shows server message, checkbox then approve with fingerprint, keyboard checkbox, missing explanation holds approval, replaced revision blocks approval and plans again via PUT conditions, text identical in both themes, no sideways scroll at 1440/1280/1024. Fixture-backed: not functional verification of the live routes.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U03-UNIT",
+      "name": "web npm test and tsc -b and vite build after U03",
+      "status": "PASSED",
+      "result": "tsc exit 0; web unit 12 of 12 (5 new in new-lot-model.test.js); vite build ok",
+      "existing": false
+    },
+    {
+      "id": "CHK-U03-ROOT",
+      "name": "root npm test after U03",
+      "status": "PASSED_WITH_KNOWN_FLAKE",
+      "result": "1108 tests, 1107 pass, 0 fail, 1 cancelled (weather timeout, same as CHK-BASE-ROOT; it also cancels with the U03 changes stashed). approve-client-body.test.js now reads web/src/pages/new-lot/ReviewStep.tsx and passes 4 of 4; its assertions are unchanged except the locator string for the approve call, which gained the revision field in the generic type so the response revision type-checks. Supersedes CHK-ROOT-TEST.",
+      "existing": false
+    },
+    {
+      "id": "CHK-BROWSER-FULL-3",
+      "name": "npx playwright test (all specs) after U03",
+      "status": "PASSED",
+      "result": "81 of 81 (71 earlier + 10 U03)",
+      "existing": false
+    },
+    {
+      "id": "CHK-U03-VISUAL",
+      "name": "tools/visual/new-lot-states.mjs, 6 states x 2 themes x 1440x900, 1280x800, 1024x768 (mocked API)",
+      "status": "PASSED_WITH_DIFFERENCES",
+      "result": "72 runs, 0 sideways scroll. Viewed against the dark references: all six states at 1440x900. Viewed light: Order, Plan, Review, Stale at 1440x900, Conditions and Recovery at 1280x800. Viewed dark: Recovery 1280x800, Review 1024x768. Others were captured but not viewed. Differences are in notes of U03. tools/visual/capture.mjs was not used: it only loads the first state of a route.",
+      "existing": false
     }
   ],
   "units": {
@@ -210,16 +245,27 @@
       "notes": ""
     },
     "U03": {
-      "state": "NOT_STARTED",
+      "state": "INTEGRATION_PENDING",
       "visual": {
-        "dark": null,
-        "light": null,
-        "viewports": []
+        "dark": "1440x900 six states compared with docs/arc/design/source/png/dark/NewLot-*.png: layout, copy and surfaces match except the listed differences",
+        "light": "1440x900 Order, Plan, Review, Stale and 1280x800 Conditions, Recovery viewed against the light design; Conditions and Recovery at 1440 not viewed",
+        "viewports": [
+          "1440x900",
+          "1280x800",
+          "1024x768"
+        ],
+        "screenshots": "docs/migration/evidence/U03/ (1440x900 and 1024x768, both themes, six states); regenerate with node tools/visual/new-lot-states.mjs .visual/NewLot (needs the app running, see its header)"
       },
-      "functional": null,
-      "backend": null,
-      "evidence": [],
-      "notes": ""
+      "functional": "PASSED in browser against mocked responses only (CHK-U03-BROWSER). Live routes NOT RUN: no Gemini, BigQuery or Firestore here, and the lot guard is off on the live revision (DR-008).",
+      "backend": "Called through web/src/lib/session.ts send() and api.ts getJson(): POST /orders/extract, GET /conditions/current, POST /jobs (Idempotency-Key, optional lotId), PUT /lots/:lotId/conditions, GET /lots/:lotId, POST /jobs/:id/approve with { reviewConfirmed: true, revisionFingerprint }, GET /jobs/:id/card.pdf (link). GET /conditions/weather is not called by the client: the server falls back to it when humidity is missing. Not connected by design: constraints, model pass levels, board and box size from the catalog, retrying the explanation alone, approving the entered plan.",
+      "evidence": [
+        "CHK-U03-BROWSER",
+        "CHK-U03-UNIT",
+        "CHK-U03-ROOT",
+        "CHK-BROWSER-FULL-3",
+        "CHK-U03-VISUAL"
+      ],
+      "notes": "Differences from the design: (1) Every figure comes from the server response, so the design's October figures appear only in test fixtures (PD-12, PD-22). (2) Source card is built from the fields read (line, item code, quantity), not the original page; no description column; the design's grey placeholder lines 2 and 3 are not drawn; footer reads 'Built from the fields read, not the original page.' (3) 'Board' and 'Box style and size' read Not recorded with a Missing chip, and the catalog check 'Board and size come from the catalog' became 'Board and size are not connected yet' (PD-20). (4) Added 'Paper' row when paper type and supplier are unknown (PD-20). (5) Approve checkbox added (PD-20). (6) Constraints and trust cards, Keep entered plan and Retry explanation show not-connected states; the trade-off card lists the server's per-defect rates (PD-21). (7) The design's 'Route on the card' strip and 'Risk evidence' row are not drawn: no source in the job response. (8) Toast text is built from real state ('3 changes recommended', not '3 changes from 8,640 combinations'); at most two toasts, non-error ones clear after 8 s and on each step change; the bell count in the top bar belongs to the shell. (9) Conditions prefill from GET /conditions/current with the note 'There is no plant sensor feed...'; fields count as done when valid, as in the design. Sublabels use 'Reference record, ...' wording instead of the design's example 'Confirmed by the operator'. (10) 'Card checked' reads Not recorded: nothing reports it. (11) Under 1300px the id strip tightens; under 1100px columns stack (no design). (12) Stepper now draws a check for finished steps, as the design does (shared component and foundation.css changed). Edits that supersede a revision go through PUT /lots/:lotId/conditions before POST /jobs; staleness is read from GET /lots/:lotId on entering Review and on window focus, and depends on the lot store flag (DR-008). Data class reads 'Synthetic demonstration' for approved samples and 'Uploaded order' otherwise."
     },
     "U04": {
       "state": "INTEGRATION_PENDING",

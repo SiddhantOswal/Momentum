@@ -3,6 +3,7 @@ import { Shell } from "./ui/Shell";
 import { NotConnected, PageHeader } from "./ui/components";
 import { useRoute } from "./lib/useRoute";
 import { useTheme } from "./lib/useApp";
+import { NewLot } from "./pages/NewLot";
 import { PlantExplorer } from "./pages/PlantExplorer";
 
 // Development-only reference for the shared components; excluded from production builds.
@@ -16,6 +17,8 @@ export function App() {
     <Shell route={route} onNavigate={go} theme={theme} onToggleTheme={toggle}>
       {showPreview && Preview ? (
         <Suspense fallback={null}><Preview /></Suspense>
+      ) : route.key === "new-lot" ? (
+        <NewLot />
       ) : route.key === "plant-explorer" ? (
         <PlantExplorer />
       ) : (

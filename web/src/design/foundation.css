@@ -396,6 +396,7 @@
   font-size: 12px;
   font-weight: 700;
 }
+.step b svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .step-done { border-color: var(--tx); color: var(--tx); }
 .step-done b { background: var(--tx); border-color: var(--tx); color: var(--inv); }
 .step-current { border-color: var(--ac); color: var(--tx); }

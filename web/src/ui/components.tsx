@@ -85,7 +85,7 @@ export function Stepper({ steps }: { steps: { label: string; state: StepState }[
       {steps.map((step, index) => (
         <li key={step.label} className={`step${step.state === "upcoming" ? "" : ` step-${step.state}`}`}
           aria-current={step.state === "current" ? "step" : undefined}>
-          <b>{index + 1}</b>{step.label}
+          <b>{step.state === "done" ? <Icon path={CheckPath} /> : index + 1}</b>{step.label}
         </li>
       ))}
     </ol>

@@ -39,9 +39,9 @@ test("the dashboard (src/ui/workflow.js) sends the approve body from the loaded 
   }
 });
 
-test("the React client (web/src/screens/Lots.tsx) sends the approve body from the loaded revision", async () => {
-  const lots = await source("../web/src/screens/Lots.tsx");
-  const call = approveCall(lots, "const r = await send<{ jobSheet: JobSheet }>(`/jobs/${encodeURIComponent(sheet.jobId)}/approve", 500);
+test("the React client (web/src/pages/new-lot/ReviewStep.tsx) sends the approve body from the loaded revision", async () => {
+  const lots = await source("../web/src/pages/new-lot/ReviewStep.tsx");
+  const call = approveCall(lots, "const r = await send<{ jobSheet: JobSheet; revision?: JobResult[\"revision\"] }>(`/jobs/${encodeURIComponent(sheet.jobId)}/approve", 500);
   assert.match(call, /method: "POST"/);
   assert.match(call, /"Content-Type": "application\/json"/);
   assert.match(call, /JSON\.stringify\(\{ reviewConfirmed: true, revisionFingerprint: result\.revision\?\.fingerprint \}\)/);
