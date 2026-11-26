@@ -1,6 +1,6 @@
 # Arc delivery status
 
-Last updated: 2026-11-25 (Om's session on a second laptop, from the 24 Nov handover bundle). Finals: 3 to 5 December 2026, pitch on 4 December.
+Last updated: 2026-11-26 (Om's session on a second laptop, from the 24 Nov handover bundle; M6 gate run). Finals: 3 to 5 December 2026, pitch on 4 December.
 
 ## Done
 - Delivery folders created on branch `arc/m0-discovery`, cut from `v2` at `eb6eab9`. The work moved to `arc/setup` on 2026-11-23 for the first commit.
@@ -111,22 +111,27 @@ Orchestrated by a Claude Code session on Om's laptop from the handover bundle (`
 
 ## In progress
 
-- ARC-M1-05 merged (`67602dc`; QA PASS, 19 of 20 mutations caught, the survivor closed by a test of `index.mjs` wiring) and ARC-M1-08 merged (`ea06073`; QA PASS, 29 of 30 caught, the survivor closed by a thinking-token cost test). `npm test` on `arc/main` after both: 760 of 760. Session and IP limits and the rupee overshoot are in the ARC-M1-17 AC.
-- ARC-M1-07 merged (`289b7da`) after QA repairs and a rebase that combined the Firestore test fake with M1-05's (one PATCH and DELETE handler; no assertion changed). A head status `incomplete` and the stream error `TRACE_INCOMPLETE` are in the design. Live Firestore NOT RUN. `npm test` on `arc/main`: 783 of 783. Residual gap in ARC-M1-24.
+- M6 gate run on 2026-11-26 at `682b960`: **NO-GO** (`reviews/M6-review.md`). Security and the verification auditor gave NO-GO; the other six gave CONDITIONAL GO. M7 does not start until blockers G-1 to G-6 are fixed by their owners and re-checked by the same reviewers.
+- The `arc-test` revision (no traffic) runs budget-v2 on a public URL with M1 SEC-1 and SEC-2 still open (G-2, G-3) and a shared session-signing secret (G-4). Production `momentum-00023-yaz` is unchanged.
 
 ## Blocked
 
-- None. Om's sign-offs (ARC-M0-04) are needed by 26 Nov for the PKBX0041 reference and the weather label.
+- M7 is blocked by the M6 NO-GO.
+- G-1 needs the founders: `arc/main`, `arc/ui-vnext` and `arc/ARC-M1-16-stale-fixtures` are on the public origin; origin `arc/main` and Om's local `arc/main` have split (15 commits only on origin, including a different ARC-M6-02 merge), and `arc/ui-vnext` rebuilds the same M6 screens. Which line is `arc/main` and who orchestrates (G4) must be decided before any further merge, push or traffic move.
+- Om's sign-offs (ARC-M0-04) for the PKBX0041 reference and the weather label were due 26 Nov.
 
 ## Next
 
-1. M1 gate is CONDITIONAL GO (`reviews/M1-review.md`). Repair round by the owners for CR-1 and CR-2 first (before any M2 ticket merges), then the other conditions; the same reviewers re-check.
-2. Finish ARC-M2-01 (last Claude-built ticket), then hand the queue in `external/queue.md` to Codex builders and reviewers under `external/README.md`.
-3. M1 items still open: ARC-M1-13, M1-16 (Copilot), M1-21, M1-23 to M1-28, ARC-SETUP-02.
+1. Founders decide G-1 (integration branch, orchestrator, public `arc/*`), then local records are corrected to match.
+2. Backend repair round for G-2 to G-5 (IPv6 /64 keys and unknown-bucket alert; `/api/status` without a session; an audience in the session token or a separate signing secret; per-IP and session Gemini limits and the pitch reserve). Until then, either remove the `arc-test` tag or take budget-v2 off it (founder choice).
+3. Data engineer corrects G-6 (crack R² 0.111, warp MAE interval upper bound 0.003).
+4. Before any demo of the Arc lot flow: CR-1, CR-2, RAI-10/CR-4/CO-2, RAI-11, RAI-14, CR-5, CR-6, EV-1, CO-4 (`reviews/M6-review.md`).
+5. The same reviewers re-check, at most three repair rounds.
 
 ## Open founder questions
 
 Asked only when a ticket needs them.
+- 2026-11-26, M6 gate: G-1 (which `arc/main` is the integration branch, who orchestrates, whether `arc/*` stays on the public origin); whether to remove the `arc-test` tag or take budget-v2 off it until G-2 to G-4 are fixed; RAI-16 ("Modeled saving" on Insights against the RAI rule "never a saving"); CE-1 and CO-5 (record Om's "predicted, not 'not measured'" rule, and the wording for counts of generated lots); CE-2 ("modelled" or "modeled" in user-facing text); SEC-15 (remove the old `demo`, `domain`, `polish`, `r2fix`, `welcome` and `v2be` tags).
 - 2026-11-25 (Om's session): G1, Gen AI trade-off: the writer now runs only for model-score and lot-status answers; other data answers are labelled templates until ARC-M4-04 rebuilds labelled blocks. Accept for the pitch, or prioritise ARC-M4-04? G2 done 2026-11-25 with Om's approval: `impact_recs_v3` and `impact_lots_v3` built (73.4 MB billed), `dash_kpis.sql` reads v3 on `arc/main`; net saving ₹7,927 a month (was ₹7,934), 4 lots made worse (was 3); record `changes/2026-11-25-impact-v3.md`. G3: the PKBX0041 reference in `data/om-signoff-request.md` was computed with crack counted and must be recomputed before Om signs. G4: who runs the delivery from now (one orchestrator merging into `arc/main` at a time), and the private backup remote.
 - F2 remaining: the pitch slot time. Until it is known, the 80-attempt pitch reserve covers all of 4 December (SGT).
 - F4: whether Billing credits cover Vertex AI and Cloud Run (console check). Blocks the first cost-bearing cloud change.
@@ -201,3 +206,5 @@ Asked only when a ticket needs them.
 | 2026-11-25 | Writer skips turns whose values cannot be shown with a code-set label (QA finding: unlabelled weather and history numbers) | CLAUDE.md section 3 provenance rule; narrows A3 until ARC-M4-04 | Tech lead; founders to confirm (G1) |
 | 2026-11-25 | Rerun the September impact batch without crack into new v3 tables; keep v1 and v2 tables | ARC-ML-03 changed the objective; G2 | Om |
 | 2026-11-25 | Run the release configuration on Om's laptop against the live project for manual testing (`npm run live:local`); laptop Gemini spend up to Rs 100 a day on the live budget pool, on top of `momentum`'s Rs 600 | Om asked for every setting on for live manual testing on localhost | Om |
+| 2026-11-26 | Build the full approved redesign now (M6), then connect the Arc lot flow (ARC-M3-01) | Om chose "Full redesign now" and "Connect Arc lot flow" | Om |
+| 2026-11-26 | Deploy `arc/main` as a no-traffic Cloud Run revision with tag `arc-test` for manual testing; production traffic unchanged | Om: "deploy it so I can see it live"; `changes/2026-11-26-arc-test-revision.md` | Om |
