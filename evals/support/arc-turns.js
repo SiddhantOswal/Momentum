@@ -38,11 +38,11 @@ export function recordingVertexClient(respond) {
 
 /**
  * `router` is either a function standing in for the router port, or a list of
- * recorded Vertex responses (or a function of the request) that the real router
+ * recorded Vertex responses that the real router
  * reads through the real Vertex client. `services` are the command service
  * ports; approveJob is always counted, so a case can assert zero approvals.
  */
-export function arcTurns({ router, writer, renderTemplate, services = {}, commandDeps = {}, budgetLimits = {}, lotStore } = {}) {
+export function arcTurns({ router, routerResponses, writer, renderTemplate, services = {}, commandDeps = {}, budgetLimits = {}, lotStore } = {}) {
   const firestore = createFakeFirestore();
   const options = { projectId: FAKE_PROJECT_ID, fetchImpl: firestore.fetchImpl, tokenProvider: async () => "offline-eval" };
   const sessionStore = createFirestoreArcSessionStore(options);
@@ -82,8 +82,10 @@ export function arcTurns({ router, writer, renderTemplate, services = {}, comman
   const scope = createScopeRules();
   let vertex = { requests: [] };
   let routerPort = router;
-  if (router !== undefined && typeof router !== "function") {
-    vertex = recordingVertexClient(router);
+  // `routerResponses(request, index)` answers each Vertex request through the real router, for a case
+  // whose recorded answer needs a value from an earlier turn.
+  if (routerResponses !== undefined || (router !== undefined && typeof router !== "function")) {
+    vertex = recordingVertexClient(routerResponses ?? router);
     routerPort = createArcRouter({ client: vertex.client, scope });
   }
   const runner = createArcTurnRunner({
