@@ -108,9 +108,10 @@ test('/app follows system changes until a choice, then switches in place and rem
 });
 
 test('/app matches the approved title styles and numeric arrow font', async ({ page }) => {
-  await page.goto('/app/#/home');
+  // Home has no visible page title (the design puts the name in the breadcrumb), so a titled page is used.
+  await page.goto('/app/#/plant-explorer');
 
-  const pageTitle = page.getByRole('heading', { level: 1, name: 'Home' });
+  const pageTitle = page.getByRole('heading', { level: 1, name: 'Plant Explorer' });
   const displayFont = 'Inter, sans-serif';
   const titleStyles = {
     fontFamily: displayFont,

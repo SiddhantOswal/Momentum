@@ -220,6 +220,27 @@
       "status": "PASSED",
       "result": "npx tsc -b clean; web npm test: 12 pass, 0 fail",
       "existing": false
+    },
+    {
+      "id": "CHK-U02-BROWSER",
+      "name": "npx playwright test home.spec.js arc-panel.spec.js arc-theme.spec.js",
+      "status": "PASSED",
+      "result": "21 of 21. Full suite before the final two fixes: 94 passed, 3 failed (arc-panel, arc-theme x2); those three now pass.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U02-VISUAL",
+      "name": "node tools/visual/capture.mjs --ref Main --route home",
+      "status": "PASSED",
+      "result": "4 runs (2 viewports x 2 themes), 0 structural failures, no horizontal overflow",
+      "existing": false
+    },
+    {
+      "id": "CHK-U02-WEB",
+      "name": "web tsc -b, vite build, npm test",
+      "status": "PASSED",
+      "result": "tsc exit 0; build ok; 12 of 12 unit tests",
+      "existing": false
     }
   ],
   "units": {
@@ -247,16 +268,25 @@
       "notes": "Primary MacBook viewport unverified. Card title is now covered by test/browser/plant-explorer.spec.js (U04)."
     },
     "U02": {
-      "state": "NOT_STARTED",
+      "state": "UI_VERIFIED",
       "visual": {
-        "dark": null,
-        "light": null,
-        "viewports": []
+        "dark": "1440x900 and 1280x800 viewed against docs/arc/design/source/png/dark/Main.png: layout and copy match except the listed differences",
+        "light": "1440x900 and 1280x800 viewed against the light reference; 1024x768 checked for overflow only",
+        "viewports": [
+          "1440x900",
+          "1280x800",
+          "1024x768"
+        ],
+        "screenshots": "regenerate with node tools/visual/capture.mjs --ref Main --route home (writes .visual/, not tracked)"
       },
-      "functional": null,
-      "backend": null,
-      "evidence": [],
-      "notes": ""
+      "functional": "PASSED in browser: sample order, reference run, job card and Edit conditions links navigate; status failure shows an error; scores read from the status route with Not recorded for gaps; theme switch keeps text identical",
+      "backend": "CONNECTED: GET /api/status (model scores, 219 lots; read live, values 0.47, 0.52, 0.39, 0.64, 0.11) and GET /api/lots (saved-lot count). NOT CONNECTED: per-sample stage and status, Continue review (needs a durable review record, DR-037).",
+      "evidence": [
+        "CHK-U02-BROWSER",
+        "CHK-U02-VISUAL",
+        "CHK-U02-WEB"
+      ],
+      "notes": "Differences from the design: (1) reference figures are the m2 re-run, 62.9 to 55.1 kg and gum viscosity 32 to 45 s, not the retired 100.4 to 83.0 kg and 35 s (PD-12, DR-019). (2) Humidity reads 42% and the 'confirmed' wording is dropped; step 'Conditions confirmed' reads 'Conditions entered' (PD-17 precedent), needs owner confirmation. (3) Model panel shows holdout R2 only; the 'needs' thresholds, bars, pass marks and 'Only Print passes' are removed per stale-claims.md, and the card meta drops 'Tick is the pass level'. Crack keeps 'Low confidence' by owner decision D4-2026-11-20-OM. (4) Hero uses home-machine.jpg, not the animated 3D scene. (5) Crack flag uses the shared cross icon, not the design diamond. (6) Sample rows other than PKBX0041 are static: PO2, PO3, PO5 Not started, PO4 Needs source review, since no per-sample record exists. Rows are not clickable (the design shows no control); the sample picker is on New Lot. (7) Visually hidden h1 'Home' because the design has no page title. (8) test/browser/arc-theme.spec.js title-style test now reads Plant Explorer, since Home has no visible title. Primary MacBook viewport still unverified."
     },
     "U03": {
       "state": "INTEGRATION_PENDING",
