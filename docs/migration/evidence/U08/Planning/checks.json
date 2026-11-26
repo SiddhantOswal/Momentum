@@ -1,0 +1,70 @@
+[
+  {
+    "viewport": "1440x900",
+    "theme": "dark",
+    "sidebarWidth": 232,
+    "navLabels": [
+      "Home",
+      "New Lot",
+      "Plant Explorer",
+      "Preparation Flow",
+      "Insights",
+      "Photo Diagnosis",
+      "Planning"
+    ],
+    "duplicateNavLabels": [],
+    "wrappedNavLabels": [],
+    "horizontalOverflow": false
+  },
+  {
+    "viewport": "1440x900",
+    "theme": "light",
+    "sidebarWidth": 232,
+    "navLabels": [
+      "Home",
+      "New Lot",
+      "Plant Explorer",
+      "Preparation Flow",
+      "Insights",
+      "Photo Diagnosis",
+      "Planning"
+    ],
+    "duplicateNavLabels": [],
+    "wrappedNavLabels": [],
+    "horizontalOverflow": false
+  },
+  {
+    "viewport": "1280x800",
+    "theme": "dark",
+    "sidebarWidth": 232,
+    "navLabels": [
+      "Home",
+      "New Lot",
+      "Plant Explorer",
+      "Preparation Flow",
+      "Insights",
+      "Photo Diagnosis",
+      "Planning"
+    ],
+    "duplicateNavLabels": [],
+    "wrappedNavLabels": [],
+    "horizontalOverflow": false
+  },
+  {
+    "viewport": "1280x800",
+    "theme": "light",
+    "sidebarWidth": 232,
+    "navLabels": [
+      "Home",
+      "New Lot",
+      "Plant Explorer",
+      "Preparation Flow",
+      "Insights",
+      "Photo Diagnosis",
+      "Planning"
+    ],
+    "duplicateNavLabels": [],
+    "wrappedNavLabels": [],
+    "horizontalOverflow": false
+  }
+]

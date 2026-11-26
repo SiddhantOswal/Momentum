@@ -311,6 +311,27 @@
       "status": "PASSED",
       "result": "tsc clean, build ok, 21 of 21 unit tests (3 new for the photo model)",
       "existing": false
+    },
+    {
+      "id": "CHK-U08-VISUAL",
+      "name": "node tools/visual/capture.mjs --ref Planning --route planning --out docs/migration/evidence/U08",
+      "status": "PASSED",
+      "result": "4 runs (dark and light at 1440x900 and 1280x800), structuralFailures 0, no horizontal overflow. Full-page app height 3458 against 3460 in the design at 1440 wide.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U08-BROWSER",
+      "name": "npx playwright test test/browser/planning.spec.js --trace off (after npm run build in web/)",
+      "status": "PASSED",
+      "result": "7 of 7: roadmap labels, all eight explorer items by click, keyboard select with no non-GET request, retired claims absent, no sideways scroll at 1440x900, 1280x800 and 1024x768. A first run found 9 px overflow at 1024 from the camera card chip; fixed by letting the card head wrap.",
+      "existing": false
+    },
+    {
+      "id": "CHK-U08-TSC",
+      "name": "npx tsc -b and npm test in web/",
+      "status": "PASSED",
+      "result": "tsc clean; 21 tests, 0 fail",
+      "existing": false
     }
   ],
   "units": {
@@ -484,16 +505,24 @@
       "notes": "Differences from the design: the photograph is not shown, the area reads 'The photo image is not connected.' because approved-photos returns ids and labels only and the service does not expose image bytes (specimen.jpg is a design asset, not an approved photo); the caption 'Side view of a board cross-section' is omitted (no source per photo); the trust card shows 'Not recorded' with 'No stored accuracy run for the ten photos.' instead of '7 of 10 labels matched / 3 did not match', because the figure has only a README source (data-audit Q17, stale-claims.md) and the dots are all empty; 'What it looked at' and 'Suggested follow-up' read 'Not recorded' after a run because classify-photo returns a label only; the result carries a 'Model estimate' chip; top bar shows live backend state and no 'Prototype data, not live' chip (shell, PD-15); 'Other photo' advances to the next approved photo, as no upload design exists (G14), a reading of the label that needs founder confirmation. Needs a decision: whether to restore '7 of 10' with a stored evaluation run (ARC-M6-14), and an image route for the approved photos. DR-029 (seen_before.sql dry-runs) not affected here. Loaded state and Run diagnosis result were not captured visually."
     },
     "U08": {
-      "state": "NOT_STARTED",
+      "state": "UI_VERIFIED",
       "visual": {
-        "dark": null,
-        "light": null,
-        "viewports": []
+        "dark": "1440x900 and 1280x800 viewed against png/dark/Planning.png",
+        "light": "1440x900 and 1280x800 viewed against png/light/Planning.png",
+        "viewports": [
+          "1440x900",
+          "1280x800"
+        ],
+        "screenshots": "docs/migration/evidence/U08/Planning/ ; regenerate with node tools/visual/capture.mjs --ref Planning --route planning"
       },
-      "functional": null,
-      "backend": null,
-      "evidence": [],
-      "notes": ""
+      "functional": "PASSED in browser (CHK-U08-BROWSER). The page is static, so there is no data path to verify.",
+      "backend": "NOT CONNECTED by design. Planning is a roadmap with no routes; every figure on it is design copy. The Preflight curve is labelled as an illustration and the week view as an example lot.",
+      "evidence": [
+        "CHK-U08-VISUAL",
+        "CHK-U08-BROWSER",
+        "CHK-U08-TSC"
+      ],
+      "notes": "Two design claims are reworded per docs/arc/delivery/data/stale-claims.md: the warning under Preflight and Closed-Loop Quality Learning Today read Four of five models miss the holdout bar, now Crack is low confidence. Preflight cannot hide that. and Crack is low confidence.; Inverse Production Planning Today read The solver tries 8,640 options, three changes at most, now The solver scores a grid of options. Up to 3 changes allowed. The top bar shows Backend unavailable here because no backend runs in the capture, where the design shows Backend connected and a Prototype data, not live chip; the shared shell does not draw that chip. The sidebar background stops at the viewport height in full-page captures, as on earlier units. At 1280 the Preflight detail headline, Camera troubleshooting title and two validation steps wrap; the design has no 1280 variant to compare."
     },
     "U09": {
       "state": "NOT_STARTED",

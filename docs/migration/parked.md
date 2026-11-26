@@ -58,3 +58,6 @@ PD-04, PD-12, PD-20, PD-21, PD-22, PD-23 in `11-product-decisions.md`.
 - U05: 768x1024 and 390x844 were not captured.
 - U06: Light theme at 1440x900 and dark at 1280x800 were captured but not viewed (see CHK-U06-VISUAL); 1024x768 was checked only for overflow by the browser spec, not by eye.
 - U06: No mutation check on the Insights specs.
+- U08: 1024x768 was checked only for overflow by the browser spec, not by eye; 768x1024 and 390x844 were not captured.
+- U08: The explorer's seven non-default detail panels were checked by the browser spec for title and row labels, not by eye.
+- U08: No mutation check on the Planning spec.
