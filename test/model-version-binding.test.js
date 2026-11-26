@@ -360,6 +360,154 @@ test("stale requests share one check, and a failed or hung re-check stays unveri
   assert.equal(inner.calls.length, 2);
 });
 
+// The live failure on 2026-11-26: the startup check ran on a throttled instance and
+// its token read timed out, so every target was unverified with BigQuery healthy.
+function timedOutAtStartup(options = {}) {
+  const time = clock();
+  const answers = acceptedEtags();
+  const fake = fakeModelsApi(answers);
+  const identity = { hang: true };
+  const versions = binding(fake, {
+    now: time.now, requestTimeoutMs: 25, checkIntervalMs: 1000,
+    tokenProvider: () => identity.hang ? new Promise(() => {}) : Promise.resolve(TOKEN),
+    ...options,
+  });
+  return { time, answers, fake, identity, versions };
+}
+
+test("an unverified result after a startup timeout is re-checked by the next guarded request, which then serves", { timeout: 2000 }, async () => {
+  assert.equal(bindingConfig.recheckUnverifiedAfterMs, 15 * 1000);
+  const { time, fake, identity, versions } = timedOutAtStartup();
+  const inner = servingPort();
+  const predict = versions.guard(inner.port, "Prediction");
+  await versions.check();
+  assert.ok(versions.snapshot().targets.every((target) => target.state === "unverified" && target.reason === "TIMEOUT"));
+  assert.equal(fake.calls.length, 0);
+
+  identity.hang = false;
+  time.advance(bindingConfig.recheckUnverifiedAfterMs);
+  assert.deepEqual(await predict({ n: 1 }), { ok: true, served: true });
+  assert.equal(fake.calls.length, 5, "the request read every model once");
+  assert.deepEqual(inner.calls, [{ n: 1 }]);
+  const snapshot = versions.snapshot();
+  assert.equal(snapshot.state, "verified");
+  assert.equal(snapshot.recheckUnverifiedAfterMs, bindingConfig.recheckUnverifiedAfterMs);
+  assert.equal(snapshot.lastCheckedAt, new Date(Date.parse("2026-11-25T08:00:00.000Z") + bindingConfig.recheckUnverifiedAfterMs).toISOString());
+});
+
+test("a guarded request does not re-check an unverified result again within the re-check delay", { timeout: 2000 }, async () => {
+  const time = clock();
+  const answers = { ...acceptedEtags(), m2_warp: 500 };
+  const fake = fakeModelsApi(answers);
+  const versions = binding(fake, { now: time.now });
+  const inner = servingPort();
+  const predict = versions.guard(inner.port, "Prediction");
+  await versions.check();
+  assert.equal(fake.calls.length, 5);
+
+  time.advance(bindingConfig.recheckUnverifiedAfterMs - 1);
+  assert.equal((await predict({})).error.code, MODEL_VERSION_UNVERIFIED);
+  assert.equal(fake.calls.length, 5, "too soon after the startup check");
+
+  time.advance(1);
+  assert.equal((await predict({})).error.code, MODEL_VERSION_UNVERIFIED);
+  assert.equal(fake.calls.length, 10, "one re-check once the delay has passed");
+
+  answers.m2_warp = ACCEPTED.WARP;
+  time.advance(bindingConfig.recheckUnverifiedAfterMs - 1);
+  assert.equal((await predict({})).error.code, MODEL_VERSION_UNVERIFIED, "BigQuery is not read again inside the delay");
+  assert.equal(fake.calls.length, 10);
+
+  time.advance(1);
+  assert.deepEqual(await predict({ n: 1 }), { ok: true, served: true });
+  assert.equal(fake.calls.length, 15);
+  assert.deepEqual(inner.calls, [{ n: 1 }]);
+});
+
+test("concurrent guarded requests share one re-check of an unverified result", { timeout: 2000 }, async () => {
+  const pending = [];
+  const held = fakeModelsApi(Object.fromEntries(Object.entries(acceptedEtags()).map(([model, etag]) => [model,
+    () => new Promise((resolve) => pending.push(() => resolve(Response.json({ etag }))))])));
+  const { time, identity, versions } = timedOutAtStartup({ fetchImpl: held.fetchImpl });
+  await versions.check();
+  assert.equal(held.calls.length, 0);
+
+  identity.hang = false;
+  time.advance(bindingConfig.recheckUnverifiedAfterMs);
+  const inner = servingPort();
+  const predict = versions.guard(inner.port, "Prediction");
+  const optimize = versions.guard(inner.port, "Optimization");
+  const requests = [predict({ n: 1 }), optimize({ n: 2 }), predict({ n: 3 })];
+  await flushChecks();
+  assert.equal(held.calls.length, 5, "three requests started one check");
+  assert.equal(inner.calls.length, 0, "no request is served before the check finishes");
+  pending.forEach((release) => release());
+  assert.deepEqual(await Promise.all(requests), [{ ok: true, served: true }, { ok: true, served: true }, { ok: true, served: true }]);
+  assert.equal(held.calls.length, 5);
+  assert.deepEqual(inner.calls, [{ n: 1 }, { n: 2 }, { n: 3 }]);
+  assert.equal(versions.snapshot().state, "verified");
+});
+
+test("a mismatch blocks without a request-path re-check, even beside an unreadable model", { timeout: 2000 }, async () => {
+  for (const extra of [{}, { m2_delam: 500 }]) {
+    const time = clock();
+    const answers = { ...acceptedEtags(), m2_crack: "Zm9yZWlnbi1ldGFnLTAwMQ==", ...extra };
+    const fake = fakeModelsApi(answers);
+    const versions = binding(fake, { now: time.now });
+    const inner = servingPort();
+    await versions.check();
+    answers.m2_crack = ACCEPTED.CRACK;
+    answers.m2_delam = ACCEPTED.DELAM;
+    time.advance(bindingConfig.maxVerifiedAgeMs);
+    const result = await versions.guard(inner.port, "Prediction")({});
+    assert.equal(result.error.code, MODEL_VERSION_MISMATCH, JSON.stringify(extra));
+    assert.deepEqual(result.error.targets, ["CRACK"]);
+    assert.equal(fake.calls.length, 5, "a mismatch is not re-read on the request path");
+    assert.equal(inner.calls.length, 0);
+    assert.equal(versions.snapshot().state, "mismatch");
+  }
+});
+
+test("a re-check that fails again still blocks with MODEL_VERSION_UNVERIFIED", { timeout: 2000 }, async () => {
+  const time = clock();
+  const answers = acceptedEtags();
+  const fake = fakeModelsApi(answers);
+  let identity = "hang";
+  const versions = binding(fake, {
+    now: time.now, requestTimeoutMs: 25, checkIntervalMs: 1000,
+    tokenProvider: async () => {
+      if (identity === "hang") return new Promise(() => {});
+      throw new Error("metadata down");
+    },
+  });
+  const inner = servingPort();
+  await versions.check();
+  identity = "fail";
+  time.advance(bindingConfig.recheckUnverifiedAfterMs);
+  assert.deepEqual(await versions.guard(inner.port, "Explanation")({}), {
+    ok: false,
+    error: {
+      code: MODEL_VERSION_UNVERIFIED,
+      message: "Explanation is blocked until the accepted model versions are confirmed in BigQuery.",
+      targets: ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"],
+    },
+  });
+  assert.equal(inner.calls.length, 0);
+  assert.equal(fake.calls.length, 0);
+  const snapshot = versions.snapshot();
+  assert.ok(snapshot.targets.every((target) => target.state === "unverified" && target.reason === "IDENTITY_UNAVAILABLE"),
+    "the re-check ran and replaced the startup TIMEOUT");
+  assert.equal(snapshot.lastCheckedAt, new Date(Date.parse("2026-11-25T08:00:00.000Z") + bindingConfig.recheckUnverifiedAfterMs).toISOString());
+});
+
+test("the re-check delay must be a whole number of at least one second", () => {
+  for (const recheckUnverifiedAfterMs of [999, 0, -15000, 1500.5, "15000", undefined]) {
+    assert.throws(() => binding(fakeModelsApi(), { recheckUnverifiedAfterMs: recheckUnverifiedAfterMs ?? null }), TypeError,
+      String(recheckUnverifiedAfterMs));
+  }
+  assert.doesNotThrow(() => binding(fakeModelsApi(), { recheckUnverifiedAfterMs: 1000 }));
+});
+
 test("the maximum age must be longer than the check interval", () => {
   for (const maxVerifiedAgeMs of [bindingConfig.checkIntervalMs, 0, 1.5, undefined]) {
     assert.throws(() => binding(fakeModelsApi(), { maxVerifiedAgeMs: maxVerifiedAgeMs ?? null }), TypeError, String(maxVerifiedAgeMs));
