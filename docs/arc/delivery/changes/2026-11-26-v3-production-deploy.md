@@ -1,7 +1,7 @@
 # Change: deploy `v3` to production (`momentum-ai.cloud.run`)
 
 - Date: 2026-11-26
-- Status: DRAFT, not run. Runs only after the M6 security repair (ARC-M6-R1 to R3) passes QA and the security re-check, and after Om approves this record.
+- Status: RUN on 2026-11-27 (IST), approved by Om in the session ("Approve and deploy") after the M6 security re-check (`reviews/M6-review.md`).
 - Asked by: Om, 2026-11-26 ("deploy to https://momentum-ai.cloud.run/"), then "Fix G-2 to G-5, then deploy".
 - Service: Cloud Run `momentum`, `asia-south1`, project `prepagent-hack`, runtime account `prepagent-run@prepagent-hack.iam.gserviceaccount.com`.
 
@@ -51,4 +51,13 @@ One Cloud Build (a few rupees); two revisions at min instances 0; Gemini under t
 `gcloud run services update-traffic momentum --to-revisions=momentum-00023-yaz=100`. One command, no data change. `momentum-00023-yaz` is kept until the release gate passes. The secret can be disabled with `gcloud secrets versions disable`.
 
 ## Result
-Not run.
+Run 2026-11-27 (IST; 26 Nov UTC). The test tag is `v3rc`, not `rc`: Cloud Run tags need at least 3 characters.
+- Build: `v3` at `488f8e3`, snapshot manifest `b986a707…`, Cloud Build `9583058b` SUCCESS (smoke test and audit), image `prepagent@sha256:71826c14…`.
+- Secret `arc-pitch-reserve-code` version 1 created from `openssl rand -hex 16` (128 bits, never printed); `prepagent-run@` has `secretAccessor` on it.
+- Test revision `momentum-v3-rc1` (tag `v3rc`, origin the tag URL): `/` redirects to `/app/`; `tools/release-preflight.mjs` passed (health, D4 acceptance, model versions verified for all five, budget-v2 enforced, `sessionCallsLeft` 40, every integration on except `getInsights`, which has no live adapter). PO1 through Arc: Gemini read the order, line confirmed, conditions 62% RH, 24.5 °C, moisture 7.3, 27 Nov, DAY, settings 48, 162, HIGH, 32, MED, 5, 60; plan roll 170 °C, gum MEDIUM, viscosity 45 s, modeled scrap 56.4 to 49.2 kg, 7.2 kg and ₹384 lower, the same as `arc-test` on 26 Nov. Approve card reached, not approved.
+- Production revision `momentum-v3-prod1` (origin `https://momentum-ai.cloud.run`, max 4 instances, concurrency 20, 42 env settings, limits as in the table) read back before traffic; Ready, no startup warnings.
+- Traffic: `momentum-v3-prod1` 100%. On `https://momentum-ai.cloud.run`: `/` 302 to `/app/`, `/app/` 200, `/health` 200, `/api/status` without a session returns the 8 public fields only. PO1 through Arc: stored DRAFT for PKBX0041, 1,300 boxes, 56.4 to 49.2 kg, the same settings; Approve card reached with no demo wording; not approved.
+- Defect seen on the first live plan: the panel stayed on "Planning the lot" although the turn completed on the server (turn record `complete`, lot at `draft_review`, job stored); Cloud Run logged "Truncated response body" for the plan request. A reload showed the Compare card. Follow-up ticket: the panel should read the turn record when the stream ends early.
+- No `client_key_unknown` warning in the revision's logs, so client addresses resolve. The two-network check (laptop and a phone on mobile data) is NOT RUN: only one network was available to the orchestrator.
+- Tags removed: `v3rc`, `arc-limits`, `demo`, `domain`, `polish`, `r2fix`, `v2be`, `welcome`; each answers 404. The revisions are kept. `momentum-00023-yaz` is kept for rollback.
+- Gemini cost today (budget store): 4 attempts, ₹9.14, ₹2.29 an attempt (two PO1 runs). At that rate 220 public calls cost about ₹503, which leaves about ₹97 under the ₹600 cap for the 80 reserved calls that need about ₹183. The pitch reserve is therefore NOT fully protected by the rupee cap; the security re-check's condition 1 is not met at this rate. It matters only inside the reserve window (4 December, SGT); a limits-only revision before then fixes it (founder decision pending: a higher rupee cap, or a lower public day limit).
