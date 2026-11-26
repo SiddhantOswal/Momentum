@@ -107,8 +107,8 @@ for (const theme of ['dark', 'light']) {
     const main = page.locator('main');
 
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeAttached();
-    await expect(page.getByRole('heading', { name: 'Start with a sample order.' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Try a sample order' }).first()).toHaveAttribute('href', '#/new-lot/order');
+    await expect(page.getByRole('heading', { name: 'Start with an order.' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Start an order' }).first()).toHaveAttribute('href', '#/new-lot/order');
     await expect(main.getByText('Modelled on our plant')).toBeVisible();
 
     await expect(main.getByText('Latest prepared run, TESTITEM1')).toBeVisible();
@@ -120,7 +120,7 @@ for (const theme of ['dark', 'light']) {
     await expect(route).toContainText('160 → 168 °C');
     await expect(route).toContainText('HIGH → MEDIUM');
 
-    const table = page.getByRole('table', { name: 'Lots from approved sample orders' });
+    const table = page.getByRole('table', { name: 'Lots from approved orders' });
     const first = table.getByRole('row').nth(1);
     await expect(first).toContainText('TESTITEM1');
     await expect(first).toContainText('Not connected');
@@ -199,17 +199,17 @@ test('Home shows not-connected states, not numbers, when records are missing', a
   const trust = page.getByRole('region', { name: 'How far to trust each model' });
   await expect(trust).toContainText('Not connected');
   await expect(trust).not.toContainText(/\d\.\d\d/);
-  await expect(page.locator('main').getByText('No prepared run yet. Try a sample order to make one.')).toBeVisible();
+  await expect(page.locator('main').getByText('No prepared run yet. Start an order to make one.')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Production route' })).toContainText('No stored plan yet');
   await expect(page.getByRole('region', { name: 'Job card' })).toContainText('No draft is waiting for approval.');
-  await expect(page.getByRole('table', { name: 'Lots from approved sample orders' })).toContainText('No lots yet.');
+  await expect(page.getByRole('table', { name: 'Lots from approved orders' })).toContainText('No lots yet.');
   await expect(page.getByRole('table', { name: 'Recent activity' })).toContainText('No activity recorded yet.');
 });
 
 test('Home hides scrap figures from a job planned in another session', async ({ page }) => {
   await mockApi(page, { job: json(403, { ok: false, error: { code: 'DEMO_SCOPE_REQUIRED', message: 'This record does not belong to this demo session.' } }) });
   await open(page, '#/home');
-  await expect(page.locator('main').getByText('Its scrap figures open in the demo session that planned it.')).toBeVisible();
+  await expect(page.locator('main').getByText('Its scrap figures open in the session that planned it.')).toBeVisible();
   await expect(page.locator('main').getByText('Model estimate, predicted')).toHaveCount(0);
   await expect(page.locator('main')).not.toContainText('70.2');
   await expect(page.getByRole('region', { name: 'Job card' })).toContainText('900 boxes');
@@ -292,7 +292,7 @@ test('Home shows no figures from a job record that belongs to another lot', asyn
   other.jobSheet.jobId = 'JOB-TEST-9999';
   await mockApi(page, { job: json(200, other) });
   await open(page, '#/home');
-  await expect(page.locator('main').getByText('Its scrap figures open in the demo session that planned it.')).toBeVisible();
+  await expect(page.locator('main').getByText('Its scrap figures open in the session that planned it.')).toBeVisible();
   await expect(page.locator('main')).not.toContainText('70.2');
   await expect(page.locator('main')).not.toContainText('Recycled 5-ply');
   await expect(page.getByRole('region', { name: 'Latest run steps' }).getByRole('listitem').nth(2)).toHaveText('Not done: Conditions confirmedNot known here');

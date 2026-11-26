@@ -48,7 +48,7 @@ async function fetchSample(id: SampleId): Promise<File | undefined> {
 
 export async function chooseSample(id: SampleId): Promise<string | undefined> {
   const file = await fetchSample(id);
-  if (!file) return "The sample order is unavailable. Upload a purchase order instead.";
+  if (!file) return "This order is unavailable. Upload a purchase order instead.";
   const sample = SAMPLES.find((entry) => entry.id === id)!;
   setOrderFile(file);
   updateLot({

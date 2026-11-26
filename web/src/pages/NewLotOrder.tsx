@@ -62,7 +62,7 @@ function PurchaseOrderCard({ lot, onToast }: { lot: LotState; onToast: ReturnTyp
           <span style={{ marginLeft: "auto" }}>{lot.extraction ? <Chip>Read</Chip> : <Chip tone="none">Not read</Chip>}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, flexWrap: "wrap" }} role="group" aria-labelledby="nl-samples">
-          <span className="lb" id="nl-samples" style={{ flexBasis: "100%" }}>Approved samples</span>
+          <span className="lb" id="nl-samples" style={{ flexBasis: "100%" }}>Approved orders</span>
           {SAMPLES.map((sample) => (
             <button key={sample.id} type="button" className={`chp${lot.file?.sample === sample.id ? " on" : ""}`}
               aria-pressed={lot.file?.sample === sample.id} disabled={busy !== ""} onClick={() => pickSample(sample.id)}>
@@ -92,7 +92,7 @@ function PurchaseOrderCard({ lot, onToast }: { lot: LotState; onToast: ReturnTyp
             {busy === "read" ? "Reading the order" : "Read order with Gemini"}
           </Button>
           <span className="lb" style={{ fontSize: 13 }}>
-            {!lot.file ? "Pick a sample or upload an order." : !contextReady ? "Enter the order ID and the loaded paper first." : "Gemini reads the file once; the catalog match runs in code."}
+            {!lot.file ? "Pick an approved order or upload one." : !contextReady ? "Enter the order ID and the loaded paper first." : "Gemini reads the file once; the catalog match runs in code."}
           </span>
         </div>
         {error && <p className="err" role="alert">{error}</p>}

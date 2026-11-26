@@ -178,7 +178,7 @@ for (const [status, nowAt] of [['SUPERSEDED', 'Replaced, read only'], ['FAILED',
   });
 }
 
-for (const [status, message] of [[404, 'No lot has this ID'], [403, 'This lot belongs to another demo session']]) {
+for (const [status, message] of [[404, 'No lot has this ID'], [403, 'This lot belongs to another session']]) {
   test(`a named lot that reads as ${status} says what failed`, async ({ page }) => {
     await mockBackend(page, { '/lots/LOT-X': json(status, { ok: false, error: { code: 'X', message: 'x' } }) });
     await open(page, '/app/?lot=LOT-X#/prep-flow');
@@ -195,7 +195,7 @@ test('Prep Flow reads at most five jobs when the newest lots belong to other ses
     '/jobs/*': json(403, { ok: false, error: { code: 'DEMO_SCOPE_REQUIRED', message: 'x' } }),
   });
   await open(page, '/app/#/prep-flow');
-  await expect(page.getByText('The newest lots belong to other demo sessions.')).toBeVisible();
+  await expect(page.getByText('The newest lots belong to other sessions.')).toBeVisible();
   expect(requests.filter((request) => new URL(request.url).pathname.startsWith('/jobs/'))).toHaveLength(5);
 });
 
@@ -403,7 +403,7 @@ test('when every listed lot belongs to another session, Prep Flow says so and sh
     [`/jobs/${OTHER}`]: DEMO_SCOPE,
   });
   await open(page, '/app/#/prep-flow');
-  await expect(page.getByText('The newest lots belong to other demo sessions.')).toBeVisible();
+  await expect(page.getByText('The newest lots belong to other sessions.')).toBeVisible();
   expect(await stepStates(page)).toEqual(Array(9).fill('nc'));
 });
 
@@ -414,6 +414,6 @@ test('the operator page skips approved cards from other demo sessions', async ({
   });
   await open(page, '/app/#/operator', { width: 375, height: 812 });
   const card = page.getByRole('region', { name: 'Approved job card' });
-  await expect(card).toContainText('The newest approved cards belong to other demo sessions.');
+  await expect(card).toContainText('The newest approved cards belong to other sessions.');
   await expect(card.getByRole('button')).toHaveCount(0);
 });

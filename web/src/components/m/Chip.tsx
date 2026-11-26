@@ -27,7 +27,7 @@ export const PROVENANCE = {
   "prototype-data": { text: "Prototype data, not live", tone: "modeled" },
   "modelled-on-plant": { text: "Modelled on our plant", tone: "example" },
   "sample": { text: "Sample", tone: "example" },
-  "approved-sample": { text: "Approved sample", tone: "plain" },
+  "approved-sample": { text: "Approved order", tone: "plain" },
   "example": { text: "Example", tone: "example" },
   "example-value": { text: "Example value", tone: "example" },
   "demo-session": { text: "Demo session, simulated", tone: "example" },

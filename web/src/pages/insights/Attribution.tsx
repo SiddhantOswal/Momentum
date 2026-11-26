@@ -120,7 +120,7 @@ export function Attribution({ lots }: { lots: LiveLot[] }) {
   const inFlight = useRef(false);
 
   if (planned.length === 0) {
-    return <NotConnected span={8} title="What moved the estimate" missing="No stored lot to explain yet. Plan a lot from a sample order first." />;
+    return <NotConnected span={8} title="What moved the estimate" missing="No stored lot to explain yet. Plan a lot from an approved order first." />;
   }
   const sheet = job.result?.ok ? job.result.data.jobSheet : undefined;
   const request = sheet && explanationRequest(sheet);
@@ -142,7 +142,7 @@ export function Attribution({ lots }: { lots: LiveLot[] }) {
 
   let body;
   if (job.loading) body = <p className="lb" style={{ margin: 0 }}>Reading the lot record…</p>;
-  else if (!sheet) body = <p className="lb" style={{ margin: 0 }}>This lot was planned in another demo session, so its inputs cannot be read here.</p>;
+  else if (!sheet) body = <p className="lb" style={{ margin: 0 }}>This lot was planned in another session, so its inputs cannot be read here.</p>;
   else if (!request) body = <p className="lb" style={{ margin: 0 }}>This lot's record cannot be explained in its stored currency.</p>;
   else if (current?.result?.ok) body = <Rows rows={current.result.data.rows} advisory={advisoryDefects(sheet)} />;
   else {

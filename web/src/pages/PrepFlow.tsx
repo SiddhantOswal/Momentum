@@ -7,11 +7,11 @@ import { findReadableJob, pageParam, readJob, readLotHead, readLots, readTrace, 
 import "./prepflow/prepflow.css";
 
 const JOB_FAILURES: Record<number, string> = {
-  403: "This lot belongs to another demo session, so its steps cannot be shown here.",
+  403: "This lot belongs to another session, so its steps cannot be shown here.",
   404: "No stored job has this ID, so no step can be shown.",
 };
 const LOT_FAILURES: Record<number, string> = {
-  403: "This lot belongs to another demo session, so its steps cannot be shown here.",
+  403: "This lot belongs to another session, so its steps cannot be shown here.",
   404: "No lot has this ID, so no step can be shown.",
 };
 
@@ -49,7 +49,7 @@ function useFlowSources(): { loading: boolean; sources: FlowSources } {
         else {
           const found = await findReadableJob(lots.data.lots, signal);
           if (found.ok) Object.assign(sources, { lot: found.lot, job: found.job });
-          else if (found.reason === "other-sessions") sources.failure = "The newest lots belong to other demo sessions. Plan a lot in New Lot to see its steps.";
+          else if (found.reason === "other-sessions") sources.failure = "The newest lots belong to other sessions. Plan a lot in New Lot to see its steps.";
           else if (found.reason === "failed") sources.failure = JOB_FAILURES[found.status ?? 0] ?? "The stored job could not be read, so no step can be shown.";
         }
       }

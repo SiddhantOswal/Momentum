@@ -196,7 +196,7 @@ function PastWork({ onOpen }: { onOpen: (turn: TurnListItem) => void }) {
   return (
     <section aria-labelledby="arc-past-title" className="stl" style={{ gap: 12 }}>
       <h2 id="arc-past-title" className="h1a">Past work</h2>
-      <p className="lb" style={{ margin: 0, fontSize: 15 }}>Messages from this demo session.</p>
+      <p className="lb" style={{ margin: 0, fontSize: 15 }}>Messages from this session.</p>
       {state.problem && <Problem words={state.problem} />}
       {!state.problem && !state.loading && state.turns.length === 0 && <p className="lb" style={{ margin: 0 }}>No past work in this session yet.</p>}
       {state.turns.length > 0 && (
@@ -327,7 +327,7 @@ export function ArcPanel({ hostName, conversation, onClose }: { hostName: string
             <Icon name="arrow" />
           </button>
         </form>
-        <div className="cf">Answers use sample data until sensors are connected.</div>
+        <div className="cf">No live sensor feed yet. Answers use modelled plant data.</div>
       </div>
     </aside>
   );

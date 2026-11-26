@@ -39,15 +39,15 @@ export function SampleOrders({ lots, job }: { lots: LiveLot[]; job?: Result<JobR
     ],
   }));
   return (
-    <Card title="Approved sample orders" meta="Newest first" span={8} className="hm-orders">
+    <Card title="Approved orders" meta="Newest first" span={8} className="hm-orders">
       <div className="hm-cont">
         <span style={{ fontSize: 15, fontWeight: 600 }}>Continue review</span>
         <Chip tone="none">Not connected</Chip>
         <span className="lb">Open reviews are not listed here yet.</span>
       </div>
-      <Table label="Lots from approved sample orders" rowHeight={56}
+      <Table label="Lots from approved orders" rowHeight={56}
         columns={[{ label: "Lot", width: "170px" }, { label: "Stage", width: "150px" }, { label: "Model flag", width: "184px" }, { label: "Status", width: "1fr" }]}
-        rows={rows} empty="No lots yet. Try a sample order to start one." />
+        rows={rows} empty="No lots yet. Start an order to begin one." />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, borderTop: "1px solid var(--ln)", paddingTop: 14, marginTop: 2 }}>
         <span className="lb" style={{ fontSize: 14, color: "var(--tx)" }}>
           {sheet && `Humidity ${formatNumber(sheet.conditions.ambientRhPct, 1)}% ${sheet.conditions.supervisorConfirmed ? "confirmed" : "entered"}. Paper moisture ${formatNumber(sheet.conditions.paperMoisturePct, 1)}%.`}
@@ -67,7 +67,7 @@ export function JobCardSummary({ lot, job }: { lot?: LiveLot; job?: Result<JobRe
     <section className="cd kr c4" aria-labelledby="hm-card-title" style={{ display: "flex", flexDirection: "column", padding: 22 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <h2 id="hm-card-title" style={{ margin: 0, font: "700 13px 'Inter',sans-serif", letterSpacing: ".16em", textTransform: "uppercase" }}>Job card</h2>
-        {lot && <Chip tone="example">Sample, not approved</Chip>}
+        {lot && <Chip tone="example">Not approved</Chip>}
       </div>
       {lot
         ? (
@@ -94,7 +94,7 @@ export function JobCardSummary({ lot, job }: { lot?: LiveLot; job?: Result<JobRe
           <>
             <div style={{ fontSize: 15, color: "var(--mu)", marginTop: 14 }}>No draft is waiting for approval.</div>
             <div style={{ flex: 1, minHeight: 10 }} />
-            <a className="bt hm-open" href={href("new-lot/order")}>Try a sample order<Icon name="arrow" /></a>
+            <a className="bt hm-open" href={href("new-lot/order")}>Start an order<Icon name="arrow" /></a>
           </>
         )}
     </section>

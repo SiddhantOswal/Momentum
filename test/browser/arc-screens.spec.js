@@ -213,10 +213,10 @@ for (const theme of ['dark', 'light']) {
       await panel.getByRole('button', { name: /^New lot/ }).click();
       await expect(panel.getByRole('heading', { name: 'Choose the purchase order' })).toBeVisible();
       await expect(panel.getByRole('list', { name: 'New lot steps' }).locator('[aria-current="step"]')).toContainText('Order');
-      const choices = panel.getByRole('radiogroup', { name: 'Approved sample orders' }).getByRole('radio');
+      const choices = panel.getByRole('radiogroup', { name: 'Approved orders' }).getByRole('radio');
       await expect(choices).toHaveCount(5);
       await expect(choices.first()).toBeChecked();
-      await expect(panel.getByText('Approved sample', { exact: true })).toHaveCount(1);
+      await expect(panel.getByText('Approved order', { exact: true })).toHaveCount(1);
       await expect(panel.getByText('Dropping your own PDF or JPEG is not connected to Arc yet.')).toBeVisible();
       expect((await panel.locator('.drop .pv').boundingBox()).width).toBeLessThan(160);
       await panel.getByRole('radio', { name: /^PO2 Multi-line/ }).click();
@@ -237,7 +237,7 @@ for (const theme of ['dark', 'light']) {
       const reviewReads = await mockReview(page);
       await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
       const panel = await openArc(page, { theme });
-      await type(panel, 'Read sample order PO1');
+      await type(panel, 'Read order PO1');
       await expect(panel.getByRole('heading', { name: 'Check what was read' })).toBeVisible();
       const lines = panel.getByRole('radiogroup', { name: 'Order lines' });
       await expect(lines.getByRole('radio')).toHaveCount(1);
@@ -267,7 +267,7 @@ for (const theme of ['dark', 'light']) {
       await mockTurns(page, [{ events: (id) => actionRun(id, { steps: [{ tool: 'read_order', resultRef: { kind: 'po_review', id: REVIEW_ID } }], waitingFor: 'confirm_order' }) }]);
       await mockReview(page, { ...REVIEW, readByGemini: false, lines: [{ lineIndex: 0, sourcePage: 1, itemCode: null, quantity: 1300, status: 'UNKNOWN_CODE' }] });
       const panel = await openArc(page, { theme });
-      await type(panel, 'Read sample order PO1');
+      await type(panel, 'Read order PO1');
       const lines = panel.getByRole('radiogroup', { name: 'Order lines' });
       await expect(lines).toContainText('Line 1: No catalog item');
       await expect(lines).toContainText('Not in catalog');
@@ -380,7 +380,7 @@ for (const theme of ['dark', 'light']) {
       await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
       await mockReview(page);
       const panel = await openArc(page, { theme });
-      await type(panel, 'Read sample order PO1');
+      await type(panel, 'Read order PO1');
       await expect(panel.getByRole('radiogroup', { name: 'Order lines' }).getByRole('radio')).toBeChecked();
       for (const box of await panel.getByRole('checkbox').all()) await box.check();
       await panel.getByRole('button', { name: 'Confirm order' }).click();
@@ -669,7 +669,7 @@ for (const theme of ['dark', 'light']) {
         { events: (id) => oneStep(id, { tool: 'read_order', kind: 'lot_preparation', resultRef: { kind: 'po_review', id: REVIEW_ID } }) },
       ]);
       const panel = await openArc(page, { theme });
-      await type(panel, 'Read sample order PO1');
+      await type(panel, 'Read order PO1');
       await expect(panel.getByRole('heading', { name: 'Choose the purchase order' })).toBeVisible();
       await expect(panel.getByRole('alert')).toContainText('Arc could not reach Gemini. Try again.');
       await panel.getByRole('button', { name: 'Try again' }).click();
@@ -686,7 +686,7 @@ test('a plan step stopped by the daily plan limit, a plan conflict or a revision
     ['step.blocked', 'PLAN_DAILY_LIMIT_REACHED', 'This session has planned as many lots as it can today. Planning opens again at midnight IST (02:30 in Singapore).'],
     ['step.failed', 'CONFLICT', 'These values clash with an earlier plan for the same step. Press Confirm conditions again.'],
     ['step.failed', 'REVISION_CONFLICT', 'The lot changed while this draft was being prepared. Plan the lot again.'],
-    ['step.failed', 'DEMO_SCOPE_REQUIRED', 'This lot belongs to another demo session, so Arc cannot use it here.'],
+    ['step.failed', 'DEMO_SCOPE_REQUIRED', 'This lot belongs to another session, so Arc cannot use it here.'],
   ];
   await mockTurns(page, stops.map(([type, errorCode]) => ({
     events: (id) => oneStep(id, { tool: 'plan_lot', kind: 'lot_preparation', end: { type, errorCode, retrySafe: false } }),
@@ -711,7 +711,7 @@ test('after stream.error, Try again re-posts the same clientTurnId so the server
     { events: (id) => oneStep(id, { tool: 'read_order', kind: 'lot_preparation', resultRef: { kind: 'po_review', id: REVIEW_ID } }) },
   ]);
   const panel = await openArc(page);
-  await type(panel, 'Read sample order PO1');
+  await type(panel, 'Read order PO1');
   await expect(panel.getByRole('alert')).toHaveText(/This step did not finish in time\. Your confirmed inputs are kept\. Try again\./);
   expect(posts).toHaveLength(1);
   await panel.getByRole('button', { name: 'Try again' }).click();
@@ -944,7 +944,7 @@ test('the phone sheet has no sideways scroll on the review and conditions cards'
   await mockReview(page);
   await page.route(/\/lots\/[^/]+$/, (route) => route.fulfill(json(200, { ok: true, lot: { ...LOT, order: { itemCode: 'PKBX0041', quantity: 1300 }, draftConditions: [] }, revision: null })));
   const panel = await openArc(page, { hash: '#/home' });
-  await type(panel, 'Read sample order PO1');
+  await type(panel, 'Read order PO1');
   await expect(panel.getByRole('radiogroup', { name: 'Order lines' }).getByRole('radio')).toBeChecked();
   await expectNoSidewaysScroll(page);
   for (const box of await panel.getByRole('checkbox').all()) await box.check();

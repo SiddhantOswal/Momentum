@@ -78,7 +78,7 @@ export function LotSource({ problem }: { problem?: StepProblem }) {
     <>
       <ArcSteps current={1} />
       <ScreenHead title="Choose the purchase order" sub="Arc reads the file once. You check what it found." />
-      <section className="cd" style={{ padding: "4px 20px" }} role="radiogroup" aria-label="Approved sample orders">
+      <section className="cd" style={{ padding: "4px 20px" }} role="radiogroup" aria-label="Approved orders">
         {SAMPLES.map((sample) => (
           <label key={sample.id} className={`po${chosen === sample.id ? " on" : ""}`}>
             <input type="radio" className="ovl" name={name} value={sample.id} checked={chosen === sample.id} onChange={() => setChosen(sample.id)} />
@@ -94,8 +94,8 @@ export function LotSource({ problem }: { problem?: StepProblem }) {
       </div>
       {problem && <Problem {...problem} />}
       <div className="row">
-        <Button arrow disabled={busy} onClick={() => send({ kind: "action", actionId: "read_sample_order", params: { sampleId: chosen } }, `Read sample order ${chosen}`)}>Read this order</Button>
-        <span className="lb" style={{ fontSize: 14 }}>Approved samples only.</span>
+        <Button arrow disabled={busy} onClick={() => send({ kind: "action", actionId: "read_sample_order", params: { sampleId: chosen } }, `Read order ${chosen}`)}>Read this order</Button>
+        <span className="lb" style={{ fontSize: 14 }}>Approved orders only.</span>
       </div>
     </>
   );
