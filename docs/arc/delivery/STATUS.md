@@ -114,7 +114,7 @@ Orchestrated by a Claude Code session on Om's laptop from the handover bundle (`
 ## In progress
 
 - M6 gate run on 2026-11-26 at `682b960`: **NO-GO** (`reviews/M6-review.md`). Security and the verification auditor gave NO-GO; the other six gave CONDITIONAL GO. M7 does not start until blockers G-1 to G-6 are fixed by their owners and re-checked by the same reviewers.
-- The `arc-test` revision (no traffic) runs budget-v2 on a public URL with M1 SEC-1 and SEC-2 still open (G-2, G-3) and a shared session-signing secret (G-4). Production `momentum-00023-yaz` is unchanged.
+- The `arc-test` tag was removed on 2026-11-26 on Om's decision (G-2 to G-4 open on a public URL); the revision `momentum-arc-test-v2` is kept with no traffic and no URL. Production `momentum-00023-yaz` is unchanged. Manual testing continues on `npm run live:local` (127.0.0.1 only).
 
 ## Blocked
 
@@ -125,7 +125,7 @@ Orchestrated by a Claude Code session on Om's laptop from the handover bundle (`
 ## Next
 
 1. Founders decide what happens to `arc/ui-vnext` (the rest of G-1 is settled by `handover/TWO-MACHINES.md`).
-2. Backend repair round for G-2 to G-5 (IPv6 /64 keys and unknown-bucket alert; `/api/status` without a session; an audience in the session token or a separate signing secret; per-IP and session Gemini limits and the pitch reserve). Until then, either remove the `arc-test` tag or take budget-v2 off it (founder choice).
+2. Backend repair round for G-2 to G-5 (IPv6 /64 keys and unknown-bucket alert; `/api/status` without a session; an audience in the session token or a separate signing secret; per-IP and session Gemini limits and the pitch reserve). The `arc-test` tag comes back only after the re-check passes.
 3. Data engineer corrects G-6 (crack R² 0.111, warp MAE interval upper bound 0.003).
 4. Before any demo of the Arc lot flow: CR-1, CR-2, RAI-10/CR-4/CO-2, RAI-11, RAI-14, CR-5, CR-6, EV-1, CO-4 (`reviews/M6-review.md`).
 5. The same reviewers re-check, at most three repair rounds.
@@ -133,7 +133,7 @@ Orchestrated by a Claude Code session on Om's laptop from the handover bundle (`
 ## Open founder questions
 
 Asked only when a ticket needs them.
-- 2026-11-26, M6 gate: G-1 (which `arc/main` is the integration branch, who orchestrates, whether `arc/*` stays on the public origin); whether to remove the `arc-test` tag or take budget-v2 off it until G-2 to G-4 are fixed; RAI-16 ("Modeled saving" on Insights against the RAI rule "never a saving"); CE-1 and CO-5 (record Om's "predicted, not 'not measured'" rule, and the wording for counts of generated lots); CE-2 ("modelled" or "modeled" in user-facing text); SEC-15 (remove the old `demo`, `domain`, `polish`, `r2fix`, `welcome` and `v2be` tags).
+- 2026-11-26, M6 gate: G-1 (which `arc/main` is the integration branch, who orchestrates, whether `arc/*` stays on the public origin); RAI-16 ("Modeled saving" on Insights against the RAI rule "never a saving"); CE-1 and CO-5 (record Om's "predicted, not 'not measured'" rule, and the wording for counts of generated lots); CE-2 ("modelled" or "modeled" in user-facing text); SEC-15 (remove the old `demo`, `domain`, `polish`, `r2fix`, `welcome` and `v2be` tags).
 - 2026-11-25 (Om's session): G1, Gen AI trade-off: the writer now runs only for model-score and lot-status answers; other data answers are labelled templates until ARC-M4-04 rebuilds labelled blocks. Accept for the pitch, or prioritise ARC-M4-04? G2 done 2026-11-25 with Om's approval: `impact_recs_v3` and `impact_lots_v3` built (73.4 MB billed), `dash_kpis.sql` reads v3 on `arc/main`; net saving ₹7,927 a month (was ₹7,934), 4 lots made worse (was 3); record `changes/2026-11-25-impact-v3.md`. G3: the PKBX0041 reference in `data/om-signoff-request.md` was computed with crack counted and must be recomputed before Om signs. G4: who runs the delivery from now (one orchestrator merging into `arc/main` at a time), and the private backup remote.
 - F2 remaining: the pitch slot time. Until it is known, the 80-attempt pitch reserve covers all of 4 December (SGT).
 - F4: whether Billing credits cover Vertex AI and Cloud Run (console check). Blocks the first cost-bearing cloud change.
@@ -214,3 +214,4 @@ Asked only when a ticket needs them.
 | 2026-11-25 | One repository: the founders do not want a second (private) repository. `arc/main` stays on the same GitHub remote as the product, which is public. It was pushed on 2026-11-24 15:38 and holds the delivery records, including the M0 and M1 security findings (9 SEC findings about weaknesses of the live service that the M1 protections do not yet cover), the live-setup inventory and the handover files; it holds no secret and no private reference material, and the commits carry the founders' git author email. Risk accepted by the founders; the real fix is to switch the M1 protections on in the release candidate (ARC-M8-01, ARC-M8-05). Only `arc/main` and named unmerged work branches are pushed (not the 100 merged feature branches); `pitch/*` is NOT pushed until the founders confirm, because it contains competitive positioning and rehearsed answers that judges could read | Founders' decision, taken after the risk was shown | Founders |
 | 2026-11-25 | Branch `arc/m0-r5-sa` (one commit, `28896a1`, "Base the eval day cost on the eval-run rate and mark the design approved") is superseded and is not merged. `arc/main` already holds both of its changes: the `04` status "Approved with the plan on 2026-11-23" and the eval-day cost of about $3.50 at the eval-run rate ($1.38 per 353 attempts) in `04` and in ADR-0004. The branch is an older snapshot of `04`; merging it would roll back the M1 additions (for example the `incomplete` trace head status and the budget error codes). The ADRs stay Proposed until their tickets ship, as `00-plan.md` section 1 says. The branch is kept, unmerged, as history | Checked line by line against `arc/main` | Delivery lead |
 
+| 2026-11-26 | Remove the `arc-test` tag until the security blockers G-2 to G-4 pass their re-check; keep the revision | M6 gate security NO-GO | Om |
