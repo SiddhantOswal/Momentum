@@ -302,6 +302,41 @@ test("a plan interrupted after the draft was stored resumes with the same key an
   assert.deepEqual([session.activeLotIds, session.jobIds], [[lotId], [...backend.drafts.keys()]]);
 });
 
+test("Confirm conditions interrupted after the conditions were saved resumes to one plan and one job", { timeout: 5000 }, async () => {
+  const abort = new AbortController();
+  let interruptAfter = null;
+  let saves = 0;
+  const { backend, arc } = setup({
+    wrap: (deps) => ({ ...deps, lotRevisions: { ...deps.lotRevisions, store: { ...deps.lotRevisions.store,
+      saveConditions: async (request) => {
+        const saved = await deps.lotRevisions.store.saveConditions(request);
+        saves += 1;
+        if (saves === interruptAfter) abort.abort();
+        return saved;
+      } } } }),
+  });
+  const { reviewId } = await readPo1(arc);
+  const { lotId } = await confirmLine(arc, reviewId);
+  interruptAfter = saves + 1;
+  const clientTurnId = randomUUID();
+  const input = action("confirm_conditions", conditionsFor(lotId));
+  const interrupted = await events(await arc.post(input, { clientTurnId, signal: abort.signal }));
+  const runId = interrupted.find(({ type }) => type === "run.started").taskRunId;
+  const before = await arc.taskRunStore.get(runId);
+  assert.deepEqual(before.steps.map(({ status }) => status), ["RUNNING", "PENDING", "PENDING"]);
+  assert.equal(backend.requests.submit.length, 0, "nothing was planned before the stop");
+
+  arc.clock(131_000);
+  const resumed = await events(await arc.post(input, { clientTurnId, runner: arc.create() }));
+  assert.deepEqual(shape(resumed).slice(-2), ["step.waiting_for_user:approve:approve", "answer"]);
+  assert.equal(backend.drafts.size, 1);
+  assert.equal(backend.requests.predict.length, 1);
+  const head = (await backend.lotStore.getLot({ lotId, ownerSessionId: arc.principal.sessionId })).head;
+  assert.equal(head.draftConditions.length, 5);
+  const session = await arc.sessionStore.get(arc.principal.sessionId);
+  assert.deepEqual([session.activeLotIds, session.jobIds.length], [[lotId], 1]);
+});
+
 test("confirm_order replayed or resumed opens one lot per turn", { timeout: 5000 }, async () => {
   const abort = new AbortController();
   let interrupt = false;
