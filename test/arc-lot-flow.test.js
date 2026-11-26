@@ -241,6 +241,20 @@ test("the lot read behind GET /lots/:lotId names the confirmed item and quantity
   assert.ok(!JSON.stringify(read).includes(PO1.context.orderId));
 });
 
+test("Confirm conditions for this session's lot that has left its five active lots plans nothing", async () => {
+  const { backend, arc } = setup();
+  const { reviewId } = await readPo1(arc);
+  const lots = [];
+  for (let n = 0; n < 6; n += 1) lots.push((await confirmLine(arc, reviewId)).lotId);
+  const session = await arc.sessionStore.get(arc.principal.sessionId);
+  assert.deepEqual(session.activeLotIds, lots.slice(1), "the oldest lot was dropped");
+  assert.ok(await backend.lotStore.getLot({ lotId: lots[0], ownerSessionId: arc.principal.sessionId }), "it still exists and is owned");
+  const frames = await events(await arc.post(action("confirm_conditions", conditionsFor(lots[0]))));
+  assert.deepEqual(shape(frames), ["run.failed"]);
+  assert.equal(frames[0].errorCode, "LOT_NOT_FOUND");
+  assert.equal(backend.requests.submit.length, 0);
+});
+
 test("Confirm conditions for a lot this session does not hold plans nothing", async () => {
   const owner = setup();
   const { reviewId } = await readPo1(owner.arc);
