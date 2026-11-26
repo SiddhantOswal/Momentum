@@ -25,3 +25,7 @@ The tokens in `web/public/arc-tokens.css` carry most of the change. Some colours
 - Orange tints as `rgba(232,102,79,…)`: `m.css` lines 85, 131, 132, 138; `home.css` lines 47, 48, 56, 88, 93, 99; `explorer.css` line 18; `planning.css` line 90.
 - `#E8664F` in `PrepFlow.tsx` line 106 and in the machine and conveyor illustrations.
 - `.hm-open` (the job-card button) is a fixed dark brown.
+
+## Variants rendered by `render.cjs`
+
+`yellow` (bright, black emphasis card), `yellow-grey` (card takes the grey of the Entered plans bar, `--bar0`), `washed` (same yellow with the saturation taken down) and `washed-grey`. Attributes on `<html>`: `data-accent="yellow|washed"`, `data-emph="grey"`.

@@ -57,7 +57,8 @@ async function mock(page) {
 }
 
 const VARIANTS = [
-  ["current", {}], ["mono", { palette: "mono" }], ["yellow", { accent: "yellow" }],
+  ["yellow", { accent: "yellow" }], ["yellow-grey", { accent: "yellow", emph: "grey" }], ["washed", { accent: "washed" }],
+  ["washed-grey", { accent: "washed", emph: "grey" }],
 ];
 
 (async () => {
@@ -72,7 +73,7 @@ const VARIANTS = [
         await page.goto(`${base}/app/#/${screen}`, { waitUntil: "networkidle" });
         if (name !== "current") {
           await page.addStyleTag({ content: css });
-          await page.evaluate((a) => { if (a.palette) document.documentElement.dataset.palette = a.palette; if (a.accent) document.documentElement.dataset.accent = a.accent; }, attrs);
+          await page.evaluate((a) => { if (a.palette) document.documentElement.dataset.palette = a.palette; if (a.accent) document.documentElement.dataset.accent = a.accent; if (a.emph) document.documentElement.dataset.emph = a.emph; }, attrs);
         }
         // Freeze the animations so every sample is the same frame.
         await page.addStyleTag({ content: "*,*::before,*::after{animation:none!important;transition:none!important}" });

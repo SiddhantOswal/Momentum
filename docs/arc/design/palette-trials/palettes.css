@@ -6,7 +6,8 @@
  * A. Monochrome (data-palette="mono"): black at 95% (#0D0D0D) for the page and ink, 92% (#141414) for
  *    cards, greys between, white for text and the accent. Alerts keep their colours: green for ok, red for
  *    errors and low confidence, amber for warnings, as in the app today. The kraft card becomes the one inverted card per page.
- * B. Yellow accent (data-accent="yellow"): the orange accent swapped for yellow. Everything else as is.
+ * B. Yellow accents (data-accent="yellow" or "washed"): the orange accent swapped for yellow. data-emph="grey" recolours the
+ *    emphasis card to the grey of the "Entered plans" bar.
  */
 
 /* ============================== A. Monochrome ============================== */
@@ -84,43 +85,66 @@ html[data-palette="mono"] .m .hm-art,
 html[data-palette="mono"] .m .in-mo { filter: grayscale(1) contrast(1.06); }
 html[data-palette="mono"][data-theme="dark"] .m .hm-art { filter: grayscale(1) contrast(1.06) brightness(.92); }
 
-/* ============================== B. Yellow accent ============================== */
+/* ============================== B. Yellow accents ============================== */
+/* data-accent="yellow" is the bright yellow. data-accent="washed" is the same hue with the saturation taken down.
+ * --ac-rgb feeds every tint below, so a new accent is one line here. */
+html[data-accent="yellow"] { --ac-rgb: 245,197,24; }
+html[data-accent="washed"] { --ac-rgb: 233,213,139; }
 html[data-accent="yellow"][data-theme="dark"] { --ac: #F5C518; --arc-accent-ink: #17130A; --ct: #F7DC6F; }
 html[data-accent="yellow"][data-theme="light"] { --ac: #F2BE00; --arc-accent-ink: #17130A; --ct: #7A5A00; }
+html[data-accent="washed"][data-theme="dark"] { --ac: #E9D58B; --arc-accent-ink: #1A1608; --ct: #EFE0A8; }
+html[data-accent="washed"][data-theme="light"] { --ac: #E6CD73; --arc-accent-ink: #1A1608; --ct: #7A5A00; }
 
-html[data-accent="yellow"] .m .pv.ac { border-color: rgba(245,197,24,.6); }
-html[data-accent="yellow"] .m .arc { border-color: rgba(245,197,24,.6); background: rgba(245,197,24,.10); }
-html[data-accent="yellow"] .m .arc:hover { background: rgba(245,197,24,.18); border-color: var(--ac); }
-html[data-accent="yellow"] .m .arc.on { border-color: var(--ac); background: rgba(245,197,24,.2); }
-html[data-accent="yellow"] .m .hm-callout { border-color: rgba(245,197,24,.7); }
-html[data-accent="yellow"] .m .hm-stem i { background: rgba(245,197,24,.7); }
-html[data-accent="yellow"] .m .hm-dot b.on { box-shadow: 0 0 0 4px var(--cd), 0 0 0 5px rgba(245,197,24,.6); }
-html[data-accent="yellow"] .m .hm-scn { background: linear-gradient(90deg, transparent, rgba(245,197,24,.34), transparent); }
-html[data-accent="yellow"] .m .hm-lens, html[data-accent="yellow"] .m .hm-abase .hm-led { background: #F5C518; box-shadow: 0 0 8px #F5C518; }
-html[data-accent="yellow"] .m .hm-agrip .hm-gstrip { background: #F5C518; box-shadow: 0 0 10px #F5C518; }
+html[data-accent] .m .pv.ac { border-color: rgba(var(--ac-rgb), .6); }
+html[data-accent] .m .arc { border-color: rgba(var(--ac-rgb), .6); background: rgba(var(--ac-rgb), .10); }
+html[data-accent] .m .arc:hover { background: rgba(var(--ac-rgb), .18); border-color: var(--ac); }
+html[data-accent] .m .arc.on { border-color: var(--ac); background: rgba(var(--ac-rgb), .2); }
+html[data-accent] .m .hm-callout { border-color: rgba(var(--ac-rgb), .7); }
+html[data-accent] .m .hm-stem i { background: rgba(var(--ac-rgb), .7); }
+html[data-accent] .m .hm-dot b.on { box-shadow: 0 0 0 4px var(--cd), 0 0 0 5px rgba(var(--ac-rgb), .6); }
+html[data-accent] .m .hm-scn { background: linear-gradient(90deg, transparent, rgba(var(--ac-rgb), .34), transparent); }
+html[data-accent] .m .hm-lens, html[data-accent] .m .hm-abase .hm-led { background: rgb(var(--ac-rgb)); box-shadow: 0 0 8px rgb(var(--ac-rgb)); }
+html[data-accent] .m .hm-agrip .hm-gstrip { background: rgb(var(--ac-rgb)); box-shadow: 0 0 10px rgb(var(--ac-rgb)); }
 /* Yellow text on a light page fails contrast, so accent-coloured text uses the dark amber there. */
-html[data-accent="yellow"][data-theme="light"] .m .sx.ac,
-html[data-accent="yellow"][data-theme="light"] .m .lk { color: #7A5A00; }
+html[data-accent][data-theme="light"] .m .sx.ac,
+html[data-accent][data-theme="light"] .m .lk { color: #7A5A00; }
 
 /* Emphasis card: neutral instead of kraft, so yellow is the only colour besides status marks. On a light page
- * it is near-black with a yellow button; on a dark page it is light grey with a dark button. */
-html[data-accent="yellow"][data-theme="light"] .m .kr {
+ * it is near-black with an accent button; on a dark page it is light grey with a dark button. */
+html[data-accent][data-theme="light"] .m .kr {
   --cd: #141414; --rz: rgba(255,255,255,.09); --bg: rgba(255,255,255,.06); --ln: rgba(255,255,255,.2); --ln2: rgba(255,255,255,.4);
   --tx: #F2F2F2; --mu: rgba(242,242,242,.74); --dim: rgba(242,242,242,.6); --ok: #5FBF98; --wn: #E3A340; --bd: #F0707A; --ct: #F2F2F2;
-  --bar0: rgba(255,255,255,.3); --g1: #5FBF98; --g2: rgba(255,255,255,.4); --inv: #141414; --ac: #F5C518; --arc-accent-ink: #17130A;
+  --bar0: rgba(255,255,255,.3); --g1: #5FBF98; --g2: rgba(255,255,255,.4); --inv: #141414; --ac: rgb(var(--ac-rgb)); --arc-accent-ink: #17130A;
   background: #141414; color: #F2F2F2; border-color: #141414; box-shadow: none;
 }
-html[data-accent="yellow"][data-theme="dark"] .m .kr {
+html[data-accent][data-theme="dark"] .m .kr {
   --cd: #ECECEC; --rz: rgba(20,20,20,.07); --bg: rgba(20,20,20,.05); --ln: rgba(20,20,20,.18); --ln2: rgba(20,20,20,.36);
   --tx: #141414; --mu: rgba(20,20,20,.72); --dim: rgba(20,20,20,.6); --ok: #14573C; --wn: #6E4200; --bd: #9C2430; --ct: #141414;
   --bar0: rgba(20,20,20,.3); --g1: #14573C; --g2: rgba(20,20,20,.4); --inv: #ECECEC; --ac: #141414; --arc-accent-ink: #F2F2F2;
   background: #ECECEC; color: #141414; border-color: #ECECEC; box-shadow: none;
 }
-html[data-accent="yellow"][data-theme="light"] .m .hm-open { background: #F5C518; color: #17130A; }
-html[data-accent="yellow"][data-theme="dark"] .m .hm-open { background: #141414; color: #F2F2F2; }
+html[data-accent][data-theme="light"] .m .hm-open { background: rgb(var(--ac-rgb)); color: #17130A; }
+html[data-accent][data-theme="dark"] .m .hm-open { background: #141414; color: #F2F2F2; }
 
 /* The line illustration's kraft boxes are the last tan on the page; mute them so yellow stays the one warm colour. */
-html[data-accent="yellow"] .m .hm-art { filter: saturate(.45) contrast(1.03); }
+html[data-accent] .m .hm-art { filter: saturate(.45) contrast(1.03); }
+
+/* Grey emphasis card (data-emph="grey"): the card takes the grey of the "Entered plans" bar, which is --bar0 in
+ * the app's own tokens (#8F99A4 light, #4A5460 dark). */
+html[data-emph="grey"][data-theme="light"] .m .kr {
+  --cd: #8F99A4; --rz: rgba(20,24,28,.08); --bg: rgba(20,24,28,.06); --ln: rgba(20,24,28,.22); --ln2: rgba(20,24,28,.4);
+  --tx: #14181C; --mu: rgba(20,24,28,.8); --dim: rgba(20,24,28,.7); --ok: #0F4A33; --wn: #5A3600; --bd: #7E1A25; --ct: #14181C;
+  --bar0: rgba(20,24,28,.3); --g1: #0F4A33; --g2: rgba(20,24,28,.4); --inv: #8F99A4; --ac: #141414; --arc-accent-ink: #F2F2F2;
+  background: #8F99A4; color: #14181C; border-color: #8F99A4;
+}
+html[data-emph="grey"][data-theme="light"] .m .hm-open { background: #141414; color: #F2F2F2; }
+html[data-emph="grey"][data-theme="dark"] .m .kr {
+  --cd: #4A5460; --rz: rgba(255,255,255,.08); --bg: rgba(255,255,255,.06); --ln: rgba(255,255,255,.2); --ln2: rgba(255,255,255,.4);
+  --tx: #F2F2F2; --mu: rgba(242,242,242,.8); --dim: rgba(242,242,242,.68); --ok: #7FD6AE; --wn: #E3A340; --bd: #F0707A; --ct: #F2F2F2;
+  --bar0: rgba(255,255,255,.3); --g1: #7FD6AE; --g2: rgba(255,255,255,.4); --inv: #4A5460; --ac: rgb(var(--ac-rgb)); --arc-accent-ink: #17130A;
+  background: #4A5460; color: #F2F2F2; border-color: #4A5460;
+}
+html[data-emph="grey"][data-theme="dark"] .m .hm-open { background: rgb(var(--ac-rgb)); color: #17130A; }
 
 /* ============================== C. Logo, either trial ============================== */
 /* The stencil letters only, taken from the kraft-board photo into a transparent PNG (assets/). */
