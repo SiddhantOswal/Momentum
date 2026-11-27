@@ -5,8 +5,6 @@
 .m .pd-img { height: 376px; background: #07080A; position: relative; }
 .m .pd-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .m .pd-img.upload img { object-fit: contain; }
-.m .pd-img .pv { position: absolute; left: 16px; bottom: 14px; background: rgba(22,26,31,.62); border-color: rgba(255,255,255,.28); color: #EAEDF0; }
-.m .pd-img .pv i { border-color: #EAEDF0; }
 .m .pd-empty { height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 0 24px; color: #C3CBD3; font-size: 15px; line-height: 1.5; }
 .m .pd-thumbs { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--ln); align-items: center; }
 .m .th2 { width: 64px; height: 48px; border-radius: 6px; border: 1px solid var(--ln2); background: var(--bg); display: flex; align-items: center; justify-content: center; font: 600 13px var(--arc-font-body); color: var(--mu); flex: none; cursor: pointer; padding: 0; }
@@ -17,7 +15,6 @@
 .m .pd-field .v { font-size: 16px; margin-top: 2px; overflow-wrap: anywhere; }
 .m .pd-field .v.idle { color: var(--mu); }
 .m .pd-field ul { margin: 2px 0 0; padding-left: 18px; font-size: 15px; line-height: 1.45; }
-.m .pd-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; border-top: 1px solid var(--ln); }
 .m .pd-acts { display: flex; gap: 10px; margin-top: 8px; border-top: 1px solid var(--ln); padding-top: 16px; flex-wrap: wrap; }
 .m .pd-acts .bt.p { flex: 1; }
 .m .pd-msg { margin: 12px 0 0; font-size: 14px; line-height: 1.45; }
@@ -30,7 +27,6 @@
 .m .pd-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--mu); }
 .m .pd-form select, .m .pd-form input { height: 44px; border-radius: 10px; border: 1px solid var(--ln2); background: var(--bg); color: var(--tx); font: 500 16px var(--arc-font-body); padding: 0 12px; width: 100%; }
 .m .pd-form select:focus-visible, .m .pd-form input:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
-.m .pd-src { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--mu); }
 .m .pd-res { margin-top: 16px; border-top: 1px solid var(--ln); padding-top: 16px; }
 .m .pd-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 

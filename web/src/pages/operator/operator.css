@@ -34,7 +34,6 @@
 .m .op .mb[aria-disabled="true"] { cursor: not-allowed; opacity: .45; }
 .m .op .mb:focus-visible, .m .op .rd:focus-within, .m .op-close:focus-visible { outline: 2px solid var(--ac); outline-offset: 3px; }
 .m .op-nc { margin-top: 10px; font-size: 14px; line-height: 1.45; color: var(--tx); display: flex; gap: 8px; align-items: flex-start; }
-.m .op-nc .pv { flex: none; }
 .m .op-recs { margin: 10px 0 0; padding: 0; list-style: none; }
 .m .op-recs li { display: flex; align-items: center; gap: 12px; height: 46px; border-top: 1px solid var(--ln); }
 .m .op-recs .rn { flex: 1; font-size: 15px; font-weight: 600; }

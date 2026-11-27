@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { formatNumber } from "../../lib/api";
 import { LEVERS, type LeverKey } from "../../lib/session";
 import type { ConditionSource, JobSheet, PlanResult } from "./api";
@@ -46,15 +45,12 @@ export function cardSummary(sheet: JobSheet, plan?: PlanResult) {
 }
 
 /** Every setting on the card with its unit; changed ones show the entered value beside them. */
-export function CardSettings({ sheet, columns, dim, trailing }: {
-  sheet: JobSheet; columns: string; dim?: boolean; trailing: (changed: boolean) => ReactNode;
-}) {
+export function CardSettings({ sheet, columns, dim }: { sheet: JobSheet; columns: string; dim?: boolean }) {
   return (
     <div role="table" aria-label="Settings on the card" className="rt card">
       <div role="row" className="tb h" style={{ gridTemplateColumns: columns, minHeight: 30 }}>
         <span role="columnheader" className="th">Setting</span><span role="columnheader" className="th">Run with</span>
         <span role="columnheader" className="th"><span className="sr-only">Entered</span></span>
-        {columns.split(" ").length > 3 && <span role="columnheader" className="th"><span className="sr-only">Change</span></span>}
       </div>
       {LEVERS.map((lever) => {
         const change = sheet.changes.find((entry) => entry.lever === lever.key);
@@ -64,7 +60,6 @@ export function CardSettings({ sheet, columns, dim, trailing }: {
             <span role="cell" style={{ fontSize: 16, fontWeight: change ? 600 : 500 }}>{leverLabel(lever.key)}</span>
             <span role="cell" className="n" style={{ fontSize: 19, fontWeight: 600 }}>{leverText(lever.key, value)}</span>
             <span role="cell" className="lb">{change ? `was ${leverText(lever.key, change.from)}` : "Entered value"}</span>
-            {trailing(!!change)}
           </div>
         );
       })}

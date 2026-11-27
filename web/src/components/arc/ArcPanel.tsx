@@ -138,7 +138,6 @@ function NextForYou({ session }: { session: ArcSession | null }) {
     <section className="cd kr" aria-labelledby="arc-next-title">
       <div className="ct" style={{ marginBottom: 10 }}>
         <h3 className="t" id="arc-next-title" style={{ fontSize: 15 }}>Next for you</h3>
-        <span className="pv"><i aria-hidden="true" />{lot.currentRevision > 0 ? `Rev ${lot.currentRevision}` : "Not planned yet"}</span>
       </div>
       <div className="d" style={{ fontSize: 26, lineHeight: "32px", fontWeight: 600, letterSpacing: "-.3px" }}>{next.title}</div>
       <div className="lb" style={{ marginTop: 4, fontSize: 15 }}>{next.sub}</div>
@@ -327,7 +326,6 @@ export function ArcPanel({ hostName, conversation, onClose }: { hostName: string
             <Icon name="arrow" />
           </button>
         </form>
-        <div className="cf">Answers use sample data until sensors are connected.</div>
       </div>
     </aside>
   );

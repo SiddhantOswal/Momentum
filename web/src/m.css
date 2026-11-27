@@ -74,14 +74,6 @@
 .m a:focus-visible, .m button:focus-visible, .m textarea:focus-visible { outline: 2px solid var(--ac); outline-offset: 3px; }
 
 /* provenance chips: dashed is example or concept, ring is modeled, solid dot is confirmed or real */
-.m .pv { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 9px; border-radius: 6px; font-size: 13px; font-weight: 600; border: 1px solid var(--ln2); color: var(--mu); white-space: nowrap; }
-.m .pv i { width: 8px; height: 8px; border-radius: 50%; background: var(--tx); display: block; flex: none; }
-.m .pv.mod i { background: none; border: 2px solid var(--tx); }
-.m .pv.ex { border-style: dashed; }
-.m .pv.ex i { background: none; border: 2px dashed var(--tx); }
-.m .pv.nc i { background: var(--dim); }
-.m .pv.ac { border-color: rgba(232,102,79,.55); color: var(--ct); }
-.m .pv.ac i { background: var(--ac); }
 
 /* status: colour, shape and text together */
 .m .sx { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; white-space: nowrap; }
@@ -166,7 +158,6 @@
 .m .mic svg, .m .snd svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .m .snd { width: 44px; height: 44px; border-radius: 12px; border: 0; background: var(--ac); color: #18110E; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer; padding: 0; }
 .m .snd:disabled { background: var(--rz); color: var(--dim); cursor: default; }
-.m .cf { font-size: 13px; color: var(--dim); margin-top: 8px; line-height: 18px; }
 .m .rqh small { display: block; font-size: 13px; color: var(--dim); line-height: 18px; }
 .m .rqh h2 { margin: 2px 0 0; font: 600 24px/30px var(--arc-font-display); letter-spacing: -.2px; overflow-wrap: anywhere; }
 .m .h1a { margin: 0; font: 600 30px/36px var(--arc-font-display); letter-spacing: -.4px; }
@@ -190,7 +181,6 @@
 .m .df b { color: var(--tx); font-weight: 600; }
 .m .df > * { min-width: 0; }
 .m .ct2 { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
-.m .ct2 .chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .m .ans { margin: 0; font-size: 16px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
 .m .stl { display: flex; flex-direction: column; gap: 8px; }
 

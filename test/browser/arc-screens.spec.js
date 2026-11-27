@@ -191,7 +191,7 @@ for (const theme of ['dark', 'light']) {
       await expect(panel.getByRole('heading', { name: 'What do you need done?' })).toBeVisible();
       const next = panel.locator('section', { has: page.getByRole('heading', { name: 'Next for you' }) });
       await expect(next.getByText('Confirm the conditions', { exact: true })).toBeVisible();
-      await expect(next.getByText('Not planned yet')).toBeVisible();
+      await expect(next.getByText('Not planned yet')).toHaveCount(0);
       await expect(next.getByRole('link', { name: 'Confirm conditions' })).toHaveAttribute('href', '#/new-lot/conditions');
       await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toHaveAttribute('placeholder', 'Tell Arc what you need');
     });
@@ -200,7 +200,7 @@ for (const theme of ['dark', 'light']) {
       await mockTurns(page, []);
       const panel = await openArc(page, { theme });
       const next = panel.locator('section', { has: page.getByRole('heading', { name: 'Next for you' }) });
-      await expect(next.getByText('Not connected', { exact: true })).toBeVisible();
+      await expect(next.getByText('Not connected', { exact: true })).toHaveCount(0);
       await expect(next.getByText(/does not track lots in progress yet/)).toBeVisible();
     });
 
@@ -216,9 +216,9 @@ for (const theme of ['dark', 'light']) {
       const choices = panel.getByRole('radiogroup', { name: 'Approved sample orders' }).getByRole('radio');
       await expect(choices).toHaveCount(5);
       await expect(choices.first()).toBeChecked();
-      await expect(panel.getByText('Approved sample', { exact: true })).toHaveCount(1);
+      await expect(panel.getByText('Approved sample', { exact: true })).toHaveCount(0);
       await expect(panel.getByText('Dropping your own PDF or JPEG is not connected to Arc yet.')).toBeVisible();
-      expect((await panel.locator('.drop .pv').boundingBox()).width).toBeLessThan(160);
+      await expect(panel.locator('.pv')).toHaveCount(0);
       await panel.getByRole('radio', { name: /^PO2 Multi-line/ }).click();
       await expect(choices.nth(1)).toBeChecked();
       await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toHaveAttribute('placeholder', 'Tell Arc what to change');
@@ -278,19 +278,21 @@ for (const theme of ['dark', 'light']) {
       await expect(panel.getByText('Pick a matched line to confirm.')).toBeVisible();
     });
 
-    test('Arc-Lot-Conditions reads the lot record and labels each value', async ({ page }) => {
+    test('Arc-Lot-Conditions reads the lot record and fills each value', async ({ page }) => {
       await mockTurns(page, [{ events: (id) => oneStep(id, { tool: 'set_conditions', kind: 'lot_preparation', resultRef: { kind: 'lot', id: LOT_ID } }) }]);
       const lotReads = [];
       await page.route(/\/lots\/[^/]+$/, (route) => { lotReads.push(route.request().url()); return route.fulfill(json(200, { ok: true, lot: LOT, revision: null })); });
       const panel = await openArc(page, { theme });
       await type(panel, 'Humidity is 44 percent');
       await expect(panel.getByRole('heading', { name: "Confirm today's conditions" })).toBeVisible();
+      await expect(panel.getByText('Type what you see on the floor.', { exact: true })).toBeVisible();
+      await expect(panel).not.toContainText('Sensor readings are not connected yet.');
       const rows = panel.getByRole('region', { name: 'Conditions' });
       await expect(rows.locator('.fr')).toHaveCount(5);
       await expect(rows.locator('.fr').nth(0)).toContainText('Humidity');
-      await expect(rows.locator('.fr').nth(0)).toContainText('Confirmed by operator');
+      await expect(rows.locator('.fr').nth(0)).not.toContainText('Confirmed by operator');
       await expect(rows.getByLabel('Humidity')).toHaveValue('44');
-      await expect(rows.locator('.fr').nth(1)).toContainText('Example value');
+      await expect(rows.locator('.fr').nth(1)).not.toContainText('Example value');
       await expect(rows.getByLabel('Paper moisture')).toHaveValue('7.1');
       await expect(rows.locator('.fr').nth(2)).toContainText('Required');
       await expect(rows.getByLabel('Ambient temperature')).toHaveAttribute('placeholder', 'Enter value');
@@ -334,7 +336,7 @@ for (const theme of ['dark', 'light']) {
       for (const box of await review.getByRole('checkbox').all()) await expect(box).toBeDisabled();
       const conditions = card.getByRole('region', { name: 'Conditions' });
       await expect(conditions.getByLabel('Paper moisture')).toHaveValue('7.3');
-      await expect(conditions.locator('.fr').nth(1)).toContainText('Example value');
+      await expect(conditions.locator('.fr').nth(1)).not.toContainText('Example value');
       await conditions.getByLabel('Humidity').fill('62');
       await conditions.getByLabel('Ambient temperature').fill('24.5');
       await conditions.getByLabel('Run date').fill('2026-11-25');
@@ -389,7 +391,7 @@ for (const theme of ['dark', 'light']) {
       const conditions = card.getByRole('region', { name: 'Conditions' });
       await conditions.getByLabel('Humidity').fill('99');
       await conditions.getByLabel('Paper moisture').fill('8.1');
-      await expect(conditions.locator('.fr').nth(1)).toContainText('Entered by operator');
+      await expect(conditions.locator('.fr').nth(1)).not.toContainText('Entered by operator');
       await conditions.getByLabel('Ambient temperature').fill('24.5');
       await conditions.getByLabel('Run date').fill('2026-11-25');
       await conditions.getByLabel('Shift').selectOption('NIGHT');
@@ -414,7 +416,7 @@ for (const theme of ['dark', 'light']) {
       await type(panel, 'Plan the lot');
       await expect(panel.getByRole('heading', { name: 'Compare the two plans' })).toBeVisible();
       await expect(panel.getByText('71.2 → 64.5')).toBeVisible();
-      await expect(panel.getByText('Model estimate', { exact: true })).toBeVisible();
+      await expect(panel.getByText('Model estimate', { exact: true })).toHaveCount(0);
       await expect(panel.getByText('6.7 kg')).toBeVisible();
       await expect(panel.getByText('₹360')).toBeVisible();
       await expect(panel.getByRole('heading', { name: '3 of 7 settings change' })).toBeVisible();
@@ -425,7 +427,7 @@ for (const theme of ['dark', 'light']) {
       await expect(table.getByRole('row').nth(2)).toContainText('MEDIUM');
       await expect(panel.getByText('Strength risk goes from 0.71% to 0.73%. Total cost still falls.')).toBeVisible();
       await expect(panel.getByText(/8,640|100\.4|83\.0|0\.078/)).toHaveCount(0);
-      // The draft does not record who wrote its explanation, so the text and the Gemini chip stay off.
+      // The draft does not record who wrote its explanation, so the text stays off.
       await expect(panel.getByText('Test explanation text.')).toHaveCount(0);
       await expect(panel.getByText('Generated by Gemini')).toHaveCount(0);
       await expect(panel.getByRole('progressbar')).toHaveCount(0);
@@ -445,7 +447,7 @@ for (const theme of ['dark', 'light']) {
       await panel.getByRole('button', { name: 'Prepare job-card draft' }).click();
       await expect(panel.getByRole('heading', { name: 'Approve the job card' })).toBeVisible();
       await expect(panel.getByRole('heading', { name: 'PKBX0041, Rev 1' })).toBeVisible();
-      await expect(panel.getByText('Draft, not approved')).toBeVisible();
+      await expect(panel.getByText('Draft, not approved')).toHaveCount(0);
       await expect(panel).not.toContainText(/demo|simulated/i);
       await expect(panel.getByText(/pass level/i)).toHaveCount(0);
       await expect(panel.locator('.cl')).toContainText('Working on');
@@ -472,8 +474,8 @@ for (const theme of ['dark', 'light']) {
       expect(approvals[0].headers['content-type']).toBe('application/json');
       await expect(panel.locator('.hrow', { hasText: 'Approval recorded' })).toContainText('Recorded');
       await expect(panel).not.toContainText(/demo|simulated/i);
-      const card = panel.locator('.hrow', { hasText: 'Card checked' });
-      await expect(card).toContainText('Not connected');
+      await expect(panel.locator('.hrow', { hasText: 'PDF stored' })).toContainText('Stored');
+      await expect(panel.locator('.hrow', { hasText: 'Card checked' })).toHaveCount(0);
       await expect(panel.getByRole('link', { name: 'Open PDF' })).toHaveAttribute('href', `/jobs/${JOB_ID}/card.pdf`);
       await expect(panel.getByText('5-ply BC, 1,300 boxes')).toBeVisible();
       await expect(panel.locator('.cl')).toContainText('Approved');
@@ -490,7 +492,7 @@ for (const theme of ['dark', 'light']) {
       const panel = await openArc(page, { theme });
       await type(panel, 'Plan the lot');
       await expect(panel.getByRole('alert')).toContainText('An input changed after Rev 1 was prepared.');
-      await expect(panel.getByText('Replaced, read only')).toBeVisible();
+      await expect(panel.getByText('Replaced, read only')).toHaveCount(0);
       await expect(panel.locator('.kv', { hasText: 'Input' })).toContainText('Paper moisture');
       await expect(panel.locator('.kv', { hasText: 'Edited by' })).toContainText('Operator session');
       await expect(panel.getByRole('button', { name: 'Approve Rev 1' })).toBeDisabled();
@@ -513,7 +515,7 @@ for (const theme of ['dark', 'light']) {
       expect(approvals).toHaveLength(1);
     });
 
-    test('Arc-Answer-Value shows the value with its labels', async ({ page }) => {
+    test('Arc-Answer-Value shows the value and its note, with no source chips', async ({ page }) => {
       await mockTurns(page, [{ events: noRun, taskRunId: null, answer: {
         text: 'Paper moisture for this lot is 7.1%. It is an example value, not a sensor reading.', generatedByGemini: false, writerOutcome: 'not_called',
         blocks: [{ blockId: 'b1', kind: 'value', title: 'Paper moisture', value: 7.1, unit: '%', labels: ['Example value'], note: 'It is not a sensor reading.' }],
@@ -523,13 +525,13 @@ for (const theme of ['dark', 'light']) {
       const log = panel.getByRole('log');
       await expect(log.getByRole('heading', { name: 'What is the moisture today?' })).toBeVisible();
       await expect(log.locator('.n')).toHaveText('7.1%');
-      await expect(log.getByText('Example value', { exact: true })).toBeVisible();
+      await expect(log.getByText('Example value', { exact: true })).toHaveCount(0);
       await expect(log.getByText('It is not a sensor reading.', { exact: true })).toBeVisible();
       await expect(log.getByText('Generated by Gemini')).toHaveCount(0);
       await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toHaveAttribute('placeholder', 'Ask a follow-up');
     });
 
-    test('Arc-Answer-Chart shows current R2 with no pass marks, and the Gemini chip only on a writer answer', async ({ page }) => {
+    test('Arc-Answer-Chart shows current R2 with no pass marks and no source chips', async ({ page }) => {
       const series = [['Warp', 0.47], ['Delamination', 0.52], ['Strength', 0.39], ['Print', 0.64], ['Crack', 0.11]];
       const chart = { blockId: 'b1', kind: 'chart', title: 'Holdout R2 per model', labels: ['Modeled, tested on 219 lots'],
         note: 'They come from modeled history, not measured production.', series: series.map(([name, value]) => ({ name, value, unit: null, labels: ['Modeled, tested on 219 lots'] })) };
@@ -548,8 +550,8 @@ for (const theme of ['dark', 'light']) {
         await expect(table.getByRole('row').nth(index)).toContainText(name);
         await expect(table.getByRole('row').nth(index)).toContainText(value.toFixed(2));
       }
-      await expect(writer.getByText('Generated by Gemini')).toHaveCount(1);
-      await expect(writer.getByText('Modeled, tested on 219 lots', { exact: true })).toBeVisible();
+      await expect(writer.getByText('Generated by Gemini')).toHaveCount(0);
+      await expect(writer.getByText('Modeled, tested on 219 lots', { exact: true })).toHaveCount(0);
       await expect(writer.getByText('R² on held-out lots')).toBeVisible();
 
       await panel.getByRole('textbox', { name: 'Message Arc' }).fill('How far can I trust the five models?');
@@ -570,7 +572,8 @@ for (const theme of ['dark', 'light']) {
       const panel = await openArc(page, { theme });
       await type(panel, 'Where is Phoenix Market City?');
       const log = panel.getByRole('log');
-      await expect(log.getByText('Out of scope', { exact: true })).toBeVisible();
+      await expect(log.getByText('Outside Arc', { exact: true })).toBeVisible();
+      await expect(log.getByText('Out of scope', { exact: true })).toHaveCount(0);
       await expect(log.getByText('That is not something Arc does.', { exact: true })).toBeVisible();
       await expect(log.getByRole('button', { name: 'Show the sample orders' })).toBeVisible();
       await expect(log.getByText('Generated by Gemini')).toHaveCount(0);
@@ -588,7 +591,8 @@ for (const theme of ['dark', 'light']) {
       const panel = await openArc(page, { theme });
       await type(panel, 'How did scrap change over the last 3 months?');
       const log = panel.getByRole('log');
-      await expect(log.getByText('Insufficient data', { exact: true })).toBeVisible();
+      await expect(log.getByText('Not enough data', { exact: true })).toBeVisible();
+      await expect(log.getByText('Insufficient data', { exact: true })).toHaveCount(0);
       await expect(log.getByText('No measured lots are recorded yet.', { exact: true })).toBeVisible();
       await expect(log.getByText('The history in Momentum is modeled.', { exact: true })).toBeVisible();
       await expect(log.getByText('What Arc can show instead')).toBeVisible();
@@ -611,8 +615,8 @@ for (const theme of ['dark', 'light']) {
       await expect(panel.getByRole('tab', { name: 'Photo diagnosis' })).toHaveAttribute('aria-selected', 'true');
       await expect(panel.getByText('Approved photo 1 of 10')).toBeVisible();
       await expect(panel.getByRole('textbox', { name: 'Message Arc' })).toHaveAttribute('placeholder', 'Tell Arc what to change');
-      await expect(panel.getByText('Approved reference photo', { exact: true })).toBeVisible();
-      await expect(panel.getByText('Uploaded photo', { exact: true })).toBeVisible();
+      await expect(panel.getByText('Approved reference photo', { exact: true })).toHaveCount(0);
+      await expect(panel.getByText('Uploaded photo', { exact: true })).toHaveCount(0);
       await expect(panel.getByText(/Uploading your own photo is not connected/)).toBeVisible();
       await panel.getByRole('button', { name: 'Approved photo 3' }).click();
       await expect(panel.getByRole('button', { name: 'Approved photo 3' })).toHaveAttribute('aria-pressed', 'true');
@@ -620,7 +624,8 @@ for (const theme of ['dark', 'light']) {
       await panel.getByRole('button', { name: 'Run diagnosis' }).click();
       await expect(panel.getByRole('heading', { name: 'Photo diagnosis' })).toBeVisible();
       const result = panel.getByRole('article').last();
-      await expect(result.getByText('Approved reference photo', { exact: true })).toBeVisible();
+      await expect(result.getByText('photo-03', { exact: true })).toBeVisible();
+      await expect(result.getByText('Approved reference photo', { exact: true })).toHaveCount(0);
       await expect(result.getByText('Generated by Gemini')).toHaveCount(0);
       await expect(result.getByText(/the label it found is not returned to Arc yet/)).toBeVisible();
       expect(posts[0].input).toEqual({ kind: 'action', actionId: 'list_approved_photos' });
@@ -652,7 +657,7 @@ for (const theme of ['dark', 'light']) {
       await search.click();
       const results = panel.getByRole('status', { name: 'Search results' });
       await expect(results.locator('.n').first()).toHaveText('23lots');
-      await expect(results.getByText('Modeled records', { exact: true })).toBeVisible();
+      await expect(results.getByText('Modeled records', { exact: true })).toHaveCount(0);
       await expect(results).toContainText('Warp was the main problem near 60% humidity, at 2.41% of the lot on average.');
       await expect(results.getByText('Average settings of the 12 lots with the lowest Warp rate and the 11 with the highest, near 60% humidity.')).toBeVisible();
       await expect(results.getByRole('columnheader')).toHaveText(['Setting', 'Lowest', 'Highest']);
@@ -924,7 +929,7 @@ test('long unbroken server strings wrap inside the phone sheet', async ({ page }
   await type(panel, LONG);
   await expect(panel.getByRole('table', { name: /Holdout R² per model/ })).toBeVisible();
   await type(panel, 'Where is Phoenix Market City?');
-  await expect(panel.getByText('Out of scope', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Outside Arc', { exact: true })).toBeVisible();
   await type(panel, 'What is the moisture today?');
   await expect(panel.getByRole('article').nth(2).locator('.n').first()).toBeVisible();
   await expectNoSidewaysScroll(page);

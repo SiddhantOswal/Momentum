@@ -58,6 +58,3 @@ export async function uploadAllowed(file: File) {
 }
 
 export const defectName = (label: Label) => (label === "NONE" ? "No defect seen" : DEFECTS.find((d) => d.key === label)?.label ?? label);
-
-/** Gemini wrote the result only when the server says the answer came from Vertex AI. */
-export const writtenByGemini = (response: { source?: string }) => response.source === "vertex-gemini";

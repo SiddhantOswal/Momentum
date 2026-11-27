@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { TurnInput } from "../../lib/arc";
-import { Button, Icon, IdleMark, NEW_LOT_STEPS, ProvenanceChip, Stepper } from "../m";
+import { Button, Icon, IdleMark, NEW_LOT_STEPS, Stepper } from "../m";
 import type { WorkingOn } from "./useArcConversation";
 import "./arc-screens.css";
 
@@ -95,12 +95,11 @@ export function Problem({ words, onRetry, retryAt }: { words: string; onRetry?: 
   );
 }
 
-/** The designed "not connected" line inside a card: the chip, one sentence naming what is missing, and the dashed bar. */
+/** The designed "not connected" line inside a card: one sentence naming what is missing, and the dashed bar. */
 export function NotConnectedNote({ children }: { children: ReactNode }) {
   return (
     <div>
-      <ProvenanceChip kind="not-connected" />
-      <p className="lb" style={{ margin: "8px 0 0", fontSize: 15, lineHeight: 1.5 }}>{children}</p>
+      <p className="lb" style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>{children}</p>
       <div className="ncbar" aria-hidden="true" />
     </div>
   );

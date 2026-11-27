@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Banner, Button, Card, Chip, ProvenanceChip } from "../components/m";
+import { Banner, Button, Card } from "../components/m";
 import { planLot } from "./newlot/actions";
 import { IdsBar, NewLotPage, StatusIcon, StatusRow, Toasts, useToasts } from "./newlot/parts";
 import { ChangesTable, ScrapFigures } from "./newlot/plan-view";
@@ -42,7 +42,7 @@ export function NewLotRecovery({ lot }: { lot: LotState }) {
         </Banner>
         {error && <p className="err c12" role="alert" style={{ margin: 0 }}>{error}</p>}
         <section className="cd kr c8" aria-labelledby="nl-finished">
-          <div className="ct"><h2 className="t" id="nl-finished">What finished</h2><Chip>Kept on this page</Chip></div>
+          <div className="ct"><h2 className="t" id="nl-finished">What finished</h2></div>
           <StatusRow kind={outputs.prediction ? "ok" : "bad"} name="Defect estimate" state={outputs.prediction ? "Done" : "Not available"} height={48} />
           <StatusRow kind="ok" name="Limited search" state="Done" height={48} />
           <StatusRow kind={evidence ? "ok" : "bad"} name="Risk evidence" height={48}
@@ -50,9 +50,9 @@ export function NewLotRecovery({ lot }: { lot: LotState }) {
           <StatusRow kind="bad" name="Explanation" state="Not available" height={48} />
           <div style={{ borderTop: "1px solid var(--ln)", marginTop: 6, paddingTop: 14 }}>
             <div className="th" style={{ marginBottom: 6 }}>Kept comparison</div>
-            <ChangesTable changes={optimization.changes} withChip={false} rowHeight={46} />
+            <ChangesTable changes={optimization.changes} rowHeight={46} />
             <div style={{ display: "flex", gap: 28, alignItems: "center", borderTop: "1px solid var(--ln)", paddingTop: 12, flexWrap: "wrap" }}>
-              <span className="lb">Modeled scrap</span><ScrapFigures optimization={optimization} size={22} /><ProvenanceChip kind="model-estimate" />
+              <span className="lb">Modeled scrap</span><ScrapFigures optimization={optimization} size={22} />
             </div>
           </div>
         </section>

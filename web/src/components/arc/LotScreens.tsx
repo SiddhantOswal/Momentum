@@ -7,7 +7,7 @@ import {
 } from "../../lib/arc";
 import { href } from "../../lib/routes";
 import { LEVERS } from "../../lib/session";
-import { Button, ButtonLink, Chip, Icon, IdleMark, LabelChip, ProvenanceChip } from "../m";
+import { Button, ButtonLink, Icon, IdleMark } from "../m";
 import { ArcSteps, Loading, NotConnectedNote, Problem, ReviewCheck, ScreenHead, Tabs, useArcScreen } from "./parts";
 
 export type StepProblem = { words: string; onRetry?: () => void; retryAt?: number };
@@ -84,12 +84,10 @@ export function LotSource({ problem }: { problem?: StepProblem }) {
             <input type="radio" className="ovl" name={name} value={sample.id} checked={chosen === sample.id} onChange={() => setChosen(sample.id)} />
             <i aria-hidden="true" />
             <span><b>{sample.name}</b><span className="s">{sample.sub}</span></span>
-            {chosen === sample.id ? <ProvenanceChip kind="approved-sample" /> : <span />}
           </label>
         ))}
       </section>
       <div className="drop">
-        <ProvenanceChip kind="not-connected" />
         <span>Dropping your own PDF or JPEG is not connected to Arc yet.</span>
       </div>
       {problem && <Problem {...problem} />}
@@ -147,7 +145,7 @@ export function LotReview({ reviewId, problem, closed = false }: { reviewId: str
       <ArcSteps current={1} />
       <ScreenHead title="Check what was read" sub="Arc read the order and stored what it found." />
       <section className="cd" style={{ padding: "16px 20px" }}>
-        <div className="ct2"><h3 className="t" style={{ fontSize: 16 }}>What we read from the order</h3>{review && <ProvenanceChip kind="approved-sample" />}</div>
+        <div className="ct2"><h3 className="t" style={{ fontSize: 16 }}>What we read from the order</h3></div>
         {!read && <Loading>Reading the order review</Loading>}
         {read?.words && <p className="lb" style={{ margin: 0, fontSize: 15 }}>{read.words}</p>}
         {review && (
@@ -162,7 +160,7 @@ export function LotReview({ reviewId, problem, closed = false }: { reviewId: str
                     <b>Line {line.lineIndex + 1}: {line.itemCode ?? "No catalog item"}</b>
                     <span className="s">{line.quantity === null ? "No quantity" : `${formatNumber(line.quantity)} boxes`}{line.sourcePage ? `, page ${line.sourcePage}` : ""}</span>
                   </span>
-                  <Chip tone={confirmable(line) ? "plain" : "none"}>{LINE_STATUS[line.status]}</Chip>
+                  <span className="lb" style={{ fontSize: 14 }}>{LINE_STATUS[line.status]}</span>
                 </label>
               ))}
             </div>
@@ -232,13 +230,6 @@ function valuesFrom(params: Record<string, string | number | boolean> | undefine
   return Object.fromEntries(Object.entries(params).filter(([key]) => key !== "paperMoistureSource").map(([key, value]) => [key, String(value)]));
 }
 
-function rowLabel(field: FieldKey, value: string, stored?: DraftCondition) {
-  if (value.trim() === "") return "Required";
-  if (stored && String(stored.value) === value.trim()) return stored.label;
-  if (field === "paperMoisturePct" && Number(value) === Number(EXAMPLE_MOISTURE)) return "Example value";
-  return "Entered by operator";
-}
-
 /**
  * Arc-Lot-Conditions: the five conditions and seven planned settings the operator confirms.
  * Confirm conditions sends them as one action; the server saves the conditions on the lot with
@@ -266,7 +257,6 @@ export function LotConditions({ lotId, initial, problem }: {
     return () => controller.abort();
   }, [lotId, initial]);
 
-  const stored = lot?.record?.lot.draftConditions ?? [];
   const set = (field: FieldKey, value: string) => setValues((current) => ({ ...current, [field]: value }));
   const conditionsLeft = CONDITION_ROWS.filter(({ field }) => !valid(field, values[field])).length;
   const settingsLeft = LEVERS.filter(({ key }) => !valid(key, values[key])).length;
@@ -313,7 +303,7 @@ export function LotConditions({ lotId, initial, problem }: {
   return (
     <>
       <ArcSteps current={2} />
-      <ScreenHead title="Confirm today's conditions" sub="Type what you see on the floor. Sensor readings are not connected yet." />
+      <ScreenHead title="Confirm today's conditions" sub="Type what you see on the floor." />
       {order && <p className="lb" style={{ margin: 0, fontSize: 15 }}>For <b>{order.itemCode}</b>, {formatNumber(order.quantity)} boxes.</p>}
       <Tabs label="Lot inputs" selected={tab} onSelect={setTab} tabs={[
         { key: "conditions", text: <>Conditions {conditionsLeft > 0 && <small>{conditionsLeft} left</small>}</> },
@@ -327,7 +317,7 @@ export function LotConditions({ lotId, initial, problem }: {
             <div key={row.field} className="fr">
               <div>
                 <label htmlFor={`${form}-${row.field}`} style={{ display: "block", fontSize: 16, fontWeight: 600 }}>{row.name}</label>
-                <div className="lb" style={{ fontSize: 13 }}>{rowLabel(row.field, values[row.field], stored.find((entry) => entry.field === row.field))}</div>
+                {values[row.field].trim() === "" && <div className="lb" style={{ fontSize: 13 }}>Required</div>}
               </div>
               {field(row.field, row.unit, row.empty, row.field === "shift" ? [{ value: "DAY", label: "Day" }, { value: "NIGHT", label: "Night" }] : undefined)}
             </div>
@@ -340,7 +330,7 @@ export function LotConditions({ lotId, initial, problem }: {
             <div key={lever.key} className="fr">
               <div>
                 <label htmlFor={`${form}-${lever.key}`} style={{ display: "block", fontSize: 16, fontWeight: 600 }}>{lever.label}</label>
-                <div className="lb" style={{ fontSize: 13 }}>{values[lever.key].trim() === "" ? "Required" : "Your planned setting"}</div>
+                {values[lever.key].trim() === "" && <div className="lb" style={{ fontSize: 13 }}>Required</div>}
               </div>
               {field(lever.key, "unit" in lever ? lever.unit : "", "options" in lever ? "Select" : "Enter value",
                 "options" in lever ? lever.options.map((option) => ({ value: option, label: LEVELS[option] })) : undefined)}
@@ -397,7 +387,7 @@ function Compare({ job, onNext }: { job: StoredJob; onNext: () => void }) {
       <ArcSteps current={3} />
       <ScreenHead title="Compare the two plans" sub="Up to 3 changes allowed." />
       <section className="cd kr">
-        <div className="ct2"><h3 className="t" style={{ fontSize: 15 }}>Scrap for this lot</h3><ProvenanceChip kind="model-estimate" /></div>
+        <div className="ct2"><h3 className="t" style={{ fontSize: 15 }}>Scrap for this lot</h3></div>
         <div className="n" style={{ fontSize: 40, lineHeight: "46px", fontWeight: 600, letterSpacing: "-.6px", overflowWrap: "anywhere" }}>
           {kg(job.baseline.risk.totalScrapKg)} → {kg(job.recommended.risk.totalScrapKg)}
           <span style={{ fontSize: 18, color: "var(--mu)", marginLeft: 6, fontWeight: 500 }}>kg</span>
@@ -413,14 +403,13 @@ function Compare({ job, onNext }: { job: StoredJob; onNext: () => void }) {
         <div role="table" aria-label="Setting changes">
           <div role="row" className="tb h cmp" style={{ minHeight: 28 }}>
             <span role="columnheader" className="th">Setting</span><span role="columnheader" className="th">Entered</span>
-            <span role="columnheader" className="th">Proposed</span><span role="columnheader" className="th"><span className="sr-only">Change</span></span>
+            <span role="columnheader" className="th">Proposed</span>
           </div>
           {job.changes.map((change) => (
             <div key={change.lever} role="row" className="tb cmp" style={{ minHeight: 50 }}>
               <span role="cell" style={{ fontSize: 16, fontWeight: 600 }}>{LEVER_TEXT[change.lever].name}</span>
               <span role="cell" className="n" style={{ fontSize: 17, color: "var(--mu)" }}>{leverValue(change.lever, change.from)}</span>
               <span role="cell" className="n" style={{ fontSize: 19, fontWeight: 600 }}>{leverValue(change.lever, change.to)}</span>
-              <span role="cell"><Chip tone="accent">Changed</Chip></span>
             </div>
           ))}
         </div>
@@ -493,7 +482,6 @@ function Approve({ job, revision, onApproved, onReplaced, onRevise, onKeep }: {
       <section className="cd" style={{ padding: "6px 20px 8px" }}>
         <div className="ct2" style={{ padding: "12px 0 6px", margin: 0 }}>
           <h3 className="t">{job.order.itemCode}{revision ? `, Rev ${revision.number}` : ""}</h3>
-          <LabelChip label="Draft, not approved" />
         </div>
         <div className="kvr2"><span>Changes</span><ChangeList job={job} /></div>
         {tradeOff && <div className="kvr2"><span>Trade-off</span><div>{tradeOff}</div></div>}
@@ -559,7 +547,6 @@ function Receipt({ job, revision }: { job: StoredJob; revision?: RevisionBlock }
         <HappenedRow done title="Draft saved" detail={revision ? `Rev ${revision.number}, stored` : "Stored"} />
         <HappenedRow done title="Approval recorded" detail="Recorded" />
         <HappenedRow done={Boolean(job.cardUri)} title="PDF stored" detail={job.cardUri ? "Stored" : "Not stored"} />
-        <HappenedRow done={false} title="Card checked" detail="Not connected" />
       </section>
       <div className="stl">
         <div className="sx id" style={{ fontSize: 14, whiteSpace: "normal" }}><IdleMark />Production has not started. No machine was changed.</div>
@@ -600,7 +587,7 @@ function Replaced({ job, revision }: { job: StoredJob; revision: RevisionBlock }
         </div>
       </section>
       <section className="cd kr">
-        <div className="ct2"><h3 className="t">What changed</h3><LabelChip label="Replaced, read only" /></div>
+        <div className="ct2"><h3 className="t">What changed</h3></div>
         {reason ? (
           <>
             <div className="kv" style={{ fontSize: 15 }}><span className="lb">Input</span><b>{field?.name ?? reason.field}</b></div>

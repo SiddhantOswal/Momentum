@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { ThemeSwitch } from "../components/Frame";
-import { Chip, Icon, IdleMark, ProvenanceChip } from "../components/m";
+import { Icon, IdleMark } from "../components/m";
 import { LEVERS, type LeverKey } from "../lib/session";
 import type { Theme } from "../lib/useApp";
 import { cardPdfPath, findReadableJob, pageParam, readJob, readLotHead, readLots, type JobRead } from "./prepflow/records";
@@ -76,7 +76,7 @@ function useOperatorJob(): Load {
 
 /** Shown beside each button whose backend (ARC-M6-13) does not exist yet: the button sends nothing. */
 function NotConnectedNote({ id, text }: { id: string; text: string }) {
-  return <p className="op-nc" id={id} role="status"><ProvenanceChip kind="not-connected" /><span>{text}</span></p>;
+  return <p className="op-nc" id={id} role="status">{text}</p>;
 }
 
 const NOTES: [string, string][] = [
@@ -105,9 +105,7 @@ function CardView({ job, currentJobId, onReport }: { job: JobRead; currentJobId?
     : "No setting changed. Run the card as listed.";
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span className="brandw">momentum</span><ProvenanceChip kind="modelled-on-plant" />
-      </div>
+      <span className="brandw">momentum</span>
       <div style={{ marginTop: 18 }}>
         <div className="lb">Approved job card</div>
         <h2 className="big">{sheet.order.itemCode}{revision ? `, Rev ${revision.number}` : ""}</h2>
@@ -119,7 +117,7 @@ function CardView({ job, currentJobId, onReport }: { job: JobRead; currentJobId?
             ? <span className="sx wn"><Icon name="warn" />Approved, not the latest revision</span>
             : approved
               ? <span className="sx ok"><Icon name="ok" />{latest ? "Approved, latest revision" : "Approved"}</span>
-            : <span className="sx wn"><Icon name="warn" />Draft, not approved</span>}
+              : null}
       </div>
       {approved && sheet.cardUri && (
         <a className="lk" style={{ display: "inline-block", marginTop: 10 }} href={cardPdfPath(sheet.jobId)} target="_blank" rel="noopener">Open the approved PDF</a>
@@ -137,7 +135,7 @@ function CardView({ job, currentJobId, onReport }: { job: JobRead; currentJobId?
                   <li key={key} className="sr">
                     <div>
                       <div className="sl">{LEVER_LABELS[key]}</div>
-                      {change && <div style={{ marginTop: 3 }}><Chip tone="accent">Changed</Chip></div>}
+                      {change && <span className="sr-only">Changed</span>}
                     </div>
                     <div className="sv">
                       <b>{shown(sheet.recommended.levers[key])}{unit && <small>{unit}</small>}</b>
@@ -160,7 +158,7 @@ function CardView({ job, currentJobId, onReport }: { job: JobRead; currentJobId?
         </div>
         <ul className="op-recs">
           {RECORDS.map((record) => (
-            <li key={record}><span className="sx id"><IdleMark /></span><span className="rn">{record}</span><span className="lb" style={{ fontSize: 13 }}>Not connected</span></li>
+            <li key={record}><span className="sx id"><IdleMark /></span><span className="rn">{record}</span><span className="lb" style={{ fontSize: 13 }}>Not recorded yet</span></li>
           ))}
         </ul>
       </div>
@@ -236,9 +234,7 @@ export function Operator({ theme, toggleTheme }: { theme: Theme; toggleTheme: ()
         {load.state === "loading" && <p className="lb" role="status" style={{ margin: 0 }}>Reading the approved card.</p>}
         {load.state === "missing" && (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h2 className="brandw" style={{ margin: 0 }}>Approved job card</h2><ProvenanceChip kind="not-connected" />
-            </div>
+            <h2 className="brandw" style={{ margin: 0 }}>Approved job card</h2>
             <p className="lb" style={{ margin: "12px 0 0", fontSize: 15, lineHeight: 1.5 }}>{load.text}</p>
           </>
         )}

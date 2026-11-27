@@ -52,7 +52,7 @@
 .m .nl .file b { font-size: 17px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* "What we read from the order" rows */
-.m .nl .rd { display: grid; grid-template-columns: 112px 1fr auto; align-items: center; column-gap: 14px; min-height: 58px; border-top: 1px solid var(--ln); padding: 4px 0; }
+.m .nl .rd { display: grid; grid-template-columns: 112px 1fr; align-items: center; column-gap: 14px; min-height: 58px; border-top: 1px solid var(--ln); padding: 4px 0; }
 .m .nl .rd .k { font-size: 13.5px; color: var(--mu); }
 .m .nl .rd .v { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
 .m .nl .rd .w { font-size: 12.5px; color: var(--mu); }

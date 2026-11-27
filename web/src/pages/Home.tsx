@@ -10,7 +10,7 @@ import "./home/home.css";
 /** Home (Main.png). Every figure comes from /api/lots and /api/live, /api/status or the newest
  * lot's job record; an element with no route shows the not-connected state. */
 export function Home() {
-  const { view, status: liveStatus } = useLive();
+  const { view } = useLive();
   const lots = view.lots;
   const latest = newest(lots);
   const draft = newest(lots, (lot) => lot.status === "planned");
@@ -30,7 +30,7 @@ export function Home() {
         <JobCardSummary lot={draft} job={draft?.jobId === latest?.jobId ? job.result : draftJob.result} />
         <ModelTrust status={status.result} lowConfidence={lowConfidence(lots)} />
         <RunSteps lot={latest} job={job.result} />
-        <Activity events={view.events} status={liveStatus} />
+        <Activity events={view.events} />
       </div>
     </div>
   );

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button, Card, Chip, Icon, IdleMark, PageHeader, ProvenanceChip } from "../components/m";
+import { Button, Card, Icon, IdleMark, PageHeader } from "../components/m";
 import { getJson } from "../lib/api";
 import specimen from "./photo/example-specimen.jpg";
 import "./photo/photo.css";
 import {
-  classifyPhoto, defectName, diagnoseUpload, UPLOAD_ACCEPT, UPLOAD_REFUSED, uploadAllowed, writtenByGemini,
+  classifyPhoto, defectName, diagnoseUpload, UPLOAD_ACCEPT, UPLOAD_REFUSED, uploadAllowed,
   type ApprovedPhotos, type Classification, type Label, type UploadDiagnosis,
 } from "./photo/api";
 import { SeenBeforeCard } from "./photo/SeenBefore";
@@ -73,7 +73,7 @@ export function PhotoDiagnosis() {
 
   return (
     <>
-      <PageHeader title="Photo diagnosis" sub={count ? `${count} approved photos, or upload your own.` : "Approved photos, or upload your own."} actions={<Chip>Reads the file once</Chip>} />
+      <PageHeader title="Photo diagnosis" sub={count ? `${count} approved photos, or upload your own.` : "Approved photos, or upload your own."} />
       <div className="g">
         <section className="cd flush c8" aria-labelledby="pd-photo-title">
           <div className="pd-bar">
@@ -98,12 +98,6 @@ export function PhotoDiagnosis() {
           <Field name="Likely defect" outcome={outcome} value={likelyDefect(outcome)} />
           <Field name="What it looked at" outcome={outcome} value={lookedAt(outcome)} />
           <Field name="Suggested follow-up" outcome={outcome} value={followUp(outcome)} />
-          {outcome && (
-            <div className="pd-chips">
-              <Chip>{outcome.kind === "upload" ? "Uploaded photo" : "Approved reference photo"}</Chip>
-              {writtenByGemini(outcome.data) && <ProvenanceChip kind="generated-by-gemini" />}
-            </div>
-          )}
           {outcome?.kind === "upload" && (
             <p className="lb pd-msg" style={{ marginTop: 0 }}>Your photo, not an approved reference photo. The accuracy check was measured on the approved photos only.</p>
           )}
@@ -121,7 +115,7 @@ export function PhotoDiagnosis() {
         {label !== undefined && <SeenBeforeCard label={label} />}
 
         <section className="cd kr c12" aria-labelledby="pd-trust-title">
-          <div className="ct"><h2 className="t" id="pd-trust-title">How far to trust this</h2><ProvenanceChip kind="not-connected" /></div>
+          <div className="ct"><h2 className="t" id="pd-trust-title">How far to trust this</h2></div>
           <div className="pd-trust">
             <p className="lb" style={{ margin: 0, maxWidth: 520, lineHeight: 1.5 }}>The stored accuracy run over the {count ? `${count} ` : ""}approved photos is not connected yet, so no match count is shown.</p>
             <div className="ncbar" aria-hidden="true" />
@@ -142,7 +136,7 @@ function PhotoView({ photos, source }: { photos: Photos; source: Source }) {
       <div className="pd-img">
         <div className="pd-empty" role={photos.state === "error" ? "alert" : "status"}>
           {photos.state === "loading" && "Reading the approved photo list."}
-          {photos.state === "error" && <><ProvenanceChip kind="not-connected" /><span>The approved photos could not be read. {photos.message}</span></>}
+          {photos.state === "error" && <span>The approved photos could not be read. {photos.message}</span>}
           {photos.state === "ready" && "No approved photos are registered."}
         </div>
       </div>
@@ -152,7 +146,6 @@ function PhotoView({ photos, source }: { photos: Photos; source: Source }) {
   return (
     <div className="pd-img">
       <img src={specimen} alt="Example side view of a corrugated board cross-section, not the selected approved photo" />
-      <Chip tone="example">Example image, not the approved photo</Chip>
     </div>
   );
 }
