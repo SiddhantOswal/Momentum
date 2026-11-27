@@ -29,6 +29,14 @@
 .m .pf-page .nd.cur.w { border-color: var(--wn); }
 .m .pf-page .nd.cur.b { border-color: var(--bd); }
 .m .pf-page .nd.pd { border-style: dashed; background: transparent; }
+.m .pf-page .nd[data-state="done"] { border-color: color-mix(in srgb, var(--ok) 65%, var(--ln2)); }
+.m .pf-page .nd[data-state="held"] { background: color-mix(in srgb, var(--wn) 7%, var(--rz)); }
+.m .pf-page .nd[data-state="failed"] { background: color-mix(in srgb, var(--bd) 7%, var(--rz)); }
+.m .pf-page .nd a { color: inherit; text-decoration: none; }
+.m .pf-page .nd a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.m .pf-page .nd:hover .nt a { text-decoration: underline; text-underline-offset: 3px; }
+.m .pf-page .nd:has(a:focus-visible) { outline: 2px solid var(--arc-focus); outline-offset: 3px; }
+.m .pf-page .nd a:focus-visible { outline: none; }
 .m .pf-page .nd .sx svg { width: 15px; height: 15px; }
 .m .pf-page .nd .pf-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); display: block; }
 /* Positions are the design's, less the zone's 1 px border. */
@@ -53,11 +61,9 @@
 
 /* Toasts (Prep-Flow-Held, Prep-Flow-Partial). */
 .m .pf-page .tsts { position: fixed; right: 24px; top: 68px; width: 400px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: 10px; z-index: 30; pointer-events: none; }
-.m .pf-page .tst { display: flex; pointer-events: auto; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--cd); border: 1px solid var(--ln2); border-left-width: 4px; box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: pf-tin .35s ease-out .25s both; }
+.m .pf-page .tst { display: flex; pointer-events: auto; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--notice-surface); border: 1px solid var(--notice-edge); border-left: 4px solid var(--notice-color); box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: pf-tin .35s ease-out .25s both; }
 :root[data-theme="light"] .m .pf-page .tst { box-shadow: 0 12px 28px -12px rgba(20,24,28,.35); }
-.m .pf-page .tst.wn { border-left-color: var(--wn); } .m .pf-page .tst.bd { border-left-color: var(--bd); }
 .m .pf-page .tst > svg { width: 22px; height: 22px; flex: none; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.m .pf-page .tst.wn > svg { stroke: var(--wn); } .m .pf-page .tst.bd > svg { stroke: var(--bd); }
 .m .pf-page .tst div { flex: 1; min-width: 0; }
 .m .pf-page .tst b { display: block; font: 600 16px/22px var(--arc-font-display); }
 .m .pf-page .tst span { display: block; font-size: 14px; line-height: 20px; color: var(--mu); }
@@ -72,7 +78,7 @@
   .m .pf-page .pf-arrows { display: none; }
   .m .pf-page .zn { position: static; height: auto; width: auto !important; display: flex; flex-direction: column; }
   .m .pf-page .zn ol { display: flex; flex-direction: column; gap: 10px; padding: 14px; flex: 1; }
-  .m .pf-page .nd { position: static; width: auto !important; height: auto !important; }
+  .m .pf-page .nd { position: relative; inset: auto; width: auto !important; height: auto !important; }
   .m .pf-page .zf { position: static; margin: 0 14px 12px; }
 }
 @container (max-width: 719px) {

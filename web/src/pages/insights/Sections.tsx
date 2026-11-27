@@ -1,3 +1,4 @@
+import { useNotificationHistory } from "../../components/Notifications";
 import { useState } from "react";
 import conveyor from "./conveyor.svg.html?raw";
 import { ButtonLink, Card, Icon, NotConnected } from "../../components/m";
@@ -126,11 +127,14 @@ export function NotConnectedYet() {
 export function LowConfidenceNotice({ defects }: { defects: Set<Defect> }) {
   const [dismissed, setDismissed] = useState<Set<Defect>>(new Set());
   const shown = DEFECT_ORDER.filter((defect) => defects.has(defect) && !dismissed.has(defect));
+  useNotificationHistory(shown.map((defect) => ({
+    id: `insights-${defect}`, tone: "wn", title: `${DEFECT_NAME[defect]} model: low confidence`, text: "Supervised use only.",
+  })));
   if (shown.length === 0) return null;
   return (
     <div className="in-tsts" aria-live="polite">
       {shown.map((defect) => (
-        <div key={defect} className="in-tst" role="status">
+        <div key={defect} className="in-tst notice-tone wn" role="status">
           <Icon name="warn" />
           <div><b>{DEFECT_NAME[defect]} model: low confidence</b><span>Supervised use only.</span></div>
           <button type="button" aria-label={`Dismiss ${DEFECT_NAME[defect]} notice`} onClick={() => setDismissed((set) => new Set(set).add(defect))}><Icon name="close" /></button>

@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { Frame } from "./components/Frame";
+import { NotificationHistory } from "./components/Notifications";
 import { useRoute, type RouteId } from "./lib/routes";
 import { useTheme } from "./lib/useApp";
 import { Home } from "./pages/Home";
@@ -30,11 +31,12 @@ const PAGES: Record<Exclude<RouteId, "operator">, ComponentType> = {
 export function App() {
   const route = useRoute();
   const { theme, toggle } = useTheme();
-  if (route.id === "operator") return <div className="m"><Operator theme={theme} toggleTheme={toggle} /></div>;
-  const Page = PAGES[route.id];
+  const Page = route.id === "operator" ? null : PAGES[route.id];
   return (
-    <Frame route={route} theme={theme} toggleTheme={toggle}>
-      <Page key={route.id} />
-    </Frame>
+    <NotificationHistory>
+      {Page
+        ? <Frame route={route} theme={theme} toggleTheme={toggle}><Page key={route.id} /></Frame>
+        : <div className="m"><Operator theme={theme} toggleTheme={toggle} /></div>}
+    </NotificationHistory>
   );
 }

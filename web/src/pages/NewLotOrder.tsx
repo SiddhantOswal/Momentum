@@ -54,20 +54,24 @@ function PurchaseOrderCard({ lot, onToast }: { lot: LotState; onToast: ReturnTyp
   };
 
   return (
-    <Card span={6} title="Purchase order" meta="PDF or JPEG, up to 10 MiB.">
+    <Card span={6} title="Purchase order" className="purchase-order" meta="PDF or JPEG, up to 10 MiB.">
       <div aria-busy={busy !== ""}>
         <div className="file">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4" /></svg>
           <b>{lot.file?.name ?? "No order chosen"}</b>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, flexWrap: "wrap" }} role="group" aria-labelledby="nl-samples">
-          <span className="lb" id="nl-samples" style={{ flexBasis: "100%" }}>Approved samples</span>
-          {SAMPLES.map((sample) => (
-            <button key={sample.id} type="button" className={`chp${lot.file?.sample === sample.id ? " on" : ""}`}
-              aria-pressed={lot.file?.sample === sample.id} disabled={busy !== ""} onClick={() => pickSample(sample.id)}>
-              {sample.label}
-            </button>
-          ))}
+        <div className="sample-picker">
+          <label className="lb" htmlFor="nl-samples">Approved samples</label>
+          <div className="fld">
+            <select id="nl-samples" value={lot.file?.sample ?? ""} disabled={busy !== ""}
+              onChange={(event) => {
+                const sample = SAMPLES.find(({ id }) => id === event.target.value);
+                if (sample) void pickSample(sample.id);
+              }}>
+              <option value="" disabled>Choose an approved sample</option>
+              {SAMPLES.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </div>
           <button type="button" className="chp" disabled={busy !== ""} onClick={() => fileInput.current?.click()}>Upload a file</button>
           <input ref={fileInput} type="file" accept="application/pdf,image/jpeg" hidden
             onChange={(event) => { const file = event.target.files?.[0]; if (file) setError(chooseUpload(file)); event.target.value = ""; }} />

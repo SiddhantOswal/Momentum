@@ -25,8 +25,9 @@
 
 .m .pd-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .m .pd-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--mu); }
-.m .pd-form select, .m .pd-form input { height: 44px; border-radius: 10px; border: 1px solid var(--ln2); background: var(--bg); color: var(--tx); font: 500 16px var(--arc-font-body); padding: 0 12px; width: 100%; }
-.m .pd-form select:focus-visible, .m .pd-form input:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.m .pd-form select, .m .pd-form input { height: 44px; border-radius: 10px; border: 1px solid var(--ln2); background-color: var(--bg); color: var(--tx); font: 500 16px var(--arc-font-body); padding: 0 12px; width: 100%; }
+.m .pd-form select { padding-inline-end: 36px; }
+.m .pd-form select:focus-visible, .m .pd-form input:focus-visible { outline: 2px solid var(--arc-focus); outline-offset: 2px; }
 .m .pd-res { margin-top: 16px; border-top: 1px solid var(--ln); padding-top: 16px; }
 .m .pd-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 

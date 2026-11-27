@@ -152,7 +152,6 @@ function HistoryTab() {
                 <option value="">Choose a defect</option>
                 {DEFECTS.map(({ key, name }) => <option key={key} value={key}>{name}</option>)}
               </select>
-              <small aria-hidden="true">▾</small>
             </div>
           </div>
           <div>
@@ -162,16 +161,15 @@ function HistoryTab() {
                 <option value="">Choose a range</option>
                 {HUMIDITY.map((value) => <option key={value} value={value}>Near {value}%</option>)}
               </select>
-              <small aria-hidden="true">▾</small>
             </div>
           </div>
           <div>
             <label className="lb" htmlFor={`${id}-board`} style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Board</label>
-            <div className="fld empty"><select id={`${id}-board`} disabled><option>Any board</option></select><small aria-hidden="true">▾</small></div>
+            <div className="fld empty"><select id={`${id}-board`} disabled><option>Any board</option></select></div>
           </div>
           <div>
             <label className="lb" htmlFor={`${id}-date`} style={{ display: "block", fontSize: 13, marginBottom: 6 }}>Run date</label>
-            <div className="fld empty"><select id={`${id}-date`} disabled><option>Any date</option></select><small aria-hidden="true">▾</small></div>
+            <div className="fld empty"><select id={`${id}-date`} disabled><option>Any date</option></select></div>
           </div>
         </div>
         <div className="row" style={{ marginTop: 16 }}>

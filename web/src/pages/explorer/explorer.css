@@ -15,7 +15,7 @@
 
 .m .pe-callouts { position: absolute; inset: 0; pointer-events: none; }
 .m .pe-call { position: absolute; top: 14px; width: 28.4%; min-height: 70px; padding: 10px 14px; }
-.m .pe-call.sel { border-color: rgba(232,102,79,.7); }
+.m .pe-call.sel { border-color: rgba(var(--ac-rgb), .7); }
 .m .pe-call .lb { font-size: 13px; }
 .m .pe-call .n { font-size: 22px; line-height: 30px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
 .m .pe-call .n span { font-size: 15px; color: var(--mu); font-weight: 500; }
@@ -26,7 +26,7 @@
 .m .pe-floor .n span { font-size: 13px; color: var(--mu); font-weight: 500; }
 
 .m .pe-mk { position: absolute; width: 32px; height: 32px; margin: -16px 0 0 -16px; border-radius: 50%; background: #14171B; border: 1.5px solid rgba(255,255,255,.55); display: flex; align-items: center; justify-content: center; font: 700 13px var(--arc-font-body); color: #fff; box-shadow: 0 6px 14px -4px rgba(0,0,0,.8); }
-.m .pe-mk.sel { background: var(--ac); border-color: var(--ac); color: #18110E; }
+.m .pe-mk.sel { background: var(--ac); border-color: var(--ac); color: var(--arc-accent-ink); }
 
 .m .pe-tabs { display: grid; grid-template-columns: repeat(5, 1fr); flex: none; }
 .m .pe-tab { height: 56px; display: flex; align-items: center; justify-content: center; gap: 10px; font: 600 15px var(--arc-font-body); color: var(--mu); background: transparent; border: 0; border-top: 1px solid var(--ln); border-right: 1px solid var(--ln); position: relative; cursor: pointer; padding: 0 8px; }
@@ -34,7 +34,7 @@
 .m .pe-tab b { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ln2); display: flex; align-items: center; justify-content: center; font-size: 11px; flex: none; }
 .m .pe-tab[aria-selected="true"] { background: var(--rz); color: var(--tx); }
 .m .pe-tab[aria-selected="true"]:before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 3px; background: var(--ac); }
-.m .pe-tab[aria-selected="true"] b { background: var(--ac); border-color: var(--ac); color: #18110E; }
+.m .pe-tab[aria-selected="true"] b { background: var(--ac); border-color: var(--ac); color: var(--arc-accent-ink); }
 .m .pe-tab:focus-visible { outline-offset: -3px; }
 
 .m .pe-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -61,3 +61,6 @@
   .m .pe-tab { border-bottom: 1px solid var(--ln); }
 }
 .m .pe-watch-card { flex: 1; }
+
+/* The corrugator photograph has orange glow strips; mute it so it sits with the yellow accent. */
+.m .pe-map img { filter: saturate(.5) contrast(1.02); }
