@@ -69,3 +69,33 @@ test('explicit hackathon display policy permits labeled synthetic inputs but sti
   }
   for (const source of ['mock-demo','offline-test-adapter','preview']) assert.throws(()=>assertProductionResponse({ok:true,source}, 'HACKATHON_DEMO'));
 });
+test('the local mock demo never tells the user Gemini read the sample order', async () => {
+  const workflow=await readFile(new URL('../src/ui/workflow.js',import.meta.url),'utf8');
+  const fill=workflow.slice(workflow.indexOf('async function fillDemoLot()'));
+  assert.match(fill,/demoStatus\(localSyntheticUI \? "Reading the sample order · Sample output, no model call…" : "Reading the order with Gemini…"\)/);
+  const local=workflow.slice(workflow.indexOf('if (localSyntheticUI) {'),workflow.indexOf('// The authentication adapter'));
+  assert.match(local,/"#evaluator-step-fill span"\)\.textContent = "Loads a sample order and fills the conditions and settings\. Sample output, no model call\."/);
+});
+
+test('the risk display accepts a missing rate only for an abstain target', () => {
+  const targetUse = Object.fromEntries(['WARP', 'DELAM', 'STRENGTH', 'PRINT', 'CRACK'].map((defect) => [
+    defect, { useClass: defect === 'CRACK' ? 'abstain' : 'optimizer', reason: 'fixture' },
+  ]));
+  const { CRACK: _crack, ...fourRates } = job.baseline.risk.ratesPct;
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates, targetUse }), true);
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, targetUse }), false, 'an abstain target must not carry a rate');
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates }), false, 'without use classes all five are required');
+  const advisory = { ...targetUse, CRACK: { useClass: 'advisory', reason: 'fixture' } };
+  assert.equal(isRiskDisplay({ ...job.baseline.risk, ratesPct: fourRates, targetUse: advisory }), false);
+});
+
+test('the risk card labels from use classes: advisory is low confidence, abstain shows no number', async () => {
+  const source = await readFile(new URL('../src/ui/components.js', import.meta.url), 'utf8');
+  assert.match(source, /useClass === "advisory"\) label\.append\(node\("small", "low confidence, not counted in the total", "risk-caveat"\)\)/);
+  assert.match(source, /useClass === "abstain" \? "Not shown" : number\(risk\.ratesPct\[key\]\) \+ "%"/);
+});
+
+test('the New Lot plan names the targets its totals leave out', async () => {
+  const source = await readFile(new URL('../web/src/pages/newlot/plan-view.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Totals leave out \{left\.map\(defectLabel\)\.join\(", "\)\}: low confidence, not counted\./);
+});

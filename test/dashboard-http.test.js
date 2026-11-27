@@ -12,13 +12,12 @@ test('dashboard static integration preserves APIs and enforces real signed-sessi
   const child=spawn(process.execPath,['index.mjs'],{cwd:new URL('..',import.meta.url),env:{PATH:process.env.PATH,PORT:String(port),USTAAD_AUTHORIZATION_MODE:'HACKATHON_DEMO',USTAAD_DEMO_SESSION_SIGNING_KEY:'a'.repeat(64),USTAAD_ENABLE_APPROVAL_AUDIT:'true',USTAAD_SYNTHETIC_ONLY:'true'},stdio:['ignore','pipe','pipe']});
   try {
     await Promise.race([once(child.stdout,'data'),once(child,'exit').then(()=>{throw new Error('Server exited');}),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Startup timed out')),6000).unref())]);
-    const dashboard=await fetch(origin+'/dashboard?mock=1');assert.equal(dashboard.status,200);assert.equal(new URL(dashboard.url).pathname,'/');
-    const html=await dashboard.text();assert.match(html,/guided-dashboard/);assert.doesNotMatch(html,/js\/mock\.js|mockbar/);
-    const root=await(await fetch(origin+'/')).text();assert.match(root,/guided-dashboard/);assert.doesNotMatch(root,/workspace-switch|Open standard workspace/);
+    const root=await fetch(origin+'/',{redirect:'manual'});assert.equal(root.status,302);assert.equal(root.headers.get('location'),'/app/');
+    const html=await(await fetch(origin+'/classic')).text();assert.match(html,/guided-dashboard/);assert.doesNotMatch(html,/js\/mock\.js|mockbar|workspace-switch|Open standard workspace/);
     for(const path of ['/dashboard.css','/ui/dashboard.js','/ui/workflow.js','/vendor/chart.umd.js','/fonts/plex-regular.woff2'])assert.equal((await fetch(origin+path)).status,200,path);
     for(const path of ['/ui/mock.js','/js/mock.js','/dashboard/.env'])assert.equal((await fetch(origin+path)).status,404,path);
-    const redirect=await fetch(origin+'/dashboard/?check=1',{redirect:'manual'});assert.equal(redirect.status,302);assert.equal(redirect.headers.get('location'),'/?check=1');
-    const typo=await fetch(origin+'/dasboard',{redirect:'manual'});assert.equal(typo.status,302);assert.equal(typo.headers.get('location'),'/');
+    const redirect=await fetch(origin+'/dashboard/?check=1',{redirect:'manual'});assert.equal(redirect.status,302);assert.equal(redirect.headers.get('location'),'/app/');
+    const typo=await fetch(origin+'/dasboard',{redirect:'manual'});assert.equal(typo.status,302);assert.equal(typo.headers.get('location'),'/app/');
     const session=await fetch(origin+'/api/auth/demo-session',{method:'POST',headers:{Origin:origin}});assert.equal(session.status,200);
     const cookie=session.headers.get('set-cookie');assert.match(cookie,/HttpOnly/);assert.match(cookie,/SameSite=Strict/);
     const sid=JSON.parse(Buffer.from(cookie.split('=')[1].split('.')[0],'base64url').toString()).sid;

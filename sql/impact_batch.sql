@@ -1,8 +1,13 @@
 -- impact_batch.sql: run the optimizer on every held-out lot (Sep 2026) in one go.
--- Creates table prepagent.impact_recs: one row per lot with its ACTUAL levers and the model's BEST levers
+-- Creates table prepagent.impact_recs_v3: one row per lot with its ACTUAL levers and the model's BEST levers
 -- (max 3 changes, same grid + objective as optimize.sql). The true-rules scoring happens in impact.ts.
+-- The objective sums only @optimizer_targets (ARRAY<STRING>), the "optimizer" use class in
+-- config/model-acceptance.json (ARC-ML-03). Bind it from the config, never by hand:
+--   bq query ... "$(node -e 'import("./src/target-eligibility.js").then(async (m) => console.log(m.optimizerTargetsBqFlag(m.readTargetUse((await import("./config/model-acceptance.json", { with: { type: "json" } })).default))))')"
+-- impact_recs (m_* models) and impact_recs_v2 (m2_* models) were built with all five targets in the
+-- objective, crack included; they are kept as they are.
 -- Size: ~220 lots x ~17,000 setting combinations. Takes a few minutes.
-CREATE OR REPLACE TABLE prepagent.impact_recs AS
+CREATE TABLE prepagent.impact_recs_v3 AS
 WITH held AS (
   SELECT * FROM prepagent.lots WHERE run_date >= DATE '2026-09-01'
 ),
@@ -28,11 +33,11 @@ grid AS (
 ),
 -- Chain the 5 models: each ML.PREDICT passes all columns through and adds its prediction.
 pred AS (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_crack, (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_print, (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_strength, (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_delam, (
-  SELECT * FROM ML.PREDICT(MODEL prepagent.m_warp, (SELECT * FROM grid))))))))))
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_crack, (
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_print, (
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_strength, (
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_delam, (
+  SELECT * FROM ML.PREDICT(MODEL prepagent.m2_warp, (SELECT * FROM grid))))))))))
 ),
 costed AS (
   SELECT *,
@@ -40,10 +45,12 @@ costed AS (
     + IF(gum_viscosity_sec != a_visc, 1, 0) + IF(pasting_pressure != a_paste, 1, 0)
     + IF(drying_hours != a_dry, 1, 0) + IF(print_speed_spm != a_print, 1, 0) AS n_changes,
     quantity * box_weight_kg / 100 * (
-      GREATEST(predicted_rate_warp_pct, 0) + GREATEST(predicted_rate_delam_pct, 0)
-      + GREATEST(predicted_rate_strength_pct, 0)
-      + IF(ink_colors = 0, 0, GREATEST(predicted_rate_print_pct, 0))
-      + GREATEST(predicted_rate_crack_pct, 0)) * (SELECT cost_per_kg FROM prepagent.plants WHERE plant_id = 'PLANT-01') AS model_scrap_cost,
+      IF('WARP' IN UNNEST(@optimizer_targets), GREATEST(predicted_rate_warp_pct, 0), 0)
+      + IF('DELAM' IN UNNEST(@optimizer_targets), GREATEST(predicted_rate_delam_pct, 0), 0)
+      + IF('STRENGTH' IN UNNEST(@optimizer_targets), GREATEST(predicted_rate_strength_pct, 0), 0)
+      + IF('PRINT' IN UNNEST(@optimizer_targets), IF(ink_colors = 0, 0, GREATEST(predicted_rate_print_pct, 0)), 0)
+      + IF('CRACK' IN UNNEST(@optimizer_targets), GREATEST(predicted_rate_crack_pct, 0), 0))
+      * (SELECT cost_per_kg FROM prepagent.plants WHERE plant_id = 'PLANT-01') AS model_scrap_cost,
     200 * GREATEST(drying_hours - a_dry, 0) + 60 * GREATEST(a_sf - sf_speed_mpm, 0) + 30 * GREATEST(a_print - print_speed_spm, 0) AS penalty
   FROM pred
 ),

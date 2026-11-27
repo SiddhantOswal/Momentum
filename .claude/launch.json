@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-live-data",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "dev"],
+      "env": { "MOMENTUM_BACKEND": "https://momentum-ai.cloud.run" },
+      "port": 5173
+    },
+    {
+      "name": "web-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "backend-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "demo:local"],
+      "port": 4173
+    }
+  ]
+}

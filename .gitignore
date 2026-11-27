@@ -24,3 +24,13 @@ application_default_credentials.json
 SOURCE_MANIFEST.json
 release-artifacts/
 docs/evidence/
+
+# Built frontend (produced from web/ at build time)
+public/app/
+*.tsbuildinfo
+
+# Arc reference material (V5 pack, source PDFs, strategy); never commit
+docs/arc/reference/
+
+# Agent worktrees, one per ticket branch
+.claude/worktrees/

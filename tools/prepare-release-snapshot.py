@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse, datetime, gzip, hashlib, json, subprocess, tarfile
 
 ROOT_FILES = ['Dockerfile', '.dockerignore', 'package.json', 'package-lock.json', 'index.mjs']
-CONFIG_FILES = ['gcp-storage.json', 'gcp-vertex-ai.json', 'model-acceptance.json', 'approved-photos.json']
+CONFIG_FILES = ['gcp-storage.json', 'gcp-vertex-ai.json', 'model-acceptance.json', 'approved-photos.json', 'condition-ranges.json', 'weather.json', 'arc-models.json', 'arc.json', 'arc-scope.json', 'arc-metrics.json', 'gemini-prices.json', 'model-version-binding.json']
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
@@ -13,7 +13,7 @@ def prepare_snapshot(root, output, head):
     if output.exists() or Path(str(output) + '.tar.gz').exists():
         raise ValueError('Snapshot output/archive already exists; refusing overwrite.')
     selected = {name: root / name for name in ROOT_FILES}
-    for directory in ['src', 'public', 'assets', 'sql']:
+    for directory in ['src', 'public', 'assets', 'sql', 'prompts']:
         for path in sorted((root / directory).rglob('*')):
             if path.is_symlink():
                 raise ValueError('Release symlinks are not supported.')

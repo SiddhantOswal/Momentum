@@ -1,0 +1,563 @@
+{
+  "kind": "five-target-evaluation",
+  "modelId": "m2 etags per config/model-acceptance.json",
+  "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+  "splitId": "holdout-2026-10-11",
+  "unit": "pp",
+  "targets": [
+    "WARP",
+    "DELAM",
+    "STRENGTH",
+    "PRINT",
+    "CRACK"
+  ],
+  "minLots": 200,
+  "inputs": {
+    "labels": {
+      "path": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/labels.jsonl",
+      "sha256": "5aea815148f1ac7d1a042cbadeaf68961de0b49074fa29fb11da61139b744183",
+      "rows": 451
+    },
+    "candidate": {
+      "path": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m2.jsonl",
+      "sha256": "64389af4fdac104151ec412327852181ea2638eab7481f088690a9f489e67d6b",
+      "rows": 451
+    },
+    "incumbent": {
+      "path": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m.jsonl",
+      "sha256": "44a1e31cfc53a990cc4306015e59c7bdd3e77ed672f2998b363e74e0ed46c15a",
+      "rows": 451
+    },
+    "naive": {
+      "path": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-naive.jsonl",
+      "sha256": "7ec11dcc2118b9a44aa12b9b6e07fef6cb7a9f5f17498e9e761f15fcf964e3a2",
+      "rows": 451
+    }
+  },
+  "labels": {
+    "lots": 451,
+    "sources": {
+      "generated": 451
+    },
+    "splits": {
+      "holdout-2026-10-11": 451
+    }
+  },
+  "bootstrap": {
+    "method": "lot bootstrap, percentile interval",
+    "generator": "mulberry32",
+    "seed": 20261125,
+    "resamples": 2000,
+    "interval": 0.95
+  },
+  "deltaDefinition": "candidate minus reference, per lot, averaged over lots; negative means the candidate has lower error",
+  "rows": [
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "WARP",
+      "role": "candidate",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m2.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.618869833590154,
+      "r2NullReason": null,
+      "maePp": 0.16580481334377553,
+      "rmsePp": 0.2355017971472695,
+      "medianAbsErrorPp": 0.1268120450973511,
+      "p90AbsErrorPp": 0.3104777994155884,
+      "biasPp": 0.027416848682775743
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "WARP",
+      "role": "incumbent",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.5656592391285781,
+      "r2NullReason": null,
+      "maePp": 0.17005730377332604,
+      "rmsePp": 0.25140439015593324,
+      "medianAbsErrorPp": 0.1231291003227234,
+      "p90AbsErrorPp": 0.3304846992492676,
+      "biasPp": -0.005029242217408577
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "WARP",
+      "role": "naive",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-naive.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": -0.15521509437946235,
+      "r2NullReason": null,
+      "maePp": 0.31369184180419857,
+      "rmsePp": 0.41000484694054085,
+      "medianAbsErrorPp": 0.26370632368703084,
+      "p90AbsErrorPp": 0.5967063236870308,
+      "biasPp": 0.05398933415342209
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "DELAM",
+      "role": "candidate",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m2.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.6289859591401954,
+      "r2NullReason": null,
+      "maePp": 0.2416473906552977,
+      "rmsePp": 0.41303331784952596,
+      "medianAbsErrorPp": 0.14821912097930912,
+      "p90AbsErrorPp": 0.5041094989776611,
+      "biasPp": 0.019985959945391114
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "DELAM",
+      "role": "incumbent",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.6012802329234106,
+      "r2NullReason": null,
+      "maePp": 0.2425416087152688,
+      "rmsePp": 0.4281774551629416,
+      "medianAbsErrorPp": 0.152112042427063,
+      "p90AbsErrorPp": 0.45965335559844966,
+      "biasPp": -0.020507233911501593
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "DELAM",
+      "role": "naive",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-naive.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.005928288141733962,
+      "r2NullReason": null,
+      "maePp": 0.5033534748454237,
+      "rmsePp": 0.6760810619083496,
+      "medianAbsErrorPp": 0.430789924973202,
+      "p90AbsErrorPp": 0.9112100750267982,
+      "biasPp": 0.06683124904964574
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "STRENGTH",
+      "role": "candidate",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m2.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.3364036326082456,
+      "r2NullReason": null,
+      "maePp": 0.11434204091465398,
+      "rmsePp": 0.21378985610773843,
+      "medianAbsErrorPp": 0.08109325265884404,
+      "p90AbsErrorPp": 0.20325914955139157,
+      "biasPp": 0.001251918094385487
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "STRENGTH",
+      "role": "incumbent",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.3233567301091431,
+      "r2NullReason": null,
+      "maePp": 0.11653724375849558,
+      "rmsePp": 0.21588127694053008,
+      "medianAbsErrorPp": 0.0826531910896301,
+      "p90AbsErrorPp": 0.20977837753295892,
+      "biasPp": -0.01796738782531672
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "STRENGTH",
+      "role": "naive",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-naive.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": -0.014535281801166589,
+      "r2NullReason": null,
+      "maePp": 0.17513079748911325,
+      "rmsePp": 0.2643435222001832,
+      "medianAbsErrorPp": 0.14060557341907887,
+      "p90AbsErrorPp": 0.31939442658092115,
+      "biasPp": 0.015571927642194398
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "PRINT",
+      "role": "candidate",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m2.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.8004339812425867,
+      "r2NullReason": null,
+      "maePp": 0.15900004618826372,
+      "rmsePp": 0.3767534897558709,
+      "medianAbsErrorPp": 0.06998462915420534,
+      "p90AbsErrorPp": 0.3596372137069701,
+      "biasPp": 0.02166809032924737
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "PRINT",
+      "role": "incumbent",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.7775448165373654,
+      "r2NullReason": null,
+      "maePp": 0.17786178712398132,
+      "rmsePp": 0.39777295522675155,
+      "medianAbsErrorPp": 0.057975814342498766,
+      "p90AbsErrorPp": 0.3927970323562622,
+      "biasPp": -0.01192021135387824
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "PRINT",
+      "role": "naive",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-naive.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.0016053373628187595,
+      "r2NullReason": null,
+      "maePp": 0.6645461208514668,
+      "rmsePp": 0.842684706800882,
+      "medianAbsErrorPp": 0.8428360128617357,
+      "p90AbsErrorPp": 0.9691639871382643,
+      "biasPp": 0.03763281486425056
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "CRACK",
+      "role": "candidate",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m2.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.11148308895389714,
+      "r2NullReason": null,
+      "maePp": 0.09965357287760057,
+      "rmsePp": 0.1546636620937233,
+      "medianAbsErrorPp": 0.07970849227905275,
+      "p90AbsErrorPp": 0.18108525085449223,
+      "biasPp": 0.021814137639597598
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "CRACK",
+      "role": "incumbent",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-m.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": 0.02437939807207845,
+      "r2NullReason": null,
+      "maePp": 0.09832656709053564,
+      "rmsePp": 0.16206749569759224,
+      "medianAbsErrorPp": 0.07404091405868529,
+      "p90AbsErrorPp": 0.17949662590026855,
+      "biasPp": 0.01260011252489957
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "CRACK",
+      "role": "naive",
+      "predictionsFile": "/private/tmp/claude-501/-Users-om-Downloads-Google-AI-Builder-Cup-UstaadAI---PrepAgent/2b6d111d-2908-48c5-bcba-b82db12a44ac/scratchpad/holdout/predictions-naive.jsonl",
+      "labelSources": {
+        "generated": 451
+      },
+      "lots": 451,
+      "r2": -0.023311644413950283,
+      "r2NullReason": null,
+      "maePp": 0.11446010913892977,
+      "rmsePp": 0.16598139032063255,
+      "medianAbsErrorPp": 0.09724866023579881,
+      "p90AbsErrorPp": 0.2072486602357988,
+      "biasPp": 0.02072820955383691
+    }
+  ],
+  "comparisons": [
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "WARP",
+      "candidate": "candidate",
+      "reference": "incumbent",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.004252490429550474,
+      "maeDeltaCi95Pp": [
+        -0.012405205211776842,
+        0.0034694330256424062
+      ],
+      "squaredErrorDeltaPp2": -0.007743070930083051,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.014513992454752536,
+        -0.0018306144139033354
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "WARP",
+      "candidate": "candidate",
+      "reference": "naive",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.14788702846042331,
+      "maeDeltaCi95Pp": [
+        -0.16922412718467209,
+        -0.12708698957994483
+      ],
+      "squaredErrorDeltaPp2": -0.11264287805514271,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.13979408174475985,
+        -0.08711030564230564
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "DELAM",
+      "candidate": "candidate",
+      "reference": "incumbent",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.0008942180599711724,
+      "maeDeltaCi95Pp": [
+        -0.012849748998021337,
+        0.011931058855886733
+      ],
+      "squaredErrorDeltaPp2": -0.012739411456025437,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.031175383446240348,
+        0.0025651362765187293
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "DELAM",
+      "candidate": "candidate",
+      "reference": "naive",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.2617060841901259,
+      "maeDeltaCi95Pp": [
+        -0.29428963609258646,
+        -0.2290966313524508
+      ],
+      "squaredErrorDeltaPp2": -0.28648908061733414,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.3744084781100542,
+        -0.21752422624466725
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "STRENGTH",
+      "candidate": "candidate",
+      "reference": "incumbent",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.0021952028438415867,
+      "maeDeltaCi95Pp": [
+        -0.005982234639616604,
+        0.0017506486937106294
+      ],
+      "squaredErrorDeltaPp2": -0.0008986231589064073,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.0033113447921719916,
+        0.0021263006108585302
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "STRENGTH",
+      "candidate": "candidate",
+      "reference": "naive",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.06078875657445937,
+      "maeDeltaCi95Pp": [
+        -0.07078277732271007,
+        -0.05015009720968911
+      ],
+      "squaredErrorDeltaPp2": -0.024171395154631254,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.02993519334009217,
+        -0.01868110370324993
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "PRINT",
+      "candidate": "candidate",
+      "reference": "incumbent",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.01886174093571775,
+      "maeDeltaCi95Pp": [
+        -0.030783593320489203,
+        -0.007083301607935765
+      ],
+      "squaredErrorDeltaPp2": -0.016280131866595767,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.032816227948538855,
+        -0.0006002275674598286
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "PRINT",
+      "candidate": "candidate",
+      "reference": "naive",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.5055460746632024,
+      "maeDeltaCi95Pp": [
+        -0.5468304700119366,
+        -0.4638913487243663
+      ],
+      "squaredErrorDeltaPp2": -0.5681743230328606,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.6569170628379752,
+        -0.49102415866373855
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "CRACK",
+      "candidate": "candidate",
+      "reference": "incumbent",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": 0.0013270057870649193,
+      "maeDeltaCi95Pp": [
+        -0.005327740743154959,
+        0.006326017752891111
+      ],
+      "squaredErrorDeltaPp2": -0.0023450247894476824,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.009049114977518131,
+        0.0014876552921705912
+      ]
+    },
+    {
+      "modelId": "m2 etags per config/model-acceptance.json",
+      "datasetId": "generator seed 20261125 window 2026-10-01..2026-11-30",
+      "splitId": "holdout-2026-10-11",
+      "target": "CRACK",
+      "candidate": "candidate",
+      "reference": "naive",
+      "lots": 451,
+      "labelSources": {
+        "generated": 451
+      },
+      "maeDeltaPp": -0.014806536261329214,
+      "maeDeltaCi95Pp": [
+        -0.020731163092947414,
+        -0.009210146471546379
+      ],
+      "squaredErrorDeltaPp2": -0.0036289735605287694,
+      "squaredErrorDeltaCi95Pp2": [
+        -0.005537831194151545,
+        -0.0016431831035710344
+      ]
+    }
+  ]
+}

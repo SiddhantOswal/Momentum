@@ -1,6 +1,14 @@
-const BIGQUERY_API = "https://bigquery.googleapis.com/bigquery/v2";
-const CLOUD_RUN_METADATA_TOKEN_URL =
-  "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token";
+export const BIGQUERY_API = "https://bigquery.googleapis.com/bigquery/v2";
+// GCE_METADATA_HOST is Google's standard way to move the metadata server. Only a host and
+// optional port are accepted, so the setting cannot redirect tokens to an arbitrary URL.
+const METADATA_HOST_PATTERN = /^(?:metadata\.google\.internal|127\.0\.0\.1|localhost)(?::\d{1,5})?$/;
+export function metadataTokenUrl(env = process.env) {
+  const host = env.GCE_METADATA_HOST || "metadata.google.internal";
+  if (!METADATA_HOST_PATTERN.test(host)) {
+    throw new BigQueryReadError("CLOUD_IDENTITY_UNAVAILABLE", "GCE_METADATA_HOST must be the metadata server or a loopback address.");
+  }
+  return `http://${host}/computeMetadata/v1/instance/service-accounts/default/token`;
+}
 
 export const DEFAULT_MAX_BYTES_BILLED = 50 * 1024 * 1024;
 const DEFAULT_QUERY_WAIT_MS = 50_000;
@@ -62,6 +70,23 @@ function assertReadOnlySql(sql) {
   }
 }
 
+const MAX_ARRAY_PARAMETER_LENGTH = 16;
+const MAX_ARRAY_ELEMENT_LENGTH = 64;
+
+// Only short string lists are needed (the optimizer target set), so arrays stay
+// narrow: STRING elements, bounded count and length, no nulls.
+function stringArrayParameter(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_ARRAY_PARAMETER_LENGTH ||
+      value.some((element) => typeof element !== "string" || element.length === 0 ||
+        element.length > MAX_ARRAY_ELEMENT_LENGTH)) {
+    throw new BigQueryReadError("INVALID_QUERY_PARAMETER", "Query parameter value does not match its type.");
+  }
+  return {
+    parameterType: { type: "ARRAY", arrayType: { type: "STRING" } },
+    parameterValue: { arrayValues: value.map((element) => ({ value: element })) },
+  };
+}
+
 function parameterTypeAndValue(input) {
   const explicit = input !== null && typeof input === "object" && !Array.isArray(input)
     ? input
@@ -102,6 +127,9 @@ function encodeParameters(parameters) {
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
       throw new BigQueryReadError("INVALID_QUERY_PARAMETER", "Query parameter name is invalid.");
     }
+    if (input !== null && typeof input === "object" && input.type === "ARRAY<STRING>") {
+      return { name, ...stringArrayParameter(input.value) };
+    }
     const { type, value } = parameterTypeAndValue(input);
     return {
       name,
@@ -111,11 +139,12 @@ function encodeParameters(parameters) {
   });
 }
 
-export function createCloudRunAccessTokenProvider({ fetchImpl = fetch } = {}) {
+export function createCloudRunAccessTokenProvider({ fetchImpl = fetch, env = process.env } = {}) {
   return async ({ signal } = {}) => {
     let response;
+    const url = metadataTokenUrl(env);
     try {
-      response = await fetchImpl(CLOUD_RUN_METADATA_TOKEN_URL, {
+      response = await fetchImpl(url, {
         headers: { "Metadata-Flavor": "Google" },
         signal,
       });

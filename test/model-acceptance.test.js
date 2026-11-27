@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getModelAcceptanceSummary, hasOwnerCountDecision, isModelSetAccepted, REQUIRED_MODEL_R2 } from "../src/model-acceptance.js";
 
-const recorded = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8"));
+const active = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8"));
+// The October D4 record for the m_* models, kept in the active config as history.
+const recorded = active.previousAcceptance;
 const featureObservation = JSON.parse(readFileSync(new URL("../config/model-feature-importance-observation.json", import.meta.url), "utf8"));
 
 function acceptedFixture() {
@@ -27,7 +29,44 @@ function acceptedFixture() {
   };
 }
 
-test("active config is accepted by Om's D4 owner decision without claiming complete evidence", () => {
+test("active config accepts the m2_* models on the September holdout by Om's 20 Nov D4 decision", () => {
+  assert.equal(isModelSetAccepted(active), true);
+  const summary = getModelAcceptanceSummary(active);
+  assert.equal(summary.status, "accepted");
+  assert.equal(summary.evaluationId, "D4-2026-11-20-OM");
+  assert.equal(summary.completeAcceptanceEvidenceAvailable, true);
+  assert.equal(summary.prototypeThresholdsMet, false, "the October internal-split thresholds are reported, not claimed");
+  assert.deepEqual(summary.models.map((m) => m.resource), ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].map((d) => `prepagent.m2_${d.toLowerCase()}`));
+  for (const model of summary.models) assert.deepEqual(Object.keys(model), ["defect", "resource", "r2", "modelVersion", "sampleCount"]);
+  for (const model of active.models) assert.ok(model.r2 > model.replaces.r2, `${model.defect} beats the model it replaces`);
+  assert.deepEqual(active.recordedEvaluation.models, summary.models);
+});
+
+test("holdout decision is narrow: every model must beat its predecessor on the same counted rows", () => {
+  const variants = {
+    noDecision: (r) => { delete r.ownerDecision; },
+    wrongDecision: (r) => { r.ownerDecision.decision = "ACCEPT"; },
+    noOwner: (r) => { r.ownerDecision.owner = ""; },
+    futureDecision: (r) => { r.ownerDecision.decidedAt = "2999-01-01"; },
+    noHoldoutCount: (r) => { r.holdout.sampleCount = 0; },
+    countMismatch: (r) => { r.models[0].sampleCount = 200; },
+    splitMismatch: (r) => { r.splitId = "another-split"; },
+    noImprovement: (r) => { r.models[1].r2 = r.models[1].replaces.r2; },
+    noPredecessor: (r) => { delete r.models[2].replaces; },
+    noSkill: (r) => { r.models[4].r2 = 0; r.models[4].replaces.r2 = -0.5; },
+    oldResource: (r) => { r.models[0].resource = "prepagent.m_warp"; },
+    versionMismatch: (r) => { r.currentModelVersions.WARP = "other"; },
+    unreviewed: (r) => { r.featureImportanceReviewed = false; },
+    notAccepted: (r) => { r.status = "blocked"; },
+  };
+  for (const [name, mutate] of Object.entries(variants)) {
+    const record = structuredClone(active);
+    mutate(record);
+    assert.equal(isModelSetAccepted(record), false, name);
+  }
+});
+
+test("the October D4 record for the m_* models is still accepted on its own terms", () => {
   assert.equal(isModelSetAccepted(recorded), true);
   const summary = getModelAcceptanceSummary(recorded);
   assert.equal(summary.status, "accepted");

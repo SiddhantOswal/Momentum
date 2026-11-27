@@ -4,6 +4,7 @@ import vertexConfig from "../config/gcp-vertex-ai.json" with { type: "json" };
 import storageConfig from "../config/gcp-storage.json" with { type: "json" };
 import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
 import { createCloudStorageClient } from "./google-cloud/storage-client.js";
+import { createMetricQueryService } from "./arc/metrics/query.js";
 import { createBigQueryReadClient } from "./google-cloud/bigquery-read-client.js";
 import { createItemCatalogService } from "./google-cloud/item-catalog-service.js";
 import { createCurrentConditionsService } from "./google-cloud/current-conditions-service.js";
@@ -16,7 +17,10 @@ import { createJobCardService } from "./google-cloud/job-card-service.js";
 import { createFeedbackService } from "./google-cloud/feedback-service.js";
 import { createLotAssociationService } from "./google-cloud/lot-association-service.js";
 import { createRiskPredictionService } from "./google-cloud/risk-prediction-service.js";
+import { createWeatherProviderFromEnv } from "./google-cloud/weather-service.js";
+import { createConditionGuard } from "./condition-guard.js";
 import { createRiskOptimizationService } from "./google-cloud/risk-optimization-service.js";
+import { createModelVersionBinding } from "./google-cloud/model-version-binding.js";
 import {
   createRiskExplanationService,
   createSeenBeforeService,
@@ -25,6 +29,12 @@ import {
 import { createImpactSummaryService } from "./google-cloud/impact-summary-service.js";
 import { readDailyGeminiCallCapConfig, withDailyGeminiCallCap } from "./daily-gemini-call-cap.js";
 import { createFirestoreGeminiAttemptStore } from "./google-cloud/firestore-gemini-attempt-store.js";
+import { budgetCapStore, createFirestoreBudgetStore } from "./google-cloud/firestore-budget-store.js";
+import { readGeminiBudgetConfig } from "./gemini-budget-config.js";
+import { createFirestoreLotStore } from "./google-cloud/firestore-lot-store.js";
+import { createFirestorePoReviewStore } from "./google-cloud/firestore-po-review-store.js";
+import { createFirestoreIdempotencyStore } from "./google-cloud/firestore-idempotency-store.js";
+import { createDefectDiagnosisService } from "./google-cloud/defect-diagnosis-service.js";
 import { mergeDraftWriteArgs } from "./job-draft-persistence.js";
 import { renderJobSheetPdf } from "./job-sheet-pdf.js";
 import {
@@ -40,6 +50,7 @@ import {
 const requirements = {
   getApprovedPhotos: "The approved photo classification service is not enabled.",
   classifyApprovedPhoto: "Approved-photo storage and shared-metered Gemini are not enabled.",
+  diagnoseDefectPhoto: "Photo diagnosis needs Cloud Storage and Gemini on Vertex AI.",
   extractOrder: "Cloud Storage and Gemini on Vertex AI are not configured.",
   extractOrderForReview: "Cloud Storage, Gemini and the item catalog are not configured.",
   confirmPurchaseOrderReview: "The current PO review and catalog item are not available.",
@@ -55,6 +66,7 @@ const requirements = {
   saveFeedback: "BigQuery, Cloud Storage photo uploads, and note translation are not configured.",
   getInsights: "BigQuery historical lot and feedback data are not configured.",
   getImpactSummary: "The four live Impact dashboard queries are not configured.",
+  queryMetric: "The Arc metric queries are not enabled.",
   getLotOrder: "BigQuery lot-to-order association lookup is not configured.",
 };
 
@@ -62,11 +74,12 @@ const requirements = {
 // Keep its 80 MiB ceiling isolated from the general read client's 50 MiB cap.
 const RISK_PREDICTION_MAX_BYTES_BILLED = 80 * 1024 * 1024;
 
-// The canonical optimizer's two ASSERT jobs and SELECT are billed separately.
-// Keep the historical ceiling until the owner approves the proposed 100 MiB
-// retry. An invalid/unreviewed value disables only the optimizer adapter.
+// The canonical optimizer's two ASSERT jobs and SELECT are billed separately,
+// 90 MiB in total for the recorded PKBX0041 run, so 80 MiB cannot cover one run.
+// An invalid/unreviewed value disables only the optimizer adapter.
+const OPTIMIZER_DEFAULT_MAX_BYTES_BILLED = 100 * 1024 * 1024;
 export function readOptimizerQueryBudget(env = process.env) {
-  const raw = env.USTAAD_OPTIMIZER_MAX_BYTES_BILLED ?? String(RISK_PREDICTION_MAX_BYTES_BILLED);
+  const raw = env.USTAAD_OPTIMIZER_MAX_BYTES_BILLED ?? String(OPTIMIZER_DEFAULT_MAX_BYTES_BILLED);
   return [String(80 * 1024 * 1024), String(100 * 1024 * 1024)].includes(raw)
     ? Number(raw) : undefined;
 }
@@ -97,6 +110,7 @@ export function createServicePorts(adapters = {}) {
   const availability = Object.freeze({
     getApprovedPhotos: typeof adapters.getApprovedPhotos === "function",
     classifyApprovedPhoto: typeof adapters.classifyApprovedPhoto === "function",
+    diagnoseDefectPhoto: typeof adapters.diagnoseDefectPhoto === "function",
     extractOrder: typeof adapters.extractOrder === "function",
     currentConditions: typeof adapters.currentConditions === "function",
     predictRisk: typeof adapters.predictRisk === "function",
@@ -113,15 +127,22 @@ export function createServicePorts(adapters = {}) {
     createDraftJobSheet: typeof adapters.createDraftJobSheet === "function",
     getInsights: typeof adapters.getInsights === "function",
     getImpactSummary: typeof adapters.getImpactSummary === "function",
+    queryMetric: typeof adapters.queryMetric === "function",
   });
   return Object.freeze({
     availability,
     getApprovedPhotos: adapters.getApprovedPhotos ?? unavailable("getApprovedPhotos"),
     classifyApprovedPhoto: adapters.classifyApprovedPhoto ?? unavailable("classifyApprovedPhoto"),
+    diagnoseDefectPhoto: adapters.diagnoseDefectPhoto ?? unavailable("diagnoseDefectPhoto"),
     geminiUsage: adapters.geminiUsage ?? Object.freeze({ sharedCounterConfigured: false, liveConnectivityVerified: false }),
+    jobIdempotency: adapters.jobIdempotency ?? Object.freeze({ durableRequested: false }),
+    lotRevisions: adapters.lotRevisions ?? Object.freeze({ enabled: false, enforceGuard: false, store: undefined }),
+    // What the Arc turn runner needs to meter and send its router call. Empty unless live calls are permitted.
+    arcGemini: adapters.arcGemini ?? Object.freeze({}),
     extractOrder: adapters.extractOrder ?? unavailable("extractOrder"),
     extractOrderForReview: adapters.extractOrderForReview ?? unavailable("extractOrderForReview"),
     confirmPurchaseOrderReview: adapters.confirmPurchaseOrderReview ?? unavailable("confirmPurchaseOrderReview"),
+    loadPurchaseOrderReview: adapters.loadPurchaseOrderReview ?? unavailable("loadPurchaseOrderReview"),
     currentConditions: adapters.currentConditions ?? unavailable("currentConditions"),
     predictRisk: adapters.predictRisk ?? unavailable("predictRisk"),
     optimizeRisk: adapters.optimizeRisk ?? unavailable("optimizeRisk"),
@@ -137,6 +158,11 @@ export function createServicePorts(adapters = {}) {
     getLotOrder: adapters.getLotOrder ?? unavailable("getLotOrder"),
     getInsights: adapters.getInsights ?? unavailable("getInsights"),
     getImpactSummary: adapters.getImpactSummary ?? unavailable("getImpactSummary"),
+    queryMetric: adapters.queryMetric ?? unavailable("queryMetric"),
+    // Resolves humidity/temperature fallbacks and checks paper moisture against
+    // the plant's recorded ranges before any prediction (src/condition-guard.js).
+    conditionGuard: adapters.conditionGuard ?? createConditionGuard(),
+    ...(adapters.modelVersions ? { modelVersions: adapters.modelVersions } : {}),
   });
 }
 
@@ -271,6 +297,13 @@ function createSyntheticDemoServicePorts() {
   });
 
   return createServicePorts({
+    // Local runs only: a fixed diagnosis so the Defects screen can be exercised without Gemini.
+    diagnoseDefectPhoto: async () => ({
+      ok: true, source: "mock-demo", isRealModelPrediction: false, recognised: true,
+      diagnosis: { label: "DELAM", severity: "MEDIUM", confidence: 0.8, visibleSigns: ["Local mock: liner lifting along one edge"] },
+      photo: { uri: "memory://local-mock", contentType: "image/jpeg" }, model: "local-mock",
+      diagnosedAt: new Date().toISOString(), note: "Local mock diagnosis, not a Gemini result.",
+    }),
     extractOrder: async ({ operatorFields, selectedLineIndex, signal } = {}) => {
       return extractOrder({
         orderId: operatorFields?.orderId ?? "PO-TEST-42",
@@ -408,6 +441,45 @@ function createSyntheticDemoServicePorts() {
   });
 }
 
+/**
+ * Chooses the store behind withDailyGeminiCallCap. With
+ * `USTAAD_GEMINI_BUDGET_POLICY=budget-v2` it is the budget store, which never
+ * touches the shared `gemini_daily_usage` document (founder decision F1); a
+ * requested policy with invalid limits permits no Gemini call. Without the
+ * flag the existing day cap is unchanged.
+ */
+export function configureGeminiUsage({ env, projectId, fetchImpl = fetch, tokenProvider, geminiDailyCap, now } = {}) {
+  const budget = readGeminiBudgetConfig(env);
+  if (budget.requested) {
+    const configured = budget.configured && Boolean(projectId);
+    return Object.freeze({
+      policy: "budget-v2",
+      budgetStatus: budget.status,
+      sharedCounterConfigured: configured,
+      callsPermitted: configured,
+      store: configured ? budgetCapStore(createFirestoreBudgetStore({
+        projectId, fetchImpl, tokenProvider, limits: budget.limits, ...(now ? { now } : {}),
+      })) : undefined,
+    });
+  }
+  const sharedCounterRequested = env.USTAAD_ENABLE_FIRESTORE_GEMINI_CAP === "true";
+  const sharedCounterConfigured = sharedCounterRequested && Boolean(projectId) &&
+    env.USTAAD_GEMINI_COUNTER_DATABASE === "(default)" && geminiDailyCap.configured &&
+    geminiDailyCap.timeZone === "Asia/Kolkata";
+  // Source support is not cloud approval. This flag stays absent/false until
+  // the owner approves the existing database and its IAM/cost scope.
+  const callsPermitted = (env.K_SERVICE || env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO")
+    ? sharedCounterConfigured
+    : (!sharedCounterRequested || sharedCounterConfigured);
+  return Object.freeze({
+    sharedCounterConfigured,
+    callsPermitted,
+    store: sharedCounterConfigured ? createFirestoreGeminiAttemptStore({
+      projectId, database: env.USTAAD_GEMINI_COUNTER_DATABASE, fetchImpl, tokenProvider,
+    }) : undefined,
+  });
+}
+
 export function createConfiguredServicePorts({
   env = process.env,
   modelConfig = vertexConfig,
@@ -423,14 +495,9 @@ export function createConfiguredServicePorts({
     env.USTAAD_ENABLE_LIVE_MODEL_CALLS === "true";
   const geminiDailyCap = readDailyGeminiCallCapConfig(env);
   const projectId = env.PROJECT_ID ?? env.GOOGLE_CLOUD_PROJECT ?? modelConfig.projectId;
-  const sharedCounterRequested = env.USTAAD_ENABLE_FIRESTORE_GEMINI_CAP === "true";
-  const sharedCounterConfigured = sharedCounterRequested && Boolean(projectId) &&
-    env.USTAAD_GEMINI_COUNTER_DATABASE === "(default)" && geminiDailyCap.configured &&
-    geminiDailyCap.timeZone === "Asia/Kolkata";
-  // Source support is not cloud approval. This flag stays absent/false until
-  // the owner approves the existing database and its IAM/cost scope.
-  const allowed = liveModelCallsOptedIn && geminiDailyCap.configured &&
-    ((env.K_SERVICE || env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO") ? sharedCounterConfigured : (!sharedCounterRequested || sharedCounterConfigured));
+  const geminiUsage = configureGeminiUsage({ env, projectId, fetchImpl, tokenProvider, geminiDailyCap });
+  const { sharedCounterConfigured } = geminiUsage;
+  const allowed = liveModelCallsOptedIn && geminiDailyCap.configured && geminiUsage.callsPermitted;
   const region = env.REGION ?? env.VERTEX_LOCATION ?? modelConfig.location;
   const vertexLocation = env.VERTEX_LOCATION ?? region;
   const bucket = env.BUCKET ?? env.USTAAD_GCS_BUCKET ?? bucketConfig.bucket?.name;
@@ -441,7 +508,54 @@ export function createConfiguredServicePorts({
     fetchImpl,
     tokenProvider,
   });
-  const adapters = { geminiUsage: Object.freeze({ sharedCounterConfigured, liveConnectivityVerified: false }) };
+  // The weather fallback is enabled only when WEATHER_API_KEY is set.
+  const conditionGuard = createConditionGuard({
+    weatherProvider: createWeatherProviderFromEnv(env, { fetchImpl }),
+  });
+  const adapters = {
+    geminiUsage: Object.freeze({
+      sharedCounterConfigured,
+      liveConnectivityVerified: false,
+      ...(geminiUsage.policy ? { policy: geminiUsage.policy, budgetStatus: geminiUsage.budgetStatus } : {}),
+      ...(geminiUsage.store?.peek ? { peek: geminiUsage.store.peek } : {}),
+      ...(geminiUsage.store?.admitSession ? {
+        admitSession: geminiUsage.store.admitSession, admitPitchClaim: geminiUsage.store.admitPitchClaim,
+      } : {}),
+      ...(geminiUsage.store?.admitPlan ? { admitPlan: geminiUsage.store.admitPlan } : {}),
+    }),
+    conditionGuard,
+    // The router and the answer writer share this client. Each role takes its model and region from
+    // config/arc-models.json, not from GEMINI_MODEL or VERTEX_LOCATION. The runner wraps it in the
+    // budget store, so it is handed over unwrapped.
+    arcGemini: Object.freeze(allowed && projectId ? {
+      attemptStore: geminiUsage.store,
+      dailyCap: geminiDailyCap,
+      routerClient: createVertexGeminiClient({ projectId, fetchImpl, tokenProvider }),
+    } : {}),
+  };
+  if (env.USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY === "true") {
+    adapters.jobIdempotency = Object.freeze({
+      durableRequested: true,
+      store: projectId ? createFirestoreIdempotencyStore({
+        projectId, collection: "idempotency", fetchImpl, tokenProvider,
+      }) : undefined,
+    });
+  }
+  // 7a writes revisions; 7b enforces the approve guard. Both need the store, and neither falls back to memory.
+  const lotRevisionsEnabled = env.USTAAD_ENABLE_LOT_REVISIONS === "true";
+  const approveGuardEnforced = env.USTAAD_ENFORCE_APPROVE_GUARD === "true";
+  if (lotRevisionsEnabled || approveGuardEnforced) {
+    adapters.lotRevisions = Object.freeze({
+      enabled: lotRevisionsEnabled,
+      enforceGuard: approveGuardEnforced,
+      store: projectId ? createFirestoreLotStore({ projectId, fetchImpl, tokenProvider }) : undefined,
+    });
+  }
+  if (projectId && env.USTAAD_ENABLE_ARC_METRICS === "true") {
+    adapters.queryMetric = createMetricQueryService({
+      projectId, location: region, fetchImpl, tokenProvider, modelAcceptance,
+    }).queryMetric;
+  }
   if (projectId) {
     adapters.getLotOrder = createLotAssociationService({ bigquery, projectId });
     if (env.USTAAD_ENABLE_IMPACT_SUMMARY === "true") {
@@ -464,7 +578,7 @@ export function createConfiguredServicePorts({
       fetchImpl,
       tokenProvider,
     });
-    adapters.predictRisk = createRiskPredictionService({ bigquery: riskBigquery, projectId, modelAcceptance });
+    adapters.predictRisk = createRiskPredictionService({ bigquery: riskBigquery, projectId, modelAcceptance, conditionGuard });
     const optimizerContractApproved = env.USTAAD_OPTIMIZER_CONTRACT_STATUS === "approved" &&
       typeof env.USTAAD_OPTIMIZER_CONTRACT_VERSION === "string" &&
       /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(env.USTAAD_OPTIMIZER_CONTRACT_VERSION);
@@ -478,6 +592,14 @@ export function createConfiguredServicePorts({
       adapters.findSeenBefore = createSeenBeforeService({ bigquery });
       adapters.findSimilarRuns = createSimilarRunsService({ bigquery });
     }
+  }
+  // Audit M01: only the exact value "true" binds prediction and optimization to the accepted etags.
+  if (projectId && env.USTAAD_ENFORCE_MODEL_VERSIONS === "true") {
+    const modelVersions = createModelVersionBinding({ projectId, modelAcceptance, fetchImpl, tokenProvider });
+    adapters.modelVersions = modelVersions;
+    if (adapters.predictRisk) adapters.predictRisk = modelVersions.guard(adapters.predictRisk, "Prediction");
+    if (adapters.optimizeRisk) adapters.optimizeRisk = modelVersions.guard(adapters.optimizeRisk, "Optimization");
+    modelVersions.start();
   }
 
   if (projectId && bucket && env.USTAAD_ENABLE_JOB_STORAGE === "true" &&
@@ -514,10 +636,7 @@ export function createConfiguredServicePorts({
     fetchImpl,
     tokenProvider,
   });
-  const attemptStore = sharedCounterConfigured ? createFirestoreGeminiAttemptStore({
-    projectId, database: env.USTAAD_GEMINI_COUNTER_DATABASE, fetchImpl, tokenProvider,
-  }) : undefined;
-  const gemini = withDailyGeminiCallCap(vertexGemini, geminiDailyCap, { store: attemptStore });
+  const gemini = withDailyGeminiCallCap(vertexGemini, geminiDailyCap, { store: geminiUsage.store });
   if (env.USTAAD_ENABLE_RISK_PREDICTION === "true") {
     const riskBigquery = createBigQueryReadClient({
       projectId,
@@ -527,6 +646,11 @@ export function createConfiguredServicePorts({
       tokenProvider,
     });
     adapters.explainRisk = createRiskExplanationService({ bigquery: riskBigquery, gemini });
+    // sql/explain.sql runs ML.EXPLAIN_PREDICT on the same m2_* models.
+    if (adapters.modelVersions) adapters.explainRisk = adapters.modelVersions.guard(adapters.explainRisk, "Explanation");
+  }
+  if (env.USTAAD_ENABLE_DEFECT_DIAGNOSIS === "true") {
+    adapters.diagnoseDefectPhoto = createDefectDiagnosisService({ storage, gemini, bucket, model }).diagnose;
   }
   if (env.USTAAD_ENABLE_APPROVED_PHOTO_CLASSIFICATION === "true" && env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO" && env.USTAAD_SYNTHETIC_ONLY === "true") {
     const photos = createApprovedPhotoService({ storage, gemini, inventory: approvedPhotos, model });
@@ -535,15 +659,20 @@ export function createConfiguredServicePorts({
   }
   const extractOrder = createPdfOrderExtractionService({ storage, gemini, itemCatalog,
     allowTestOrderNamespace: env.USTAAD_AUTHORIZATION_MODE === "HACKATHON_DEMO" && env.USTAAD_SYNTHETIC_ONLY === "true" });
+  // Off: reviews stay in this instance's memory. On: they live in po_reviews and fail closed.
   const review = createPurchaseOrderReviewService({
     extractOrder,
     resolveOrderLine: itemCatalog.resolveOrderLine,
+    ...(env.USTAAD_ENABLE_DURABLE_PO_REVIEWS === "true" ? {
+      reviewStore: createFirestorePoReviewStore({ projectId, fetchImpl, tokenProvider }),
+    } : {}),
   });
   return createServicePorts({
     ...adapters,
     extractOrder,
     extractOrderForReview: review.extractForReview,
     confirmPurchaseOrderReview: review.confirmReview,
+    loadPurchaseOrderReview: review.loadReview,
   });
 }
 

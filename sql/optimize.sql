@@ -1,8 +1,12 @@
 -- optimize.sql: order + conditions + planned levers -> BASELINE row and BEST row (max 3 lever changes)
--- Params: same 15 as predict.sql; the 7 lever params are the supervisor's PLANNED settings.
--- Objective: predicted scrap cost + throughput penalty for SLOWING DOWN versus the plan
---   (Rs 200 per extra drying hour, Rs 60 per m/min slower single facer, Rs 30 per sheet/min slower printing)
--- Verified test: PKBX0041, 1300, RECYCLED, SUP-D, DAY, 86, 26, 10.8, levers 48/162/HIGH/32/MED/5/60
+-- Params: same 16 as predict.sql; the 7 lever params are the supervisor's PLANNED settings.
+-- Objective: predicted scrap cost of the optimizer targets only + throughput penalty for SLOWING DOWN
+--   versus the plan (Rs 200 per extra drying hour, Rs 60 per m/min slower single facer, Rs 30 per
+--   sheet/min slower printing). @optimizer_targets (ARRAY<STRING>) is the "optimizer" use class from
+--   config/model-acceptance.json; advisory and abstain targets are predicted but never enter the
+--   objective, the totals or primary_defect, so they cannot move the recommendation (ARC-ML-03).
+-- Verified test, run before ARC-ML-03 with all five targets in the objective (not re-run since):
+--   PKBX0041, 1300, RECYCLED, SUP-D, DAY, 86, 26, 10.8, levers 48/162/HIGH/32/MED/5/60
 --   -> BASELINE 10.18% / 100.4 kg / 5351; BEST roll 170, gum MED, viscosity 35 -> saves 17.4 kg / 925
 ASSERT EXISTS(SELECT 1 FROM prepagent.items WHERE item_code = @item_code)
   AS 'Item not found in item master';
@@ -53,11 +57,11 @@ candidates AS (
     CROSS JOIN pastes p CROSS JOIN dries d CROSS JOIN prints pr
 ),
 grid AS (SELECT c.*, b.* FROM candidates c CROSS JOIN base b),
-pw AS (SELECT cid, predicted_rate_warp_pct     AS v FROM ML.PREDICT(MODEL prepagent.m_warp,     (SELECT * FROM grid))),
-pd AS (SELECT cid, predicted_rate_delam_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_delam,    (SELECT * FROM grid))),
-ps AS (SELECT cid, predicted_rate_strength_pct AS v FROM ML.PREDICT(MODEL prepagent.m_strength, (SELECT * FROM grid))),
-pp AS (SELECT cid, predicted_rate_print_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_print,    (SELECT * FROM grid))),
-pc AS (SELECT cid, predicted_rate_crack_pct    AS v FROM ML.PREDICT(MODEL prepagent.m_crack,    (SELECT * FROM grid))),
+pw AS (SELECT cid, predicted_rate_warp_pct     AS v FROM ML.PREDICT(MODEL prepagent.m2_warp,     (SELECT * FROM grid))),
+pd AS (SELECT cid, predicted_rate_delam_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_delam,    (SELECT * FROM grid))),
+ps AS (SELECT cid, predicted_rate_strength_pct AS v FROM ML.PREDICT(MODEL prepagent.m2_strength, (SELECT * FROM grid))),
+pp AS (SELECT cid, predicted_rate_print_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_print,    (SELECT * FROM grid))),
+pc AS (SELECT cid, predicted_rate_crack_pct    AS v FROM ML.PREDICT(MODEL prepagent.m2_crack,    (SELECT * FROM grid))),
 rated AS (
   SELECT g.*,
     GREATEST(pw.v, 0) AS r_warp, GREATEST(pd.v, 0) AS r_delam, GREATEST(ps.v, 0) AS r_strength,
@@ -72,14 +76,31 @@ rated AS (
   FROM grid g
   JOIN pw USING (cid) JOIN pd USING (cid) JOIN ps USING (cid) JOIN pp USING (cid) JOIN pc USING (cid)
 ),
-costed AS (
+eligible AS (
+  SELECT
+    'WARP' IN UNNEST(@optimizer_targets) AS u_warp,
+    'DELAM' IN UNNEST(@optimizer_targets) AS u_delam,
+    'STRENGTH' IN UNNEST(@optimizer_targets) AS u_strength,
+    'PRINT' IN UNNEST(@optimizer_targets) AS u_print,
+    'CRACK' IN UNNEST(@optimizer_targets) AS u_crack
+),
+-- total_pct sums the counted targets (0 when not counted); k_* pick the primary defect (-1 when not counted).
+counted AS (
   SELECT r.*,
-    r_warp + r_delam + r_strength + r_print + r_crack AS total_pct,
-    quantity * box_weight_kg * (r_warp + r_delam + r_strength + r_print + r_crack) / 100 AS scrap_kg,
-    quantity * box_weight_kg * (r_warp + r_delam + r_strength + r_print + r_crack) / 100 * pl.cost_per_kg AS scrap_cost,
+    IF(e.u_warp, r_warp, 0) + IF(e.u_delam, r_delam, 0) + IF(e.u_strength, r_strength, 0)
+      + IF(e.u_print, r_print, 0) + IF(e.u_crack, r_crack, 0) AS total_pct,
+    IF(e.u_warp, r_warp, -1) AS k_warp, IF(e.u_delam, r_delam, -1) AS k_delam,
+    IF(e.u_strength, r_strength, -1) AS k_strength, IF(e.u_print, r_print, -1) AS k_print,
+    IF(e.u_crack, r_crack, -1) AS k_crack
+  FROM rated r CROSS JOIN eligible e
+),
+costed AS (
+  SELECT c.*,
+    quantity * box_weight_kg * total_pct / 100 AS scrap_kg,
+    quantity * box_weight_kg * total_pct / 100 * pl.cost_per_kg AS scrap_cost,
     200 * GREATEST(drying_hours - CAST(@drying_hours AS FLOAT64), 0) + 60 * GREATEST(CAST(@sf_speed_mpm AS FLOAT64) - sf_speed_mpm, 0) + 30 * GREATEST(CAST(@print_speed_spm AS FLOAT64) - print_speed_spm, 0) AS penalty,
     pl.base_currency AS currency
-  FROM rated r, prepagent.plants pl
+  FROM counted c, prepagent.plants pl
   WHERE pl.plant_id = 'PLANT-01'
 ),
 out AS (
@@ -92,9 +113,9 @@ out AS (
     ROUND(total_pct, 2) AS total_scrap_pct, ROUND(scrap_kg, 1) AS scrap_kg,
     ROUND(scrap_cost, 0) AS scrap_cost, ROUND(penalty, 0) AS penalty,
     ROUND(scrap_cost + penalty, 0) AS total_cost, currency,
-    CASE GREATEST(r_warp, r_delam, r_strength, r_print, r_crack)
-      WHEN r_warp THEN 'WARP' WHEN r_delam THEN 'DELAM' WHEN r_strength THEN 'STRENGTH'
-      WHEN r_print THEN 'PRINT' ELSE 'CRACK' END AS primary_defect
+    CASE GREATEST(k_warp, k_delam, k_strength, k_print, k_crack)
+      WHEN k_warp THEN 'WARP' WHEN k_delam THEN 'DELAM' WHEN k_strength THEN 'STRENGTH'
+      WHEN k_print THEN 'PRINT' ELSE 'CRACK' END AS primary_defect
   FROM costed
 ),
 bl   AS (SELECT * FROM out WHERE n_changes = 0 LIMIT 1),

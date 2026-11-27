@@ -208,18 +208,21 @@ test("explanation links attribution to the prediction, optimizer best settings a
     optimization,
     evidence: historicalEvidence,
   });
-  assert.equal(rejected.ok, false);
-  assert.equal(rejected.error.code, "SERVICE_UNAVAILABLE");
+  // The rejected text never reaches the user; the checked attribution summary replaces it.
+  assert.equal(rejected.ok, true);
+  assert.equal(rejected.source, "bigquery-ml-attribution-summary");
+  assert.doesNotMatch(rejected.explanation, /increases the risk|781/);
 
-  // A provider answer cut off at the token limit fails closed, never reaching the evidence checks.
+  // A provider answer cut off at the token limit never reaches the evidence checks; the plan
+  // keeps the checked attribution summary instead of failing.
   const truncated = createRiskExplanationService({
     bigquery: { query: async () => bigqueryResult(explanationColumns, explanationRows) },
     gemini: { generateContent: async () => { throw new VertexGeminiError("VERTEX_OUTPUT_TRUNCATED", "Vertex AI stopped at the output token limit."); } },
     sql: query("explain.sql"),
   });
   const cutOff = await truncated({ order, conditions, prediction, optimization, evidence: historicalEvidence });
-  assert.equal(cutOff.ok, false);
-  assert.equal(cutOff.error.code, "SERVICE_UNAVAILABLE");
+  assert.equal(cutOff.ok, true);
+  assert.equal(cutOff.source, "bigquery-ml-attribution-summary");
 });
 
 test("explanation fails closed when evidence or prediction linkage is invalid", async () => {
@@ -299,8 +302,8 @@ test("explanation rejects generated causal claims about attribution", async () =
     const result = await service({
       order, conditions, prediction, optimization, evidence: historicalEvidence,
     });
-    assert.equal(result.ok, false);
-    assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+    assert.equal(result.source, "bigquery-ml-attribution-summary", text);
+    assert.notEqual(result.explanation, text);
   }
 });
 
@@ -356,6 +359,7 @@ test("seen-before validates the recognized defect and maps historical aggregates
   assert.deepEqual(request.parameters, {
     defect: "DELAM",
     ambient_rh_pct: { type: "FLOAT64", value: 86 },
+    band_pts: { type: "INT64", value: 10 },
   });
   assert.equal(request.signal, signal);
   assert.equal(result.ok, true);
@@ -397,6 +401,77 @@ test("explanation rejects assertions that source records are verified real-world
       sql: query("explain.sql"),
     });
     const result = await service({ order, conditions, prediction, optimization, evidence: historicalEvidence });
-    assert.equal(result.ok, false);
+    assert.equal(result.source, "bigquery-ml-attribution-summary", text);
+    assert.notEqual(result.explanation, text);
   }
+});
+
+// The shipped use classes: crack advisory, the other four optimizer targets.
+const shippedTargetUse = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8")).targetUse;
+function withUseClasses(targetUse, dropRate = []) {
+  const profile = (risk) => {
+    const ratesPct = Object.fromEntries(Object.entries(risk.ratesPct).filter(([defect]) => !dropRate.includes(defect)));
+    return { ...risk, ratesPct, targetUse };
+  };
+  const baselineRisk = profile(prediction);
+  return {
+    prediction: baselineRisk,
+    optimization: {
+      ...optimization,
+      baseline: { ...optimization.baseline, risk: baselineRisk },
+      best: { ...optimization.best, risk: profile(optimizedRisk) },
+    },
+  };
+}
+function explainWith(text, { rows = explanationRows, prompts = [] } = {}) {
+  return createRiskExplanationService({
+    bigquery: { query: async () => bigqueryResult(explanationColumns, rows) },
+    gemini: { generateContent: async (request) => { prompts.push(request.contents[0].parts[0].text); return { parts: [{ text }] }; } },
+    sql: query("explain.sql"),
+  });
+}
+const promptJson = (prompt) => JSON.parse(prompt.slice(prompt.indexOf("{")));
+
+test("explanation marks advisory crack rows in the prompt data and refuses text that names crack without its label", async () => {
+  const linked = withUseClasses(shippedTargetUse);
+  const unlabelled = "Drying time is the largest attribution for crease cracking at 0.2 points. WARP is predicted at 3.42%, compared with a typical 1.35%. These are model associations, not proof of cause and effect.";
+  const prompts = [];
+  const rejected = await explainWith(unlabelled, { prompts })({ order, conditions, ...linked, evidence: historicalEvidence });
+  assert.equal(rejected.ok, true);
+  assert.equal(rejected.source, "bigquery-ml-attribution-summary");
+  assert.equal(prompts.length, 2, "the unlabelled text gets one more attempt, then the summary");
+  const sent = promptJson(prompts[0]).explanationRows;
+  assert.deepEqual(sent.filter((row) => row.useClass).map((row) => [row.defect, row.useClass]), [["CRACK", "advisory, low confidence"]]);
+  assert.doesNotMatch(rejected.explanation, /crease cracking(?! \(advisory, low confidence\))/i);
+
+  const labelled = "Drying time is the largest attribution for crease cracking at 0.2 points, a low confidence estimate. WARP is predicted at 3.42%, compared with a typical 1.35%. These are model associations, not proof of cause and effect.";
+  const accepted = await explainWith(labelled)({ order, conditions, ...linked, evidence: historicalEvidence });
+  assert.equal(accepted.source, "bigquery-ml-and-gemini");
+  assert.equal(accepted.explanation, labelled);
+});
+
+test("the fallback summary puts optimizer targets first and labels advisory crack", async () => {
+  // Delamination and strength abstain and the order has no ink, so the summary names only warp and crack.
+  const targetUse = { ...shippedTargetUse,
+    DELAM: { useClass: "abstain", reason: "fixture" }, STRENGTH: { useClass: "abstain", reason: "fixture" } };
+  const linked = withUseClasses(targetUse, ["DELAM", "STRENGTH"]);
+  const rows = [explanationRows[4], explanationRows[0], explanationRows[1], explanationRows[2]];
+  const result = await explainWith("Not three sentences.", { rows })({
+    order: { ...order, inkColors: 0 }, conditions, ...linked, evidence: historicalEvidence,
+  });
+  assert.equal(result.source, "bigquery-ml-attribution-summary");
+  assert.match(result.explanation, /For warp, .*For crease cracking \(advisory, low confidence\), the model predicts 0\.5%/);
+});
+
+test("abstain rows never reach the explanation prompt or result", async () => {
+  const targetUse = { ...shippedTargetUse, CRACK: { useClass: "abstain", reason: "fixture" } };
+  const linked = withUseClasses(targetUse, ["CRACK"]);
+  const rows = explanationRows.map((row) => row[0] === "CRACK" ? ["CRACK", "0.517", "0.3", "1", "drying_hours", "0.2"] : row);
+  const prompts = [];
+  const text = "WARP is predicted at 3.42%, compared with a typical 1.35%. Humidity at 86% has the largest attribution at 0.9 points. These are model associations, not proof of cause and effect.";
+  const result = await explainWith(text, { rows, prompts })({ order, conditions, ...linked, evidence: historicalEvidence });
+  assert.equal(result.ok, true);
+  assert.equal(result.rows.some((row) => row.defect === "CRACK"), false);
+  assert.equal(promptJson(prompts[0]).explanationRows.some((row) => row.defect === "CRACK"), false);
+  assert.doesNotMatch(prompts[0], /0\.517/);
 });

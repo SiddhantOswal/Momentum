@@ -86,7 +86,7 @@ test("Impact dashboard renders query data as text instead of HTML", () => {
   const html = readFileSync(new URL("../public/impact.html", import.meta.url), "utf8");
   assert.doesNotMatch(html, /\.innerHTML\s*=/);
   assert.doesNotMatch(html, /insertAdjacentHTML\s*\(/);
-  assert.match(html, /url=\/#screen-impact/);
+  assert.match(html, /url=\/app\/#\/insights/);
   const code = readFileSync(new URL("../src/ui/workflow.js", import.meta.url), "utf8");
   assert.match(code, /payload\.topItems\.map\(\(row\) => \[/);
   assert.match(code, /row\.label, row\.lots/);

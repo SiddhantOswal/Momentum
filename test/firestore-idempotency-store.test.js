@@ -13,7 +13,7 @@
  *   - claim: existing in_progress with expired lease → delete+create → claimed
  *   - claim: existing document with different fingerprint → conflict
  *   - claim: 409 race condition → re-read and determine status
- *   - complete: updates only recordStatus and completedAt fields
+ *   - complete: updates only recordStatus, completedAt and updatedAt
  *   - complete: non-owner token is a no-op
  *   - release: deletes document if owned
  *   - release: non-owner token is a no-op
@@ -39,7 +39,8 @@ const PROJECT_ID = "prepagent-hack";
 const KEY_HASH = "a".repeat(64);
 const FINGERPRINT = "b".repeat(64);
 const JOB_ID = `JOB-${"a".repeat(40)}`;
-const OWNER_TOKEN = "owner-token-1";
+const OWNER_TOKEN = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const NEWER_OWNER_TOKEN = "0b9a8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d";
 const NOW = 1_700_000_000_000; // fixed ms timestamp
 const LEASE_EXPIRES = NOW + 30_000;
 
@@ -62,8 +63,20 @@ function firestoreDoc(fields) {
   return JSON.stringify({ fields: mapped, updateTime: "2026-10-14T12:00:00.000Z" });
 }
 
+// The base fields IdempotencyDocSchema requires on every stored record.
+function baseFields() {
+  return {
+    schemaVersion: 1,
+    scope: "jobs",
+    createdAt: { timestampValue: new Date(NOW).toISOString() },
+    updatedAt: { timestampValue: new Date(NOW).toISOString() },
+    expiresAt: { timestampValue: new Date(NOW + 7 * 24 * 60 * 60 * 1000).toISOString() },
+  };
+}
+
 function inProgressDoc(overrides = {}) {
   return firestoreDoc({
+    ...baseFields(),
     keyHash: KEY_HASH,
     fingerprint: FINGERPRINT,
     jobId: JOB_ID,
@@ -77,6 +90,7 @@ function inProgressDoc(overrides = {}) {
 
 function completeDoc() {
   return firestoreDoc({
+    ...baseFields(),
     keyHash: KEY_HASH,
     fingerprint: FINGERPRINT,
     jobId: JOB_ID,
@@ -224,7 +238,7 @@ test("FirestoreIdempotencyStore: claim on expired lease deletes then creates —
 
 test("FirestoreIdempotencyStore: expired-lease delete cannot remove a concurrently renewed claim", async () => {
   const renewed = JSON.parse(inProgressDoc({
-    ownerToken: "new-owner",
+    ownerToken: NEWER_OWNER_TOKEN,
     leaseExpiresAt: NOW + 60_000,
   }));
   const { fetchImpl, calls } = fakeSequence([
@@ -279,7 +293,7 @@ test("FirestoreIdempotencyStore: 409 on create with complete re-read returns com
 // Section H: complete
 // ---------------------------------------------------------------------------
 
-test("FirestoreIdempotencyStore: complete sends PATCH with only status and completedAt fields", async () => {
+test("FirestoreIdempotencyStore: complete sends PATCH with only status, completedAt and updatedAt fields", async () => {
   const { fetchImpl, calls } = fakeSequence([
     { status: 200, body: JSON.parse(inProgressDoc()) },  // GET to verify ownership
     { status: 200, body: {} },                            // PATCH
@@ -294,10 +308,11 @@ test("FirestoreIdempotencyStore: complete sends PATCH with only status and compl
   assert.equal(calls[1].method, "PATCH");
   const patchUrl = new URL(calls[1].url);
   assert.equal(patchUrl.searchParams.get("currentDocument.updateTime"), "2026-10-14T12:00:00.000Z");
-  assert.deepEqual(patchUrl.searchParams.getAll("updateMask.fieldPaths"), ["recordStatus", "completedAt"]);
+  assert.deepEqual(patchUrl.searchParams.getAll("updateMask.fieldPaths"), ["recordStatus", "completedAt", "updatedAt"]);
   const patched = JSON.parse(calls[1].body);
   assert.equal(patched.fields.recordStatus.stringValue, "complete");
   assert.equal(patched.fields.completedAt.integerValue, String(NOW + 5_000));
+  assert.deepEqual(patched.fields.updatedAt, { timestampValue: new Date(NOW + 5_000).toISOString() });
   assert.equal(completed, true);
 });
 
@@ -327,7 +342,7 @@ test("FirestoreIdempotencyStore: complete on absent record is a no-op", async ()
 });
 
 test("FirestoreIdempotencyStore: completion cannot overwrite a newer owner's claim", async () => {
-  const newerOwner = JSON.parse(inProgressDoc({ ownerToken: "new-owner" }));
+  const newerOwner = JSON.parse(inProgressDoc({ ownerToken: NEWER_OWNER_TOKEN }));
   const { fetchImpl, calls } = fakeSequence([
     { status: 200, body: JSON.parse(inProgressDoc()) },
     { status: 400, body: { error: { status: "FAILED_PRECONDITION" } } },
@@ -450,6 +465,23 @@ test("FirestoreIdempotencyStore: AbortError propagates from fetch", async () => 
     () => store.claim(claimArgs()),
     { name: "AbortError" }
   );
+});
+
+test("FirestoreIdempotencyStore: an invalid stored Timestamp is a FirestoreIdempotencyError on every read", async () => {
+  const corrupt = JSON.parse(inProgressDoc());
+  corrupt.fields.expiresAt = { timestampValue: "not-a-time" };
+  const isIdempotencyError = (err) => err instanceof FirestoreIdempotencyError &&
+    err.code === "FIRESTORE_UNAVAILABLE";
+  const reads = [
+    (store) => store.claim(claimArgs()),
+    (store) => store.complete({ keyHash: KEY_HASH, fingerprint: FINGERPRINT, jobId: JOB_ID,
+      ownerToken: OWNER_TOKEN, completedAt: NOW + 5_000 }),
+    (store) => store.release({ keyHash: KEY_HASH, ownerToken: OWNER_TOKEN }),
+  ];
+  for (const read of reads) {
+    const { fetchImpl } = fakeSequence([{ status: 200, body: corrupt }]);
+    await assert.rejects(() => read(makeStore(fetchImpl)), isIdempotencyError);
+  }
 });
 
 test("FirestoreIdempotencyStore: unexpected GET status throws FirestoreIdempotencyError", async () => {
@@ -626,4 +658,71 @@ test("FirestoreIdempotencyStore: POST URL includes documentId query parameter eq
   ]);
   await makeStore(fetchImpl).claim(claimArgs());
   assert.match(calls[1].url, new RegExp(`documentId=${encodeURIComponent(KEY_HASH)}`));
+});
+
+// ---------------------------------------------------------------------------
+// Section L: Design 2.2 base fields and the fencing read
+// ---------------------------------------------------------------------------
+
+test("FirestoreIdempotencyStore: a claim writes the jobs scope and the base fields the TTL policy needs", async () => {
+  const { fetchImpl, calls } = fakeSequence([
+    { status: 404, body: {} },
+    { status: 200, body: {} },
+  ]);
+  await makeStore(fetchImpl).claim(claimArgs());
+  const posted = JSON.parse(calls[1].body).fields;
+  assert.deepEqual(posted.schemaVersion, { integerValue: "1" });
+  assert.deepEqual(posted.scope, { stringValue: "jobs" });
+  assert.deepEqual(posted.createdAt, { timestampValue: new Date(NOW).toISOString() });
+  assert.deepEqual(posted.updatedAt, { timestampValue: new Date(NOW).toISOString() });
+  assert.deepEqual(posted.expiresAt, { timestampValue: new Date(NOW + 7 * 24 * 60 * 60 * 1000).toISOString() });
+  assert.deepEqual(posted.leaseExpiresAt, { integerValue: String(LEASE_EXPIRES) });
+});
+
+test("FirestoreIdempotencyStore: confirmOwner holds only for the current owner inside its lease", async () => {
+  const cases = [
+    [{ status: 200, body: JSON.parse(inProgressDoc()) }, NOW + 1_000, true],
+    [{ status: 200, body: JSON.parse(inProgressDoc()) }, LEASE_EXPIRES, false],
+    [{ status: 200, body: JSON.parse(inProgressDoc({ ownerToken: NEWER_OWNER_TOKEN })) }, NOW + 1_000, false],
+    [{ status: 200, body: JSON.parse(completeDoc()) }, NOW + 1_000, false],
+    [{ status: 404, body: {} }, NOW + 1_000, false],
+  ];
+  for (const [response, now, expected] of cases) {
+    const { fetchImpl, calls } = fakeSequence([response]);
+    const held = await makeStore(fetchImpl).confirmOwner({ keyHash: KEY_HASH, ownerToken: OWNER_TOKEN, now });
+    assert.equal(held, expected);
+    assert.deepEqual(calls.map((call) => call.method), ["GET"]);
+  }
+});
+
+test("FirestoreIdempotencyStore: confirmOwner fails closed when Firestore does not answer", async () => {
+  const { fetchImpl } = fakeSequence([{ status: 503, body: {} }]);
+  await assert.rejects(
+    () => makeStore(fetchImpl).confirmOwner({ keyHash: KEY_HASH, ownerToken: OWNER_TOKEN, now: NOW }),
+    (err) => err instanceof FirestoreIdempotencyError && err.code === "FIRESTORE_UNAVAILABLE"
+  );
+});
+
+test("FirestoreIdempotencyStore: a stored record that fails IdempotencyDocSchema is a fault, not a claim state", async () => {
+  const records = [
+    JSON.parse(inProgressDoc({ ownerToken: "owner-token-1" })),
+    JSON.parse(firestoreDoc({ keyHash: KEY_HASH, fingerprint: FINGERPRINT, jobId: JOB_ID, ownerToken: OWNER_TOKEN,
+      recordStatus: "complete", claimedAt: NOW, leaseExpiresAt: LEASE_EXPIRES })),
+  ];
+  for (const record of records) {
+    const { fetchImpl } = fakeSequence([{ status: 200, body: record }]);
+    await assert.rejects(
+      () => makeStore(fetchImpl).claim(claimArgs()),
+      (err) => err instanceof FirestoreIdempotencyError && err.code === "FIRESTORE_UNAVAILABLE"
+    );
+  }
+});
+
+test("FirestoreIdempotencyStore: a claim that fails IdempotencyDocSchema is never written", async () => {
+  const { fetchImpl, calls } = fakeSequence([{ status: 404, body: {} }]);
+  await assert.rejects(
+    () => makeStore(fetchImpl).claim(claimArgs({ ownerToken: "owner-token-1" })),
+    (err) => err instanceof FirestoreIdempotencyError && err.code === "FIRESTORE_UNAVAILABLE"
+  );
+  assert.deepEqual(calls.map((call) => call.method), ["GET"]);
 });

@@ -1,5 +1,6 @@
 {
   "status": "accepted",
+  "basis": "OUT_OF_TIME_HOLDOUT_IMPROVEMENT",
   "requiredR2": {
     "WARP": 0.6,
     "DELAM": 0.6,
@@ -7,116 +8,220 @@
     "PRINT": 0.6,
     "CRACK": 0.3
   },
-  "evaluationId": "D4-2026-10-16-OM",
-  "evaluatedAt": "2026-10-11T19:35:02Z",
-  "splitId": "bqml-random-20-percent-internal-split-2026-10-11",
+  "requiredR2Note": "Reference thresholds from the October internal random split. They are not the acceptance test for this set: these models were trained without an internal split and are judged on a clean out-of-time month instead.",
+  "evaluationId": "D4-2026-11-20-OM",
+  "evaluatedAt": "2026-11-20T09:10:00Z",
+  "splitId": "holdout-2026-09: prepagent.lots run_date 2026-09-01..2026-09-30, non-TEST rows",
   "dataset": "prepagent-hack.prepagent.lots",
+  "holdout": {
+    "splitId": "holdout-2026-09: prepagent.lots run_date 2026-09-01..2026-09-30, non-TEST rows",
+    "sampleCount": 219,
+    "trainedOn": "run_date < 2026-07-01 (4,710 lots)",
+    "note": "September 2026 was seen by neither the new models nor the models they replace."
+  },
   "linkedToCurrentResourceVersions": true,
   "currentModelVersions": {
-    "WARP": "1",
-    "DELAM": "1",
-    "STRENGTH": "1",
-    "PRINT": "1",
-    "CRACK": "1"
+    "WARP": "A/Eqthrx3yRauwn6d+tuyg==",
+    "DELAM": "OAY9Gu/8TDh8/4c6mSwNqQ==",
+    "STRENGTH": "wh1NhlSbKmBDWmdLOTP37w==",
+    "PRINT": "k3lJWUVDttvsrv9VMCUNIg==",
+    "CRACK": "23cEQCbhScGie+kPs0qJ6w=="
   },
+  "modelVersionKind": "BigQuery model etag (these models are not registered in Vertex AI)",
   "featureImportanceReviewed": true,
+  "targetUseNote": "optimizer: counts toward predicted totals and the optimizer objective. advisory: predicted and shown with a low-confidence label, never counted or used to choose settings. abstain: not shown as a number and not used.",
+  "targetUse": {
+    "WARP": {
+      "useClass": "optimizer",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.47 (R²), up from 0.40 for the model it replaces."
+    },
+    "DELAM": {
+      "useClass": "optimizer",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.52 (R²), up from 0.50 for the model it replaces."
+    },
+    "STRENGTH": {
+      "useClass": "optimizer",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.39 (R²), up from 0.30 for the model it replaces."
+    },
+    "PRINT": {
+      "useClass": "optimizer",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.64 (R²), up from 0.61 for the model it replaces."
+    },
+    "CRACK": {
+      "useClass": "advisory",
+      "reason": "Model fit on 219 modelled September 2026 lots: 0.11 (R²), too weak to choose settings, so it is shown as low confidence only."
+    }
+  },
   "models": [
     {
       "defect": "WARP",
-      "resource": "prepagent.m_warp",
-      "r2": 0.6051768595944437,
-      "modelVersion": "1",
-      "modelEtag": "xXegOiYEc1oyoFRXbFdKBg==",
-      "sampleCount": null,
-      "sampleCountStatus": "NOT_RECOVERABLE"
+      "resource": "prepagent.m2_warp",
+      "r2": 0.4682,
+      "modelVersion": "A/Eqthrx3yRauwn6d+tuyg==",
+      "modelEtag": "A/Eqthrx3yRauwn6d+tuyg==",
+      "createdAt": "2026-11-19T21:47:08Z",
+      "trainingJob": "bqjob_r4fe6150c02c58590_000001a1f5bd3ea3_1",
+      "sampleCount": 219,
+      "maePp": 0.3169,
+      "replaces": {
+        "resource": "prepagent.m_warp",
+        "r2": 0.4021,
+        "maePp": 0.3296
+      }
     },
     {
       "defect": "DELAM",
-      "resource": "prepagent.m_delam",
-      "r2": 0.6664103996938104,
-      "modelVersion": "1",
-      "modelEtag": "cAxJP4gJvL7CwQN5Ie5i2A==",
-      "sampleCount": null,
-      "sampleCountStatus": "NOT_RECOVERABLE"
+      "resource": "prepagent.m2_delam",
+      "r2": 0.5194,
+      "modelVersion": "OAY9Gu/8TDh8/4c6mSwNqQ==",
+      "modelEtag": "OAY9Gu/8TDh8/4c6mSwNqQ==",
+      "createdAt": "2026-11-19T21:50:32Z",
+      "trainingJob": "bqjob_r370ce011145499f8_000001a1f5c5cb10_1",
+      "sampleCount": 219,
+      "maePp": 0.4989,
+      "replaces": {
+        "resource": "prepagent.m_delam",
+        "r2": 0.5003,
+        "maePp": 0.5385
+      }
     },
     {
       "defect": "STRENGTH",
-      "resource": "prepagent.m_strength",
-      "r2": 0.4672612713832247,
-      "modelVersion": "1",
-      "modelEtag": "u3Gv8hf6VCK4J7f8MHFxFQ==",
-      "sampleCount": null,
-      "sampleCountStatus": "NOT_RECOVERABLE"
+      "resource": "prepagent.m2_strength",
+      "r2": 0.388,
+      "modelVersion": "wh1NhlSbKmBDWmdLOTP37w==",
+      "modelEtag": "wh1NhlSbKmBDWmdLOTP37w==",
+      "createdAt": "2026-11-19T21:50:28Z",
+      "trainingJob": "bqjob_r612e96cb87ab39b1_000001a1f5c5cb0c_1",
+      "sampleCount": 219,
+      "maePp": 0.1708,
+      "replaces": {
+        "resource": "prepagent.m_strength",
+        "r2": 0.2971,
+        "maePp": 0.1901
+      }
     },
     {
       "defect": "PRINT",
-      "resource": "prepagent.m_print",
-      "r2": 0.75115286156175,
-      "modelVersion": "1",
-      "modelEtag": "4AhmyAJe04Ne+rLdqXFwkA==",
-      "sampleCount": null,
-      "sampleCountStatus": "NOT_RECOVERABLE"
+      "resource": "prepagent.m2_print",
+      "r2": 0.6404,
+      "modelVersion": "k3lJWUVDttvsrv9VMCUNIg==",
+      "modelEtag": "k3lJWUVDttvsrv9VMCUNIg==",
+      "createdAt": "2026-11-19T21:50:28Z",
+      "trainingJob": "bqjob_rbfdc8eff4416773_000001a1f5c5cb0c_1",
+      "sampleCount": 219,
+      "maePp": 0.2616,
+      "replaces": {
+        "resource": "prepagent.m_print",
+        "r2": 0.6102,
+        "maePp": 0.2917
+      }
     },
     {
       "defect": "CRACK",
-      "resource": "prepagent.m_crack",
-      "r2": 0.3010715689792366,
-      "modelVersion": "1",
-      "modelEtag": "aNHG4wLNggpnQryDUaGAlQ==",
-      "sampleCount": null,
-      "sampleCountStatus": "NOT_RECOVERABLE"
+      "resource": "prepagent.m2_crack",
+      "r2": 0.1081,
+      "modelVersion": "23cEQCbhScGie+kPs0qJ6w==",
+      "modelEtag": "23cEQCbhScGie+kPs0qJ6w==",
+      "createdAt": "2026-11-19T21:50:24Z",
+      "trainingJob": "bqjob_r79ce0e69eff9e52b_000001a1f5c5cb0c_1",
+      "sampleCount": 219,
+      "maePp": 0.1374,
+      "replaces": {
+        "resource": "prepagent.m_crack",
+        "r2": -0.0136,
+        "maePp": 0.1407
+      }
     }
   ],
   "ownerDecision": {
-    "decision": "ACCEPT_UNRECOVERABLE_INTERNAL_SPLIT_COUNT",
+    "decision": "ACCEPT_OUT_OF_TIME_HOLDOUT_IMPROVEMENT",
     "owner": "Om (model owner)",
-    "decidedAt": "2026-10-16",
-    "reference": "D4-2026-10-16-OM; summarized in docs/README.md#model-acceptance-and-evidence-boundary",
-    "scope": "Supervised prototype demonstration for the AI Builder Cup 2026; every recommendation needs supervisor approval. Not certification for autonomous control.",
-    "basis": "Internal-split R2 meets every unchanged threshold. The internal-split sample counts cannot be recovered because BigQuery deleted the temporary split tables, and the models must not be retrained. The independent, exactly counted September 2026 holdout below is disclosed in their place; it is supplementary and is not the acceptance metric.",
+    "decidedAt": "2026-11-20",
+    "reference": "D4-2026-11-20-OM: Om chose 'Switch all five' after reviewing docs/evidence/model-candidates-v2.json and docs/evidence/model-card-v2.md",
+    "scope": "Supervised prototype for the AI Builder Cup 2026; every recommendation needs supervisor approval. Not certification for autonomous control.",
+    "basis": "On the same 219 September 2026 lots, all five m2_* models score a higher R2 than the m_* models they replace and react more smoothly to humidity (largest warp jump 0.83 pp vs 1.12 pp per 5% RH). DELAM and PRINT gains are within noise.",
     "conditions": [
       "All recommendations are approved by a supervisor.",
       "Values are shown as predicted or estimated.",
-      "Crack is shown as low confidence in monsoon.",
-      "Models are unchanged: one training run each, Vertex version 1 and the etags recorded above."
-    ],
-    "coOwnerReview": {
-      "decision": "APPROVE_SUPERVISED_PROTOTYPE_EXCEPTION",
-      "reviewer": "Siddhant (project owner)",
-      "approvedAt": "2026-10-16T12:40:32.385514Z",
-      "reference": "Explicit owner approval in this Codex session on 2026-10-16: Approve the documented supervised-prototype exception",
-      "limitationsAccepted": [
-        "Original internal evaluation counts and exact membership are unrecoverable.",
-        "Acceptance uses unchanged internal R2 thresholds; independent 219-lot holdout is supplementary, not replacement passing metrics.",
-        "Holdout falls below four model thresholds; CRACK holdout R2 is negative.",
-        "Supervised prototype only; predicted/estimated wording and low-confidence crack disclosure remain required."
-      ]
-    },
-    "supplementaryEvaluation": {
-      "type": "NEW_INDEPENDENT_HOLDOUT",
-      "splitId": "holdout-2026-09: prepagent.lots run_date 2026-09-01..2026-09-30, non-TEST rows",
-      "sampleCount": 219,
-      "dataFingerprint": "4806831653848498529",
-      "evaluatedAt": "2026-10-16",
-      "r2": {
-        "WARP": 0.40205273969641164,
-        "DELAM": 0.5003448014241428,
-        "STRENGTH": 0.2970847867823321,
-        "PRINT": 0.61017838345062,
-        "CRACK": -0.013623408295655226
-      }
-    },
-    "verification": "Read-only GCP verification on 2026-10-16: BigQuery jobs qa_om_d4_q2_1792136607, qa_om_d4_q3_1792136610 and qa_om_d4_q4b_1792136633 checked training SQL hashes, dataset fingerprints and row counts, all ten R2 values, one training run per model, Vertex version 1 and the model etags above. Original internal-split membership/counts remain unrecoverable; see docs/README.md#model-acceptance-and-evidence-boundary."
+      "Crack stays shown as low confidence (holdout R2 0.11).",
+      "Models are unchanged after this decision: one training run each, with the etags recorded above."
+    ]
   },
   "recordedEvaluation": {
-    "asOf": "2026-10-14",
-    "split": "random-20-percent-row-split",
-    "declaredDataWindow": {
-      "modelingRowsFrom": "2024-10-01",
-      "modelingRowsThrough": "2026-08-31",
-      "heldOutMonthFrom": "2026-09-01",
-      "heldOutMonthThrough": "2026-09-30"
+    "asOf": "2026-11-20",
+    "split": "holdout-2026-09: prepagent.lots run_date 2026-09-01..2026-09-30, non-TEST rows",
+    "linkedToCurrentResourceVersions": true,
+    "currentModelVersions": {
+      "WARP": "A/Eqthrx3yRauwn6d+tuyg==",
+      "DELAM": "OAY9Gu/8TDh8/4c6mSwNqQ==",
+      "STRENGTH": "wh1NhlSbKmBDWmdLOTP37w==",
+      "PRINT": "k3lJWUVDttvsrv9VMCUNIg==",
+      "CRACK": "23cEQCbhScGie+kPs0qJ6w=="
     },
+    "models": [
+      {
+        "defect": "WARP",
+        "resource": "prepagent.m2_warp",
+        "r2": 0.4682,
+        "modelVersion": "A/Eqthrx3yRauwn6d+tuyg==",
+        "sampleCount": 219
+      },
+      {
+        "defect": "DELAM",
+        "resource": "prepagent.m2_delam",
+        "r2": 0.5194,
+        "modelVersion": "OAY9Gu/8TDh8/4c6mSwNqQ==",
+        "sampleCount": 219
+      },
+      {
+        "defect": "STRENGTH",
+        "resource": "prepagent.m2_strength",
+        "r2": 0.388,
+        "modelVersion": "wh1NhlSbKmBDWmdLOTP37w==",
+        "sampleCount": 219
+      },
+      {
+        "defect": "PRINT",
+        "resource": "prepagent.m2_print",
+        "r2": 0.6404,
+        "modelVersion": "k3lJWUVDttvsrv9VMCUNIg==",
+        "sampleCount": 219
+      },
+      {
+        "defect": "CRACK",
+        "resource": "prepagent.m2_crack",
+        "r2": 0.1081,
+        "modelVersion": "23cEQCbhScGie+kPs0qJ6w==",
+        "sampleCount": 219
+      }
+    ]
+  },
+  "evidence": [
+    "docs/evidence/model-candidates-v2.json",
+    "docs/evidence/model-card-v2.md",
+    "sql/model_v2_training.sql"
+  ],
+  "acceptanceEvidence": "D4-2026-11-20-OM",
+  "notes": [
+    "Accepted for the supervised prototype by owner decision D4-2026-11-20-OM on a clean September 2026 holdout (219 lots). R2: warp 0.47, delam 0.52, strength 0.39, print 0.64, crack 0.11.",
+    "Each new model beats the model it replaces on the same lots; the October internal-split thresholds are kept for reference only.",
+    "Crack has little skill and is shown as low confidence.",
+    "Training data is modelled production history built on the plant's real item master, not recorded plant measurements."
+  ],
+  "previousAcceptance": {
+    "status": "accepted",
+    "requiredR2": {
+      "WARP": 0.6,
+      "DELAM": 0.6,
+      "STRENGTH": 0.45,
+      "PRINT": 0.6,
+      "CRACK": 0.3
+    },
+    "evaluationId": "D4-2026-10-16-OM",
+    "evaluatedAt": "2026-10-11T19:35:02Z",
+    "splitId": "bqml-random-20-percent-internal-split-2026-10-11",
+    "dataset": "prepagent-hack.prepagent.lots",
     "linkedToCurrentResourceVersions": true,
     "currentModelVersions": {
       "WARP": "1",
@@ -125,50 +230,157 @@
       "PRINT": "1",
       "CRACK": "1"
     },
+    "featureImportanceReviewed": true,
     "models": [
       {
         "defect": "WARP",
         "resource": "prepagent.m_warp",
-        "r2": 0.6051769,
+        "r2": 0.6051768595944437,
         "modelVersion": "1",
-        "sampleCount": null
+        "modelEtag": "xXegOiYEc1oyoFRXbFdKBg==",
+        "sampleCount": null,
+        "sampleCountStatus": "NOT_RECOVERABLE"
       },
       {
         "defect": "DELAM",
         "resource": "prepagent.m_delam",
-        "r2": 0.6664104,
+        "r2": 0.6664103996938104,
         "modelVersion": "1",
-        "sampleCount": null
+        "modelEtag": "cAxJP4gJvL7CwQN5Ie5i2A==",
+        "sampleCount": null,
+        "sampleCountStatus": "NOT_RECOVERABLE"
       },
       {
         "defect": "STRENGTH",
         "resource": "prepagent.m_strength",
-        "r2": 0.4672613,
+        "r2": 0.4672612713832247,
         "modelVersion": "1",
-        "sampleCount": null
+        "modelEtag": "u3Gv8hf6VCK4J7f8MHFxFQ==",
+        "sampleCount": null,
+        "sampleCountStatus": "NOT_RECOVERABLE"
       },
       {
         "defect": "PRINT",
         "resource": "prepagent.m_print",
-        "r2": 0.7511529,
+        "r2": 0.75115286156175,
         "modelVersion": "1",
-        "sampleCount": null
+        "modelEtag": "4AhmyAJe04Ne+rLdqXFwkA==",
+        "sampleCount": null,
+        "sampleCountStatus": "NOT_RECOVERABLE"
       },
       {
         "defect": "CRACK",
         "resource": "prepagent.m_crack",
-        "r2": 0.3010716,
+        "r2": 0.3010715689792366,
         "modelVersion": "1",
-        "sampleCount": null
+        "modelEtag": "aNHG4wLNggpnQryDUaGAlQ==",
+        "sampleCount": null,
+        "sampleCountStatus": "NOT_RECOVERABLE"
       }
+    ],
+    "ownerDecision": {
+      "decision": "ACCEPT_UNRECOVERABLE_INTERNAL_SPLIT_COUNT",
+      "owner": "Om (model owner)",
+      "decidedAt": "2026-10-16",
+      "reference": "D4-2026-10-16-OM; summarized in docs/README.md#model-acceptance-and-evidence-boundary",
+      "scope": "Supervised prototype demonstration for the AI Builder Cup 2026; every recommendation needs supervisor approval. Not certification for autonomous control.",
+      "basis": "Internal-split R2 meets every unchanged threshold. The internal-split sample counts cannot be recovered because BigQuery deleted the temporary split tables, and the models must not be retrained. The independent, exactly counted September 2026 holdout below is disclosed in their place; it is supplementary and is not the acceptance metric.",
+      "conditions": [
+        "All recommendations are approved by a supervisor.",
+        "Values are shown as predicted or estimated.",
+        "Crack is shown as low confidence in monsoon.",
+        "Models are unchanged: one training run each, Vertex version 1 and the etags recorded above."
+      ],
+      "coOwnerReview": {
+        "decision": "APPROVE_SUPERVISED_PROTOTYPE_EXCEPTION",
+        "reviewer": "Siddhant (project owner)",
+        "approvedAt": "2026-10-16T12:40:32.385514Z",
+        "reference": "Explicit owner approval in this Codex session on 2026-10-16: Approve the documented supervised-prototype exception",
+        "limitationsAccepted": [
+          "Original internal evaluation counts and exact membership are unrecoverable.",
+          "Acceptance uses unchanged internal R2 thresholds; independent 219-lot holdout is supplementary, not replacement passing metrics.",
+          "Holdout falls below four model thresholds; CRACK holdout R2 is negative.",
+          "Supervised prototype only; predicted/estimated wording and low-confidence crack disclosure remain required."
+        ]
+      },
+      "supplementaryEvaluation": {
+        "type": "NEW_INDEPENDENT_HOLDOUT",
+        "splitId": "holdout-2026-09: prepagent.lots run_date 2026-09-01..2026-09-30, non-TEST rows",
+        "sampleCount": 219,
+        "dataFingerprint": "4806831653848498529",
+        "evaluatedAt": "2026-10-16",
+        "r2": {
+          "WARP": 0.40205273969641164,
+          "DELAM": 0.5003448014241428,
+          "STRENGTH": 0.2970847867823321,
+          "PRINT": 0.61017838345062,
+          "CRACK": -0.013623408295655226
+        }
+      },
+      "verification": "Read-only GCP verification on 2026-10-16: BigQuery jobs qa_om_d4_q2_1792136607, qa_om_d4_q3_1792136610 and qa_om_d4_q4b_1792136633 checked training SQL hashes, dataset fingerprints and row counts, all ten R2 values, one training run per model, Vertex version 1 and the model etags above. Original internal-split membership/counts remain unrecoverable; see docs/README.md#model-acceptance-and-evidence-boundary."
+    },
+    "recordedEvaluation": {
+      "asOf": "2026-10-14",
+      "split": "random-20-percent-row-split",
+      "declaredDataWindow": {
+        "modelingRowsFrom": "2024-10-01",
+        "modelingRowsThrough": "2026-08-31",
+        "heldOutMonthFrom": "2026-09-01",
+        "heldOutMonthThrough": "2026-09-30"
+      },
+      "linkedToCurrentResourceVersions": true,
+      "currentModelVersions": {
+        "WARP": "1",
+        "DELAM": "1",
+        "STRENGTH": "1",
+        "PRINT": "1",
+        "CRACK": "1"
+      },
+      "models": [
+        {
+          "defect": "WARP",
+          "resource": "prepagent.m_warp",
+          "r2": 0.6051769,
+          "modelVersion": "1",
+          "sampleCount": null
+        },
+        {
+          "defect": "DELAM",
+          "resource": "prepagent.m_delam",
+          "r2": 0.6664104,
+          "modelVersion": "1",
+          "sampleCount": null
+        },
+        {
+          "defect": "STRENGTH",
+          "resource": "prepagent.m_strength",
+          "r2": 0.4672613,
+          "modelVersion": "1",
+          "sampleCount": null
+        },
+        {
+          "defect": "PRINT",
+          "resource": "prepagent.m_print",
+          "r2": 0.7511529,
+          "modelVersion": "1",
+          "sampleCount": null
+        },
+        {
+          "defect": "CRACK",
+          "resource": "prepagent.m_crack",
+          "r2": 0.3010716,
+          "modelVersion": "1",
+          "sampleCount": null
+        }
+      ]
+    },
+    "acceptanceEvidence": "D4-2026-10-16-OM",
+    "notes": [
+      "Accepted for the supervised prototype by owner decision D4-2026-10-16-OM. Internal-split R2 meets every unchanged threshold; internal-split sample counts are not recoverable, so complete acceptance evidence is not claimed.",
+      "Supplementary September 2026 holdout (219 lots, never seen in training): R2 warp 0.40, delam 0.50, strength 0.30, print 0.61, crack -0.01. Crack has no skill within the monsoon month and is shown as low confidence in monsoon.",
+      "Training data is modelled production history (generator.ts, seed 20261010) built on the plant's real item master, not recorded plant measurements.",
+      "Historical (14 Oct 2026): read-only BigQuery model metadata confirmed that the current prepagent.m_* training runs reference Vertex model version 1 and their saved R2 metrics match the recorded metrics.",
+      "Historical (14 Oct 2026): sample counts were unavailable and acceptance stayed blocked; superseded by owner decision D4-2026-10-16-OM."
     ]
-  },
-  "acceptanceEvidence": "D4-2026-10-16-OM",
-  "notes": [
-    "Accepted for the supervised prototype by owner decision D4-2026-10-16-OM. Internal-split R2 meets every unchanged threshold; internal-split sample counts are not recoverable, so complete acceptance evidence is not claimed.",
-    "Supplementary September 2026 holdout (219 lots, never seen in training): R2 warp 0.40, delam 0.50, strength 0.30, print 0.61, crack -0.01. Crack has no skill within the monsoon month and is shown as low confidence in monsoon.",
-    "Training data is modelled production history (generator.ts, seed 20261010) built on the plant's real item master, not recorded plant measurements.",
-    "Historical (14 Oct 2026): read-only BigQuery model metadata confirmed that the current prepagent.m_* training runs reference Vertex model version 1 and their saved R2 metrics match the recorded metrics.",
-    "Historical (14 Oct 2026): sample counts were unavailable and acceptance stayed blocked; superseded by owner decision D4-2026-10-16-OM."
-  ]
+  }
 }

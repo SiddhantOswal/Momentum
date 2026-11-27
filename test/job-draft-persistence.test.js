@@ -51,7 +51,7 @@ function identityFor(overrides = {}) {
     operatorItemConfirmation: request().operatorItemConfirmation,
     shift: request().shift,
     levers: request().levers,
-    conditions: request().manualConditions,
+    conditions: jobSheetFixture.conditions,
     ...overrides,
   }).identity;
 }
@@ -522,4 +522,47 @@ test("completed request replay retains the durable APPROVED lifecycle and audit"
   assert.equal(await load({ jobId: "WRONG-JOB" }), null);
   approved.approvalAudit.cardUri = "gs://prepagent-hack-data/jobcards/OTHER.pdf";
   assert.equal(await load({ jobId: approved.jobId }), null);
+});
+
+test("a replay after approval on a new instance keeps status, approvedAt, cardUri and the approval audit", async () => {
+  const identity = identityFor({ idempotencyKey: "replay-after-approval" });
+  const store = new InMemoryIdempotencyStore({ leaseMs: 30_000 });
+  const rows = new Map();
+  const getStored = async ({ jobId }) => structuredClone(rows.get(jobId) ?? null);
+  const persist = async ({ jobSheet, plantId }) => {
+    const { savings, ...rest } = jobSheet;
+    const row = { ...rest, plantId, status: "DRAFT", createdAt: "2026-10-16T11:59:00.000Z",
+      savings: { kg: savings.kg, amount: savings.inr, currency: jobSheet.baseline.risk.currency },
+      approvedAt: null, cardUri: null };
+    rows.set(jobSheet.jobId, row);
+    return structuredClone(row);
+  };
+
+  const first = await durableSubmitHandler({ store, persist, getStored })({ identity, request: request() });
+  assert.equal(first.ok, true);
+  assert.equal(first.durable, true);
+
+  const approvedAt = "2026-10-16T12:00:00.000Z";
+  const cardUri = `gs://prepagent-hack-data/jobcards/${identity.jobId}.pdf`;
+  const approvalAudit = { jobId: identity.jobId, actorUid: "test-supervisor", action: "APPROVE",
+    previousStatus: "DRAFT", newStatus: "APPROVED", decidedAt: approvedAt, cardUri,
+    correlationId: "b7380926-8709-4cda-8395-27a742686de2", decisionId: "16d914b6-7315-43f2-8f6b-41063f909e24" };
+  // The draft read-back compares evidence, so only the approved row omits it.
+  const { evidence, ...draftRow } = rows.get(identity.jobId);
+  assert.ok(Array.isArray(evidence));
+  rows.set(identity.jobId, { ...draftRow, status: "APPROVED", approvedAt, cardUri, approvalAudit });
+
+  const calls = [];
+  const replay = await durableSubmitHandler({
+    store, getStored, ports: succeedingPorts(calls),
+    persist: async () => assert.fail("a completed request must not persist again"),
+  })({ identity, request: request() });
+
+  assert.equal(replay.ok, true);
+  assert.equal(replay.durable, true);
+  assert.equal(replay.jobSheet.status, "APPROVED");
+  assert.equal(replay.jobSheet.approvedAt, approvedAt);
+  assert.equal(replay.jobSheet.cardUri, cardUri);
+  assert.deepEqual(replay.jobSheet.approvalAudit, approvalAudit);
+  assert.deepEqual(calls, []);
 });

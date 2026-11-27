@@ -35,8 +35,8 @@ test("Cloud Run Gemini requires explicit shared-counter opt-in and an approved d
   assert.equal(requests, 0);
 });
 
-test("optimizer byte budget stays 80 MiB unless the proposed 100 MiB limit is explicitly configured; invalid limits disable optimization", () => {
-  assert.equal(readOptimizerQueryBudget({}), 83886080);
+test("optimizer byte budget defaults to 100 MiB, accepts only 80 or 100 MiB, and invalid limits disable optimization", () => {
+  assert.equal(readOptimizerQueryBudget({}), 104857600);
   assert.equal(readOptimizerQueryBudget({ USTAAD_OPTIMIZER_MAX_BYTES_BILLED: "104857600" }), 104857600);
   for (const value of ["0", "unlimited", "104857601", "NaN", "100", ""]) {
     const env = { PROJECT_ID: "prepagent-hack", USTAAD_ENABLE_RISK_PREDICTION: "true",
@@ -62,12 +62,12 @@ test("Gemini rejects oversized contents and prompts before provider requests and
   let request;
   const client = createVertexGeminiClient({ projectId: "prepagent-hack", model: "gemini-3.5-flash", tokenProvider: async () => "test-token",
     fetchImpl: async (_url, options) => { request = JSON.parse(options.body); return Response.json({ candidates: [{ content: { parts: [{ text: '{}' }] } }] }); } });
-  await assert.rejects(client.generateContent({ contents: [{ role: "user", parts: [{ text: "x".repeat(65537) }] }] }), { code: "INVALID_GENERATION_REQUEST" });
-  await assert.rejects(client.generateContent({ contents: [{ role: "user", parts: [{ text: "短".repeat(22000) }] }] }), { code: "INVALID_GENERATION_REQUEST" });
-  await assert.rejects(client.generateContent({ contents: [{ role: "user", parts: [{ text: "explain" }] }], tools: [{ description: "x".repeat(65537) }] }), { code: "INVALID_GENERATION_REQUEST" });
-  await assert.rejects(client.generateJson({ fileUri: "gs://prepagent-hack-data/orders/test.pdf", mimeType: "application/pdf", prompt: "x".repeat(12001), responseSchema: {} }), { code: "INVALID_GENERATION_REQUEST" });
+  await assert.rejects(client.generateContent({ role: "agent", contents: [{ role: "user", parts: [{ text: "x".repeat(65537) }] }] }), { code: "INVALID_GENERATION_REQUEST" });
+  await assert.rejects(client.generateContent({ role: "agent", contents: [{ role: "user", parts: [{ text: "短".repeat(22000) }] }] }), { code: "INVALID_GENERATION_REQUEST" });
+  await assert.rejects(client.generateContent({ role: "agent", contents: [{ role: "user", parts: [{ text: "explain" }] }], tools: [{ description: "x".repeat(65537) }] }), { code: "INVALID_GENERATION_REQUEST" });
+  await assert.rejects(client.generateJson({ role: "extraction", fileUri: "gs://prepagent-hack-data/orders/test.pdf", mimeType: "application/pdf", prompt: "x".repeat(12001), responseSchema: {} }), { code: "INVALID_GENERATION_REQUEST" });
   assert.equal(request, undefined);
-  await client.generateJson({ fileUri: "gs://prepagent-hack-data/orders/test.pdf", mimeType: "application/pdf", prompt: "extract", responseSchema: {} });
+  await client.generateJson({ role: "extraction", fileUri: "gs://prepagent-hack-data/orders/test.pdf", mimeType: "application/pdf", prompt: "extract", responseSchema: {} });
   assert.equal(request.generationConfig.maxOutputTokens, 2048);
 });
 

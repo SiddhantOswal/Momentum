@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "attribution": { "commit": "", "pr": "" },
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(*)", "Edit(*)", "Write(*)", "Read(*)", "WebFetch(*)", "WebSearch(*)"
+    ],
+    "ask": [],
+    "deny": [
+      "Read(./.env)", "Read(./.env.*)", "Read(./**/*service-account*.json)",
+      "Bash(cat *.env*)", "Bash(grep *.env*)",
+      "Bash(git push --force*)", "Bash(git push -f*)", "Bash(git reset --hard*)",
+      "Bash(git commit*--no-verify*)", "Bash(git push*--no-verify*)",
+      "Bash(git commit *--no-v*)", "Bash(git -C * commit *--no-v*)",
+      "Bash(git commit -n*)", "Bash(git commit *-n *)", "Bash(git commit * -n)",
+      "Bash(git commit -an*)", "Bash(git commit *-an *)", "Bash(git commit * -an)",
+      "Bash(git -c *hooks*)", "Bash(git -c *Hooks*)",
+      "Bash(git config *core.hooksPath*)", "Bash(git config *core.hookspath*)",
+      "Bash(*GIT_CONFIG_COUNT*)", "Bash(*GIT_CONFIG_PARAMETERS*)",
+      "Bash(gcloud * delete*)", "Bash(bq rm*)", "Bash(gsutil rm*)", "Bash(rm -rf*)",
+      "Bash(git push origin*)", "Bash(git push)"
+    ]
+  }
+}

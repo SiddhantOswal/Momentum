@@ -1,6 +1,6 @@
 import { isConditionsDisplay, isJobDisplay } from "./contracts.js";
 import { markMoney, refreshMoney } from "./currency-display.js";
-import { apiUrl, request, createRequestGate, setResponseAuthorizationMode, isLocalSyntheticRuntime } from "./api.js";
+import { apiUrl, approveRequestOptions, request, createRequestGate, setResponseAuthorizationMode, isLocalSyntheticRuntime } from "./api.js";
 import { REQUEST_FIELDS, LEVER_DEFINITIONS } from "./fields.js";
 import { initShell, toast, renderRisk, renderComparison, renderStoredSheet, renderImpactCharts, clearCharts, initDefectCheck, renderPhotoPresentation, renderPremiumImpact } from "./components.js";
 
@@ -81,6 +81,7 @@ async function configureSupervisorSession(status) {
       note.className = "provenance-pill"; note.textContent = "Local mock · not live Gemini or models · records reset on restart";
       document.getElementById("main-content").prepend(note);
     }
+    document.querySelector("#evaluator-step-fill span").textContent = "Loads a sample order and fills the conditions and settings. Sample output, no model call.";
     document.getElementById("supervisor-auth-status").textContent = "Local simulated approval only — no authenticated human or cloud persistence.";
     for (const id of ["supervisor-sign-in", "supervisor-sign-out", "supervisor-refresh-session"]) { const control = document.getElementById(id); if (control) control.hidden = true; }
     return;
@@ -515,6 +516,7 @@ async function runJsonRequest({ url, options = {}, outputId, button, idleText, o
 }
 
 let currentStoredJob = null;
+let currentRevisionFingerprint = null;
 let latestIntegrations = {};
 function applyIntegrationAvailability(integrations = latestIntegrations) {
   latestIntegrations = localSyntheticUI ? { ...(integrations ?? {}), predictRisk: false, optimizeRisk: false, findSimilarRuns: false, explainRisk: false, findSeenBefore: false } : integrations ?? {};
@@ -1178,13 +1180,15 @@ function renderSimilarRuns(payload) {
 }
 
 function renderRiskExplanation(payload) {
-  if (payload?.source !== "bigquery-ml-and-gemini" ||
+  if (!["bigquery-ml-and-gemini", "bigquery-ml-attribution-summary"].includes(payload?.source) ||
       typeof payload.explanation !== "string" || !payload.explanation.trim() ||
       !Array.isArray(payload.rows)) {
     throw new Error("The explanation endpoint returned malformed attribution evidence.");
   }
   const content = document.getElementById("risk-explanation-content");
-  content.textContent = payload.explanation;
+  content.textContent = payload.source === "bigquery-ml-attribution-summary"
+    ? "Summary of the model attribution (Gemini explanation unavailable): " + payload.explanation
+    : payload.explanation;
   const details = document.createElement("details");
   const summary = document.createElement("summary"); summary.textContent = "Model attribution evidence";
   const rows = document.createElement("ul"); rows.className = "change-reasons";
@@ -1355,7 +1359,7 @@ function jobPreparationIdempotencyKey(file, operatorFields, itemConfirmation, sh
   return lastJobIdempotency.key;
 }
 
-function applyStoredJobContext(jobSheet) {
+function applyStoredJobContext(jobSheet, revision) {
   if (!isJobDisplay(jobSheet)) {
     throw new Error("The stored job response was incomplete. Approval remains blocked.");
   }
@@ -1363,6 +1367,7 @@ function applyStoredJobContext(jobSheet) {
     ? { ...jobSheet, savings: { kg: jobSheet.savings.kg, inr: jobSheet.savings.amount } }
     : jobSheet;
   currentStoredJob = displaySheet;
+  currentRevisionFingerprint = revision?.fingerprint ?? null;
   renderStoredSheet(displaySheet);
   syncJobControls();
   document.getElementById("shared-job-id").value = jobSheet.jobId;
@@ -1465,7 +1470,7 @@ document.getElementById("prepare-job").addEventListener("click", async (event) =
     button,
     onSuccess: (payload) => {
       if (payload?.durable === true || (localSyntheticUI && payload?.storageScope === "process-memory")) {
-        applyStoredJobContext(payload.jobSheet);
+        applyStoredJobContext(payload.jobSheet, payload.revision);
         renderRisk(payload.jobSheet.baseline.risk);
         setResult("risk-result", "Prediction from the persisted JobSheet’s planned settings.", "success");
         setResult("optimization-result", "Recommendation from the persisted JobSheet. Review its approval status.", "success");
@@ -1496,7 +1501,7 @@ document.getElementById("load-stored-job-form").addEventListener("submit", async
     outputId: "stored-job-result",
     isCurrent: () => document.getElementById("shared-job-id").value.trim() === jobId,
     button: form.querySelector("button[type=submit]"),
-    onSuccess: (payload) => { applyStoredJobContext(payload?.jobSheet); },
+    onSuccess: (payload) => { applyStoredJobContext(payload?.jobSheet, payload?.revision); },
   });
 });
 
@@ -1520,11 +1525,11 @@ document.getElementById("confirm-approval").addEventListener("click", async () =
     url: "/jobs/" + encodeURIComponent(jobId) + "/approve?lang=" +
       encodeURIComponent(languagePreference.value) + "&currency=" +
       encodeURIComponent(document.getElementById("display-currency").value),
-    options: { method: "POST", headers: { Accept: "application/json" } },
+    options: approveRequestOptions(currentRevisionFingerprint),
     outputId: "approval-result",
     button: form.querySelector("button[type=submit]"),
     onSuccess: (payload) => {
-      if (payload.jobSheet) applyStoredJobContext(payload.jobSheet);
+      if (payload.jobSheet) applyStoredJobContext(payload.jobSheet, payload.revision);
       else { currentStoredJob = null; syncJobControls(); setResult("approval-result", "Approval response received. Reload the stored job to verify its status.", "incomplete"); }
     },
   });
@@ -1958,7 +1963,7 @@ async function fillDemoLot() {
   if (document.getElementById("review-order").disabled) throw new Error("Order reading is unavailable right now. Try again in a moment.");
   demoStatus("Loading the sample order…");
   await loadSampleOrder();
-  demoStatus("Reading the order with Gemini…");
+  demoStatus(localSyntheticUI ? "Reading the sample order · Sample output, no model call…" : "Reading the order with Gemini…");
   if (!(await extractAndReviewOrder(document.getElementById("review-order")))) throw new Error("The sample order could not be read. See the message under the order.");
   demoFilling = true;
   try {

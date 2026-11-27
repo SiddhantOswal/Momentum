@@ -22,6 +22,14 @@ config
 !config/gcp-storage.json
 !config/gcp-vertex-ai.json
 !config/model-acceptance.json
+!config/condition-ranges.json
+!config/weather.json
+!config/arc-models.json
+!config/arc.json
+!config/arc-scope.json
+!config/arc-metrics.json
+!config/gemini-prices.json
+!config/model-version-binding.json
 *.log
 
 !config/approved-photos.json

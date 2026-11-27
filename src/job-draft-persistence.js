@@ -84,7 +84,7 @@ export function createPersistableJobCreator({
   }
   const configuredPlantId = plantId === undefined ? undefined : JobIdSchema.safeParse(plantId);
 
-  return async function createJob({ jobId, request = {}, signal } = {}) {
+  return async function createJob({ jobId, request = {}, signal, fence } = {}) {
     if (draftPersistenceEnabled !== true || typeof createDraftJobSheet !== "function") {
       return unavailable("Durable JobSheet persistence is not configured; job preparation was not run.");
     }
@@ -112,6 +112,28 @@ export function createPersistableJobCreator({
     const resolvedPlantId = parsedSheet.data.plantId ?? (configuredPlantId?.success ? configuredPlantId.data : undefined);
     if (resolvedPlantId === undefined) {
       return unavailable("A configured plant ID is required to persist a draft job sheet.");
+    }
+
+    // Design 3.2 step 3: a claim that expired during planning may now belong
+    // to another instance, and two writers for one job ID is how
+    // JOB_SHEET_NOT_UNIQUE happens. Check ownership right before the write.
+    if (fence !== undefined) {
+      let held;
+      try {
+        held = await fence();
+      } catch (error) {
+        if (error?.name === "AbortError" || signal?.aborted) throw error;
+        return unavailable("The idempotency claim could not be checked, so the job sheet was not written.");
+      }
+      if (held !== true) {
+        return {
+          ok: false,
+          error: {
+            code: "IDEMPOTENCY_IN_PROGRESS",
+            message: "This request's claim expired before the job sheet was written; retry shortly.",
+          },
+        };
+      }
     }
 
     let saved;
@@ -162,7 +184,10 @@ export function createStoredJobReplayLoader({ getStoredJobSheet, storedJobLookup
     // Completion is a request identity, not a frozen DRAFT lifecycle state.
     // Replaying after approval must return that same durable approved record.
     const candidate = stored.ok === true ? (stored.jobSheet ?? stored.data) : stored;
-    const approved = StoredJobSheetSchema.safeParse(candidate);
+    if (candidate == null || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+    // A JobSheet without evidence is written as an empty evidence list
+    // (mapJobSheetToBigQuery), so the approved record is read back the same way.
+    const approved = StoredJobSheetSchema.safeParse({ ...candidate, evidence: candidate.evidence ?? [] });
     if (!approved.success || approved.data.jobId !== jobId || approved.data.status !== "APPROVED" ||
         !validStoredApprovalAudit(approved.data)) return null;
     return { ok: true, jobId, jobSheet: approved.data, durable: true };
@@ -179,6 +204,7 @@ export function createJobSubmissionHandler({
   plantId,
   store,
   leaseMs = 30_000,
+  now,
 } = {}) {
   if (typeof prepareJob !== "function") {
     throw new TypeError("A job coordinator is required.");
@@ -193,6 +219,7 @@ export function createJobSubmissionHandler({
   const createIdempotently = createIdempotentJobService({
     store,
     leaseMs,
+    ...(now === undefined ? {} : { now }),
     createJob,
     loadJob: createStoredJobReplayLoader({ getStoredJobSheet, storedJobLookupEnabled }),
   });

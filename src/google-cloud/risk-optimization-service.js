@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { BigQueryReadError } from "./bigquery-read-client.js";
-import { RiskOptimizationRequestSchema } from "../schemas.js";
+import { countedDefects, RiskOptimizationRequestSchema, shownDefects } from "../schemas.js";
 import { mapRiskPredictionParameters } from "../bigquery-mapper.js";
 import modelAcceptanceConfig from "../../config/model-acceptance.json" with { type: "json" };
 import { getModelAcceptanceSummary, isModelSetAccepted } from "../model-acceptance.js";
+import { optimizerTargetsParameter, readTargetUse } from "../target-eligibility.js";
 
 // The seven levers in the order they appear in the optimizer SQL output
 const LEVER_NAMES = Object.freeze([
@@ -52,7 +53,6 @@ const STRING_COLUMNS = new Set([
 const INTEGER_TYPES = new Set(["INT64", "INTEGER"]);
 const NUMERIC_TYPES = new Set([...INTEGER_TYPES, "FLOAT64", "FLOAT", "NUMERIC", "BIGNUMERIC"]);
 
-const VALID_DEFECTS = new Set(["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"]);
 const VALID_LEVELS  = new Set(["LOW", "MED", "HIGH"]);
 const CANDIDATE_GRID = Object.freeze({
   sfSpeedMpm: [30, 38, 45, 52],
@@ -126,11 +126,13 @@ function decodeRow(fields, row) {
   };
 }
 
-function validateRow(row, kind) {
+// Without a use-class map every target counts, as in rows decoded before ARC-ML-03.
+function validateRow(row, kind, targetUse) {
   if (row.kind !== kind) {
     throw new RiskOptimizationError("OPT_KIND_MISMATCH", `Expected kind=${kind}, got ${row.kind}.`);
   }
-  if (!VALID_DEFECTS.has(row.primary_defect)) {
+  const counted = countedDefects(targetUse);
+  if (!counted.includes(row.primary_defect)) {
     throw new RiskOptimizationError("OPT_ROW_INVALID", `Invalid primary_defect in ${kind} row: ${row.primary_defect}.`);
   }
   if (!VALID_LEVELS.has(row.gum_application)) {
@@ -159,8 +161,7 @@ function validateRow(row, kind) {
   ].some((value) => value < 0)) {
     throw new RiskOptimizationError("OPT_ROW_INVALID", `The ${kind} row contains a negative setting or cost.`);
   }
-  const totalRate = row.rate_warp_pct + row.rate_delam_pct + row.rate_strength_pct +
-    row.rate_print_pct + row.rate_crack_pct;
+  const totalRate = counted.reduce((sum, defect) => sum + row[`rate_${defect.toLowerCase()}_pct`], 0);
   if ([
     row.rate_warp_pct, row.rate_delam_pct, row.rate_strength_pct,
     row.rate_print_pct, row.rate_crack_pct,
@@ -181,7 +182,7 @@ function expectedThroughputPenalty(row, plannedLevers) {
   );
 }
 
-function rowToLeversAndRisk(row) {
+function rowToLeversAndRisk(row, targetUse) {
   return {
     levers: {
       sfSpeedMpm:      row.sf_speed_mpm,
@@ -193,18 +194,15 @@ function rowToLeversAndRisk(row) {
       printSpeedSpm:   row.print_speed_spm,
     },
     risk: {
-      ratesPct: {
-        WARP:     row.rate_warp_pct,
-        DELAM:    row.rate_delam_pct,
-        STRENGTH: row.rate_strength_pct,
-        PRINT:    row.rate_print_pct,
-        CRACK:    row.rate_crack_pct,
-      },
+      // Abstain targets are dropped here so no number for them leaves the service.
+      ratesPct: Object.fromEntries(shownDefects(targetUse)
+        .map((defect) => [defect, row[`rate_${defect.toLowerCase()}_pct`]])),
       totalScrapPct: row.total_scrap_pct,
       totalScrapKg:  row.scrap_kg,
       scrapCost:     row.scrap_cost,
       currency:      row.currency,
       primaryDefect: row.primary_defect,
+      ...(targetUse === undefined ? {} : { targetUse }),
     },
   };
 }
@@ -228,7 +226,7 @@ function deriveChanges(baseline, best) {
   return changes;
 }
 
-function decodeOptimizationResult(result, { plannedLevers } = {}) {
+function decodeOptimizationResult(result, { plannedLevers, targetUse } = {}) {
   const fields = result?.schema?.fields;
   if (!Array.isArray(fields) || fields.length !== EXPECTED_COLUMNS.length) {
     throw new RiskOptimizationError("OPT_SCHEMA_MISMATCH", "Optimizer returned an unexpected number of columns.");
@@ -274,8 +272,8 @@ function decodeOptimizationResult(result, { plannedLevers } = {}) {
   const [baselineRaw] = baselines;
   const [bestRaw] = bestRows;
 
-  validateRow(baselineRaw, "BASELINE");
-  validateRow(bestRaw, "BEST");
+  validateRow(baselineRaw, "BASELINE", targetUse);
+  validateRow(bestRaw, "BEST", targetUse);
 
   if (baselineRaw.n_changes !== 0) {
     throw new RiskOptimizationError("OPT_BASELINE_INVALID", "BASELINE row must have n_changes = 0.");
@@ -316,8 +314,8 @@ function decodeOptimizationResult(result, { plannedLevers } = {}) {
     }
   }
 
-  const baseline = rowToLeversAndRisk(baselineRaw);
-  const best     = rowToLeversAndRisk(bestRaw);
+  const baseline = rowToLeversAndRisk(baselineRaw, targetUse);
+  const best     = rowToLeversAndRisk(bestRaw, targetUse);
   const changes  = deriveChanges(baselineRaw, bestRaw);
 
   if (changes.length !== bestRaw.n_changes) {
@@ -424,6 +422,17 @@ export function createRiskOptimizationService({
         modelAcceptance: getModelAcceptanceSummary(modelAcceptance),
       };
     }
+    const targetUse = readTargetUse(modelAcceptance);
+    if (!targetUse) {
+      return {
+        ok: false,
+        error: {
+          code: "SERVICE_UNAVAILABLE",
+          message: "Optimization is blocked until every model target has a use class in the acceptance record.",
+        },
+        modelAcceptance: getModelAcceptanceSummary(modelAcceptance),
+      };
+    }
 
     try {
       const rawParameters = mapRiskPredictionParameters({ order, conditions, levers });
@@ -433,9 +442,10 @@ export function createRiskOptimizationService({
           ? { type: name === "quantity" ? "INT64" : FLOAT_PARAMETERS.has(name) ? "FLOAT64" : "INT64", value }
           : value,
       ]));
+      parameters.optimizer_targets = optimizerTargetsParameter(targetUse);
 
       const result = await bigquery.query({ sql: queryText, parameters, signal });
-      const optimization = decodeOptimizationResult(result, { plannedLevers: levers });
+      const optimization = decodeOptimizationResult(result, { plannedLevers: levers, targetUse });
 
       return {
         ok: true,

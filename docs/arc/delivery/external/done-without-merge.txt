@@ -1,0 +1,8 @@
+# Tickets that are done but have no "Merge <ticket>:" commit on arc/main (cloud changes and approvals).
+# Used by tools/orchestrator/ticket-status.mjs. Add a line when a ticket closes without a merge.
+ARC-M0-01
+ARC-M0-02
+ARC-M0-03
+ARC-M0-06
+ARC-M1-04
+ARC-SETUP-01

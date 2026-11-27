@@ -1,0 +1,8 @@
+#!/bin/sh
+# Rejects staged reference material, likely secrets and banned phrases. Rules: scripts/quality/rules.mjs.
+root=$(git rev-parse --show-toplevel) || exit 1
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: node is required to run the quality checks." >&2
+  exit 1
+fi
+exec node "$root/scripts/quality/check.mjs" staged

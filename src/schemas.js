@@ -181,6 +181,10 @@ export const OrderExtractionApiResponseSchema = z.object({
     cachedContentTokenCount: z.number().int().nonnegative().optional(),
     thoughtsTokenCount: z.number().int().nonnegative().optional(),
   }).strict().optional(),
+  generation: z.object({
+    settingsVersion: z.string().regex(/^arc-models-v[1-9]\d*$/),
+    promptVersion: z.string().regex(/^[a-z]+\/v[1-9]\d*$/),
+  }).strict().optional(),
 }).strict().refine(
   (result) => result.needsClarification === (
     result.missingFields.length > 0 || result.lineSelectionRequired === true ||
@@ -275,6 +279,52 @@ export const RiskPredictionRequestSchema = z.object({
   levers: LeversSchema,
 }).strict();
 
+// Condition values as they arrive from a plant reading or manual entry, before
+// the condition guard (src/condition-guard.js) checks them against the plant's
+// recorded ranges. Humidity and temperature may be missing; the guard falls
+// back to weather or the seasonal typical value. Paper moisture is required by
+// the guard, which returns a plain validation message when it is missing.
+const unguardedConditionValue = finiteNumber.nullable().optional();
+export const ManualRunConditionsSchema = z.object({
+  runDate: DateSchema,
+  shift: z.enum(["DAY", "NIGHT"]),
+  ambientRhPct: unguardedConditionValue,
+  ambientTempC: unguardedConditionValue,
+  paperMoisturePct: unguardedConditionValue,
+}).strict();
+
+export const GuardedRiskPredictionRequestSchema = z.object({
+  order: RiskPredictionRequestSchema.shape.order,
+  conditions: z.object({
+    runDate: DateSchema.optional(),
+    shift: z.enum(["DAY", "NIGHT"]),
+    ambientRhPct: unguardedConditionValue,
+    ambientTempC: unguardedConditionValue,
+    paperMoisturePct: unguardedConditionValue,
+  }),
+  conditionsConfirmed: z.literal(true).optional(),
+  levers: LeversSchema,
+}).strict();
+
+export const ConditionSourceSchema = z.enum(["plant", "weather", "seasonal"]);
+export const ConditionSourcesSchema = z.object({
+  ambientRhPct: ConditionSourceSchema,
+  ambientTempC: ConditionSourceSchema,
+  paperMoisturePct: z.literal("plant"),
+}).strict();
+export const ConditionConfidenceSchema = z.enum(["normal", "reduced"]);
+
+const RateBoundsSchema = z.object({
+  low: finiteNumber.min(0).max(25),
+  high: finiteNumber.min(0).max(25),
+}).strict().refine((bounds) => bounds.low <= bounds.high, { message: "low must not exceed high." });
+// Scrap-rate range when ambient humidity moves 5 points either way, clamped
+// to the plant's recorded humidity range.
+export const HumidityBandSchema = z.object({
+  ambientRhPct: z.object({ low: finiteNumber.min(0).max(100), high: finiteNumber.min(0).max(100) }).strict(),
+  ratesPct: z.partialRecord(DefectSchema, RateBoundsSchema),
+}).strict();
+
 export const RiskOptimizationRequestSchema = z.object({
   order: OrderProfileSchema,
   conditions: RunConditionsSchema,
@@ -282,14 +332,53 @@ export const RiskOptimizationRequestSchema = z.object({
   levers: LeversSchema,
 }).strict();
 
+// Per-target use class from config/model-acceptance.json (ARC-ML-03). Only
+// "optimizer" targets count toward totals, the primary defect and the optimizer
+// objective; "advisory" targets are shown as low confidence; "abstain" targets
+// carry no rate at all.
+export const TargetUseClassSchema = z.enum(["optimizer", "advisory", "abstain"]);
+export const TargetUseSchema = z.record(DefectSchema, z.object({
+  useClass: TargetUseClassSchema,
+  reason: nonEmptyString.max(240),
+}).strict()).refine(
+  (targetUse) => Object.values(targetUse).some((entry) => entry.useClass === "optimizer"),
+  { message: "At least one target must have the optimizer use class." },
+);
+
+// Without a use-class map (records stored before ARC-ML-03 and the local demo),
+// every target is shown and counted, as before.
+export function countedDefects(targetUse) {
+  return DefectSchema.options.filter((defect) => !targetUse || targetUse[defect].useClass === "optimizer");
+}
+export function shownDefects(targetUse) {
+  return DefectSchema.options.filter((defect) => !targetUse || targetUse[defect].useClass !== "abstain");
+}
+
+function addTargetUseIssues(risk, context, unavailable = []) {
+  const shown = shownDefects(risk.targetUse);
+  for (const defect of DefectSchema.options) {
+    const hasRate = risk.ratesPct[defect] !== undefined;
+    if (!shown.includes(defect) && hasRate) {
+      context.addIssue({ code: "custom", path: ["ratesPct", defect], message: "An abstain target must not carry a rate." });
+    }
+    if (shown.includes(defect) && !hasRate && !unavailable.includes(defect)) {
+      context.addIssue({ code: "custom", path: ["ratesPct", defect], message: "Every shown target needs a rate." });
+    }
+  }
+  if (!countedDefects(risk.targetUse).includes(risk.primaryDefect)) {
+    context.addIssue({ code: "custom", path: ["primaryDefect"], message: "The primary defect must be an optimizer target." });
+  }
+}
+
 export const RiskResultSchema = z.object({
-  ratesPct: z.record(DefectSchema, finiteNumber.min(0).max(25)),
+  ratesPct: z.partialRecord(DefectSchema, finiteNumber.min(0).max(25)),
   totalScrapPct: finiteNumber.min(0).max(125).optional(),
   totalScrapKg: nonNegativeNumber,
   scrapCost: nonNegativeNumber,
   currency: CurrencySchema,
   primaryDefect: DefectSchema,
-}).strict();
+  targetUse: TargetUseSchema.optional(),
+}).strict().superRefine((risk, context) => addTargetUseIssues(risk, context));
 export const RiskSchema = RiskResultSchema;
 
 const ModelEvaluationOutputSchema = z.object({
@@ -311,6 +400,17 @@ export const RiskPredictionApiResponseSchema = z.object({
   isRealModelPrediction: z.literal(true),
   itemCode: nonEmptyString,
   ...RiskResultSchema.shape,
+  // A partial result (one or more defect models failed) lists only the
+  // available defects; a complete result carries every non-abstain target.
+  ratesPct: z.partialRecord(DefectSchema, finiteNumber.min(0).max(25)),
+  targetUse: TargetUseSchema,
+  humidityBand: HumidityBandSchema.optional(),
+  partial: z.boolean().optional(),
+  unavailableDefects: z.array(DefectSchema).max(4).optional(),
+  totalsCover: z.array(DefectSchema).min(1).max(5).optional(),
+  conditionSources: ConditionSourcesSchema.optional(),
+  confidence: ConditionConfidenceSchema.optional(),
+  conditionNotes: z.array(nonEmptyString).optional(),
   modelProvenance: z.object({
     query: z.literal("sql/predict.sql"),
     outputs: FiveModelEvaluationSetSchema,
@@ -334,7 +434,38 @@ export const RiskPredictionApiResponseSchema = z.object({
     models: z.array(ModelEvaluationOutputSchema),
     notes: z.array(nonEmptyString),
   }).strict(),
-}).strict();
+}).strict().superRefine((response, context) => {
+  const available = DefectSchema.options.filter((defect) => response.ratesPct[defect] !== undefined);
+  const unavailable = response.unavailableDefects ?? [];
+  const shown = shownDefects(response.targetUse);
+  const covered = available.length + unavailable.length === shown.length &&
+    unavailable.every((defect) => shown.includes(defect) && !available.includes(defect)) &&
+    new Set(unavailable).size === unavailable.length;
+  if (!covered) {
+    context.addIssue({
+      code: "custom",
+      path: ["unavailableDefects"],
+      message: "Every shown defect must have a rate or be listed as unavailable.",
+    });
+  }
+  addTargetUseIssues(response, context, unavailable);
+  if (unavailable.length > 0 && response.partial !== true) {
+    context.addIssue({ code: "custom", path: ["partial"], message: "A result missing defects must be flagged partial." });
+  }
+  const totalsCover = countedDefects(response.targetUse).filter((defect) => available.includes(defect));
+  if (response.partial === true && (unavailable.length === 0 ||
+      response.totalsCover?.length !== totalsCover.length ||
+      response.totalsCover.some((defect) => !totalsCover.includes(defect)))) {
+    context.addIssue({
+      code: "custom",
+      path: ["totalsCover"],
+      message: "A partial result must list the available optimizer targets its totals cover.",
+    });
+  }
+  if (!available.includes(response.primaryDefect)) {
+    context.addIssue({ code: "custom", path: ["primaryDefect"], message: "The primary defect must have a rate." });
+  }
+});
 
 export const LeverRiskProfileSchema = z.object({
   levers: LeversSchema,
@@ -496,7 +627,7 @@ export const DisplayPrefsSchema = z.object({
 
 export const DisplayPrefsQuerySchema = z.object({
   lang: LocaleSchema.optional(),
-  currency: CurrencySchema.optional(),
+  currency: z.enum(SUPPORTED_CURRENCIES, { error: `Currency must be one of ${SUPPORTED_CURRENCIES.join(", ")}.` }).optional(),
 }).strict();
 
 export const InsightsQuerySchema = z.object({

@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Planning Light</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+body{margin:0}
+.m *{box-sizing:border-box}
+.m{--bg:#121519;--sb:#0B0D10;--cd:#1A1E23;--rz:#21262C;--ln:#2A3038;--ln2:#3A434D;--tx:#EAEDF0;--mu:#A3ACB6;--dim:#7B8590;--ac:#E8664F;--ok:#5FBF98;--wn:#E3A340;--bd:#F0707A;--inv:#111;--ct:#F3A394;--g1:#4E9E7F;--g2:#6A7683;--pap:#D8C6A3;--bar0:#4A5460;--stg:#0E1013;
+ font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.4;color:var(--tx);background:var(--bg);width:1440px;position:relative;overflow:hidden}
+.d{font-family:'Inter Tight','Inter',sans-serif}
+.n{font-family:'Inter Tight','Inter',sans-serif;font-variant-numeric:tabular-nums;font-feature-settings:'tnum'}
+/* chrome */
+.side{position:absolute;left:0;top:0;bottom:0;width:232px;background:var(--sb);border-right:1px solid var(--ln);padding:20px 12px 16px;display:flex;flex-direction:column}
+.brand{display:block;width:200px;height:48px;object-fit:cover;border-radius:10px;margin:0 0 28px 0}
+.nv{display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:10px;white-space:nowrap;font-size:16px;font-weight:500;color:var(--mu);text-decoration:none;margin-bottom:2px;position:relative}
+.nv svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nv.on{background:var(--rz);color:var(--tx)}
+.nv.on:before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:2px;background:var(--ac)}
+.grp{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);padding:18px 12px 8px}
+.sess{margin-top:12px;border:1px solid var(--ln);border-radius:12px;padding:14px;font-size:14px;line-height:1.45;color:var(--mu)}
+.sess b{display:block;color:var(--tx);font-size:15px;font-weight:600;margin-bottom:4px}
+.main{position:absolute;left:232px;top:0;width:1208px;padding:0 24px}
+.top{height:56px;display:flex;align-items:center;gap:20px;border-bottom:1px solid var(--ln);margin:0 -24px;padding:0 24px}
+.bc{font-size:15px;color:var(--mu);white-space:nowrap}.bc b{color:var(--tx);font-weight:600}
+.srch{display:flex;align-items:center;gap:10px;height:36px;width:340px;padding:0 12px;border:1px solid var(--ln);border-radius:10px;background:var(--cd);color:var(--dim);font-size:14px;margin-left:12px}
+.srch svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.srch kbd{margin-left:auto;font:600 12px 'Inter',sans-serif;color:var(--dim);border:1px solid var(--ln2);border-radius:6px;padding:1px 6px}
+.tr{margin-left:auto;display:flex;align-items:center;gap:12px}
+.ph{display:flex;justify-content:space-between;align-items:flex-end;padding:22px 0 18px}
+.ph h1{margin:0;font:600 28px/34px 'Inter Tight','Inter',sans-serif;letter-spacing:-.4px}
+.ph p{margin:4px 0 0;font-size:15px;color:var(--mu)}
+/* grid */
+.g{display:grid;grid-template-columns:repeat(12,82px);column-gap:16px;row-gap:16px}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+/* surfaces */
+.cd{background:var(--cd);border:1px solid var(--ln);border-radius:12px;padding:20px;min-width:0}
+.cd.flush{padding:0;overflow:hidden}
+.m .kr,.m.lt .kr{--cd:#D7C39A;--rz:rgba(255,255,255,.38);--bg:rgba(255,255,255,.42);--ln:rgba(31,24,16,.22);--ln2:rgba(31,24,16,.4);--tx:#1F1810;--mu:rgba(31,24,16,.76);--dim:rgba(31,24,16,.68);--ok:#14573C;--wn:#6E4200;--bd:#9C2430;--ct:#9E3320;--bar0:rgba(31,24,16,.3);--g1:#14573C;--g2:rgba(31,24,16,.4);--inv:#D7C39A;
+ background:linear-gradient(160deg,rgba(255,255,255,.16),transparent 50%),#D7C39A;border-color:rgba(31,24,16,.28);color:#1F1810;box-shadow:0 14px 28px -18px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.12)}
+.m .kr .bt.s,.m.lt .kr .bt.s{border-color:rgba(31,24,16,.5)}
+
+.ct{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.t{font:600 17px/24px 'Inter Tight','Inter',sans-serif;letter-spacing:-.1px}
+.mt{font-size:13px;color:var(--mu);white-space:nowrap}
+.lb{font-size:14px;color:var(--mu)}
+.th{font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.hr{height:1px;background:var(--ln)}
+.gl{background:rgba(22,26,31,.58);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%);border:1px solid rgba(255,255,255,.17);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 18px 36px -20px rgba(0,0,0,.8);border-radius:12px;color:var(--tx)}
+/* buttons */
+.bt{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:44px;padding:0 20px;border-radius:10px;font:600 16px 'Inter',sans-serif;text-decoration:none;white-space:nowrap;border:1px solid transparent}
+.bt svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.bt.p{background:var(--ac);color:#18110E}
+.bt.s{border-color:var(--ln2);color:var(--tx);background:transparent}
+.bt.sm{height:36px;padding:0 14px;font-size:14px}
+.lk{font-size:14px;font-weight:600;color:var(--tx);text-decoration:underline;text-decoration-color:var(--ac);text-decoration-thickness:2px;text-underline-offset:4px;white-space:nowrap}
+a:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+/* provenance chips */
+.pv{display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 9px;border-radius:6px;font-size:13px;font-weight:600;border:1px solid var(--ln2);color:var(--mu);white-space:nowrap}
+.pv i{width:8px;height:8px;border-radius:50%;background:var(--tx);display:block;flex:none}
+.pv.mod i{background:none;border:2px solid var(--tx)}
+.pv.ex{border-style:dashed}.pv.ex i{background:none;border:2px dashed var(--tx)}
+.pv.nc i{background:var(--dim)}
+.pv.ac{border-color:rgba(232,102,79,.55);color:var(--ct)}.pv.ac i{background:var(--ac)}
+.pv.gl2{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--tx)}
+/* status (colour + shape + text) */
+.sx{display:inline-flex;align-items:center;gap:8px;font-size:15px;white-space:nowrap}
+.sx svg{width:16px;height:16px;flex:none;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sx.ok{color:var(--ok)}.sx.ok svg{stroke:var(--ok)}
+.sx.ac{color:var(--ct)}.sx.ac svg{stroke:var(--ac)}
+.sx.wn{color:var(--wn)}.sx.wn svg{stroke:var(--wn)}
+.sx.bd{color:var(--bd)}.sx.bd svg{stroke:var(--bd)}
+.sx.id{color:var(--mu)}.sx.id svg{stroke:var(--dim)}
+.seg{display:flex;gap:3px}.seg i{width:22px;height:5px;border-radius:2px;background:var(--ln2);display:block}.seg i.d{background:var(--tx)}.seg i.n{background:var(--ac)}
+/* table */
+.tb{display:grid;align-items:center;column-gap:12px;min-height:52px;border-top:1px solid var(--ln)}
+.tb.h{min-height:34px;border-top:0}
+/* key value */
+.kv{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--ln)}
+.kv:first-of-type{border-top:0}
+.kv .v{font:600 24px/28px 'Inter Tight','Inter',sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kv .v small{font:500 15px 'Inter',sans-serif;color:var(--mu);margin-left:4px}
+.ck{display:flex;align-items:flex-start;gap:12px;font-size:16px;line-height:1.4;padding:11px 0;border-top:1px solid var(--ln)}
+.ck i{flex:none;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--ln2);display:flex;align-items:center;justify-content:center;margin-top:1px}
+.ck.on i{background:var(--tx);border-color:var(--tx)}
+/* stepper */
+.stp{display:flex;gap:12px;margin-bottom:16px}
+.stp div{flex:1;border-top:3px solid var(--ln2);padding-top:10px;font-size:15px;font-weight:600;color:var(--dim);display:flex;align-items:center;gap:10px;white-space:nowrap}
+.stp div b{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ln2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.stp div.d{border-color:var(--tx);color:var(--tx)}.stp div.d b{background:var(--tx);border-color:var(--tx);color:var(--inv)}
+.stp div.c{border-color:var(--ac);color:var(--tx)}.stp div.c b{background:var(--ac);border-color:var(--ac);color:#18110E}
+
+.ids{display:flex;align-items:center;gap:0;height:56px;border:1px solid var(--ln);border-radius:12px;background:var(--cd);margin-bottom:16px;padding:0 4px}
+.ids>div{padding:0 18px;border-left:1px solid var(--ln);min-width:0}
+.ids>div:first-child{border-left:0}
+.ids small{display:block;font-size:12px;color:var(--dim);line-height:14px}
+.ids b{display:block;font:600 16px/20px 'Inter Tight','Inter',sans-serif;white-space:nowrap}
+.thm{margin-top:auto;display:flex;align-items:center;gap:12px;width:100%;height:44px;padding:0 12px;border-radius:12px;border:1px solid var(--ln2);background:transparent;color:var(--tx);font:600 15px 'Inter',sans-serif;cursor:pointer;text-align:left}
+.thm svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.thm .sw{margin-left:auto;width:36px;height:20px;border-radius:10px;border:1.5px solid var(--ln2);position:relative;flex:none}
+.thm .sw:after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--mu)}
+.m.lt .thm .sw:after{left:18px;background:var(--ac)}
+.thm:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.thm .i-sun{display:block}.thm .i-moon{display:none}
+.thm.fl{position:absolute;left:56px;top:690px;width:430px;margin:0;z-index:3}
+/* alerts */
+.ci{display:flex;align-items:center;gap:12px}.ci>svg{width:20px;height:20px;flex:none;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ci.ok>svg{stroke:var(--ok)}
+.bell{position:relative;width:36px;height:36px;border-radius:10px;border:1px solid var(--ln2);background:transparent;color:var(--tx);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;flex:none}
+.bell svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.bell b{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--ac);color:#18110E;font:700 11px/18px 'Inter',sans-serif;text-align:center}
+.bell:focus-visible,.tst .x:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.tsts{position:absolute;right:24px;top:68px;width:400px;display:flex;flex-direction:column;gap:10px;z-index:30;pointer-events:none}
+.tst{display:flex;pointer-events:auto;align-items:center;gap:12px;padding:12px 10px 12px 14px;border-radius:12px;background:var(--cd);border:1px solid var(--ln2);border-left-width:4px;box-shadow:0 16px 32px -14px rgba(0,0,0,.6);animation:tin .35s ease-out both}
+.m.lt .tst{box-shadow:0 12px 28px -12px rgba(20,24,28,.35)}
+.tst.ok{border-left-color:var(--ok)}.tst.wn{border-left-color:var(--wn)}.tst.bd{border-left-color:var(--bd)}
+.tst>svg{width:22px;height:22px;flex:none;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tst.ok>svg{stroke:var(--ok)}.tst.wn>svg{stroke:var(--wn)}.tst.bd>svg{stroke:var(--bd)}
+.tst div{flex:1;min-width:0}
+.tst b{display:block;font:600 16px/22px 'Inter Tight','Inter',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tst span{display:block;font-size:14px;line-height:20px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tst .x{flex:none;width:32px;height:32px;border:0;border-radius:10px;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.tst .x svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+@keyframes tin{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.tst{animation:none}}
+.arc{display:flex;align-items:center;gap:12px;height:40px;width:372px;padding:0 5px;margin-left:8px;border:1px solid rgba(232,102,79,.55);border-radius:12px;background:rgba(232,102,79,.09);text-decoration:none;color:var(--tx);flex:none}
+.arc:hover{background:rgba(232,102,79,.16);border-color:var(--ac)}
+.arc .mk{flex:none;display:block}
+.arc .at{display:flex;align-items:baseline;gap:10px;min-width:0;white-space:nowrap}
+.arc .at b{font:600 17px/20px 'Inter Tight','Inter',sans-serif}
+.arc .at span{font-size:14px;color:var(--mu);overflow:hidden;text-overflow:ellipsis}
+.arc .go{margin-left:auto;height:30px;padding:0 14px;border-radius:8px;background:var(--ac);color:#18110E;font:600 14px/30px 'Inter',sans-serif}
+.arc.on{border-color:var(--ac);background:rgba(232,102,79,.18)}
+.arc.on .go{background:transparent;color:var(--tx);border:1px solid var(--ac);line-height:28px}
+
+.sh{grid-column:span 12;display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-top:14px}
+.sh h2{margin:0;font:600 22px/28px 'Inter Tight','Inter',sans-serif;letter-spacing:-.2px}
+.sh p{margin:0;font-size:14px;color:var(--mu)}
+.ev{display:grid;grid-template-columns:repeat(4,1fr);column-gap:28px}
+.ev>div{position:relative;border-top:3px dashed var(--ln2);padding-top:14px;min-width:0}
+.ev>div.now{border-top:3px solid var(--ac)}
+.ev>div+div:before{content:"";position:absolute;left:-21px;top:-7px;width:10px;height:10px;border-top:2px solid var(--ln2);border-right:2px solid var(--ln2);transform:rotate(45deg)}
+.ev small{display:block;font-size:13px;font-weight:600;color:var(--dim);line-height:18px}
+.ev h3{margin:2px 0 4px;font:600 22px/30px 'Inter Tight','Inter',sans-serif;letter-spacing:-.3px}
+.ev p{margin:0 0 12px;font-size:15px;color:var(--mu);line-height:22px}
+.ev .nf{border-top:1px solid var(--ln);margin-top:14px;padding-top:10px}
+.ev .nf span{display:block;font-size:13px;color:var(--dim);line-height:18px}
+.ev .nf b{display:block;font-size:15px;font-weight:600;line-height:22px}
+.fs{display:grid;grid-template-columns:440px 1fr;column-gap:40px;align-items:stretch}
+.fs h2{margin:14px 0 8px;font:600 34px/40px 'Inter Tight','Inter',sans-serif;letter-spacing:-.5px;text-wrap:balance}
+.fs .lead{margin:0 0 20px;font-size:16px;line-height:24px;color:var(--mu)}
+.sq{display:flex;align-items:center;gap:12px;font-size:15px;line-height:22px;padding:7px 0;border-top:1px solid var(--ln)}
+.sq b{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px dashed var(--ln2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mu)}
+.sch{background:var(--bg);border:1px solid var(--ln);border-radius:12px;padding:16px 20px 12px}
+.sch svg{display:block;width:100%;height:auto}
+.sch text{font-family:'Inter',system-ui,sans-serif}
+.xp{display:grid;grid-template-columns:330px 1fr;column-gap:0}
+.rail{border-right:1px solid var(--ln);padding-right:16px;display:flex;flex-direction:column;gap:2px}
+.rl{position:relative;display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--tx);font-family:inherit;padding:8px 16px 8px 18px;border-radius:10px;cursor:pointer;height:58px}
+.rl b{display:block;font:600 16px/22px 'Inter Tight','Inter',sans-serif}
+.rl span{display:block;font-size:13px;line-height:18px;color:var(--mu)}
+.rl:hover{background:var(--rz)}
+.rl.on{background:var(--rz)}
+.rl.on:before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:2px;background:var(--ac)}
+.rl:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+.dw{padding-left:32px;min-height:480px;display:flex;flex-direction:column}
+.dp{flex-direction:column}
+.dp h3{margin:0;font:600 26px/32px 'Inter Tight','Inter',sans-serif;letter-spacing:-.3px}
+.dp .hl{margin:4px 0 0;font-size:16px;line-height:24px;color:var(--mu)}
+.dp .top2{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px}
+.dp .chs{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.dr2{display:grid;grid-template-columns:120px 1fr;column-gap:16px;align-items:baseline;padding:13px 0;border-top:1px solid var(--ln)}
+.dr2 span{font-size:14px;font-weight:600;color:var(--mu)}
+.dr2 div{font-size:16px;line-height:24px}
+.dr2.td div{color:var(--mu)}
+.chain{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--ln);margin-top:20px;padding-top:16px}
+.chain>span{font-size:14px;color:var(--mu);margin-right:6px}
+.chain i{font-style:normal;display:inline-flex;align-items:center;height:30px;padding:0 12px;border:1px solid var(--ln2);border-radius:8px;font-size:14px;font-weight:600}
+.chain i.dz{border-style:dashed;color:var(--mu)}
+.chain u{text-decoration:none;color:var(--dim);font-size:16px}
+.nx{display:flex;flex-direction:column}
+.nx .hd{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.nx .gx{flex:none;width:48px;height:48px;border:1px solid var(--ln2);border-radius:12px;display:flex;align-items:center;justify-content:center}
+.nx .gx svg{width:24px;height:24px;fill:none;stroke:var(--tx);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nx h3{margin:0;font:600 20px/26px 'Inter Tight','Inter',sans-serif;flex:1}
+.nx .lead{margin:0 0 10px;font-size:16px;line-height:24px}
+.nx .r2{display:grid;grid-template-columns:70px 1fr;column-gap:12px;padding:9px 0;border-top:1px solid var(--ln);font-size:14px;line-height:20px}
+.nx .r2 span{color:var(--dim);font-weight:600}
+.nx .r2 div{color:var(--mu)}
+.lad{display:flex;flex-direction:column}
+.lr{display:grid;grid-template-columns:36px 1fr auto;column-gap:14px;align-items:center;min-height:68px;border-top:1px solid var(--ln)}
+.lr:first-child{border-top:0}
+.lr .no{width:28px;height:28px;border-radius:50%;border:1.5px dashed var(--ln2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--mu)}
+.lr.td .no{border:none;background:var(--ac);color:#18110E}
+.lr.out{opacity:.7}
+.lr b{display:block;font:600 17px/24px 'Inter Tight','Inter',sans-serif}
+.lr span.s{display:block;font-size:14px;line-height:20px;color:var(--mu)}
+.hz{display:grid;grid-template-columns:1fr auto;column-gap:14px;align-items:center;min-height:56px;border-top:1px solid var(--ln)}
+.hz b{display:block;font:600 16px/22px 'Inter Tight','Inter',sans-serif}
+.hz span.s{display:block;font-size:14px;line-height:20px;color:var(--mu)}
+.vs{display:grid;grid-template-columns:repeat(5,1fr);column-gap:24px}
+.vs>div{border-top:2px dashed var(--ln2);padding-top:14px}
+.vs .no{width:26px;height:26px;border-radius:50%;border:1.5px dashed var(--ln2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--mu);margin-bottom:10px}
+.vs b{display:block;font:600 17px/24px 'Inter Tight','Inter',sans-serif}
+.vs span{display:block;font-size:14px;line-height:20px;color:var(--mu);margin-top:4px;min-height:40px}
+@media (prefers-reduced-motion:no-preference){.rl{transition:background .15s}}
+.m.lt{--bg:#EEF0F2;--sb:#E3E6E9;--cd:#FFFFFF;--rz:#E5E8EB;--ln:#D5DADF;--ln2:#B3BCC5;--tx:#14181C;--mu:#46515C;--dim:#66717C;--ac:#E8664F;--ok:#1F7A58;--wn:#8F5A00;--bd:#B8333F;--inv:#FFFFFF;--ct:#B23F2A;--g1:#1F7A58;--g2:#7E8995;--pap:#B38D52;--bar0:#8F99A4;--stg:#F6F4EE;}
+.m.lt .cd{box-shadow:0 1px 2px rgba(20,24,28,.06),0 6px 18px -12px rgba(20,24,28,.18)}
+.m.lt .nv.on{background:#fff;box-shadow:0 1px 2px rgba(20,24,28,.12)}
+.m.lt .gl{--tx:#EAEDF0;--mu:#C3CBD3;--dim:#9AA4AE;--ln:#3A434D;--ln2:#55606B;--ok:#5FBF98;--wn:#E3A340}
+.m.lt .pv.gl2{color:#EAEDF0;background:rgba(22,26,31,.62);border-color:rgba(255,255,255,.28)}
+.m.lt .pv.gl2 i{background:#EAEDF0}
+.m.lt .bt.p{color:#1B0F0B}
+.m.lt .fld.rq{border-color:#C98A1C}
+.m{height:3460px}
+
+</style>
+</head>
+<body>
+<div class="m lt">
+
+<aside class="side">
+<img class="brand" src="../../assets/logo-momentum.jpg" alt="Momentum">
+<nav>
+<a class="nv" href="#"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+<a class="nv" href="#"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M12 11v6M9 14h6"/></svg>New Lot</a>
+<a class="nv" href="#"><svg viewBox="0 0 24 24"><path d="M3 21V10l6 3V10l6 3V6h3v15z"/></svg>Plant Explorer</a>
+<a class="nv" href="#"><svg viewBox="0 0 24 24"><path d="M4 5h5v5H4zM15 14h5v5h-5zM9 8h3a3 3 0 0 1 3 3v3"/></svg>Preparation Flow</a>
+<a class="nv" href="#"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-7"/></svg>Insights</a>
+<a class="nv" href="#"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4"/></svg>Photo Diagnosis</a>
+<div class="grp">Future</div>
+<a class="nv on" href="#"><svg viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/></svg>Planning</a>
+</nav>
+<button type="button" class="thm" onClick="" aria-pressed="true"><svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"/></svg><span>Light theme</span><span class="sw" aria-hidden="true"></span></button>
+<div class="sess"><b>Supervisor session</b>Demo access only.</div>
+</aside>
+
+<div class="main">
+<div class="top"><div class="bc">Plant / <b>Planning</b></div>
+<a class="arc" href="#" aria-label="Open Arc by Momentum"><svg class="mk" width="30" height="30" viewBox="0 0 32 32" role="img" aria-label="Arc"><rect width="32" height="32" rx="9" style="fill:var(--ac)"/><path d="M6.8 21.6A9.2 9.2 0 0 1 22.2 14.6" fill="none" stroke="#18110E" stroke-width="2.7" stroke-linecap="round"/><path d="M17.6 21.4l3 3 5.6-6.4" fill="none" stroke="#18110E" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.8" cy="21.6" r="2.5" fill="#18110E"/></svg><span class="at"><b>Arc</b><span>Tell Arc what you need</span></span><span class="go">Open</span></a>
+<div class="tr"><button type="button" class="bell" onClick="" aria-label="Alerts"><svg viewBox="0 0 24 24"><path d="M6 17h12l-1.5-2v-4.5a4.5 4.5 0 0 0-9 0V15zM10 20h4"/></svg></button><span class="sx ok" style="font-size:14px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></svg>Backend connected</span><span class="pv mod"><i></i>Prototype data, not live</span></div></div>
+
+<div class="ph"><div><h1>Planning</h1><p>The next phase of Momentum. A roadmap, not live features.</p></div><div style="display:flex;gap:12px;align-items:center"><span class="pv ex"><i></i>Future, not live</span></div></div>
+<div class="g">
+<section class="cd c12"><div class="ct"><span class="t">Four stages</span><span class="mt">Each stage needs the one before it. No dates.</span></div><div class="ev"><div class="now"><small>Today</small><h3>Prepare</h3><p>Order to approved job card.</p><span class="pv "><i></i>Working prototype</span><div class="nf"><span>Needs first</span><b>Order, catalog, five models</b></div></div><div class=""><small>Next</small><h3>Guide</h3><p>Voice, briefings, scan access.</p><span class="pv nc"><i></i>Planned</span><div class="nf"><span>Needs first</span><b>Shift and asset records</b></div></div><div class=""><small>Explore</small><h3>Challenge and remember</h3><p>Test plans. Keep the reasons.</p><span class="pv ex"><i></i>Research direction</span><div class="nf"><span>Needs first</span><b>Validated models and outcomes</b></div></div><div class=""><small>Long term</small><h3>Observe and learn</h3><p>See the floor. Learn from it.</p><span class="pv nc"><i></i>Requires hardware</span><div class="nf"><span>Needs first</span><b>Safety review and consent</b></div></div></div></section>
+<section class="cd c12"><div class="fs">
+ <div>
+  <div style="display:flex;gap:8px"><span class="pv ex"><i></i>Conceptual scenario</span><span class="pv ex"><i></i>Research direction</span></div>
+  <h2>Challenge the plan before production does.</h2>
+  <p class="lead">Find where a plan breaks, before anyone signs it.</p>
+  <div class="sq"><b>1</b>Read the plan and its conditions</div><div class="sq"><b>2</b>Set the hard machine limits</div><div class="sq"><b>3</b>Vary humidity, temperature, material</div><div class="sq"><b>4</b>Check every case with the solver</div><div class="sq"><b>5</b>Hand a report to the supervisor</div>
+ </div>
+ <div style="display:flex;flex-direction:column;gap:14px">
+  <div class="sch"><div class="ct" style="margin-bottom:6px"><span class="t">What Preflight looks for</span><span class="mt">Illustration. Not real results.</span></div><svg viewBox="0 0 580 262" role="img" aria-label="Illustration: risk rises as a condition changes. Preflight searches the region past the entered conditions for where the plan stops holding.">
+ <rect x="40" y="44" width="260" height="174" style="fill:var(--ok);fill-opacity:.13"/>
+ <rect x="300" y="44" width="130" height="174" style="fill:var(--wn);fill-opacity:.16"/>
+ <rect x="430" y="44" width="130" height="174" style="fill:var(--bd);fill-opacity:.16"/>
+ <path d="M40 44V218H560" style="fill:none;stroke:var(--ln2);stroke-width:1.5"/>
+ <path d="M40 194.0 L50 194.0 L60 193.9 L70 193.7 L80 193.4 L90 193.1 L100 192.6 L110 192.1 L120 191.5 L130 190.8 L140 190.0 L150 189.1 L160 188.1 L170 187.0 L180 185.9 L190 184.6 L200 183.2 L210 181.8 L220 180.2 L230 178.5 L240 176.8 L250 174.9 L260 173.0 L270 170.9 L280 168.8 L290 166.5 L300 164.1 L310 161.7 L320 159.1 L330 156.4 L340 153.7 L350 150.8 L360 147.8 L370 144.7 L380 141.6 L390 138.3 L400 134.9 L410 131.4 L420 127.8 L430 124.0 L440 120.2 L450 116.3 L460 112.3 L470 108.1 L480 103.9 L490 99.5 L500 95.1 L510 90.5 L520 85.8 L530 81.0 L540 76.1 L550 71.1 L560 66.0" style="fill:none;stroke:var(--tx);stroke-width:2.5;stroke-linejoin:round"/>
+ <path d="M430 44V218" style="fill:none;stroke:var(--bd);stroke-width:1.5;stroke-dasharray:5 4"/>
+ <path d="M170 195V218" style="fill:none;stroke:var(--ac);stroke-width:1.5;stroke-dasharray:2 4"/>
+ <circle cx="170" cy="187.0" r="7" style="fill:var(--ac);stroke:var(--bg);stroke-width:3"/>
+ <path d="M300 20V28H560V20" style="fill:none;stroke:var(--mu);stroke-width:1.5"/>
+ <text x="430" y="14" text-anchor="middle" font-size="14" font-weight="600" style="fill:var(--tx)">Preflight searches here</text>
+ <text x="170" y="68" text-anchor="middle" font-size="14" style="fill:var(--mu)">Holds</text>
+ <text x="365" y="68" text-anchor="middle" font-size="14" style="fill:var(--mu)">Uncertain</text>
+ <text x="495" y="68" text-anchor="middle" font-size="14" style="fill:var(--mu)">Breaks</text>
+ <text x="170" y="240" text-anchor="middle" font-size="14" font-weight="600" style="fill:var(--tx)">Entered conditions</text>
+ <text x="430" y="240" text-anchor="middle" font-size="14" font-weight="600" style="fill:var(--tx)">Hard limit</text>
+ <text x="46" y="38" font-size="13" style="fill:var(--dim)">Risk</text>
+ <text x="560" y="258" text-anchor="end" font-size="13" style="fill:var(--dim)">A condition changes, such as humidity</text>
+</svg></div>
+  <div style="display:flex;flex-direction:column;gap:8px"><span class="sx wn"><svg viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v5M12 17.6v.1"/></svg>Four of five models miss their holdout bar. Preflight cannot hide that.</span><span class="sx id"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg>A supervisor decides. Nothing is released.</span></div>
+ </div>
+</div></section>
+<div class="sh"><h2>Eight ideas to test</h2><p>Research directions. None are built.</p></div>
+<section class="cd c12"><div class="ct"><span class="t">Capability explorer</span><span class="mt">Pick one. This only changes what you read.</span></div>
+<div class="xp"><div class="rail" role="group" aria-label="Capabilities"><button type="button" class="rl on" aria-pressed="true" onClick=""><b>Production Preflight</b><span>Research direction</span></button><button type="button" class="rl" aria-pressed="false" onClick=""><b>Experiment Designer</b><span>Research direction</span></button><button type="button" class="rl" aria-pressed="false" onClick=""><b>Proof-Carrying Job Cards</b><span>Research direction</span></button><button type="button" class="rl" aria-pressed="false" onClick=""><b>Factory Time Machine</b><span>Requires validated data</span></button><button type="button" class="rl" aria-pressed="false" onClick=""><b>Production Fingerprints</b><span>Requires validated data</span></button><button type="button" class="rl" aria-pressed="false" onClick=""><b>Inverse Production Planning</b><span>Research direction</span></button><button type="button" class="rl" aria-pressed="false" onClick=""><b>Closed-Loop Quality Learning</b><span>Research direction</span></button><button type="button" class="rl" aria-pressed="false" onClick=""><b>Factory Decision Memory</b><span>Requires validated data</span></button></div><div class="dw"><div class="dp" style="display:flex"><div class="top2"><div><h3>Production Preflight</h3><p class="hl">Challenge the plan before production does.</p></div><div class="chs"><span class="pv ex"><i></i>Research direction</span><span class="pv mod"><i></i>Requires validated data</span></div></div><div class="dr2"><span>Problem</span><div>A plan can pass at one point and fail nearby.</div></div><div class="dr2"><span>How it works</span><div>Vary conditions, re-run the limits, report weak spots.</div></div><div class="dr2"><span>Needs</span><div>Validated models and approved ranges.</div></div><div class="dr2"><span>Human step</span><div>A supervisor reads the report first.</div></div><div class="dr2"><span>Limit</span><div>Passing a simulation is not physical proof.</div></div><div class="dr2 td"><span>Today</span><div>New Lot compares settings once, at entered conditions.</div></div></div><div class="dp" style="display:none"><div class="top2"><div><h3>Experiment Designer</h3><p class="hl">Design the smallest responsible trial to learn.</p></div><div class="chs"><span class="pv ex"><i></i>Research direction</span></div></div><div class="dr2"><span>Problem</span><div>Some settings stay tied because data cannot separate them.</div></div><div class="dr2"><span>How it works</span><div>Propose a small trial with controls and stop rules.</div></div><div class="dr2"><span>Needs</span><div>Measuring tools, an inspection protocol, approval.</div></div><div class="dr2"><span>Human step</span><div>Safety and operations review before any trial.</div></div><div class="dr2"><span>Limit</span><div>It never changes machine settings on its own.</div></div><div class="dr2 td"><span>Today</span><div>No trials are designed or run.</div></div></div><div class="dp" style="display:none"><div class="top2"><div><h3>Proof-Carrying Job Cards</h3><p class="hl">Every instruction carries its evidence.</p></div><div class="chs"><span class="pv ex"><i></i>Research direction</span></div></div><div class="dr2"><span>Problem</span><div>A job card shows settings, not why they were chosen.</div></div><div class="dr2"><span>How it works</span><div>Attach sources, limits and approval to a stored record.</div></div><div class="dr2"><span>Needs</span><div>Hashed revisions and verified approver identity.</div></div><div class="dr2"><span>Human step</span><div>The approver signs the exact revision.</div></div><div class="dr2"><span>Limit</span><div>A checksum is not a compliance certificate.</div></div><div class="dr2 td"><span>Today</span><div>The approved PDF is stored and read back.</div></div></div><div class="dp" style="display:none"><div class="top2"><div><h3>Factory Time Machine</h3><p class="hl">Replay what was known at the time.</p></div><div class="chs"><span class="pv mod"><i></i>Requires validated data</span></div></div><div class="dr2"><span>Problem</span><div>Past decisions get judged with today's hindsight.</div></div><div class="dr2"><span>How it works</span><div>Rebuild the old inputs, limits and model version.</div></div><div class="dr2"><span>Needs</span><div>Saved snapshots, model versions, real outcomes.</div></div><div class="dr2"><span>Human step</span><div>A reviewer compares the replay with what happened.</div></div><div class="dr2"><span>Limit</span><div>A replay is modeled, never a measured saving.</div></div><div class="dr2 td"><span>Today</span><div>History is modeled, not measured.</div></div></div><div class="dp" style="display:none"><div class="top2"><div><h3>Production Fingerprints</h3><p class="hl">Recognize a line's usual operating signature.</p></div><div class="chs"><span class="pv mod"><i></i>Requires validated data</span></div></div><div class="dr2"><span>Problem</span><div>New lots can differ in ways nobody checks.</div></div><div class="dr2"><span>How it works</span><div>Learn usual ranges, flag unfamiliar combinations.</div></div><div class="dr2"><span>Needs</span><div>Validated records per machine and material.</div></div><div class="dr2"><span>Human step</span><div>A supervisor decides what to inspect.</div></div><div class="dr2"><span>Limit</span><div>Unusual is not the same as defective.</div></div><div class="dr2 td"><span>Today</span><div>No measured per-machine history exists.</div></div></div><div class="dp" style="display:none"><div class="top2"><div><h3>Inverse Production Planning</h3><p class="hl">Start with the goal, not the settings.</p></div><div class="chs"><span class="pv ex"><i></i>Research direction</span></div></div><div class="dr2"><span>Problem</span><div>Supervisors think in goals, not seven settings.</div></div><div class="dr2"><span>How it works</span><div>Set goals. A solver lists feasible plans within limits.</div></div><div class="dr2"><span>Needs</span><div>Approved ranges and tested objectives.</div></div><div class="dr2"><span>Human step</span><div>A supervisor reviews the chosen plan.</div></div><div class="dr2"><span>Limit</span><div>Gemini never invents settings.</div></div><div class="dr2 td"><span>Today</span><div>The solver tries 8,640 options, three changes at most.</div></div></div><div class="dp" style="display:none"><div class="top2"><div><h3>Closed-Loop Quality Learning</h3><p class="hl">Compare what was predicted with what ran.</p></div><div class="chs"><span class="pv ex"><i></i>Research direction</span><span class="pv mod"><i></i>Requires validated data</span></div></div><div class="dr2"><span>Problem</span><div>Predictions are never checked against real lots.</div></div><div class="dr2"><span>How it works</span><div>Record outcomes, measure drift, review model updates.</div></div><div class="dr2"><span>Needs</span><div>Measured scrap, QC results, a model release gate.</div></div><div class="dr2"><span>Human step</span><div>People approve every model update.</div></div><div class="dr2"><span>Limit</span><div>Samples alone cannot prove savings.</div></div><div class="dr2 td"><span>Today</span><div>Four of five models miss the holdout bar.</div></div></div><div class="dp" style="display:none"><div class="top2"><div><h3>Factory Decision Memory</h3><p class="hl">Keep why a decision was made, and what followed.</p></div><div class="chs"><span class="pv mod"><i></i>Requires validated data</span></div></div><div class="dr2"><span>Problem</span><div>Teams keep the setting and lose the reason.</div></div><div class="dr2"><span>How it works</span><div>Find similar past decisions and what happened next.</div></div><div class="dr2"><span>Needs</span><div>Recorded rationale, outcomes, access rules.</div></div><div class="dr2"><span>Human step</span><div>A supervisor reviews any precedent before use.</div></div><div class="dr2"><span>Limit</span><div>Similar is not causal. Rules are never copied.</div></div><div class="dr2 td"><span>Today</span><div>Each lot keeps its own approval record only.</div></div></div></div></div><div class="chain"><span>How they connect</span><i>Preflight</i><u>&rsaquo;</u><i>Proof card</i><u>&rsaquo;</u><i class="dz">Real outcome</i><u>&rsaquo;</u><i>Memory</i><u>&rsaquo;</u><i>Time Machine</i><u>&rsaquo;</u><i>Learning</i></div></section>
+<div class="sh"><h2>Next interfaces</h2><p>They extend Arc and Insights. They are not new products.</p></div>
+<section class="cd c6 nx"><div class="hd"><div class="gx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4"/></svg></div><h3>Voice for Arc</h3><span class="pv nc"><i></i>Planned</span></div>
+<p class="lead">Speak to Arc. Same tools as chat.</p><div class="r2"><span>Needs</span><div>Mic access, noise tests.</div></div><div class="r2"><span>Limit</span><div>A spoken yes never approves a card.</div></div></section><section class="cd c6 nx"><div class="hd"><div class="gx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM9 8h3M9 12h6M9 16h6"/></svg></div><h3>Shift briefing</h3><span class="pv nc"><i></i>Planned</span></div>
+<p class="lead">A short summary of lots and decisions waiting.</p><div class="r2"><span>Needs</span><div>Shift records and a lot queue.</div></div><div class="r2"><span>Limit</span><div>It informs. It cannot approve.</div></div></section><section class="cd c6 nx"><div class="hd"><div class="gx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2M14 18h2v2M18 18h2v2"/></svg></div><h3>QR and NFC access</h3><span class="pv nc"><i></i>Planned</span></div>
+<p class="lead">Scan a station label to open its page.</p><div class="r2"><span>Needs</span><div>An asset registry and labels.</div></div><div class="r2"><span>Limit</span><div>A tag sends an ID, not machine data.</div></div></section><section class="cd c6 nx"><div class="hd"><div class="gx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg></div><h3>Camera troubleshooting</h3><span class="pv nc"><i></i>Future integration</span></div>
+<p class="lead">Photo in, things to check out.</p><div class="r2"><span>Needs</span><div>Plant-labelled photos, review.</div></div><div class="r2"><span>Limit</span><div>Not a quality certificate.</div></div></section>
+<div class="sh"><h2>Connected factory</h2><p>Long term. Hardware, consent and safety review come first.</p></div>
+<section class="cd c7"><div class="ct"><span class="t">How far connection goes</span><span class="mt">Momentum stops before control.</span></div><div class="lad"><div class="lr"><div class="no">1</div><div><b>Identity only</b><span class="s">A scan opens the station page. No machine data.</span></div><span class="pv nc"><i></i>Planned</span></div><div class="lr"><div class="no">2</div><div><b>Read-only data</b><span class="s">Timed readings from approved sources.</span></div><span class="pv nc"><i></i>Requires hardware</span></div><div class="lr td"><div class="no">3</div><div><b>Recommendations only</b><span class="s">Momentum proposes. People decide.</span></div><span class="pv "><i></i>Today</span></div><div class="lr out"><div class="no">4</div><div><b>Control</b><span class="s">Software sets machine values.</span></div><span class="pv nc"><i></i>Not in scope</span></div></div></section>
+<section class="cd c5"><div class="ct"><span class="t">Worn and camera capture</span><span class="pv nc"><i></i>Requires hardware</span></div><div class="hz"><div><b>Smart glasses</b><span class="s">Hands-free steps and lookup.</span></div></div><div class="hz"><div><b>Live vision</b><span class="s">Ask Arc about what a camera sees.</span></div></div><div class="hz"><div><b>Projected guidance</b><span class="s">Instructions shown at a station.</span></div></div><div class="hz"><div><b>Worn cameras</b><span class="s">Task capture, with consent.</span></div></div><div class="hz" style="min-height:52px"><span class="sx wn"><svg viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v5M12 17.6v.1"/></svg>Consent, privacy and safety come first.</span></div></section>
+<div class="sh"><h2>Validation</h2><p>The plant is a real corrugation line. Testing has not started.</p></div>
+<section class="cd c12"><div class="ct"><span class="t">Real plant validation</span><span class="pv ex"><i></i>Planned, not done</span></div><div class="vs"><div><div class="no">1</div><b>Pick safe lots</b><span>Owner and supervisor agree.</span></div><div><div class="no">2</div><b>Record real inputs</b><span>Real conditions, settings.</span></div><div><div class="no">3</div><b>Compare to baseline</b><span>Plan against what ran.</span></div><div><div class="no">4</div><b>Measure the outcome</b><span>Scrap and QC results.</span></div><div><div class="no">5</div><b>Report all results</b><span>Good and bad, published.</span></div></div>
+<div style="display:flex;margin-top:18px"><span class="sx id"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></svg>Not validated in the plant yet.</span></div></section>
+<div class="sh"><h2>Production scheduling</h2><p>Scheduling comes later. This screen is a concept.</p></div>
+<section class="cd c8">
+ <div class="ct"><span class="t">Week view</span><span class="mt">Example lot. Nothing here is from your plant.</span></div>
+ <div style="display:grid;grid-template-columns:110px repeat(6,1fr)"><div></div><div class="th" style="border-left:1px solid var(--ln);padding:0 8px;display:flex;align-items:center;height:36px">Mon</div><div class="th" style="border-left:1px solid var(--ln);padding:0 8px;display:flex;align-items:center;height:36px">Tue</div><div class="th" style="border-left:1px solid var(--ln);padding:0 8px;display:flex;align-items:center;height:36px">Wed</div><div class="th" style="border-left:1px solid var(--ln);padding:0 8px;display:flex;align-items:center;height:36px">Thu</div><div class="th" style="border-left:1px solid var(--ln);padding:0 8px;display:flex;align-items:center;height:36px">Fri</div><div class="th" style="border-left:1px solid var(--ln);padding:0 8px;display:flex;align-items:center;height:36px">Sat</div><div style="display:flex;align-items:center;height:112px;border-top:1px solid var(--ln);font-size:15px;font-weight:600">Corrugator</div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"><div style="height:78px;border-radius:10px;border:1.5px dashed var(--ac);padding:10px;width:100%;background:rgba(232,102,79,.08)"><div style="font-size:15px;font-weight:600">PKBX0041</div><div class="lb" style="font-size:13px;line-height:1.3">1,300 boxes<br>Example</div></div></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="display:flex;align-items:center;height:112px;border-top:1px solid var(--ln);font-size:15px;font-weight:600">Converting</div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="display:flex;align-items:center;height:112px;border-top:1px solid var(--ln);font-size:15px;font-weight:600">Finishing</div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div><div style="height:112px;border-top:1px solid var(--ln);border-left:1px solid var(--ln);padding:10px 8px;display:flex;align-items:center"></div></div>
+</section>
+<div class="c4" style="display:flex;flex-direction:column;gap:16px"><section class="cd" style="flex:1"><div class="ct"><span class="t">What it needs first</span></div><div class="ck"><i></i>Production schedule</div><div class="ck"><i></i>Shift calendar</div><div class="ck"><i></i>Machine capacity</div><div class="ck"><i></i>Material stock</div><div class="ck"><i></i>Routing for each item</div></section></div>
+</div>
+
+</div>
+</div>
+
+</body>
+</html>

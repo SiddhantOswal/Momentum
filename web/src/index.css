@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@import "./arc-fonts.css";
+@import "./m.css";
+
+:root, .arc-kraft, .arc-glass {
+  --panel: var(--cd);
+  --panel-2: var(--rz);
+  --raised: var(--rz);
+  --line: var(--ln);
+  --line-strong: var(--ln2);
+  --text: var(--tx);
+  --muted: var(--mu);
+  --faint: var(--dim);
+  --accent: var(--ac);
+  --accent-ink: var(--arc-accent-ink);
+  --accent-soft: color-mix(in srgb, var(--ac) 14%, transparent);
+  --good: var(--ok);
+  --good-soft: color-mix(in srgb, var(--ok) 14%, transparent);
+  --bad: var(--bd);
+  --bad-soft: color-mix(in srgb, var(--bd) 14%, transparent);
+  --warn: var(--wn);
+}
+
+@theme inline {
+  --font-sans: var(--arc-font-body);
+  --font-display: var(--arc-font-display);
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn);
+  --radius-card: var(--arc-radius-card);
+  --radius-control: var(--arc-radius-control);
+  --radius-chip: var(--arc-radius-chip);
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--arc-font-body);
+  font-size: var(--arc-text-body);
+  line-height: var(--arc-leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--arc-radius-card); }
+.label { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.arc-page-title {
+  font: var(--arc-font-semibold) var(--arc-text-page-title)/var(--arc-leading-page-title) var(--arc-font-display);
+  letter-spacing: var(--arc-tracking-page-title);
+}
+.arc-card-title {
+  font: var(--arc-font-semibold) var(--arc-text-card-title)/var(--arc-leading-card-title) var(--arc-font-display);
+  letter-spacing: var(--arc-tracking-card-title);
+}
+.figure {
+  font-family: var(--arc-font-display);
+  font-weight: var(--arc-font-semibold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  line-height: 1;
+}
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.hairline { border-color: var(--line); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

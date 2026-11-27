@@ -5,8 +5,10 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
+import { startIndexServer } from "./helpers/server.js";
 
-const PORT = 4100;
+// Tests in this file run one at a time, so the port of the current server is shared state.
+let PORT;
 
 async function stopServer(child) {
   if (child.exitCode !== null || child.signalCode !== null) return;
@@ -17,16 +19,9 @@ async function stopServer(child) {
 
 
 async function startServer(extraEnv = {}) {
-  const child = spawn(process.execPath, ["index.mjs"], {
-    cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: { ...process.env, PORT: String(PORT), ...extraEnv },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  const [startupMessage] = await once(child.stdout, "data");
-  const message = startupMessage.toString();
-
-  return { child, startupMessage: message.trim() };
+  const { child, port, startupMessage } = await startIndexServer({ ...process.env, ...extraEnv });
+  PORT = port;
+  return { child, startupMessage };
 }
 
 test("health endpoint returns ok", async () => {
@@ -88,8 +83,8 @@ test("Impact dashboard is served from the application origin and fails without s
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     const html = await response.text();
-    assert.match(html, /url=\/#screen-impact/);
-    assert.match(html, /No sample values are shown/);
+    assert.match(html, /url=\/app\/#\/insights/);
+    assert.match(html, /Impact is now part of Insights/);
     assert.doesNotMatch(html, /Showing the verified BigQuery results/);
   } finally {
     await stopServer(child);
@@ -180,7 +175,7 @@ test("health remains available while operational requests are rate limited", asy
   const { child } = await startServer();
 
   try {
-    for (let requestNumber = 1; requestNumber <= 60; requestNumber += 1) {
+    for (let requestNumber = 1; requestNumber <= 300; requestNumber += 1) {
       const response = await fetch(`http://127.0.0.1:${PORT}/api/status`);
       assert.equal(response.status, 200, `request ${requestNumber}`);
     }
@@ -196,10 +191,13 @@ test("health remains available while operational requests are rate limited", asy
   }
 });
 
-test("root serves the rebuilt operator UI and its complete same-origin workflow modules", async () => {
+test("root redirects to the app, and /classic serves the previous operator UI and its same-origin workflow modules", async () => {
   const { child } = await startServer();
   try {
-    const response = await fetch(`http://127.0.0.1:${PORT}/`);
+    const root = await fetch(`http://127.0.0.1:${PORT}/`, { redirect: "manual" });
+    assert.equal(root.status, 302);
+    assert.equal(root.headers.get("location"), "/app/");
+    const response = await fetch(`http://127.0.0.1:${PORT}/classic`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
     const html = await response.text();
@@ -310,8 +308,8 @@ test("status endpoint separates backend reachability from configured local integ
       WARP: 0.6, DELAM: 0.6, STRENGTH: 0.45, PRINT: 0.6, CRACK: 0.3,
     });
     assert.equal(payload.modelAcceptance.status, "accepted");
-    assert.equal(payload.modelAcceptance.evaluationId, "D4-2026-10-16-OM");
-    assert.equal(payload.modelAcceptance.completeAcceptanceEvidenceAvailable, false);
+    assert.equal(payload.modelAcceptance.evaluationId, "D4-2026-11-20-OM");
+    assert.equal(payload.modelAcceptance.completeAcceptanceEvidenceAvailable, true);
     assert.equal(payload.modelAcceptance.linkedToCurrentResourceVersions, true);
     assert.equal(payload.modelAcceptance.models.length, 5);
     assert.deepEqual(payload.runtimeAvailability, {
@@ -322,7 +320,6 @@ test("status endpoint separates backend reachability from configured local integ
         enforced: false,
         scope: "single-process",
         globalScopeEnforced: false,
-        limit: 100,
         timeZone: "Asia/Kolkata",
         countingPolicy: "attempts",
         reset: "midnight-in-configured-time-zone",
@@ -374,7 +371,6 @@ test("status reports enabled gates separately from untested sensor data and pers
       enforced: true,
       scope: "single-process",
       globalScopeEnforced: false,
-      limit: 10,
       timeZone: "Asia/Kolkata",
       countingPolicy: "attempts",
       reset: "midnight-in-configured-time-zone",
@@ -446,6 +442,48 @@ test("Cloud Run status advertises only configured cloud ports without making cal
     });
     assert.equal(demoPrediction.status, 503);
     assert.equal((await demoPrediction.json()).error.code, "SERVICE_UNAVAILABLE");
+  } finally {
+    await stopServer(child);
+  }
+});
+
+test("Cloud Run status reports shared Firestore idempotency when its flag is on", async () => {
+  const { child } = await startServer({
+    K_SERVICE: "prepagent",
+    PROJECT_ID: "prepagent-hack",
+    REGION: "asia-south1",
+    BUCKET: "prepagent-hack-data",
+    USTAAD_PLANT_ID: "PLANT-01",
+    USTAAD_ENABLE_JOB_STORAGE: "true",
+    USTAAD_ENABLE_BIGQUERY_WRITES: "true",
+    USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: "true",
+  });
+  try {
+    const payload = await (await fetch(`http://127.0.0.1:${PORT}/api/status`)).json();
+    for (const section of [payload.runtimeAvailability, payload.integrations]) {
+      assert.equal(section.durableIdempotencyConfigured, true);
+      assert.equal(section.idempotencyScope, "shared-firestore");
+    }
+  } finally {
+    await stopServer(child);
+  }
+});
+
+test("offline demo status reports process-local idempotency with the Firestore flag off", async () => {
+  const { child } = await startServer({
+    USTAAD_ENABLE_DEMO_MODE: "true",
+    USTAAD_ENABLE_FIRESTORE_IDEMPOTENCY: "false",
+  });
+  try {
+    const response = await fetch(`http://127.0.0.1:${PORT}/api/status`);
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.executionMode, "demo");
+    assert.equal(payload.runtimeAvailability.jobCreationAvailable, true);
+    for (const section of [payload.runtimeAvailability, payload.integrations]) {
+      assert.equal(section.durableIdempotencyConfigured, false);
+      assert.equal(section.idempotencyScope, "process-local");
+    }
   } finally {
     await stopServer(child);
   }

@@ -1,7 +1,9 @@
-import { PhotoClassificationRequestSchema } from "./src/google-cloud/approved-photo-service.js";
-import { isSameApplicationOrigin } from "./src/request-origin.js";
+import { isSameApplicationOrigin, sessionOrigin } from "./src/request-origin.js";
 import { getCookie, setCookie } from "hono/cookie";
-import { createHackathonDemoAuthenticator, demoJobIdentity, demoOwnsJob, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
+import { createHackathonDemoAuthenticator, HACKATHON_APPROVAL_NOTE } from "./src/hackathon-demo-auth.js";
+import { createGeminiCallerMiddleware } from "./src/gemini-caller-context.js";
+import { createPitchClaimExchange, PITCH_RESERVE_GRANT } from "./src/pitch-claim.js";
+import { z } from "zod";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
@@ -9,48 +11,65 @@ import { bodyLimit } from "hono/body-limit";
 import { serve } from "@hono/node-server";
 import {
   FeedbackInputSchema,
-  DisplayPrefsQuerySchema,
   InsightsQuerySchema,
   JobIdSchema,
   JobSheetSchema,
-  LeversSchema,
   LaunchCurrencySchema,
   LocaleSchema,
-  OperatorItemConfirmationSchema,
-  OrderOperatorFieldsSchema,
   RiskOptimizationRequestSchema,
   RiskExplanationRequestSchema,
-  RiskPredictionRequestSchema,
-  RunConditionsSchema,
-  SeenBeforeRequestSchema,
+  GuardedRiskPredictionRequestSchema,
   SimilarRunsRequestSchema,
-  SUPPORTED_CURRENCIES,
-  SUPPORTED_LANGUAGES,
-  ValidationFailureSchema,
 } from "./src/schemas.js";
 import { PdfFontUnavailableError, renderJobSheetPdf } from "./src/job-sheet-pdf.js";
 import { readServerPort } from "./src/runtime-config.js";
 import { homePage } from "./src/operator-ui.js";
 import { createTraceRoutes } from "./src/trace-routes.js";
-import { traceRegistry } from "./src/trace-registry.js";
+import { isSampleDocument } from "./src/synthetic-po-allowlist.js";
+import { createArcModelPorts } from "./src/arc/model-ports.js";
+import { createArcRoutes } from "./src/arc/routes.js";
+import { createArcTurnRunner } from "./src/arc/turn-runner.js";
+import { createArcWriteEffects } from "./src/arc/write-effects.js";
+import { createArcEventStore } from "./src/google-cloud/firestore-arc-event-store.js";
+import { createFirestoreArcSessionStore } from "./src/google-cloud/firestore-arc-session-store.js";
+import { createFirestoreArcTaskRunStore } from "./src/google-cloud/firestore-arc-task-run-store.js";
+import { streamSSE } from "hono/streaming";
+import { createLiveStore } from "./src/google-cloud/live-store.js";
+import { canApprove, initializeUserSessionAuth, SESSION_COOKIE } from "./src/user-session-auth.js";
+import { createWeatherProviderFromEnv } from "./src/google-cloud/weather-service.js";
+import { configureDurableTraces, traceRegistry } from "./src/trace-registry.js";
+import { createFirestoreTraceStore } from "./src/google-cloud/firestore-trace-store.js";
 import { fxRatesService } from "./src/fx-rates.js";
-import { servicePorts, getJobLifecycleAvailability } from "./src/service-ports.js";
+import { servicePorts } from "./src/service-ports.js";
 import modelAcceptanceConfig from "./config/model-acceptance.json" with { type: "json" };
 import { getModelAcceptanceSummary, isModelSetAccepted } from "./src/model-acceptance.js";
 import { createJobCoordinator } from "./src/job-coordinator.js";
 import { createLinkedFeedbackService } from "./src/linked-feedback-service.js";
 import { createStoredJobSheetLookup } from "./src/stored-job-sheet-lookup.js";
-import { createJobRequestIdentity, InMemoryIdempotencyStore } from "./src/job-idempotency.js";
+import { selectJobIdempotencyStore } from "./src/job-idempotency.js";
 import { createJobSubmissionHandler } from "./src/job-draft-persistence.js";
-import { identifyPurchaseOrderMimeType, MAX_PURCHASE_ORDER_BYTES } from "./src/purchase-order-file.js";
-import { readDailyGeminiCallCapConfig } from "./src/daily-gemini-call-cap.js";
+import { authorizeSupervisor } from "./src/commands/authorize.js";
+import { validateDisplayPrefs as validateDisplayPrefsInput, validateWith, validationFailure } from "./src/commands/validation.js";
+import { createBudgetViewCache, getStatusWithBudget, impactSummary } from "./src/commands/status.js";
+import { liveActor } from "./src/commands/live-events.js";
+import { readOrder } from "./src/commands/read-order.js";
+import { planLot } from "./src/commands/plan-lot.js";
+import { getJob } from "./src/commands/get-job.js";
+import { getLot } from "./src/commands/get-lot.js";
+import { updateLotConditions } from "./src/commands/update-conditions.js";
+import { approveJob } from "./src/commands/approve-job.js";
+import { getCard } from "./src/commands/get-card.js";
+import { createWeatherCache, readWeather } from "./src/commands/read-weather.js";
+import { classifyApprovedPhoto, diagnoseUploadedPhoto, listApprovedPhotos } from "./src/commands/photos.js";
+import { findSeenBefore } from "./src/commands/history.js";
 import {
   firebaseWebClientConfig,
   initializeFirebaseSupervisorAuthenticator,
 } from "./src/firebase-supervisor-auth.js";
-import { isApprovedSyntheticPurchaseOrder } from "./src/synthetic-po-allowlist.js";
 import {
-  createPerIpRateLimitMiddleware,
+  createApiRateLimitMiddleware,
+  createClientKeyResolver,
+  createIpKeyDeriver,
   createRequestTimeoutMiddleware,
   REQUEST_SIGNAL_CONTEXT_KEY,
 } from "./src/request-guardrails.js";
@@ -69,33 +88,66 @@ const demoMode = !isCloudRun && process.env.USTAAD_AUTHORIZATION_MODE !== "HACKA
 const executionMode = demoMode ? "demo" : isCloudRun ? "live-service" : "offline";
 const supervisorAuthenticator = await initializeFirebaseSupervisorAuthenticator(process.env);
 const supervisorWebConfig = firebaseWebClientConfig(process.env);
+// Production sign-in (USTAAD_AUTH_MODE=FIREBASE_SESSION): Google accounts, session cookie, roles by email.
+const userSessionAuth = await initializeUserSessionAuth(process.env);
+const sessionWebConfig = userSessionAuth ? firebaseWebClientConfig({ ...process.env, USTAAD_FIREBASE_AUTH_ENABLED: "true" }) : undefined;
+// On Cloud Run sessions are bound only to a configured public origin, never to the request host.
+const sessionOriginConfigured = !isCloudRun ||
+  sessionOrigin({ cloudRun: true, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN }) !== undefined;
 const hackathonAuth = createHackathonDemoAuthenticator({ mode: process.env.USTAAD_AUTHORIZATION_MODE,
   signingKey: process.env.USTAAD_DEMO_SESSION_SIGNING_KEY,
   syntheticOnly: process.env.USTAAD_SYNTHETIC_ONLY === "true",
-  auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true" });
+  auditEnabled: process.env.USTAAD_ENABLE_APPROVAL_AUDIT === "true",
+  originConfigured: sessionOriginConfigured });
+if (hackathonAuth.enabled && !sessionOriginConfigured) {
+  console.warn(JSON.stringify({ severity: "WARNING", event: "session_origin_missing",
+    message: "USTAAD_PUBLIC_ORIGIN is unset or not an https origin, so this service issues and accepts no sessions." }));
+}
 const approvalAuthorizationConfigured = hackathonAuth.enabled ? hackathonAuth.configured : supervisorAuthenticator.configured;
 const demoTraceOwners = new Map();
+// USTAAD_ENABLE_DURABLE_TRACES: trace events and owners also go to Firestore, so any instance can serve a run.
+const durableTraces = configureDurableTraces({
+  env: process.env,
+  registry: traceRegistry,
+  createStore: () => createFirestoreTraceStore({ projectId: process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT }),
+});
+// Central live store: Firestore in the cloud (opt-in), memory locally. Publishing never fails a request,
+// but is awaited: Cloud Run throttles CPU once a response is sent, so a fire-and-forget write can stall.
+const liveStore = createLiveStore({
+  enabled: process.env.USTAAD_ENABLE_LIVE_STORE === "true",
+  projectId: process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT,
+});
+function isSameOrigin({ origin, requestUrl }) {
+  return isSameApplicationOrigin({ origin, requestUrl, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
+}
 function sameOrigin(c) {
-  return isSameApplicationOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
+  return isSameOrigin({ origin: c.req.header("Origin"), requestUrl: c.req.url });
+}
+// A session is bound to this service's origin, so a cookie from another service or a laptop run is refused here.
+function sessionAudience(requestUrl) {
+  return sessionOrigin({ requestUrl, cloudRun: isCloudRun, configuredOrigin: process.env.USTAAD_PUBLIC_ORIGIN });
+}
+function demoSession(c) {
+  return hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"), sessionAudience(c.req.url));
 }
 
 const plantId = process.env.USTAAD_PLANT_ID ??
   (demoMode ? "PLANT-DEMO-01" : undefined);
 const prepareJob = createJobCoordinator({
   services: servicePorts,
-  traceRegistry,
+  traceRegistry: durableTraces.registry,
   plantId,
   allowSyntheticDemoConditions: demoMode,
 });
 const jobSheetPersistenceAvailable =
   servicePorts.availability.createDraftJobSheet === true &&
   servicePorts.availability.getStoredJobSheet === true;
-// Om's approved prototype contract uses the durable BigQuery JobSheet row and
-// process-local idempotency/trace state. Cloud Run is capped at two instances;
-// cross-instance coordination is explicitly future work for this prototype.
-const idempotencyStore = (jobSheetPersistenceAvailable || demoMode)
-  ? new InMemoryIdempotencyStore({ leaseMs: 30_000 })
-  : undefined;
+// Shared Firestore claims prevent two service instances from creating the same job.
+const jobIdempotency = selectJobIdempotencyStore({
+  jobIdempotency: servicePorts.jobIdempotency,
+  demoMode,
+});
+const idempotencyStore = jobIdempotency.store;
 const jobCreationAvailable = jobSheetPersistenceAvailable &&
   typeof idempotencyStore?.claim === "function" &&
   (executionMode === "demo" ||
@@ -109,7 +161,7 @@ const submitJob = createJobSubmissionHandler({
   storedJobLookupEnabled: servicePorts.availability.getStoredJobSheet === true,
   plantId,
   store: idempotencyStore,
-  leaseMs: 30_000,
+  leaseMs: jobIdempotency.leaseMs,
 });
 
 const saveLinkedFeedback = createLinkedFeedbackService({
@@ -122,7 +174,45 @@ const lookupStoredJobSheet = createStoredJobSheetLookup({
   testOnly: executionMode !== "demo",
 });
 const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
-const perIpRateLimit = createPerIpRateLimitMiddleware();
+const isArcRequest = (c) => c.req.path === "/api/arc" || c.req.path.startsWith("/api/arc/");
+const limitRequestBody = bodyLimit({
+  maxSize: MAX_REQUEST_BODY_BYTES,
+  onError: (c) => c.json({
+    ok: false,
+    error: {
+      code: "PAYLOAD_TOO_LARGE",
+      message: "Request body must not exceed 10 MiB.",
+    },
+  }, 413),
+});
+const resolveClientKey = createClientKeyResolver(process.env);
+const clientIpKey = (c) => createIpKeyDeriver(process.env.USTAAD_DEMO_SESSION_SIGNING_KEY)(resolveClientKey(c));
+// The code is read once from the Secret Manager value the service mounts as an env var, and only its digest is kept.
+const pitchExchange = createPitchClaimExchange(process.env.ARC_PITCH_RESERVE_CODE);
+const apiRateLimit = createApiRateLimitMiddleware({
+  ipLimit: 300,
+  getClientIp: resolveClientKey,
+  getSessionId: (c) => {
+    if (!hackathonAuth.configured) return undefined;
+    const session = demoSession(c);
+    return session.ok ? session.principal.sessionId : undefined;
+  },
+});
+
+app.use("/api/arc/*", async (c, next) => {
+  c.header("Cache-Control", "no-store");
+  return next();
+});
+
+// Every Gemini call made while serving a request is charged to this session and address.
+app.use("*", createGeminiCallerMiddleware({
+  getPrincipal: (c) => {
+    if (!hackathonAuth.configured) return undefined;
+    const session = demoSession(c);
+    return session.ok ? session.principal : undefined;
+  },
+  getIpKey: clientIpKey,
+}));
 
 const requestTimeout = createRequestTimeoutMiddleware();
 app.use("*", (c, next) => {
@@ -132,45 +222,56 @@ app.use("*", (c, next) => {
   return requestTimeout(c, next);
 });
 
-app.use("/api/*", perIpRateLimit);
-app.use("/orders/*", perIpRateLimit);
-app.use("/conditions/*", perIpRateLimit);
-app.use("/fx", perIpRateLimit);
-app.use("/risk/*", perIpRateLimit);
-app.use("/jobs", perIpRateLimit);
-app.use("/jobs/*", perIpRateLimit);
-app.use("/job-sheets/*", perIpRateLimit);
-app.use("/insights/*", perIpRateLimit);
-app.use("/impact/*", perIpRateLimit);
-app.use("/evidence/*", perIpRateLimit);
+// Arc checks the global body limit before charging either rate-limit bucket.
+app.use("/api/arc/*", limitRequestBody);
+app.use("/api/*", apiRateLimit);
+app.use("/orders/*", apiRateLimit);
+app.use("/conditions/*", apiRateLimit);
+app.use("/fx", apiRateLimit);
+app.use("/risk/*", apiRateLimit);
+app.use("/jobs", apiRateLimit);
+app.use("/jobs/*", apiRateLimit);
+app.use("/lots/*", apiRateLimit);
+app.use("/job-sheets/*", apiRateLimit);
+app.use("/insights/*", apiRateLimit);
+app.use("/impact/*", apiRateLimit);
+app.use("/evidence/*", apiRateLimit);
 
-app.use("*", bodyLimit({
-  maxSize: MAX_REQUEST_BODY_BYTES,
-  onError: (c) => c.json({
-    ok: false,
-    error: {
-      code: "PAYLOAD_TOO_LARGE",
-      message: "Request body must not exceed 10 MiB.",
-    },
-  }, 413),
-}));
+app.use("*", (c, next) => isArcRequest(c) ? next() : limitRequestBody(c, next));
 
 function responseForResult(c, result) {
   const actor = c.get("verifiedSupervisorPrincipal");
   if (hackathonAuth.enabled && actor && result?.runId) {
+    if (durableTraces.claimOwner) {
+      return durableTraces.claimOwner(result.runId, actor.sessionId).then(() => resultResponse(c, result));
+    }
     while (demoTraceOwners.size >= 1000) demoTraceOwners.delete(demoTraceOwners.keys().next().value);
     demoTraceOwners.set(result.runId, actor.sessionId);
   }
+  return resultResponse(c, result);
+}
+
+function resultResponse(c, result) {
   if (result.ok) {
     return c.json(result);
   }
 
   const status = result.error?.code === "GEMINI_DAILY_CAP_EXCEEDED" ? 429
     : result.error?.code === "SERVICE_UNAVAILABLE" ? 503
+    : result.error?.code === "MODEL_VERSION_MISMATCH" || result.error?.code === "MODEL_VERSION_UNVERIFIED" ? 503
     : result.error?.code === "NOT_FOUND" ? 404
       : result.error?.code === "CONFLICT" || result.error?.code === "IDEMPOTENCY_IN_PROGRESS" ? 409
         : 400;
   return c.json(result, status);
+}
+
+// Command failures that choose their own HTTP status carry it beside the body.
+function commandResponse(c, result) {
+  if (result?.ok === false && Number.isInteger(result.status)) {
+    const { status, ...body } = result;
+    return c.json(body, status);
+  }
+  return responseForResult(c, result);
 }
 
 function demoAgentUnavailable(c) {
@@ -192,49 +293,63 @@ const privilegedPortNames = [
 ];
 const localPrivilegedAdapterConfigured = privilegedPortNames.some((name) => servicePorts.availability[name] === true);
 
-async function requireSupervisor(c) {
-  if (hackathonAuth.enabled) {
-    const result = hackathonAuth.authenticate(getCookie(c, "__Host-ustaad-demo"));
-    if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
-    if (!["GET", "HEAD"].includes(c.req.method) && !sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
-    if (c.req.path === "/insights/summary") return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "Use the anonymized impact summary." } }, 403);
-    const jobMatch = /^\/jobs\/([^/]+)/.exec(c.req.path);
-    if (jobMatch && !demoOwnsJob(result.principal, c.req.param("id") ?? jobMatch[1])) return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "This record does not belong to this demo session." } }, 403);
-    if (c.req.path.startsWith("/api/runs/") && demoTraceOwners.get(c.req.path.split("/")[3]) !== result.principal.sessionId) return c.json({ ok: false, error: { code: "DEMO_SCOPE_REQUIRED", message: "This trace does not belong to this demo session." } }, 403);
-    c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
-    return undefined;
-  }
-  if (executionMode === "demo") return undefined;
-  if (executionMode === "offline" && !localPrivilegedAdapterConfigured) return undefined;
-  const result = await supervisorAuthenticator.authenticate(c.req.header("Authorization"));
-  if (!result.ok) {
-    return c.json({ ok: false, error: result.error }, result.status);
-  }
-  c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
-  return undefined;
+// Shared by every command call from a route; Arc tools build the same set.
+const commandDeps = Object.freeze({
+  userSessionAuth,
+  hackathonAuth,
+  supervisorAuthenticator,
+  executionMode,
+  localPrivilegedAdapterConfigured,
+  traceOwners: demoTraceOwners,
+  traceOwnerLookup: durableTraces.ownerOf,
+  isSameOrigin,
+  sessionAudience,
+  env: process.env,
+  servicePorts,
+  lotRevisions: servicePorts.lotRevisions,
+  approvalAuthorizationConfigured,
+  jobSheetPersistenceAvailable,
+  jobCreationAvailable,
+  idempotencyStore,
+  idempotencyScope: jobIdempotency.scope,
+  modelAcceptanceConfig,
+  liveStore,
+  submitJob,
+  demoMode,
+  lookupStoredJobSheet,
+  newCorrelationId: randomUUID,
+  now: Date.now,
+  log: (line) => console.info(line),
+  weatherProvider: createWeatherProviderFromEnv(process.env),
+  weatherCache: createWeatherCache(),
+  purchaseOrderPolicy: Object.freeze({
+    acceptRealOrders: Boolean(userSessionAuth?.configured) && process.env.USTAAD_ACCEPT_REAL_ORDERS === "true",
+    extractionAdapterConfigured: servicePorts.availability.extractOrderForReview === true,
+    syntheticOnly: process.env.USTAAD_SYNTHETIC_ONLY === "true",
+  }),
+});
+
+function commandContext(c) {
+  return {
+    ...commandDeps,
+    principal: c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY),
+    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
+  };
 }
 
-function syntheticPurchaseOrderUnavailable(c, bytes) {
-  const extractionAdapterConfigured = servicePorts.availability.extractOrderForReview === true;
-  if (executionMode === "offline" && !extractionAdapterConfigured) return undefined;
-  if (executionMode === "live-service" && process.env.USTAAD_SYNTHETIC_ONLY !== "true") {
-    return c.json({
-      ok: false,
-      error: {
-        code: "SERVICE_UNAVAILABLE",
-        message: "Approved-document restrictions must be explicitly enabled before live-service PO processing.",
-      },
-    }, 503);
-  }
-  if (!isApprovedSyntheticPurchaseOrder(bytes)) {
-    return c.json({
-      ok: false,
-      error: {
-        code: "VALIDATION_ERROR",
-        message: "Only the owner-approved purchase-order documents are accepted in this prototype.",
-      },
-    }, 400);
-  }
+async function requireSupervisor(c) {
+  const result = await authorizeSupervisor({
+    method: c.req.method,
+    path: c.req.path,
+    jobId: c.req.param("id"),
+    sessionCookie: getCookie(c, SESSION_COOKIE),
+    demoCookie: getCookie(c, "__Host-ustaad-demo"),
+    authorization: c.req.header("Authorization"),
+    origin: c.req.header("Origin"),
+    requestUrl: c.req.url,
+  }, commandDeps);
+  if (!result.ok) return commandResponse(c, result);
+  if (result.principal) c.set(SUPERVISOR_PRINCIPAL_CONTEXT_KEY, result.principal);
   return undefined;
 }
 
@@ -247,49 +362,23 @@ function invalidJsonResponse(c) {
   }], "Request body must be valid JSON.");
 }
 
-function validationResponse(c, issues, message = "Request fields failed validation.") {
-  return c.json(ValidationFailureSchema.parse({
-    ok: false,
-    error: {
-      code: "VALIDATION_ERROR",
-      message,
-      issues,
-    },
-  }), 400);
+function validationResponse(c, issues, message) {
+  return c.json(validationFailure(issues, message), 400);
+}
+
+function validationResult(c, validated) {
+  return validated.ok ? validated : { ok: false, response: c.json(validated.failure, 400) };
 }
 
 function validateInput(c, schema, input, message) {
-  const parsed = schema.safeParse(input);
-
-  if (!parsed.success) {
-    return {
-      ok: false,
-      response: validationResponse(
-        c,
-        parsed.error.issues.map((issue) => ({
-          field: issue.path.join(".") || "root",
-          path: issue.path,
-          code: issue.code,
-          message: issue.message,
-        })),
-        message
-      ),
-    };
-  }
-
-  return { ok: true, data: parsed.data };
+  return validationResult(c, validateWith(schema, input, message));
 }
 
 function validateDisplayPrefs(c) {
-  return validateInput(
-    c,
-    DisplayPrefsQuerySchema,
-    {
-      lang: c.req.query("lang"),
-      currency: c.req.query("currency"),
-    },
-    "Display preferences failed validation."
-  );
+  return validationResult(c, validateDisplayPrefsInput({
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+  }));
 }
 
 async function readJsonBody(c) {
@@ -369,12 +458,9 @@ app.get("/operator-ui.css", async (c) => {
   });
 });
 
-const sampleDocuments = new Set([
-  "PO1_ClientA_single_B1047.pdf", "PO2_ClientA_multiline.pdf", "PO3_ClientP_electronics_with_fitment.pdf", "PO4_ClientQ_ambiguous_set.pdf", "PO5_ClientB_scanned.jpg",
-]);
 app.get("/samples/:filename", async (c) => {
   const name = c.req.param("filename");
-  if (!sampleDocuments.has(name)) return c.notFound();
+  if (!isSampleDocument(name)) return c.notFound();
   const source = await readFile(new URL("./public/samples/" + name, import.meta.url));
   return c.body(source, 200, { "Content-Type": name.endsWith(".pdf") ? "application/pdf" : "image/jpeg", "Cache-Control": "public, max-age=86400" });
 });
@@ -398,6 +484,42 @@ for (const [path, [file, contentType]] of Object.entries(presentationAssets)) {
     "Content-Type": contentType, "Cache-Control": "public, max-age=86400",
   }));
 }
+
+// The v2 React app (web/, built into public/app). Hash routing, so only real files are served;
+// any other path under /app gets the app shell. Paths never leave public/app.
+const webAppRoot = new URL("./public/app/", import.meta.url);
+const webAppTypes = {
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+  ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".woff2": "font/woff2", ".woff": "font/woff",
+};
+const webAppShell = async (c) => {
+  try {
+    return c.body(await readFile(new URL("index.html", webAppRoot)), 200, { "Content-Type": webAppTypes[".html"], "Cache-Control": "no-store" });
+  } catch {
+    return c.notFound();
+  }
+};
+app.get("/app", (c) => c.redirect("/app/", 301));
+app.get("/app/", webAppShell);
+app.get("/app/*", async (c) => {
+  let relative = "";
+  try { relative = decodeURIComponent(c.req.path.slice("/app/".length)); } catch { return c.notFound(); }
+  const extension = relative.slice(relative.lastIndexOf(".")).toLowerCase();
+  if (!/^[\w./-]+$/.test(relative) || relative.split("/").some((part) => part === ".." || part === "." || part === "") || !webAppTypes[extension]) {
+    return webAppShell(c);
+  }
+  const file = new URL(relative, webAppRoot);
+  if (!file.href.startsWith(webAppRoot.href)) return c.notFound();
+  try {
+    return c.body(await readFile(file), 200, {
+      "Content-Type": webAppTypes[extension],
+      // Vite fingerprints files in assets/; everything else may change between releases.
+      "Cache-Control": relative.startsWith("assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+    });
+  } catch {
+    return c.notFound();
+  }
+});
 
 app.get("/impact", async (c) => {
   const source = await readFile(new URL("./public/impact.html", import.meta.url));
@@ -475,31 +597,147 @@ app.use("/api/runs/*", async (c, next) => {
   return next();
 });
 
-app.route("/api/runs", createTraceRoutes(traceRegistry));
+app.route("/api/runs", createTraceRoutes(durableTraces.registry, { store: durableTraces.store }));
 
-// One canonical application. Old dashboard bookmarks retain query/fragment state.
+// USTAAD_ENABLE_ARC (exact "true") turns the Arc routes on; off, every /api/arc path answers 404 ARC_NOT_ENABLED.
+const arcEnabled = process.env.USTAAD_ENABLE_ARC === "true";
+const arcProjectId = process.env.PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT;
+const arcFirestore = arcEnabled && arcProjectId ? { projectId: arcProjectId } : null;
+const arcSessionStore = arcFirestore ? createFirestoreArcSessionStore(arcFirestore) : undefined;
+const arcTaskRunStore = arcFirestore ? createFirestoreArcTaskRunStore(arcFirestore) : undefined;
+const arcLotStore = servicePorts.lotRevisions.store;
+app.route("/api/arc", createArcRoutes({
+  enabled: arcEnabled,
+  commandDeps,
+  sessionStore: arcSessionStore,
+  taskRunStore: arcTaskRunStore,
+  lotStore: arcLotStore,
+  getIpKey: clientIpKey,
+  ...(arcFirestore && createArcTurnRunner({
+    sessionStore: arcSessionStore,
+    taskRunStore: arcTaskRunStore,
+    eventStore: createArcEventStore(arcFirestore),
+    lotStore: arcLotStore,
+    deps: { ...commandDeps, runWriteEffect: createArcWriteEffects({ servicePorts }) },
+    ...createArcModelPorts(servicePorts, { log: (entry) => console.error(JSON.stringify(entry)) }),
+  })),
+}));
+
+// The app under /app is the product. Old dashboard bookmarks land there too.
 for (const path of ["/dashboard", "/dashboard/", "/dasboard", "/dasboard/"]) {
-  app.get(path, (c) => c.redirect("/" + new URL(c.req.url).search, 302));
+  app.get(path, (c) => c.redirect("/app/", 302));
 }
 app.get("/dashboard.css", async (c) => c.body(await readFile(new URL("./public/dashboard.css", import.meta.url)), 200, {
   "Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-store",
 }));
-app.get("/", (c) => c.html(homePage));
+// 302, not 301: browsers cache a permanent redirect, and the root may change again.
+app.get("/", (c) => c.redirect("/app/", 302));
+// The previous interface, unlinked, until it is retired (ARC-M6-22).
+app.get("/classic", (c) => c.html(homePage));
 
 app.get("/health", (c) => {
   return c.json({ ok: true, mode: process.env.K_SERVICE ? "cloud-run" : "local-development", executionMode });
 });
 
-app.post("/api/auth/demo-session", (c) => {
-  if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Hackathon authorization is disabled or incomplete." } }, 503);
+const budgetPolicyRequested = servicePorts.geminiUsage.policy !== undefined;
+const budgetUnavailable = (c) => c.json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Sessions cannot be issued right now. Try again shortly." } }, 503);
+
+function admissionRefusal(c, result, message) {
+  if (result.ok) return undefined;
+  if (result.code === "BUDGET_UNAVAILABLE") return budgetUnavailable(c);
+  c.header("Retry-After", String(result.retryAfterSeconds));
+  return c.json({ ok: false, error: { code: result.code, message, retryAfterSeconds: result.retryAfterSeconds } }, 429);
+}
+
+async function admit(c, name) {
+  const ipKey = clientIpKey(c);
+  if (ipKey === null || typeof servicePorts.geminiUsage[name] !== "function") return { ok: false, code: "BUDGET_UNAVAILABLE" };
+  try {
+    return await servicePorts.geminiUsage[name]({ ipKey, signal: c.req.raw.signal });
+  } catch {
+    return { ok: false, code: "BUDGET_UNAVAILABLE" };
+  }
+}
+
+// Minting sessions would otherwise reset the per-session Gemini limit (ADR-0004 decision 4). Off with the budget flag.
+async function refuseNewSession(c) {
+  if (!budgetPolicyRequested) return undefined;
+  return admissionRefusal(c, await admit(c, "admitSession"), "Too many sessions were started from this network. Try again later.");
+}
+
+const PitchClaimBodySchema = z.object({ code: z.string().min(1).max(128) }).strict();
+
+app.post("/api/auth/pitch-claim", async (c) => {
+  if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Sign-in is not set up on this deployment." } }, 503);
+  if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
+  const cookie = getCookie(c, "__Host-ustaad-demo");
+  const audience = sessionAudience(c.req.url);
+  if (!hackathonAuth.authenticate(cookie, audience).ok) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to start a new one." } }, 401);
+  if (!budgetPolicyRequested || !pitchExchange.configured) return c.json({ ok: false, error: { code: "PITCH_CLAIM_UNAVAILABLE", message: "The pitch claim is not available." } }, 503);
+  const body = PitchClaimBodySchema.safeParse(await c.req.json().catch(() => undefined));
+  if (!body.success) return c.json({ ok: false, error: { code: "INVALID_REQUEST", message: "Send a JSON body with a code of at most 128 characters." } }, 400);
+  // The attempt is counted before the compare, so guessing is limited whatever the answer.
+  const refused = admissionRefusal(c, await admit(c, "admitPitchClaim"), "Too many pitch code attempts from this network. Try again later.");
+  if (refused) {
+    console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "rate_limited" }));
+    return refused;
+  }
+  if (!pitchExchange.matches(body.data.code)) {
+    console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "rejected" }));
+    return c.json({ ok: false, error: { code: "PITCH_CODE_INVALID", message: "That code is not valid." } }, 403);
+  }
+  const claimed = hackathonAuth.grant(cookie, PITCH_RESERVE_GRANT, audience);
+  if (claimed === undefined) return c.json({ ok: false, error: { code: "DEMO_SESSION_REQUIRED", message: "Your session has expired. Reload the page to start a new one." } }, 401);
+  console.error(JSON.stringify({ event: "arc_pitch_claim", outcome: "granted" }));
+  setCookie(c, "__Host-ustaad-demo", claimed, { secure: true, httpOnly: true, sameSite: "Strict", path: "/" });
+  return c.json({ ok: true, grant: PITCH_RESERVE_GRANT, expiresAt: new Date(hackathonAuth.authenticate(claimed, audience).principal.expiresAt * 1000).toISOString() }, 200, { "Cache-Control": "no-store" });
+});
+
+app.post("/api/auth/demo-session", async (c) => {
+  if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Sign-in is not set up on this deployment." } }, 503);
   if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
   const existing = getCookie(c, "__Host-ustaad-demo");
-  const token = hackathonAuth.authenticate(existing).ok ? existing : hackathonAuth.issue();
+  // The same-origin check above passed, so the audience is defined here.
+  const audience = sessionAudience(c.req.url);
+  let token = existing;
+  if (!hackathonAuth.authenticate(existing, audience).ok) {
+    const refused = await refuseNewSession(c);
+    if (refused) return refused;
+    token = hackathonAuth.issue(audience);
+  }
   setCookie(c, "__Host-ustaad-demo", token, { secure: true, httpOnly: true, sameSite: "Strict", path: "/" });
-  return c.json({ ok: true, authorizationMode: "HACKATHON_DEMO", authenticatedHuman: false, expiresAt: new Date(hackathonAuth.authenticate(token).principal.expiresAt * 1000).toISOString(), approvalNote: HACKATHON_APPROVAL_NOTE }, 200, { "Cache-Control": "no-store" });
+  return c.json({ ok: true, authorizationMode: "HACKATHON_DEMO", authenticatedHuman: false, expiresAt: new Date(hackathonAuth.authenticate(token, audience).principal.expiresAt * 1000).toISOString(), approvalNote: HACKATHON_APPROVAL_NOTE }, 200, { "Cache-Control": "no-store" });
+});
+
+// Google sign-in: a fresh Firebase ID token becomes an HttpOnly session cookie.
+app.post("/api/auth/session", async (c) => {
+  if (!userSessionAuth) return c.json({ ok: false, error: { code: "NOT_FOUND", message: "Google sign-in is not enabled here." } }, 404);
+  if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
+  const body = await c.req.json().catch(() => ({}));
+  const result = await userSessionAuth.startSession(body?.idToken);
+  if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
+  setCookie(c, SESSION_COOKIE, result.cookie, { secure: true, httpOnly: true, sameSite: "Lax", path: "/", maxAge: result.maxAge });
+  const { email, name, role } = result.principal;
+  return c.json({ ok: true, user: { email, name, role } }, 200, { "Cache-Control": "no-store" });
+});
+app.post("/api/auth/logout", (c) => {
+  if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
+  setCookie(c, SESSION_COOKIE, "", { secure: true, httpOnly: true, sameSite: "Lax", path: "/", maxAge: 0 });
+  return c.json({ ok: true }, 200, { "Cache-Control": "no-store" });
+});
+app.get("/api/auth/me", async (c) => {
+  if (!userSessionAuth) return c.json({ ok: false, error: { code: "NOT_FOUND", message: "Google sign-in is not enabled here." } }, 404);
+  const result = await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE));
+  if (!result.ok) return c.json({ ok: false, error: result.error }, result.status);
+  const { email, name, role } = result.principal;
+  return c.json({ ok: true, user: { email, name, role, canApprove: canApprove(result.principal) } }, 200, { "Cache-Control": "no-store" });
 });
 
 app.get("/api/auth/config", (c) => {
+  if (userSessionAuth) {
+    return c.json({ enabled: userSessionAuth.configured && sessionWebConfig !== undefined, authorizationMode: "FIREBASE_SESSION", provider: "firebase-google",
+      ...(sessionWebConfig ? { clientConfig: sessionWebConfig } : { reasonCode: "FIREBASE_WEB_CONFIG_MISSING" }) }, 200, { "Cache-Control": "no-store" });
+  }
   if (hackathonAuth.enabled) return c.json({ enabled: false, authorizationMode: "HACKATHON_DEMO", demoSessionConfigured: hackathonAuth.configured, sessionEndpoint: "/api/auth/demo-session", approvalNote: HACKATHON_APPROVAL_NOTE }, 200, { "Cache-Control": "no-store" });
   // Sign-in must be possible before the owner can verify/provision a first UID.
   // Publishing public Firebase web config grants no supervisor authorization.
@@ -514,139 +752,16 @@ app.get("/api/auth/config", (c) => {
   }, 200, { "Cache-Control": "no-store" });
 });
 
-app.get("/api/status", (c) => {
-  const mode = process.env.K_SERVICE ? "cloud-run" : "local-development";
-  const integrationNames = {
-    extractOrder: "PDF order extraction",
-    currentConditions: "stored sensor conditions",
-    predictRisk: "five-defect risk prediction",
-    optimizeRisk: "lever optimization",
-    findSimilarRuns: "historical similar-run evidence",
-    explainRisk: "evidence-grounded risk explanation",
-    findSeenBefore: "historical defect evidence",
-    prepareJob: "production job preparation",
-    approveJob: "job approval and card generation",
-    getJobCard: "approved job-card retrieval",
-    saveFeedback: "feedback persistence",
-    getLotOrder: "feedback lot-to-order association lookup",
-    getStoredJobSheet: "stored job-sheet retrieval",
-    createDraftJobSheet: "draft job-sheet persistence",
-    getInsights: "historical production insights",
-    getImpactSummary: "live Impact dashboard summary",
-  };
-  const unconfiguredIntegrations = Object.entries(servicePorts.availability)
-    .filter(([key, configured]) => key === "prepareJob"
-      ? !jobCreationAvailable
-      : executionMode === "live-service" && [
-        "createDraftJobSheet", "getStoredJobSheet", "approveJob", "getJobCard",
-        "saveFeedback", "getLotOrder",
-      ].includes(key)
-        ? true
-      : configured !== true)
-    .map(([key]) => integrationNames[key]);
-  const productionAdapterKeys = [
-    "extractOrder",
-    "currentConditions",
-    "predictRisk",
-    "optimizeRisk",
-    "findSimilarRuns",
-    "explainRisk",
-    "findSeenBefore",
-    "createDraftJobSheet",
-    "getStoredJobSheet",
-    "approveJob",
-    "getJobCard",
-    "saveFeedback",
-    "getInsights",
-    "getImpactSummary",
-  ];
-  const productionAdaptersConfigured = productionAdapterKeys.some(
-    (key) => servicePorts.availability[key] === true
-  );
-  const geminiCapConfig = readDailyGeminiCallCapConfig(process.env);
-  const liveModelCallsEnabled = geminiCapConfig.configured &&
-    process.env.USTAAD_ENABLE_LIVE_MODEL_CALLS === "true" &&
-    (!process.env.K_SERVICE || servicePorts.geminiUsage.sharedCounterConfigured) &&
-    (servicePorts.availability.extractOrder || servicePorts.availability.explainRisk);
-  const globalGeminiCapEnforced = liveModelCallsEnabled && servicePorts.geminiUsage.sharedCounterConfigured;
-  return c.json({
-    ok: true,
-    app: "Momentum",
-    description: "Corrugated Production-Prep Agent",
-    status: "running",
-    mode,
-    executionMode,
-    backendReachable: true,
-    authorizationMode: hackathonAuth.enabled ? "HACKATHON_DEMO" : "FIREBASE_SUPERVISOR",
-    demoSessionConfigured: hackathonAuth.configured,
-    syntheticOnlyModeRequired: executionMode === "live-service",
-    syntheticOnlyModeEnabled: process.env.USTAAD_SYNTHETIC_ONLY === "true",
-    approvedPoFixtureAllowlistEnforced: true,
-    runtimeAvailability: {
-      productionAdaptersConfigured,
-      liveModelCallsEnabled,
-      dailyGeminiCallCap: {
-        configured: geminiCapConfig.configured,
-        enforced: liveModelCallsEnabled,
-        scope: servicePorts.geminiUsage.sharedCounterConfigured ? "shared-firestore-transaction" : geminiCapConfig.scope,
-        globalScopeEnforced: globalGeminiCapEnforced,
-        ...(servicePorts.geminiUsage.sharedCounterConfigured ? { liveConnectivityVerified: false } : {}),
-        ...(geminiCapConfig.configured ? {
-          limit: geminiCapConfig.limit,
-          timeZone: geminiCapConfig.timeZone,
-          countingPolicy: geminiCapConfig.countingPolicy,
-          reset: "midnight-in-configured-time-zone",
-        } : { missing: geminiCapConfig.missing, invalid: geminiCapConfig.invalid }),
-      },
-      supervisorAuthentication: {
-        provider: "firebase-google",
-        enabled: supervisorAuthenticator.enabled,
-        verifierConfigured: supervisorAuthenticator.configured,
-        userVerified: false,
-      },
-      currentConditions: {
-        adapterConfigured: servicePorts.availability.currentConditions,
-        dataChecked: false,
-      },
-      integrationsVerified: false,
-      supervisorAuthorizationAvailable: executionMode === "demo" || approvalAuthorizationConfigured,
-      jobSheetPersistenceAvailable,
-      durableIdempotencyConfigured: false,
-      idempotencyScope: idempotencyStore ? "process-local" : "unavailable",
-      jobCreationAvailable,
-    },
-    integrations: {
-      ...servicePorts.availability,
-      ...getJobLifecycleAvailability({ availability: servicePorts.availability, executionMode,
-        supervisorConfigured: approvalAuthorizationConfigured,
-        modelsAccepted: isModelSetAccepted(modelAcceptanceConfig), jobCreationAvailable }),
-      prepareJob: jobCreationAvailable,
-      supervisorAuthorizationAvailable: executionMode === "demo" || approvalAuthorizationConfigured,
-      jobSheetPersistenceAvailable,
-      durableIdempotencyConfigured: false,
-      idempotencyScope: idempotencyStore ? "process-local" : "unavailable",
-      jobCreationAvailable,
-    },
-    isRealModelPrediction: false,
-    modelAcceptance: getModelAcceptanceSummary(modelAcceptanceConfig),
-    localCapabilities: [
-      "purchase-order field validation",
-      "run-condition validation",
-      "currency formatting",
-      "daily cached FX rates with a static fallback",
-      "local PDF rendering for a caller-supplied validated JobSheet",
-    ],
-    unconfiguredIntegrations,
-    supportedCurrencies: SUPPORTED_CURRENCIES,
-    supportedLanguages: SUPPORTED_LANGUAGES,
-    notes: [
-      mode === "cloud-run"
-        ? "This Cloud Run instance uses workload identity; only explicitly configured integrations are available, and status does not prove their connectivity."
-        : "This local process uses only explicitly configured adapters; status does not prove Google Cloud connectivity.",
-      "Model calls and BigQuery or Storage writes remain disabled unless their runtime gates are explicitly enabled.",
-      "The local PDF renderer does not create job records or upload files.",
-    ],
-  });
+const statusBudgetViews = createBudgetViewCache();
+app.get("/api/status", async (c) => {
+  // The session comes only from a verified cookie, never from the request body or query.
+  const session = hackathonAuth.configured ? demoSession(c) : undefined;
+  const userSession = userSessionAuth ? await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE)) : undefined;
+  return c.json(await getStatusWithBudget({}, {
+    ...commandDeps, principal: session?.ok ? session.principal : undefined,
+    sessionVerified: session?.ok === true || userSession?.ok === true,
+    budgetViewCache: statusBudgetViews, signal: c.req.raw.signal,
+  }), 200, { "Cache-Control": "no-store" });
 });
 
 app.post("/orders/extract", async (c) => {
@@ -663,70 +778,7 @@ app.post("/orders/extract", async (c) => {
       message: "Request must contain a valid multipart purchase-order file.",
     }], "Purchase order upload is invalid.");
   }
-
-  const file = form.file;
-  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_type",
-      message: "A purchase-order PDF or JPEG file is required in the file field.",
-    }], "Purchase order upload is invalid.");
-  }
-
-  if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > MAX_PURCHASE_ORDER_BYTES) {
-    return c.json({ ok: false, error: { code: "PAYLOAD_TOO_LARGE", message: "Purchase-order files must be between 1 byte and 10 MiB." } }, 413);
-  }
-  const fileBytes = new Uint8Array(await file.arrayBuffer());
-  const mimeType = identifyPurchaseOrderMimeType(file, fileBytes);
-  if (!mimeType) {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_format",
-      message: "The uploaded purchase order must be a valid PDF or JPEG image.",
-    }], "Purchase order upload is invalid.");
-  }
-
-  const syntheticOnlyResponse = syntheticPurchaseOrderUnavailable(c, fileBytes);
-  if (syntheticOnlyResponse) return syntheticOnlyResponse;
-
-  const rawOperatorFields = {};
-  for (const field of ["orderId", "paperType", "paperSupplier"]) {
-    const value = form[field];
-    if (value === undefined || value === "") continue;
-    rawOperatorFields[field] = value;
-  }
-  const operatorFields = OrderOperatorFieldsSchema.safeParse(rawOperatorFields);
-  if (!operatorFields.success) {
-    return validationResponse(c, operatorFields.error.issues.map((issue) => ({
-      field: issue.path.join(".") || "operatorFields",
-      path: ["operatorFields", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    })), "Operator-supplied order context is invalid.");
-  }
-
-  const rawLineIndex = form.selectedLineIndex;
-  const selectedLineIndex = rawLineIndex === undefined || rawLineIndex === ""
-    ? undefined
-    : Number(rawLineIndex);
-  if (selectedLineIndex !== undefined &&
-      (!Number.isSafeInteger(selectedLineIndex) || selectedLineIndex < 0)) {
-    return validationResponse(c, [{
-      field: "selectedLineIndex",
-      path: ["selectedLineIndex"],
-      code: "invalid_value",
-      message: "selectedLineIndex must be a non-negative PO line number.",
-    }], "Purchase order line selection is invalid.");
-  }
-
-  return responseForResult(c, await servicePorts.extractOrderForReview({
-    file,
-    operatorFields: operatorFields.data,
-    ...(selectedLineIndex === undefined ? {} : { selectedLineIndex }),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  return commandResponse(c, await readOrder({ fields: form }, commandContext(c)));
 });
 
 app.get("/conditions/current", async (c) => {
@@ -793,7 +845,7 @@ app.post("/risk/predict", async (c) => {
 
   const validated = validateInput(
     c,
-    RiskPredictionRequestSchema,
+    GuardedRiskPredictionRequestSchema,
     request.body,
     "Risk prediction request failed validation."
   );
@@ -852,6 +904,12 @@ app.post("/risk/optimize", async (c) => {
 app.post("/jobs", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
+  if (!idempotencyStore && (isCloudRun || jobSheetPersistenceAvailable || servicePorts.lotRevisions.enabled)) {
+    return commandResponse(c, {
+      ok: false,
+      error: { code: "SERVICE_UNAVAILABLE", message: "Job creation requires a shared idempotency store." },
+    });
+  }
   let form;
   try {
     form = await c.req.parseBody();
@@ -863,180 +921,7 @@ app.post("/jobs", async (c) => {
       message: "Request must contain a valid multipart purchase-order file.",
     }], "Job request is invalid.");
   }
-
-  const file = form.file;
-  if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_type",
-      message: "A purchase-order PDF or JPEG file is required in the file field.",
-    }], "Job request is invalid.");
-  }
-
-  if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > MAX_PURCHASE_ORDER_BYTES) {
-    return c.json({ ok: false, error: { code: "PAYLOAD_TOO_LARGE", message: "Purchase-order files must be between 1 byte and 10 MiB." } }, 413);
-  }
-  const fileBytes = new Uint8Array(await file.arrayBuffer());
-  const mimeType = identifyPurchaseOrderMimeType(file, fileBytes);
-  if (!mimeType) {
-    return validationResponse(c, [{
-      field: "file",
-      path: ["file"],
-      code: "invalid_format",
-      message: "The uploaded purchase order must be a valid PDF or JPEG image.",
-    }], "Job request is invalid.");
-  }
-
-  const syntheticOnlyResponse = syntheticPurchaseOrderUnavailable(c, fileBytes);
-  if (syntheticOnlyResponse) return syntheticOnlyResponse;
-
-  const rawOperatorFields = {};
-  for (const field of ["orderId", "paperType", "paperSupplier"]) {
-    const value = form[field];
-    if (typeof value === "string" && value.trim() !== "") rawOperatorFields[field] = value;
-  }
-  const operatorFields = OrderOperatorFieldsSchema.safeParse(rawOperatorFields);
-  const numericLevers = new Set([
-    "sfSpeedMpm", "rollTempC", "gumViscositySec", "dryingHours", "printSpeedSpm",
-  ]);
-  const rawLevers = {};
-  for (const field of [
-    "sfSpeedMpm", "rollTempC", "gumApplication", "gumViscositySec",
-    "pastingPressure", "dryingHours", "printSpeedSpm",
-  ]) {
-    const value = form[field];
-    if (typeof value === "string" && value.trim() !== "") {
-      rawLevers[field] = numericLevers.has(field) ? Number(value) : value;
-    }
-  }
-  const levers = LeversSchema.safeParse(rawLevers);
-  const rawItemConfirmation = {
-    itemCode: form.confirmedItemCode,
-    quantity: typeof form.confirmedQuantity === "string" ? Number(form.confirmedQuantity) : form.confirmedQuantity,
-    ...(typeof form.confirmedLineIndex === "string" && form.confirmedLineIndex.trim() !== ""
-      ? { lineIndex: Number(form.confirmedLineIndex) - 1 }
-      : {}),
-  };
-  const operatorItemConfirmation = OperatorItemConfirmationSchema.safeParse(rawItemConfirmation);
-  const reviewId = form.reviewId;
-  const reviewFingerprint = form.reviewFingerprint;
-  const hasReviewReference = reviewId !== undefined || reviewFingerprint !== undefined;
-  const hasReviewId = typeof reviewId === "string" && reviewId.trim() !== "";
-  const hasReviewFingerprint = typeof reviewFingerprint === "string" && reviewFingerprint.trim() !== "";
-  if (hasReviewReference && (!hasReviewId || !hasReviewFingerprint ||
-      !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(reviewId) ||
-      !/^[a-f0-9]{64}$/.test(reviewFingerprint))) {
-    return validationResponse(c, [{
-      field: "purchaseOrderReview",
-      path: ["reviewId"],
-      code: "incomplete_review_reference",
-      message: "Both reviewId and reviewFingerprint are required to use the reviewed PO.",
-    }], "The purchase-order review reference is invalid.");
-  }
-  if (hasReviewId && form.confirmedSourceLine !== "true") {
-    return validationResponse(c, [{
-      field: "confirmedSourceLine",
-      path: ["confirmedSourceLine"],
-      code: "confirmation_required",
-      message: "Confirm the selected item's code and quantity against the displayed source PO line.",
-    }], "The selected PO line has not been confirmed.");
-  }
-  const shift = form.shift;
-  const rawManualConditions = {
-    runDate: form.runDate,
-    shift,
-    ambientRhPct: typeof form.ambientRhPct === "string" ? Number(form.ambientRhPct) : form.ambientRhPct,
-    ambientTempC: typeof form.ambientTempC === "string" ? Number(form.ambientTempC) : form.ambientTempC,
-    paperMoisturePct: typeof form.paperMoisturePct === "string" ? Number(form.paperMoisturePct) : form.paperMoisturePct,
-  };
-  const manualConditions = RunConditionsSchema.safeParse(rawManualConditions);
-  const conditionsConfirmed = form.conditionsConfirmed === "true";
-  const issues = [
-    ...(operatorFields.success ? [] : operatorFields.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["operatorFields", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(levers.success ? [] : levers.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["levers", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(operatorItemConfirmation.success ? [] : operatorItemConfirmation.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["operatorItemConfirmation", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(shift === "DAY" || shift === "NIGHT" ? [] : [{
-      field: "shift",
-      path: ["shift"],
-      code: "invalid_value",
-      message: "Select the actual DAY or NIGHT shift.",
-    }]),
-    ...(manualConditions.success ? [] : manualConditions.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      path: ["conditions", ...issue.path],
-      code: issue.code,
-      message: issue.message,
-    }))),
-    ...(conditionsConfirmed ? [] : [{
-      field: "conditionsConfirmed",
-      path: ["conditionsConfirmed"],
-      code: "confirmation_required",
-      message: "A supervisor must confirm or edit the manual condition values before prediction.",
-    }]),
-  ];
-  if (issues.length) {
-    return validationResponse(c, issues, "Job preparation requires confirmed order context, shift and actual machine settings.");
-  }
-
-  // Idempotency: read the optional client-supplied key from the request header.
-  // When present, the key is bound to a fingerprint of the validated request.
-  // Resubmitting the same key with different inputs returns 409 CONFLICT.
-  // Without durable persistence and a shared idempotency store, the submission
-  // handler returns SERVICE_UNAVAILABLE before running job preparation.
-  const rawIdempotencyKey = c.req.header("Idempotency-Key");
-  const identity = createJobRequestIdentity({
-    idempotencyKey: rawIdempotencyKey,
-    fileBytes,
-    operatorFields: operatorFields.data,
-    operatorItemConfirmation: operatorItemConfirmation.data,
-    shift,
-    levers: levers.data,
-    conditions: manualConditions.data,
-    ...(hasReviewFingerprint ? { purchaseOrderReviewFingerprint: reviewFingerprint } : {}),
-  });
-  if (!identity.ok) {
-    // Key is present but malformed — return a validation error.
-    return validationResponse(c, identity.error.issues ?? [], identity.error.message);
-  }
-
-  const signal = c.get(REQUEST_SIGNAL_CONTEXT_KEY);
-  const submissionResult = await submitJob({
-    identity: hackathonAuth.enabled ? demoJobIdentity(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY), identity.identity) : identity.identity,
-    request: {
-      file: { arrayBuffer: async () => fileBytes.buffer },
-      operatorFields: operatorFields.data,
-      operatorItemConfirmation: operatorItemConfirmation.data,
-      ...(hasReviewId ? {
-        purchaseOrderReview: {
-          reviewId,
-          reviewFingerprint,
-          confirmedSourceLine: form.confirmedSourceLine === "true",
-        },
-      } : {}),
-      shift,
-      levers: levers.data,
-      manualConditions: manualConditions.data,
-      conditionsConfirmed,
-    },
-    signal,
-  });
-  return responseForResult(c, demoMode && submissionResult.ok ? { ...submissionResult, durable: false, storageScope: "process-memory", source: "mock-demo", isRealModelPrediction: false } : submissionResult);
+  return commandResponse(c, await planLot({ fields: form, idempotencyKey: c.req.header("Idempotency-Key") }, commandContext(c)));
 });
 
 app.post("/job-sheets/render.pdf", async (c) => {
@@ -1099,82 +984,43 @@ app.post("/job-sheets/render.pdf", async (c) => {
 app.get("/jobs/:id", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
+  return commandResponse(c, await getJob({ jobId: c.req.param("id") }, commandContext(c)));
+});
 
-  return responseForResult(c, await lookupStoredJobSheet({
-    jobId: validated.data,
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+app.get("/lots/:lotId", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  return commandResponse(c, await getLot({ lotId: c.req.param("lotId") }, commandContext(c)));
+});
+
+app.put("/lots/:lotId/conditions", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  const request = await readJsonBody(c);
+  if (!request.ok) return request.response;
+  return commandResponse(c, await updateLotConditions({ lotId: c.req.param("lotId"), body: request.body }, commandContext(c)));
 });
 
 app.post("/jobs/:id/approve", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  if (executionMode !== "demo" && !isModelSetAccepted(modelAcceptanceConfig)) {
-    return c.json({
-      ok: false,
-      error: {
-        code: "MODEL_ACCEPTANCE_REQUIRED",
-        message: "Job approval is blocked until the current five-model set has complete version-linked acceptance evidence.",
-      },
-      modelAcceptance: getModelAcceptanceSummary(modelAcceptanceConfig),
-    }, 503);
-  }
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
-  const displayPrefs = validateDisplayPrefs(c);
-  if (!displayPrefs.ok) {
-    return displayPrefs.response;
-  }
-
-  const principal = c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY);
-  const approval = await servicePorts.approveJob({
-    jobId: validated.data,
-    lang: displayPrefs.data.lang,
-    currency: displayPrefs.data.currency,
-    ...(principal ? { supervisorPrincipal: principal, correlationId: randomUUID() } : {}),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  });
-  if (approval.ok && principal) {
-    console.info(JSON.stringify({
-      event: "ustaad_supervisor_action",
-      action: "job_approval_request",
-      actorUid: principal.uid,
-      authorizationMode: principal.authorizationMode ?? "FIREBASE_SUPERVISOR",
-      authenticatedHuman: principal.provider === "google.com",
-      jobId: validated.data,
-      decisionAt: new Date().toISOString(),
-      newStatus: approval.jobSheet?.status ?? approval.data?.status ?? "APPROVED",
-      auditStorage: approval.jobSheet?.approvalAudit ? "bigquery-readback-and-structured-log" : "structured-cloud-log-only",
-    }));
-  }
-  return responseForResult(c, approval);
+  return commandResponse(c, await approveJob({
+    jobId: c.req.param("id"),
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+    // Read only by the approve guard; with the guard off the body stays ignored, as before.
+    body: await c.req.json().catch(() => undefined),
+  }, commandContext(c)));
 });
 
 app.get("/jobs/:id/card.pdf", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  const validated = validateInput(c, JobIdSchema, c.req.param("id"), "Job ID failed validation.");
-  if (!validated.ok) {
-    return validated.response;
-  }
-  const displayPrefs = validateDisplayPrefs(c);
-  if (!displayPrefs.ok) {
-    return displayPrefs.response;
-  }
-
-  const result = await servicePorts.getJobCard({
-    jobId: validated.data,
-    lang: displayPrefs.data.lang,
-    currency: displayPrefs.data.currency,
-    supervisorPrincipal: c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY),
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  });
+  const result = await getCard({
+    jobId: c.req.param("id"),
+    lang: c.req.query("lang"),
+    currency: c.req.query("currency"),
+  }, commandContext(c));
   if (result.ok && result.bytes instanceof Uint8Array) {
     return c.body(result.bytes, 200, {
       "Content-Type": result.contentType,
@@ -1182,7 +1028,7 @@ app.get("/jobs/:id/card.pdf", async (c) => {
       "Cache-Control": "private, no-store",
     });
   }
-  return responseForResult(c, result);
+  return commandResponse(c, result);
 });
 
 app.post("/jobs/:id/feedback", async (c) => {
@@ -1215,10 +1061,67 @@ app.post("/jobs/:id/feedback", async (c) => {
     }], "Feedback request failed validation.");
   }
 
-  return responseForResult(c, await saveLinkedFeedback({
+  const savedFeedback = await saveLinkedFeedback({
     ...feedback.data,
     signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  });
+  if (savedFeedback?.ok) {
+    await liveStore.publish({ event: { type: "feedback.saved", lotId: feedback.data.jobId, text: `Actual scrap recorded for lot ${feedback.data.jobId}`, actor: liveActor(c.get(SUPERVISOR_PRINCIPAL_CONTEXT_KEY)) } });
+  }
+  return responseForResult(c, savedFeedback);
+});
+
+app.post("/evidence/diagnose-photo", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  let form;
+  try { form = await c.req.parseBody(); } catch {
+    return validationResponse(c, [{ field: "body", path: [], code: "invalid_multipart", message: "Send the photo as a multipart upload." }], "Photo upload is invalid.");
+  }
+  return commandResponse(c, await diagnoseUploadedPhoto({ fields: form }, commandContext(c)));
+});
+
+app.get("/conditions/weather", async (c) => {
+  const result = await readWeather({}, commandContext(c));
+  if (!result.ok) return commandResponse(c, result);
+  return c.json(result, 200, { "Cache-Control": "no-store" });
+});
+
+// Live floor view: the latest lots and events, now and on every change, as server-sent events.
+app.get("/api/live", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  return streamSSE(c, async (stream) => {
+    let closed = false;
+    const queue = [];
+    let wake;
+    const stop = await liveStore.watch((view) => { queue.push(view); wake?.(); });
+    stream.onAbort(() => { closed = true; stop(); wake?.(); });
+    while (!closed) {
+      if (queue.length === 0) {
+        // Heartbeat every 25 s keeps proxies from closing an idle stream.
+        await Promise.race([new Promise((resolve) => { wake = resolve; }), stream.sleep(25_000)]);
+        if (queue.length === 0 && !closed) await stream.writeSSE({ event: "ping", data: "" });
+        continue;
+      }
+      const view = queue.splice(0).at(-1);
+      await stream.writeSSE({ event: "floor", data: JSON.stringify({ mode: liveStore.mode, ...view }) });
+    }
+  });
+});
+
+app.get("/api/lots", async (c) => {
+  const authorizationFailure = await requireSupervisor(c);
+  if (authorizationFailure) return authorizationFailure;
+  // Firestore delivers its first snapshot shortly after the listener starts; wait up to 2 s for it.
+  let latest = { lots: [], events: [] }, calls = 0, wake;
+  const stop = await liveStore.watch((v) => { latest = v; calls += 1; wake?.(); });
+  if (liveStore.mode === "firestore" && calls < 2) {
+    await Promise.race([new Promise((resolve) => { wake = resolve; }), new Promise((resolve) => setTimeout(resolve, 2000))]);
+  }
+  stop();
+  const view = latest;
+  return c.json({ ok: true, mode: liveStore.mode, ...view }, 200, { "Cache-Control": "no-store" });
 });
 
 app.get("/insights/summary", async (c) => {
@@ -1247,24 +1150,20 @@ app.get("/insights/summary", async (c) => {
 });
 
 app.get("/impact/summary", async (c) => {
-  return responseForResult(c, await servicePorts.getImpactSummary({
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  return commandResponse(c, await impactSummary({}, commandContext(c)));
 });
 
 app.get("/evidence/approved-photos", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
-  return responseForResult(c, await servicePorts.getApprovedPhotos());
+  return commandResponse(c, await listApprovedPhotos({}, commandContext(c)));
 });
 app.post("/evidence/classify-photo", async (c) => {
   const authorizationFailure = await requireSupervisor(c);
   if (authorizationFailure) return authorizationFailure;
   const request = await readJsonBody(c);
   if (!request.ok) return request.response;
-  const validated = validateInput(c, PhotoClassificationRequestSchema, request.body, "Select one approved photo ID only.");
-  if (!validated.ok) return validated.response;
-  return responseForResult(c, await servicePorts.classifyApprovedPhoto({ ...validated.data, signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY) }));
+  return commandResponse(c, await classifyApprovedPhoto(request.body, commandContext(c)));
 });
 
 app.post("/evidence/seen-before", async (c) => {
@@ -1274,19 +1173,7 @@ app.post("/evidence/seen-before", async (c) => {
   if (!request.ok) {
     return request.response;
   }
-  const validated = validateInput(
-    c,
-    SeenBeforeRequestSchema,
-    request.body,
-    "Historical defect-evidence request failed validation."
-  );
-  if (!validated.ok) {
-    return validated.response;
-  }
-  return responseForResult(c, await servicePorts.findSeenBefore({
-    ...validated.data,
-    signal: c.get(REQUEST_SIGNAL_CONTEXT_KEY),
-  }));
+  return commandResponse(c, await findSeenBefore(request.body, commandContext(c)));
 });
 
 app.post("/risk/similar-runs", async (c) => {
@@ -1412,9 +1299,13 @@ app.post("/api/agents/generateJobSheet", async (c) => {
 
 const port = readServerPort(process.env.PORT);
 
+// Off Cloud Run the server stays on loopback when the demo runs or a launcher asks for it
+// (USTAAD_BIND_HOST, set by tools/run-local-live.mjs): a laptop run with production
+// settings must not be reachable from the rest of the network.
+const loopbackOnly = demoMode || (!isCloudRun && process.env.USTAAD_BIND_HOST === "127.0.0.1");
 serve({
   fetch: app.fetch,
-  ...(demoMode ? { hostname: "127.0.0.1" } : {}),
+  ...(loopbackOnly ? { hostname: "127.0.0.1" } : {}),
   port,
 }, () => {
   console.log(`Momentum production prep running at http://localhost:${port}`);

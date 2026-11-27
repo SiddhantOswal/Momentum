@@ -42,7 +42,9 @@ async function execute(evidenceFile) {
   check('application gate remains blocked',JSON.parse(configBytes).status==='blocked');
   const accessToken=execFileSync(sdk,['auth','print-access-token'],{encoding:'utf8'}).trim();
   const auth=createHackathonDemoAuthenticator({mode:'HACKATHON_DEMO',signingKey:randomBytes(32).toString('hex'),syntheticOnly:true,auditEnabled:true});
-  const principal=auth.authenticate(auth.issue()).principal;
+  // The harness never serves HTTP, so its sessions name an origin no service answers on.
+  const harnessOrigin='https://isolated-harness.invalid';
+  const principal=auth.authenticate(auth.issue(harnessOrigin),harnessOrigin).principal;
   const job=isolatedTransportFixture(principal,randomUUID());evidence.jobId=job.jobId;evidence.testOrderId=job.order.orderId;
   evidence.actor={kind:'locally-issued isolated harness demo session',authenticatedHuman:false,uid:principal.uid};save();
   let queries=0,uploads=0;
@@ -81,7 +83,7 @@ async function execute(evidenceFile) {
     evidence.independentApproved=saved;save();
     const repeated=await card().approveJob({jobId:job.jobId,supervisorPrincipal:principal,correlationId:randomUUID()});
     check('repeated approval preserves decision and PDF URI',repeated.ok&&repeated.cardUri===saved.cardUri&&isDeepStrictEqual(repeated.jobSheet.approvalAudit,saved.approvalAudit));
-    const other=auth.authenticate(auth.issue()).principal;
+    const other=auth.authenticate(auth.issue(harnessOrigin),harnessOrigin).principal;
     const denied=await card().getJobCard({jobId:job.jobId,supervisorPrincipal:other});check('other legitimate demo session denied before object access',denied.ok===false&&denied.error.code==='SUPERVISOR_AUTHORIZATION_REQUIRED');
     const file=await card().getJobCard({jobId:job.jobId,supervisorPrincipal:principal});check('real supported card adapter retrieval',file.ok&&file.contentType==='application/pdf');
     const objectName=saved.cardUri.slice(('gs://'+BUCKET+'/').length);

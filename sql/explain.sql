@@ -41,20 +41,20 @@ input AS (
 ),
 ex AS (
   SELECT 'WARP' AS defect, predicted_rate_warp_pct AS predicted, baseline_prediction_value AS typical, top_feature_attributions AS attrs
-  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m_warp, (SELECT * FROM input), STRUCT(3 AS top_k_features))
+  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m2_warp, (SELECT * FROM input), STRUCT(3 AS top_k_features))
   UNION ALL
   SELECT 'DELAM', predicted_rate_delam_pct, baseline_prediction_value, top_feature_attributions
-  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m_delam, (SELECT * FROM input), STRUCT(3 AS top_k_features))
+  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m2_delam, (SELECT * FROM input), STRUCT(3 AS top_k_features))
   UNION ALL
   SELECT 'STRENGTH', predicted_rate_strength_pct, baseline_prediction_value, top_feature_attributions
-  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m_strength, (SELECT * FROM input), STRUCT(3 AS top_k_features))
+  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m2_strength, (SELECT * FROM input), STRUCT(3 AS top_k_features))
   UNION ALL
   SELECT 'PRINT', predicted_rate_print_pct, baseline_prediction_value, top_feature_attributions
-  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m_print, (SELECT * FROM input), STRUCT(3 AS top_k_features))
+  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m2_print, (SELECT * FROM input), STRUCT(3 AS top_k_features))
   WHERE (SELECT ink_colors FROM input) > 0
   UNION ALL
   SELECT 'CRACK', predicted_rate_crack_pct, baseline_prediction_value, top_feature_attributions
-  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m_crack, (SELECT * FROM input), STRUCT(3 AS top_k_features))
+  FROM ML.EXPLAIN_PREDICT(MODEL prepagent.m2_crack, (SELECT * FROM input), STRUCT(3 AS top_k_features))
 )
 SELECT
   defect,

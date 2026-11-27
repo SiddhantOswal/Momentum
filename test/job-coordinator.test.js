@@ -3,6 +3,9 @@ import test from "node:test";
 import { jobSheetFixture } from "./fixtures/job-sheet.js";
 import { createTraceRegistry } from "../src/trace-registry.js";
 import { createJobCoordinator } from "../src/job-coordinator.js";
+import modelAcceptanceConfig from "../config/model-acceptance.json" with { type: "json" };
+import bindingConfig from "../config/model-version-binding.json" with { type: "json" };
+import { createModelVersionBinding } from "../src/google-cloud/model-version-binding.js";
 
 function traceIdFactory() {
   let sequence = 0;
@@ -278,6 +281,50 @@ test("job coordinator blocks optimizer settings and change lists that disagree w
     assert.equal(result.blockedAt, "optimizeLevers");
     assert.equal(result.error.issues[0].code, "prediction_baseline_mismatch");
   });
+});
+
+test("job coordinator accepts a job where advisory crack has the highest rate and is left out of the total", async () => {
+  // The shipped use classes: crack advisory, the other four optimizer targets.
+  const { targetUse } = modelAcceptanceConfig;
+  assert.equal(targetUse.CRACK.useClass, "advisory");
+  const risk = {
+    ratesPct: { WARP: 2, DELAM: 1, STRENGTH: 1, PRINT: 1, CRACK: 6 },
+    totalScrapPct: 5,
+    totalScrapKg: 12,
+    scrapCost: 120,
+    currency: "INR",
+    primaryDefect: "WARP",
+    targetUse,
+  };
+  const profile = (levers) => ({ levers, risk });
+  const optimization = {
+    baseline: profile(jobSheetFixture.baseline.levers),
+    best: profile(jobSheetFixture.baseline.levers),
+    changes: [],
+    savings: { kg: 0, inr: 0 },
+  };
+  const traceRegistry = createTraceRegistry({ idFactory: traceIdFactory() });
+  const ports = services({
+    predictRisk: async () => ({ ok: true, ...risk }),
+    optimizeRisk: async () => ({ ok: true, ...optimization }),
+    findSimilarRuns: async () => ({ ok: true, evidence: [] }),
+    explainRisk: async () => ({ ok: true, explanation: "Synthetic explanation from the test service." }),
+  });
+  const result = await createJobCoordinator({ services: ports, traceRegistry })(input());
+
+  assert.equal(result.ok, true, JSON.stringify(result.error));
+  assert.equal(result.jobSheet.recommended.risk.primaryDefect, "WARP");
+  assert.equal(result.jobSheet.recommended.risk.totalScrapPct, 5);
+  assert.deepEqual(result.jobSheet.recommended.risk.targetUse, targetUse);
+
+  // A total that counts crack, or crack as the primary defect, is refused under the same classes.
+  for (const wrong of [{ totalScrapPct: 11 }, { primaryDefect: "CRACK" }]) {
+    const blocked = await createJobCoordinator({
+      services: services({ predictRisk: async () => ({ ok: true, ...risk, ...wrong }) }),
+      traceRegistry: createTraceRegistry({ idFactory: traceIdFactory() }),
+    })(input());
+    assert.equal(blocked.blockedAt, "predictRisk", JSON.stringify(wrong));
+  }
 });
 
 test("job coordinator blocks internally inconsistent predicted rates before optimization", async () => {
@@ -838,3 +885,54 @@ test("job coordinator records cancellation without leaving an active tool or run
   ]);
   assert.equal(traceRegistry.getRun(events[0].runId).status, "cancelled");
 });
+
+for (const [code, laterEtag, message] of [
+  ["MODEL_VERSION_MISMATCH", "ZGVsYW0tcmV0cmFpbmVk", "Explanation is blocked: the DELAM model in BigQuery is not the accepted version."],
+  ["MODEL_VERSION_UNVERIFIED", undefined, "Explanation is blocked until the accepted model versions are confirmed in BigQuery."],
+]) {
+  test(`job coordinator stops at the explanation step with ${code} when the model check has changed`, async () => {
+    // Prediction and optimization pass on a fresh check. By the explanation step the
+    // pass is past its maximum age, and the re-check finds a retrained or unreadable model.
+    let current = Date.parse("2026-11-25T08:00:00.000Z");
+    const etags = Object.fromEntries(Object.entries(modelAcceptanceConfig.currentModelVersions)
+      .map(([defect, etag]) => [`m2_${defect.toLowerCase()}`, etag]));
+    const versions = createModelVersionBinding({
+      projectId: "prepagent-hack", modelAcceptance: modelAcceptanceConfig,
+      fetchImpl: async (url) => Response.json({ etag: etags[String(url).split("/").pop()] }),
+      tokenProvider: async () => "test-token", now: () => new Date(current), log: () => {},
+    });
+    await versions.check();
+    let explanations = 0;
+    const base = services({
+      optimizeRisk: async () => ({
+        ok: true, baseline: jobSheetFixture.baseline, best: jobSheetFixture.recommended, changes: [], savings: jobSheetFixture.savings,
+      }),
+      findSimilarRuns: async () => {
+        current += bindingConfig.maxVerifiedAgeMs + 1;
+        etags.m2_delam = laterEtag;
+        return { ok: true, evidence: [] };
+      },
+      explainRisk: async () => {
+        explanations += 1;
+        return { ok: true, explanation: "Test-only explanation." };
+      },
+    });
+    const traceRegistry = createTraceRegistry({ idFactory: traceIdFactory() });
+    const result = await createJobCoordinator({
+      services: {
+        ...base,
+        predictRisk: versions.guard(base.predictRisk, "Prediction"),
+        optimizeRisk: versions.guard(base.optimizeRisk, "Optimization"),
+        explainRisk: versions.guard(base.explainRisk, "Explanation"),
+      },
+      traceRegistry,
+    })(input());
+
+    assert.equal(result.ok, false);
+    assert.equal(result.blockedAt, "explainRisk");
+    assert.deepEqual(result.error, { code, message, targets: ["DELAM"] });
+    assert.deepEqual(result.completedStages, ["extractOrder", "getConditions", "predictRisk", "optimizeLevers", "findSimilarRuns"]);
+    assert.equal(explanations, 0);
+    assert.equal(traceRegistry.getRun(result.runId).status, "failed");
+  });
+}

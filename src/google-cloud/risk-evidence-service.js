@@ -8,10 +8,15 @@ import {
   OrderProfileSchema,
   RiskResultSchema,
   RunConditionsSchema,
+  shownDefects,
   SimilarRunSchema,
 } from "../schemas.js";
+import { HUMIDITY_BAND_POINTS } from "../humidity-band.js";
 import { BigQueryReadError } from "./bigquery-read-client.js";
 import { geminiUsageFailure } from "../daily-gemini-call-cap.js";
+import { arcModelSettings } from "../arc-model-settings.js";
+
+const EXPLANATION_PROMPT = arcModelSettings.taskPrompt("explanation");
 
 const SIMILAR_COLUMNS = Object.freeze([
   "lot_id", "order_id", "run_date", "item_code", "description", "shift",
@@ -65,7 +70,26 @@ const DRIVER_ALIASES = Object.freeze({
   ply: ["ply"],
   quantity: ["quantity"],
   shift: ["shift"],
+  sheet_area_m2: ["sheet_area_m2", "sheet area"],
+  box_weight_kg: ["box_weight_kg", "box weight"],
+  // Engineered in the m2_* model TRANSFORM (sql/model_v2_training.sql).
+  rh_band: ["rh_band", "humidity band"],
+  rh_x_paper_moisture: ["rh_x_paper_moisture", "humidity and paper moisture"],
+  dew_point_c: ["dew_point_c", "dew point"],
+  recycled_paper_flag: ["recycled_paper_flag", "recycled paper"],
+  board_gsm_per_m2: ["board_gsm_per_m2", "board weight"],
+  gum_visc_x_roll_temp: ["gum_visc_x_roll_temp", "gum viscosity and roll temperature"],
 });
+// A combined driver may be described through the inputs it is built from.
+const DRIVER_PARTS = Object.freeze({
+  rh_band: ["ambient_rh_pct"],
+  rh_x_paper_moisture: ["ambient_rh_pct", "paper_moisture_pct"],
+  dew_point_c: ["ambient_rh_pct", "ambient_temp_c"],
+  recycled_paper_flag: ["paper_type"],
+  board_gsm_per_m2: ["box_weight_kg", "sheet_area_m2"],
+  gum_visc_x_roll_temp: ["gum_viscosity_sec", "roll_temp_c"],
+});
+const withDriverParts = (drivers) => new Set([...drivers].flatMap((driver) => [driver, ...(DRIVER_PARTS[driver] ?? [])]));
 const SeenBeforeInputSchema = z.object({
   defect: DefectSchema,
   ambientRhPct: z.number().finite().min(0).max(100),
@@ -262,7 +286,7 @@ function sentences(text) {
   return text.trim().split(/(?<=[.!?])(?:\s+|$)/).filter(Boolean);
 }
 
-function sentenceCount(text) {
+export function sentenceCount(text) {
   return sentences(text).length;
 }
 
@@ -286,19 +310,72 @@ const SUPPLIED_SETTING_DRIVERS = Object.freeze([
 ]);
 const ATTRIBUTION_LANGUAGE = /\b(?:attribut\w*|contribut\w*|associat\w*|drivers?)\b/i;
 
-function namesUnsupportedDriver(text, reportedDrivers) {
-  return sentences(text).some((sentence) => {
-    const allowed = ATTRIBUTION_LANGUAGE.test(sentence)
-      ? reportedDrivers
-      : new Set([...reportedDrivers, ...SUPPLIED_SETTING_DRIVERS]);
-    return Object.entries(DRIVER_ALIASES).some(([driver, aliases]) =>
+// A sentence about the supplied source-history records describes their settings, which the
+// prompt supplies; "associated with past settings" there is not a model-attribution claim.
+const HISTORY_LANGUAGE = /\b(?:source[- ]history|histor(?:y|ical)|records?|past (?:runs?|lots?))\b/i;
+
+/** The first driver named outside what the evidence allows, or undefined. */
+function unsupportedDriverIn(text, reportedDrivers) {
+  for (const sentence of sentences(text)) {
+    const strict = ATTRIBUTION_LANGUAGE.test(sentence) && !HISTORY_LANGUAGE.test(sentence);
+    const allowed = strict ? reportedDrivers : new Set([...reportedDrivers, ...SUPPLIED_SETTING_DRIVERS]);
+    const hit = Object.entries(DRIVER_ALIASES).find(([driver, aliases]) =>
       !allowed.has(driver) && aliases.some((alias) => mentions(sentence, alias)));
-  });
+    if (hit) return hit[0];
+  }
+  return undefined;
+}
+function namesUnsupportedDriver(text, reportedDrivers) {
+  return unsupportedDriverIn(text, reportedDrivers) !== undefined;
 }
 
-// The prompt asks Gemini to disclaim causation; a negated disclaimer is not a causal claim.
-function withoutNegatedCausation(text) {
-  return text.replace(/\b(?:not|no|never|without|rather than|instead of)\b[^.!?]{0,60}?\bcause[- ]and[- ]effect\b/gi, " ");
+const DEFECT_WORDS = Object.freeze({ WARP: "warp", DELAM: "delamination", STRENGTH: "box strength", PRINT: "print", CRACK: "crease cracking" });
+const driverWords = (driver) => DRIVER_ALIASES[driver]?.[1] ?? driver.replaceAll("_", " ");
+
+// Words that name a defect in generated text. "print" alone would also match the print-speed
+// setting, so a print mention needs the defect sense.
+const DEFECT_MENTIONS = Object.freeze({
+  WARP: /\bwarp/i, DELAM: /\bdelam/i, STRENGTH: /\b(?:box )?strength\b/i,
+  PRINT: /\bprint(?:ing)? (?:defect|risk|rate|scrap)/i, CRACK: /\bcrack|\bcrease/i,
+});
+const ADVISORY_LABEL = "advisory, low confidence";
+
+// An advisory target (ARC-ML-03) may be described only in a sentence that says it is low confidence.
+function unlabelledAdvisoryMention(text, advisory) {
+  return sentences(text).some((sentence) => !/low confidence/i.test(sentence) &&
+    advisory.some((defect) => DEFECT_MENTIONS[defect].test(sentence)));
+}
+
+// Used when Gemini is unavailable or its text fails the evidence checks twice. It states only
+// the validated attribution rows and the supplied totals, and passes the same checks. Optimizer
+// targets come first; an advisory target is named with its low-confidence label.
+function attributionSummary(rows, baseline, best, advisory = []) {
+  const byDefect = new Map();
+  for (const row of rows) byDefect.set(row.defect, [...(byDefect.get(row.defect) ?? []), row]);
+  const defects = [...byDefect.keys()].sort((left, right) =>
+    Number(advisory.includes(left)) - Number(advisory.includes(right)));
+  const lines = [];
+  if (Number.isFinite(best?.totalScrapPct) && Number.isFinite(baseline?.totalScrapPct)) {
+    lines.push(`The model predicts a total scrap rate of ${best.totalScrapPct}% with the recommended settings, compared with ${baseline.totalScrapPct}% with the planned settings.`);
+  }
+  for (const defect of defects.slice(0, lines.length ? 2 : 3)) {
+    const ranked = byDefect.get(defect).sort((a, b) => a.driverRank - b.driverRank);
+    const [first, second] = ranked;
+    const drivers = second
+      ? `${driverWords(first.driver)} at ${first.attributionPts} points and ${driverWords(second.driver)} at ${second.attributionPts} points`
+      : `${driverWords(first.driver)} at ${first.attributionPts} points`;
+    const name = `${DEFECT_WORDS[defect] ?? defect.toLowerCase()}${advisory.includes(defect) ? ` (${ADVISORY_LABEL})` : ""}`;
+    lines.push(`For ${name}, the model predicts ${first.predictedPct}% against a typical ${first.typicalPct}%, and its largest attributions are ${drivers}.`);
+  }
+  lines.push("These attributions are model associations, not proof of cause and effect, and come from history modelled on the plant.");
+  return lines.join(" ");
+}
+
+// The prompt asks Gemini to disclaim causation; a negated disclaimer ("do not imply causal
+// links", "not proof of cause and effect", "neither establishes a causal effect") is not a claim.
+const NEGATED_CAUSATION = /\b(?:not|no|never|neither|nor|without|rather than|instead of)\b[^.!?]{0,60}?\b(?:cause[- ]and[- ]effect|causal(?:ity|ly)?(?:\s+(?:links?|relationships?|effects?|claims?|connections?|inferences?))?|causation)\b/gi;
+export function withoutNegatedCausation(text) {
+  return text.replace(NEGATED_CAUSATION, " ");
 }
 
 function permittedNumbers(values) {
@@ -317,11 +394,11 @@ function numericClaims(text) {
   return text.match(/[-+]?\d+(?:\.\d+)?/g) ?? [];
 }
 
-function containsCausalClaim(text) {
+export function containsCausalClaim(text) {
   return /\b(?:cause[sd]?|causing|causal(?:ly)?|because of|due to|leads? to|result(?:s|ing)? (?:in|from)|drives?|proves?|demonstrates?)\b|\b(?:increases?|decreases?|raises?|lowers?|worsens?|improves?)(?:\s+\w+){0,3}\s+\b(?:risk|scrap|defect|prediction|rate)\b/i.test(text);
 }
 
-function containsUnverifiedOutcomeClaim(text) {
+export function containsUnverifiedOutcomeClaim(text) {
   const outcome = String.raw`(?:actual(?:\s+observed)?|measured|real[- ]world)\s+(?:factory\s+|production\s+)?outcomes?`;
   const assertions = text.replace(new RegExp(String.raw`\b(?:not|rather than|instead of)\s+${outcome}\b`, "gi"), " ");
   return new RegExp(String.raw`\b${outcome}\b`, "i").test(assertions);
@@ -371,6 +448,10 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         parameters: parametersFor(inputOrder, inputConditions, levers),
         signal,
       });
+      // Abstain targets are dropped: their attribution rows would put a predicted rate into the prompt.
+      const targetUse = inputOptimization.best.risk.targetUse;
+      const shown = shownDefects(targetUse);
+      const advisory = shown.filter((defect) => targetUse?.[defect].useClass === "advisory");
       const rows = decodeRows(result, EXPLAIN_COLUMNS, "EXPLAIN_SCHEMA_MISMATCH").map((row) => {
         const defect = DefectSchema.safeParse(row.defect);
         if (!defect.success) {
@@ -384,9 +465,9 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
           driver: row.driver,
           attributionPts: finiteNumber(row.attribution_pts, "attribution_pts", "EXPLAIN_ROW_INVALID"),
         };
-      });
-      const expectedDefects = ["WARP", "DELAM", "STRENGTH", "CRACK"];
-      if (inputOrder.inkColors > 0) expectedDefects.splice(3, 0, "PRINT");
+      }).filter((row) => shown.includes(row.defect));
+      const expectedDefects = ["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].filter((defect) =>
+        (defect !== "PRINT" || inputOrder.inkColors > 0) && shown.includes(defect));
       const knownDrivers = new Set(Object.values(DRIVER_ALIASES).flat().map((driver) => driver.toLowerCase()));
       const defectsPresent = new Set(rows.map((row) => row.defect));
       if (rows.length === 0 || expectedDefects.some((defect) => !defectsPresent.has(defect)) ||
@@ -430,22 +511,10 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         baselinePrediction: inputPrediction,
         bestPrediction: inputOptimization.best.risk,
         changes: inputOptimization.changes,
-        explanationRows: rows,
+        explanationRows: rows.map((row) => advisory.includes(row.defect) ? { ...row, useClass: ADVISORY_LABEL } : row),
         historicalEvidence: evidenceForPrompt,
       };
-      const response = await gemini.generateContent({
-        contents: [{
-          role: "user",
-          parts: [{
-            text: `Write 3 to 5 concise plain-language sentences explaining the validated model attribution and, when relevant, the supplied historical observations. Distinguish model predictions and attribution from source-history records. Historical entries are source records, not independently verified factory measurements. Call them source-history records; do not describe them as actual or measured factory outcomes or infer causal links between their settings and defect labels. Describe attribution only as a model contribution or association, not as proof of cause and effect. Use only the provided drivers, percentages, attribution points, inputs, settings, and historical metrics. Do not mention lot or order identifiers, add unsupported facts, claim causality or guarantees, or use numeric values not present in the JSON. A positive attribution contributes upward to the model prediction and a negative attribution contributes downward; neither establishes a real-world causal effect. Describe settings using their supplied values without calculating differences, ratios, or combined rates. For total predicted rates and costs use the provided totals exactly; do not sum component rates or calculate new figures. Return only the explanation.\\n${JSON.stringify(promptData)}`,
-          }],
-        }],
-        // Measured live: this prompt used 1,964 thinking tokens, exhausting the 2,048 default.
-        maxOutputTokens: 8192,
-        signal,
-      });
-      const explanation = response.parts.map((part) => part.text)
-        .filter((text) => typeof text === "string").join("").trim();
+      const instruction = `${EXPLANATION_PROMPT}\\n${JSON.stringify(promptData)}`;
       // Ground against the exact validated JSON supplied to Gemini, including
       // original settings in changes.from. A separately maintained subset can
       // reject genuine supplied values when the prompt evolves.
@@ -453,23 +522,63 @@ export function createRiskExplanationService({ bigquery, gemini, sql } = {}) {
         : value && typeof value === "object" ? Object.values(value).flatMap(numericValues) : [];
       const allowedNumbers = permittedNumbers(numericValues(promptData));
       const suppliedDates = new Set(historicalEvidence.map((run) => run.runDate));
-      if (!explanation || sentenceCount(explanation) < 3 || sentenceCount(explanation) > 5 ||
-          numericClaims(withoutSuppliedDates(explanation, suppliedDates)).some((value) => !allowedNumbers.has(value))) {
-        console.error(JSON.stringify({ event: "risk_explanation_rejected", reason: "evidence_contract", sentenceCount: sentenceCount(explanation), unsupportedNumericClaims: numericClaims(withoutSuppliedDates(explanation, suppliedDates)).filter((value) => !allowedNumbers.has(value)).length }));
-        throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the evidence contract.");
+      const reportedDrivers = withDriverParts(rows.map((row) => row.driver.toLowerCase()));
+      /** Why a text breaks the evidence contract, or undefined when it passes. */
+      const violation = (text) => {
+        const unsupportedNumbers = numericClaims(withoutSuppliedDates(text, suppliedDates)).filter((value) => !allowedNumbers.has(value)).length;
+        if (!text || sentenceCount(text) < 3 || sentenceCount(text) > 5 || unsupportedNumbers > 0) {
+          return { reason: "evidence_contract", sentenceCount: sentenceCount(text), unsupportedNumericClaims: unsupportedNumbers };
+        }
+        const driver = unsupportedDriverIn(text, reportedDrivers);
+        const causalClaim = containsCausalClaim(withoutNegatedCausation(text));
+        const unverifiedOutcomeClaim = containsUnverifiedOutcomeClaim(text);
+        if (driver || causalClaim || unverifiedOutcomeClaim) {
+          return { reason: "attribution_contract", unsupportedDriver: driver ?? false, causalClaim, unverifiedOutcomeClaim };
+        }
+        return unlabelledAdvisoryMention(text, advisory) ? { reason: "use_class_contract" } : undefined;
+      };
+      // Gemini writes the explanation; a text outside the contract gets one more attempt.
+      let explanation;
+      let source = "bigquery-ml-and-gemini";
+      for (let attempt = 1; attempt <= 2 && explanation === undefined; attempt += 1) {
+        let text;
+        try {
+          const response = await gemini.generateContent({
+            role: "explanation",
+            contents: [{ role: "user", parts: [{ text: instruction }] }],
+            // Measured live: this prompt used 1,964 thinking tokens, exhausting the 2,048 default.
+            maxOutputTokens: 8192,
+            signal,
+          });
+          text = response.parts.map((part) => part.text).filter((part) => typeof part === "string").join("").trim();
+        } catch (error) {
+          if (error?.name === "AbortError" || signal?.aborted) throw error;
+          console.error(JSON.stringify({ event: "risk_explanation_gemini_failed", attempt, code: /^[A-Z_]{1,64}$/.test(error?.code ?? "") ? error.code : "UNEXPECTED_ERROR" }));
+          break;
+        }
+        const problem = violation(text);
+        if (problem) console.error(JSON.stringify({ event: "risk_explanation_rejected", attempt, ...problem }));
+        else explanation = text;
       }
-      const reportedDrivers = new Set(rows.map((row) => row.driver.toLowerCase()));
-      if (namesUnsupportedDriver(explanation, reportedDrivers) ||
-          containsCausalClaim(withoutNegatedCausation(explanation)) ||
-          containsUnverifiedOutcomeClaim(explanation)) {
-        console.error(JSON.stringify({ event: "risk_explanation_rejected", reason: "attribution_contract", unsupportedDriver: namesUnsupportedDriver(explanation, reportedDrivers), causalClaim: containsCausalClaim(withoutNegatedCausation(explanation)), unverifiedOutcomeClaim: containsUnverifiedOutcomeClaim(explanation) }));
-        throw new BigQueryReadError("EXPLANATION_INVALID", "Gemini returned an explanation outside the attribution evidence contract.");
+      // Never lose a completed plan to the narrative: fall back to a summary of the validated
+      // attribution rows, held to the same contract.
+      if (explanation === undefined) {
+        const summary = attributionSummary(rows, inputPrediction, inputOptimization.best.risk, advisory);
+        const problem = violation(summary);
+        if (problem) {
+          console.error(JSON.stringify({ event: "risk_explanation_rejected", attempt: "summary", ...problem }));
+          throw new BigQueryReadError("EXPLANATION_INVALID", "No explanation met the attribution evidence contract.");
+        }
+        console.warn(JSON.stringify({ event: "risk_explanation_fallback", source: "bigquery-ml-attribution-summary" }));
+        explanation = summary;
+        source = "bigquery-ml-attribution-summary";
       }
       return {
         ok: true,
-        source: "bigquery-ml-and-gemini",
+        source,
         explanation,
         rows,
+        ...(source === "bigquery-ml-and-gemini" ? { generation: arcModelSettings.generation("explanation") } : {}),
         evidenceRefs: historicalEvidence.map(({ lotId, orderId, runDate }) => ({ lotId, orderId, runDate })),
       };
     } catch (error) {
@@ -527,6 +636,7 @@ export function createSeenBeforeService({ bigquery, sql } = {}) {
         parameters: {
           defect: request.data.defect,
           ambient_rh_pct: { type: "FLOAT64", value: request.data.ambientRhPct },
+          band_pts: { type: "INT64", value: HUMIDITY_BAND_POINTS },
         },
         signal: input.signal,
       });

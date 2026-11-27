@@ -1,19 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 
 /**
- * In-memory fake IdempotencyStore for offline testing and single-instance
- * development. This store is NOT durable across process restarts, does NOT
- * coordinate across application replicas, and MUST NOT be used as the
- * production persistence mechanism. It implements the same atomic
- * claim/complete/release contract as a real shared-store adapter so that all
- * guardrail logic, conflict handling, and retry paths can be fully tested
- * offline.
- *
- * Shared-store blocker: a real production adapter requires an atomic
- * compare-and-swap operation against a durable, globally consistent backend
- * (e.g., a BigQuery row insert with a UNIQUE constraint or a Cloud Firestore
- * conditional write). The interface below is the adapter contract; only the
- * backing storage needs to change.
+ * For offline demos and unit tests only. Claims disappear on restart and
+ * cannot prevent duplicate jobs across service instances.
  */
 export class InMemoryIdempotencyStore {
   #records = new Map();
@@ -133,6 +122,8 @@ export function createJobRequestIdentity({
   purchaseOrderReviewFingerprint,
   shift,
   levers,
+  conditions,
+  lotId,
 } = {}) {
   if (idempotencyKey !== undefined &&
       (typeof idempotencyKey !== "string" || !visibleKey.test(idempotencyKey))) {
@@ -157,6 +148,16 @@ export function createJobRequestIdentity({
       !["DAY", "NIGHT"].includes(shift)) {
     return validationError("request", "Validated operator fields, item confirmation, shift, and machine settings are required.");
   }
+  if (!conditions || typeof conditions !== "object" || Array.isArray(conditions) ||
+      typeof conditions.runDate !== "string" ||
+      !["DAY", "NIGHT"].includes(conditions.shift) ||
+      ![conditions.ambientRhPct, conditions.ambientTempC, conditions.paperMoisturePct].every(Number.isFinite)) {
+    return validationError("conditions", "Validated run date and run conditions are required.");
+  }
+
+  if (lotId !== undefined && (typeof lotId !== "string" || !/^LOT-[A-Za-z0-9-]{1,100}$/.test(lotId))) {
+    return validationError("lotId", "A lot ID must start with LOT- and use letters, digits and hyphens.");
+  }
 
   const fileFingerprint = sha256(fileBytes);
   const canonicalRequest = JSON.stringify({
@@ -172,6 +173,8 @@ export function createJobRequestIdentity({
       lineIndex: operatorItemConfirmation.lineIndex,
     },
     purchaseOrderReviewFingerprint,
+    // Absent for a plan with no lot, so that case keeps one canonical form.
+    lotId,
     shift,
     levers: {
       sfSpeedMpm: levers.sfSpeedMpm,
@@ -182,11 +185,20 @@ export function createJobRequestIdentity({
       dryingHours: levers.dryingHours,
       printSpeedSpm: levers.printSpeedSpm,
     },
+    conditions: {
+      runDate: conditions.runDate,
+      shift: conditions.shift,
+      ambientRhPct: conditions.ambientRhPct,
+      ambientTempC: conditions.ambientTempC,
+      paperMoisturePct: conditions.paperMoisturePct,
+    },
   });
   const fingerprint = sha256(canonicalRequest);
+  // v3 since the fingerprint gained the lot ID. v2 claims are already persisted (ARC-M1-05),
+  // so a v2 record must never meet a v3 fingerprint for the same client key.
   const keyHash = sha256(idempotencyKey === undefined
-    ? `ustaad-jobs:v1:request:${fingerprint}`
-    : `ustaad-jobs:v1:client:${idempotencyKey}`);
+    ? `ustaad-jobs:v3:request:${fingerprint}`
+    : `ustaad-jobs:v3:client:${idempotencyKey}`);
   return {
     ok: true,
     identity: {
@@ -195,6 +207,26 @@ export function createJobRequestIdentity({
       jobId: `JOB-${keyHash.slice(0, 40)}`,
     },
   };
+}
+
+export const PROCESS_LOCAL_LEASE_MS = 30_000;
+// Design 3.2: longer than the 120 s Cloud Run request timeout, so a request
+// that is still running never loses its claim to a retry on another instance.
+export const SHARED_LEASE_MS = 130_000;
+
+/**
+ * An explicit Firestore request requires the shared store even in demo mode.
+ */
+export function selectJobIdempotencyStore({ jobIdempotency, demoMode } = {}) {
+  if (jobIdempotency?.durableRequested === true) {
+    const store = jobIdempotency.store;
+    return Object.freeze(typeof store?.claim === "function"
+      ? { store, leaseMs: SHARED_LEASE_MS, scope: "shared-firestore" }
+      : { store: undefined, leaseMs: SHARED_LEASE_MS, scope: "unavailable" });
+  }
+  return Object.freeze(demoMode === true
+    ? { store: new InMemoryIdempotencyStore({ leaseMs: PROCESS_LOCAL_LEASE_MS }), leaseMs: PROCESS_LOCAL_LEASE_MS, scope: "process-local" }
+    : { store: undefined, leaseMs: PROCESS_LOCAL_LEASE_MS, scope: "unavailable" });
 }
 
 function unavailable(message = "The shared job-idempotency store is not configured.") {
@@ -265,8 +297,12 @@ export function createIdempotentJobService({
       return unavailable("The shared idempotency store returned an invalid claim result.");
     }
 
+    // Only a shared store can lose a claim to another instance, so only it fences the write.
+    const fence = typeof store.confirmOwner === "function"
+      ? () => store.confirmOwner({ keyHash: identity.keyHash, ownerToken, now: now() }, signal)
+      : undefined;
     try {
-      const result = await createJob({ jobId: identity.jobId, request, signal });
+      const result = await createJob({ jobId: identity.jobId, request, signal, ...(fence ? { fence } : {}) });
       const resultJobId = result?.jobSheet?.jobId ?? result?.jobId;
       if (!result || result.ok !== true || resultJobId !== identity.jobId || result.durable !== true) {
         await store.release({ keyHash: identity.keyHash, ownerToken });

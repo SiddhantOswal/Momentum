@@ -9,9 +9,21 @@ import {
 import { acceptedModelSetFixture } from "./fixtures/accepted-model-set.js";
 
 // Isolated model-evidence test double only; never use for a cloud acceptance claim.
+// It carries the shipped use classes: crack is advisory and outside the totals.
 function createRiskOptimizationService(options = {}) {
   return createRiskOptimizationServiceImpl({ modelAcceptance: acceptedModelSetFixture, ...options });
 }
+const { targetUse } = acceptedModelSetFixture;
+
+// The use classes in force when the PKBX0041 rows were recorded live, before
+// ARC-ML-03: all five targets counted, crack included. Only the replay of those
+// recorded rows uses it.
+const RECORDED_ALL_FIVE_COUNTED = Object.freeze({
+  ...acceptedModelSetFixture,
+  targetUse: Object.fromEntries(["WARP", "DELAM", "STRENGTH", "PRINT", "CRACK"].map((defect) => [
+    defect, { useClass: "optimizer", reason: "All five targets counted when the PKBX0041 rows were recorded." },
+  ])),
+});
 
 // 23 columns as per optimize.sql schema
 const COLUMNS = [
@@ -36,8 +48,8 @@ function makeRow(values) {
   return { f: values.map((v) => ({ v: v === null ? null : String(v) })) };
 }
 
-// PKBX0041 BASELINE from the supplied SQL's live output.
-const BASELINE_VALUES = [
+// PKBX0041 BASELINE as recorded live from the supplied SQL before ARC-ML-03 (crack counted).
+const LIVE_BASELINE_VALUES = [
   "BASELINE", 0,
   48, 162, "HIGH", 32, "MED", 5, 60,
   3.423, 2.98, 1.167, 1.828, 0.778,
@@ -46,8 +58,8 @@ const BASELINE_VALUES = [
   0, 0,
 ];
 
-// BEST from the supplied SQL: roll 170, gum MED, viscosity 35.
-const BEST_VALUES = [
+// BEST as recorded live: roll 170, gum MED, viscosity 35.
+const LIVE_BEST_VALUES = [
   "BEST", 3,
   48, 170, "MED", 35, "MED", 5, 60,
   2.419, 2.376, 1.245, 1.721, 0.657,
@@ -56,10 +68,35 @@ const BEST_VALUES = [
   17.4, 925,
 ];
 
+// The same recorded rates with totals worked out over the four optimizer
+// targets (986.2 kg of board, Rs 53.3 per kg). Test arithmetic, not a live output.
+const BASELINE_VALUES = [
+  "BASELINE", 0,
+  48, 162, "HIGH", 32, "MED", 5, 60,
+  3.423, 2.98, 1.167, 1.828, 0.778,
+  9.4, 92.7, 4940,
+  0, 4940, "INR", "WARP",
+  0, 0,
+];
+const BEST_VALUES = [
+  "BEST", 3,
+  48, 170, "MED", 35, "MED", 5, 60,
+  2.419, 2.376, 1.245, 1.721, 0.657,
+  7.76, 76.5, 4080,
+  0, 4080, "INR", "WARP",
+  16.2, 860,
+];
+
 function twoRowResult() {
   return {
     schema: { fields },
     rows: [makeRow(BASELINE_VALUES), makeRow(BEST_VALUES)],
+  };
+}
+function liveTwoRowResult() {
+  return {
+    schema: { fields },
+    rows: [makeRow(LIVE_BASELINE_VALUES), makeRow(LIVE_BEST_VALUES)],
   };
 }
 
@@ -125,7 +162,7 @@ test("optimization service requires verified optimizer SQL containing ML.PREDICT
 test("optimization fails closed before BigQuery when model acceptance evidence is absent", async () => {
   let queryCalled = false;
   // The 14 Oct record without the owner decision: thresholds met, counts missing.
-  const { requiredR2, recordedEvaluation } = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8"));
+  const { requiredR2, recordedEvaluation } = JSON.parse(readFileSync(new URL("../config/model-acceptance.json", import.meta.url), "utf8")).previousAcceptance;
   const service = createRiskOptimizationServiceImpl({
     modelAcceptance: { status: "blocked", requiredR2, recordedEvaluation },
     bigquery: { query: async () => { queryCalled = true; return twoRowResult(); } },
@@ -138,7 +175,7 @@ test("optimization fails closed before BigQuery when model acceptance evidence i
   assert.equal(queryCalled, false);
 });
 
-test("optimization service sends all 15 named parameters in correct order", async () => {
+test("optimization service sends the 15 named inputs in order, then the optimizer target set", async () => {
   let capturedRequest;
   const service = createRiskOptimizationService({
     bigquery: {
@@ -157,8 +194,11 @@ test("optimization service sends all 15 named parameters in correct order", asyn
     "item_code", "quantity", "paper_type", "paper_supplier", "shift",
     "ambient_rh_pct", "ambient_temp_c", "paper_moisture_pct",
     "sf_speed_mpm", "roll_temp_c", "gum_application", "gum_viscosity_sec",
-    "pasting_pressure", "drying_hours", "print_speed_spm",
+    "pasting_pressure", "drying_hours", "print_speed_spm", "optimizer_targets",
   ]);
+  assert.deepEqual(capturedRequest.parameters.optimizer_targets, {
+    type: "ARRAY<STRING>", value: ["WARP", "DELAM", "STRENGTH", "PRINT"],
+  });
   assert.equal(capturedRequest.parameters.item_code, "PKBX0041");
   assert.equal(capturedRequest.parameters.quantity.type, "INT64");
   assert.equal(capturedRequest.parameters.quantity.value, 1300);
@@ -212,13 +252,15 @@ test("optimization service returns BASELINE and BEST with changes list", async (
   assert.equal(result.isRealModelPrediction, true);
 
   // Baseline matches the supplied SQL's live result.
-  assert.equal(result.baseline.risk.totalScrapPct, 10.18);
-  assert.equal(result.baseline.risk.scrapCost, 5351);
+  assert.equal(result.baseline.risk.totalScrapPct, 9.4);
+  assert.equal(result.baseline.risk.scrapCost, 4940);
+  assert.equal(result.baseline.risk.targetUse.CRACK.useClass, "advisory");
+  assert.equal(result.baseline.risk.ratesPct.CRACK, 0.778, "advisory crack is still returned");
   assert.equal(result.baseline.levers.gumApplication, "HIGH");
   assert.equal(result.baseline.levers.dryingHours, 5);
 
   // Best row
-  assert.equal(result.best.risk.scrapCost, 4426);
+  assert.equal(result.best.risk.scrapCost, 4080);
   assert.equal(result.best.levers.gumApplication, "MED");
   assert.equal(result.best.levers.rollTempC, 170);
   assert.equal(result.best.levers.gumViscositySec, 35);
@@ -233,9 +275,9 @@ test("optimization service returns BASELINE and BEST with changes list", async (
     !/\b(?:causes?|reduces?|increases?)\b/i.test(change.reason)));
 
   // Savings from BEST row
-  assert.equal(result.savings.kg, 17.4);
-  assert.equal(result.savings.inr, 925);
-  assert.equal(result.savings.percent, (925 / 5351) * 100);
+  assert.equal(result.savings.kg, 16.2);
+  assert.equal(result.savings.inr, 860);
+  assert.equal(result.savings.percent, (860 / 4940) * 100);
   assert.match(result.note, /Predicted savings compare this recommendation with the supervisor's plan/);
 });
 
@@ -260,10 +302,10 @@ test("optimization requires the baseline to preserve planned settings and BEST t
 test("optimization rejects a penalty that does not match the documented slowing-down formula", () => {
   const inconsistentPenalty = twoRowResult();
   inconsistentPenalty.rows[1].f[17].v = "1";
-  inconsistentPenalty.rows[1].f[18].v = "4427";
-  inconsistentPenalty.rows[1].f[22].v = "924";
+  inconsistentPenalty.rows[1].f[18].v = "4081";
+  inconsistentPenalty.rows[1].f[22].v = "859";
   assert.throws(
-    () => decodeOptimizationResult(inconsistentPenalty, { plannedLevers: input.levers }),
+    () => decodeOptimizationResult(inconsistentPenalty, { plannedLevers: input.levers, targetUse }),
     { code: "OPT_PENALTY_MISMATCH" },
   );
 });
@@ -284,10 +326,10 @@ test("optimization identifies BASELINE and BEST by kind, not unspecified row ord
   const result = decodeOptimizationResult({
     schema: { fields },
     rows: [makeRow(BEST_VALUES), makeRow(BASELINE_VALUES)],
-  });
-  assert.equal(result.baseline.risk.scrapCost, 5351);
-  assert.equal(result.best.risk.scrapCost, 4426);
-  assert.equal(result.savings.inr, 925);
+  }, { targetUse });
+  assert.equal(result.baseline.risk.scrapCost, 4940);
+  assert.equal(result.best.risk.scrapCost, 4080);
+  assert.equal(result.savings.inr, 860);
 });
 
 test("optimization accepts a valid BEST result with zero changes", () => {
@@ -298,7 +340,7 @@ test("optimization accepts a valid BEST result with zero changes", () => {
   const result = decodeOptimizationResult({
     schema: { fields },
     rows: [makeRow(BASELINE_VALUES), makeRow(unchangedBest)],
-  });
+  }, { targetUse });
   assert.deepEqual(result.changes, []);
   assert.equal(result.savings.kg, 0);
   assert.equal(result.savings.inr, 0);
@@ -306,15 +348,28 @@ test("optimization accepts a valid BEST result with zero changes", () => {
   assert.equal(result.note, "Your plan is already the best option we found");
 });
 
-test("PKBX0041 baseline matches supplied SQL prediction and the optimizer's baseline", async () => {
+test("PKBX0041 rows recorded live before ARC-ML-03 replay under the all-five setting they were recorded with", async () => {
   const service = createRiskOptimizationService({
-    bigquery: { query: async () => twoRowResult() },
+    bigquery: { query: async () => liveTwoRowResult() },
     sql: "-- optimize.sql\nSELECT ML.PREDICT(MODEL prepagent.m_warp, (SELECT 1)) FROM prepagent.items",
+    modelAcceptance: RECORDED_ALL_FIVE_COUNTED,
   });
   const result = await service(input);
   assert.equal(result.ok, true);
   assert.equal(result.baseline.risk.scrapCost, 5351);
   assert.equal(result.baseline.risk.totalScrapPct, 10.18);
+  assert.equal(result.savings.inr, 925);
+});
+
+test("the recorded PKBX0041 rows are refused under the shipped use classes: their totals count advisory crack", async () => {
+  const service = createRiskOptimizationService({
+    bigquery: { query: async () => liveTwoRowResult() },
+    sql: "-- optimize.sql\nSELECT ML.PREDICT(MODEL prepagent.m_warp, (SELECT 1)) FROM prepagent.items",
+  });
+  const result = await service(input);
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+  assert.match(result.error.message, /scrap-rate units/);
 });
 
 test("optimization rejects output with an incorrect BigQuery type", async () => {
