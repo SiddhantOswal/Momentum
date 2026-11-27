@@ -90,7 +90,7 @@ for (const theme of ['dark', 'light']) {
 
     await expect(page.locator('.bc')).toHaveText('Plant / Home');
     await expect(page.getByRole('button', { name: 'Open Arc by Momentum' })).toContainText('Tell Arc what you need');
-    await expect(page.getByRole('button', { name: 'Alerts, not connected yet' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Notifications' })).toBeEnabled();
     // The test server's /health answers ok, and a working connection shows no status in the top bar.
     await expect(page.locator('header.top')).not.toContainText(/backend/i);
     await expect(page.locator('header.top')).not.toContainText('Prototype data, not live');
@@ -98,6 +98,34 @@ for (const theme of ['dark', 'light']) {
     await expect(page.locator('main')).toBeVisible();
   });
 }
+
+test('Arc is centered across the viewport without covering the header controls', async ({ page }) => {
+  await page.route('**/health', route => route.fulfill(json(503, { ok: false })));
+  await page.goto('/app/#/prep-flow');
+  const launcher = page.getByRole('button', { name: 'Open Arc by Momentum' });
+  const status = page.getByRole('status').filter({ hasText: 'Backend' });
+  await expect(status).toBeVisible();
+
+  for (const width of [1440, 1280, 1024, 768, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const viewport = await page.evaluate(() => document.documentElement.clientWidth);
+    const arc = await launcher.boundingBox();
+    expect(Math.abs(arc.x + arc.width / 2 - viewport / 2), `center at ${width}px`).toBeLessThanOrEqual(1);
+
+    for (const neighbor of [
+      page.locator('.bc'),
+      page.getByRole('button', { name: 'Menu' }),
+      page.getByRole('button', { name: 'Notifications' }),
+      status,
+    ]) {
+      const box = await neighbor.boundingBox();
+      if (!box) continue;
+      const overlaps = arc.x < box.x + box.width && box.x < arc.x + arc.width
+        && arc.y < box.y + box.height && box.y < arc.y + arc.height;
+      expect(overlaps, `header controls overlap at ${width}px`).toBe(false);
+    }
+  }
+});
 
 test('the backend indicator shows a failed health check', async ({ page }) => {
   await page.route('**/health', route => route.fulfill(json(503, { ok: false })));

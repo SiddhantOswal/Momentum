@@ -145,12 +145,36 @@ for (const theme of ['dark', 'light']) {
   });
 }
 
+test('approved samples use one select and a dismissed notice stays in the header', async ({ page }) => {
+  await mockBackend(page);
+  await openStep(page, '#/new-lot/order');
+  const samples = page.getByRole('combobox', { name: 'Approved samples' });
+  await expect(samples.getByRole('option')).toHaveText([
+    'Choose an approved sample', 'PO1 Single line', 'PO2 Multi-line', 'PO3 Fitment', 'PO4 Review', 'PO5 Scan',
+  ]);
+  await expect(samples).toHaveCSS('appearance', 'none');
+  await expect(samples).toHaveCSS('background-image', /svg/);
+  await samples.selectOption('PO1');
+  await expect(samples).toHaveValue('PO1');
+  await page.getByRole('button', { name: 'Read order with Gemini' }).click();
+  await page.getByRole('button', { name: 'Dismiss: Order read' }).click();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Home' }).click();
+  const bell = page.getByRole('button', { name: 'Notifications' });
+  await bell.click();
+  const history = page.getByRole('region', { name: 'Recent notifications' });
+  await expect(history.getByText('Order read')).toBeVisible();
+  await expect(history.getByText('Check each value, then confirm.')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(history).toBeHidden();
+  await expect(bell).toBeFocused();
+});
+
 test('the manual route reads the order, plans the lot and approves through the backend commands', async ({ page }) => {
   const calls = await mockBackend(page);
   await openStep(page, '#/new-lot/order');
   await expect(page.locator('main')).not.toContainText(/Reads the file once|Not read|Missing/);
 
-  await page.getByRole('button', { name: 'PO1 Single line' }).click();
+  await page.getByRole('combobox', { name: 'Approved samples' }).selectOption('PO1');
   await expect(page.getByLabel('Order ID')).toHaveValue('TEST-CLA/PO/2026/1047');
   await page.getByRole('button', { name: 'Read order with Gemini' }).click();
   await expect(page.getByText('Read from the order by Gemini.', { exact: false })).toBeVisible();
@@ -177,7 +201,11 @@ test('the manual route reads the order, plans the lot and approves through the b
   await expect(page.getByRole('group', { name: 'Lot' })).toContainText('Operator: confirm 10 fields');
   await page.getByLabel('Paper moisture').fill('8.1');
   await page.getByLabel('Run date').fill('2026-11-25');
-  await page.getByLabel('Shift').selectOption('DAY');
+  const shift = page.getByLabel('Shift');
+  await shift.focus();
+  await expect(shift).toHaveCSS('outline-style', 'none');
+  await expect(shift).toHaveCSS('background-image', /svg/);
+  await shift.selectOption('DAY');
   for (const [label, value] of [['Single-facer speed', '48'], ['Roll temperature', '162'], ['Gum viscosity', '32'], ['Drying time', '5'], ['Print speed', '60']]) await page.getByLabel(label).fill(value);
   await page.getByLabel('Gum application').selectOption('HIGH');
   await page.getByLabel('Pasting pressure').selectOption('MED');
@@ -308,7 +336,7 @@ test('Recovery keeps the finished numbers when the explanation step fails, and R
 test('a saved review survives a reload, so the order does not need to be read again', async ({ page }) => {
   const calls = await mockBackend(page);
   await openStep(page, '#/new-lot/order');
-  await page.getByRole('button', { name: 'PO1 Single line' }).click();
+  await page.getByRole('combobox', { name: 'Approved samples' }).selectOption('PO1');
   await page.getByRole('button', { name: 'Read order with Gemini' }).click();
   await expect(page.locator('.rd').filter({ hasText: 'PO number' })).toContainText('CLA/PO/2026/1047');
   await page.reload();
