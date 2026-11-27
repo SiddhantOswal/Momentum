@@ -27,6 +27,9 @@ for (const theme of ['dark', 'light']) {
     await expect(root).toHaveCSS('color-scheme', theme);
     await expectTokens(root, {
       ...referenceColors(theme === 'light' ? '.m.lt' : '.m'),
+      '--ac': theme === 'light' ? '#F2BE00' : '#F5C518',
+      '--ct': theme === 'light' ? '#7A5A00' : '#F7DC6F',
+      '--ac-rgb': '245, 197, 24',
       '--arc-font-body': "'Inter', system-ui, sans-serif",
       '--arc-font-display': "'Inter', sans-serif",
       '--arc-text-body': '15px',
@@ -50,8 +53,24 @@ for (const theme of ['dark', 'light']) {
       '--arc-radius-card': '12px',
       '--arc-radius-control': '10px',
       '--arc-radius-chip': '6px',
-      '--arc-accent-ink': '#18110E',
+      '--arc-accent-ink': '#17130A',
     });
+
+    const logo = page.getByRole('img', { name: 'Momentum' });
+    await expect(logo).toHaveAttribute('src', new RegExp(`logo-on-${theme}-.*\\.png$`));
+    await expect(logo).toHaveCSS('width', '176px');
+    await expect(logo).toHaveCSS('margin', '6px 0px 32px 8px');
+    await expect.poll(() => logo.evaluate(image => image.naturalWidth)).toBe(766);
+
+    const launcher = page.locator('button[aria-controls="arc-panel"]');
+    await page.keyboard.press('Tab');
+    await launcher.focus();
+    await expect(launcher).toHaveCSS('outline-style', 'solid');
+    await expect(launcher).toHaveCSS('outline-color', theme === 'light' ? 'rgb(122, 90, 0)' : 'rgb(245, 197, 24)');
+
+    const favicon = await page.request.get('/app/favicon.svg');
+    expect(favicon.ok()).toBe(true);
+    expect(await favicon.text()).toContain('stroke="#F5C518"');
 
     const interLoaded = await page.evaluate(async () => {
       const faces = await Promise.all([
@@ -63,13 +82,12 @@ for (const theme of ['dark', 'light']) {
     expect(interLoaded).toBe(true);
 
     await page.locator('body').evaluate(body => {
-      for (const className of ['arc-kraft', 'arc-glass', 'arc-machine']) {
+      for (const className of ['arc-glass', 'arc-machine']) {
         const element = document.createElement('div');
         element.className = className;
         body.append(element);
       }
     });
-    await expectTokens(page.locator('.arc-kraft'), referenceColors('.m .kr,.m.lt .kr'));
     await expectTokens(page.locator('.arc-machine'), referenceColors(theme === 'light' ? '.m.lt .mo' : '.mo', insights));
     if (theme === 'light') {
       await expectTokens(page.locator('.arc-glass'), referenceColors('.m.lt .gl'));

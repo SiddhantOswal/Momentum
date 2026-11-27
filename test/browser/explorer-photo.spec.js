@@ -69,6 +69,19 @@ async function expectNoRetiredCopy(page) {
   expect(text).not.toMatch(/0\.078/);
 }
 
+async function expectEmphasisCard(card) {
+  const expected = await card.evaluate(element => {
+    const sample = document.createElement('span');
+    sample.style.backgroundColor = 'color-mix(in srgb, var(--ac) 9%, var(--cd))';
+    element.append(sample);
+    const background = getComputedStyle(sample).backgroundColor;
+    sample.remove();
+    return background;
+  });
+  await expect(card).toHaveCSS('background-color', expected);
+  await expect(card).toHaveCSS('border-top-color', 'rgba(245, 197, 24, 0.55)');
+}
+
 for (const theme of ['dark', 'light']) {
   test(`Plant Explorer shows the current lot's plan in the ${theme} theme`, async ({ page }) => {
     const calls = await mockBackend(page);
@@ -100,7 +113,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('Low confidence in humid months')).toBeVisible();
 
     const kraft = page.locator('.kr');
-    await expect(kraft).toHaveCSS('background-color', 'rgb(215, 195, 154)');
+    await expectEmphasisCard(kraft);
     await expect(page.locator('.m')).toHaveCSS('background-color', theme === 'dark' ? 'rgb(18, 21, 25)' : 'rgb(238, 240, 242)');
     expect((await page.locator('.pe-map').boundingBox()).width).toBe(768);
     await expectNoRetiredCopy(page);
@@ -133,7 +146,7 @@ for (const theme of ['dark', 'light']) {
     await expect(trust.getByText(/approved photos is not connected yet, so no match count is shown\./)).toBeVisible();
     await expect(trust.getByText('Not connected', { exact: true })).toHaveCount(0);
     await expect(trust).not.toContainText('7 of 10');
-    await expect(trust).toHaveCSS('background-color', 'rgb(215, 195, 154)');
+    await expectEmphasisCard(trust);
     await expect(page.locator('.m')).toHaveCSS('background-color', theme === 'dark' ? 'rgb(18, 21, 25)' : 'rgb(238, 240, 242)');
     await expectNoRetiredCopy(page);
   });

@@ -144,6 +144,7 @@ for (const theme of ['dark', 'light']) {
       await expect(page.getByRole('heading', { name: 'Stopped at risk evidence' })).toBeVisible();
       expect(await stepStates(page)).toEqual(['done', 'done', 'done', 'done', 'done', 'failed', 'idle', 'idle', 'idle']);
       await expect(page.getByRole('alert').filter({ hasText: 'Explanation did not finish' })).toBeVisible();
+      await expect(page.locator('.pf-arrows > path[stroke="var(--bd)"]')).toHaveCount(1);
       await expect(page.locator('main')).not.toContainText(/8,640|numbers are saved/i);
     });
   });
@@ -153,7 +154,26 @@ test('an approved job shows every step done, the job record only because a card 
   await mockBackend(page, { [`/jobs/${JOB_ID}`]: json(200, { ok: true, jobSheet: storedJob('APPROVED') }) });
   await open(page, `/app/?job=${JOB_ID}#/prep-flow`);
   expect(await stepStates(page)).toEqual(Array(9).fill('done'));
+  await expect(page.getByRole('link', { name: 'Job record', exact: true })).toHaveAttribute('href', `?job=${JOB_ID}#/operator`);
+  const connections = page.locator('.pf-arrows > path');
+  await expect(connections.first()).toHaveCSS('stroke', 'rgb(95, 191, 152)');
   await expect(page.getByRole('link', { name: 'Open on the operator\'s phone' })).toHaveAttribute('href', `?job=${JOB_ID}#/operator`);
+});
+
+test('Preparation Flow cards link to the existing workflow without running a step', async ({ page }) => {
+  const requests = await mockBackend(page);
+  await open(page, '/app/#/prep-flow', { width: 375, height: 812 });
+  const links = steps(page).getByRole('link');
+  await expect(links).toHaveCount(9);
+  expect(await links.evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).toEqual([
+    '#/new-lot/order', '#/new-lot/order', '#/new-lot/conditions', '#/new-lot/settings',
+    '#/new-lot/settings', '#/new-lot/settings', '#/new-lot/approve', '#/new-lot/approve', '#/new-lot/approve',
+  ]);
+  const conditions = page.getByRole('link', { name: 'Conditions', exact: true });
+  await conditions.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#\/new-lot\/conditions$/);
+  expect(requests.filter(request => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method))).toEqual([]);
 });
 
 test('a held lot that has a job shows the stored steps and does not say where the hold is', async ({ page }) => {
