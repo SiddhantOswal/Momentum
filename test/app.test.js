@@ -191,12 +191,16 @@ test("health remains available while operational requests are rate limited", asy
   }
 });
 
-test("root redirects to the app, and /classic serves the previous operator UI and its same-origin workflow modules", async () => {
+test("root serves the landing page, /login the sign-in page, and /classic serves the previous operator UI and its same-origin workflow modules", async () => {
   const { child } = await startServer();
   try {
     const root = await fetch(`http://127.0.0.1:${PORT}/`, { redirect: "manual" });
-    assert.equal(root.status, 302);
-    assert.equal(root.headers.get("location"), "/app/");
+    assert.equal(root.status, 200);
+    assert.match(root.headers.get("content-type"), /text\/html/);
+    assert.match(await root.text(), /href="\/login"/);
+    const signIn = await fetch(`http://127.0.0.1:${PORT}/login`);
+    assert.equal(signIn.status, 200);
+    assert.match(await signIn.text(), /Sign in with Google/);
     const response = await fetch(`http://127.0.0.1:${PORT}/classic`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);

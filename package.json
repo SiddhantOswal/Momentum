@@ -11,7 +11,8 @@
     "test:ui": "playwright test",
     "demo:local": "node tools/run-local-backup.mjs",
     "preview:local": "node tools/run-local-preview.mjs",
-    "live:local": "node tools/run-local-live.mjs"
+    "live:local": "node tools/run-local-live.mjs",
+    "build:site": "npm --prefix site ci && npm --prefix site run build"
   },
   "keywords": [
     "corrugated",
