@@ -5,7 +5,7 @@ import "./explorer/explorer.css";
 import { leverLabel, leverValue, STAGES, useCurrentPlan, useModelScores, type PlanState, type PlanView, type StageId } from "./explorer/plan";
 import { StageMap } from "./explorer/StageMap";
 
-const HISTORY_CHIPS = ["Warp", "Delamination", "Strength", "Print", "Crack"];
+const HISTORY_DEFECTS = ["Warp", "Delamination", "Strength", "Print", "Crack"];
 
 // Opens on the stage with the most changes in the plan, as the design opens on Glue.
 function busiestStage(plan: PlanView): StageId {
@@ -27,11 +27,13 @@ export function PlantExplorer() {
         <StageMap plan={view} selected={selected} onSelect={setSelected} />
         <div className="c4 pe-side">
           <StageCard plan={plan} stage={selected} />
-          <Card title="Historical evidence">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {HISTORY_CHIPS.map((name) => <span key={name} className="pe-chp">{name}</span>)}
-            </div>
-            <div style={{ marginTop: 12 }}><a className="lk" href={href("insights")}>Open Insights</a></div>
+          <Card className="pe-history" title={<label htmlFor="pe-history-defect">Historical evidence</label>} meta={
+              <select id="pe-history-defect" defaultValue="">
+                <option value="" disabled>Choose a defect</option>
+                {HISTORY_DEFECTS.map((name) => <option key={name}>{name}</option>)}
+              </select>
+          }>
+            <a className="lk" href={href("insights")}>Open Insights</a>
           </Card>
           <ModelWatch />
         </div>

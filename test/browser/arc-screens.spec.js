@@ -229,7 +229,7 @@ for (const theme of ['dark', 'light']) {
       expect(posts[1].input).toEqual({ kind: 'action', actionId: 'read_sample_order', params: { sampleId: 'PO2' } });
     });
 
-    test('Arc-Lot-Review shows the stored lines, and Confirm order needs the three checks and sends only the review and line', async ({ page }) => {
+    test('Arc-Lot-Review shows the stored lines, and Confirm order needs the combined confirmation and sends only the review and line', async ({ page }) => {
       const posts = await mockTurns(page, [
         { events: (id) => actionRun(id, { steps: [{ tool: 'read_order', resultRef: { kind: 'po_review', id: REVIEW_ID } }], waitingFor: 'confirm_order' }) },
         { events: (id) => actionRun(id, { steps: [{ tool: 'confirm_order', resultRef: { kind: 'lot', id: LOT_ID } }], waitingFor: 'confirm_conditions' }) },
@@ -250,13 +250,9 @@ for (const theme of ['dark', 'light']) {
       expect(decodeURIComponent(reviewReads[0])).toContain(`/api/arc/reviews/${REVIEW_ID}`);
 
       const confirm = panel.getByRole('button', { name: 'Confirm order' });
-      const boxes = panel.getByRole('checkbox');
-      await expect(boxes).toHaveCount(3);
+      await expect(panel.getByRole('checkbox')).toHaveCount(1);
       await expect(confirm).toBeDisabled();
-      await boxes.nth(0).check();
-      await boxes.nth(1).check();
-      await expect(confirm).toBeDisabled();
-      await boxes.nth(2).check();
+      await panel.getByRole('checkbox', { name: 'I confirm the source line, quantity, and matching catalog item.' }).check();
       await expect(confirm).toBeEnabled();
       await confirm.click();
       await expect(panel.getByRole('heading', { name: "Confirm today's conditions" })).toBeVisible();

@@ -108,6 +108,10 @@ for (const theme of ['dark', 'light']) {
     await expect(page.locator('.pe-floor')).toHaveText(/Floor conditions\s*47% humidity confirmed/);
 
     await expect(page.getByText('Modeled lots', { exact: true })).toHaveCount(0);
+    const history = page.getByRole('combobox', { name: 'Historical evidence' });
+    await expect(history.locator('option:not([disabled])')).toHaveText(['Warp', 'Delamination', 'Strength', 'Print', 'Crack']);
+    await history.selectOption('Delamination');
+    await expect(history).toHaveValue('Delamination');
     await expect(page.getByRole('link', { name: 'Open Insights' })).toHaveAttribute('href', '#/insights');
     await expect(page.getByText('0.64 on 219 test lots')).toBeVisible();
     await expect(page.getByText('Low confidence in humid months')).toBeVisible();

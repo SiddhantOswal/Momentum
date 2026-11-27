@@ -51,6 +51,8 @@ export function ThemeSwitch({ theme, toggle, style }: { theme: Theme; toggle: ()
 export function Frame({ route, theme, toggleTheme, children }: { route: Route; theme: Theme; toggleTheme: () => void; children: ReactNode }) {
   const [arcOpen, setArcOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const menuCloseRef = useRef<HTMLButtonElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const conversation = useArcConversation();
@@ -60,19 +62,28 @@ export function Frame({ route, theme, toggleTheme, children }: { route: Route; t
     launcherRef.current?.focus();
   }, []);
 
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+    menuRef.current?.focus();
+  }, []);
+
   useEffect(() => { setMenuOpen(false); }, [route.id]);
   useEffect(() => {
     if (!menuOpen) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
+    menuCloseRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") closeMenu(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [menuOpen]);
+  }, [menuOpen, closeMenu]);
 
   return (
     <div className="m">
       <a className="sr-only skip" href="#main" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to content</a>
       <aside id="side-nav" className={`side${menuOpen ? " open" : ""}`} inert={arcOpen}>
         <img className="brand" src={theme === "dark" ? logoOnDark : logoOnLight} alt="Momentum" />
+        <button ref={menuCloseRef} type="button" className="bell side-close" aria-label="Close navigation" onClick={closeMenu}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7m-7-7h12" /></svg>
+        </button>
         <nav aria-label="Main">
           {NAV.map((item) => <NavLink key={item.key} item={item} active={route.nav === item.key} />)}
           <div className="grp" id="nav-future">Future</div>
@@ -84,7 +95,7 @@ export function Frame({ route, theme, toggleTheme, children }: { route: Route; t
       </aside>
       <div className="main">
         <header className="top">
-          <button type="button" className="bell menu" aria-label="Menu" aria-expanded={menuOpen} aria-controls="side-nav" onClick={() => setMenuOpen((open) => !open)}>
+          <button ref={menuRef} type="button" className="bell menu" aria-label="Menu" aria-expanded={menuOpen} aria-controls="side-nav" onClick={() => setMenuOpen((open) => !open)}>
             <Icon name="menu" />
           </button>
           <div className="bc">Plant / <b>{route.crumb}</b></div>

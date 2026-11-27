@@ -42,9 +42,8 @@ export function ArcMark({ size }: { size: number }) {
   return (
     <svg className="mk" width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
       <rect width="32" height="32" rx="9" style={{ fill: "var(--ac)" }} />
-      <path d="M6.8 21.6A9.2 9.2 0 0 1 22.2 14.6" fill="none" stroke="var(--arc-accent-ink)" strokeWidth="2.7" strokeLinecap="round" />
-      <path d="M17.6 21.4l3 3 5.6-6.4" fill="none" stroke="var(--arc-accent-ink)" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="6.8" cy="21.6" r="2.5" fill="var(--arc-accent-ink)" />
+      <path d="M7.5 23 13 10.8a3.3 3.3 0 0 1 6 0L24.5 23M11 18.5h10"
+        fill="none" stroke="var(--arc-accent-ink)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

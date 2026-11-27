@@ -10,7 +10,6 @@ const PAPER_TYPES = [
   { value: "VIRGIN", label: "Virgin" }, { value: "RECYCLED", label: "Recycled" }, { value: "MIXED", label: "Mixed" },
 ];
 const SUPPLIERS = ["SUP-A", "SUP-B", "SUP-C", "SUP-D", "SUP-E"].map((value) => ({ value, label: value }));
-const CHECKS = ["The source line is the one you want", "The quantity matches the order", "The catalog item is the right box"] as const;
 
 const LINE_STATUS: Record<ExtractedLine["status"], string> = {
   MATCHED: "Matched", AMBIGUOUS: "Pick an item", UNKNOWN_CODE: "Not in catalog",
@@ -251,17 +250,14 @@ function ConfirmBar({ lot }: { lot: LotState }) {
   const ready = !problem && lot.checks.every(Boolean);
   return (
     <section className="cd c12 bar" style={{ display: "flex", alignItems: "center", gap: 32, padding: "14px 20px", flexWrap: "wrap" }} aria-label="Confirm the order">
-      {CHECKS.map((text, index) => (
-        <label key={text} className="ck" style={{ whiteSpace: "nowrap" }}>
-          <input type="checkbox" checked={lot.checks[index]} disabled={!!problem}
-            onChange={(event) => updateLot((current) => {
-              const checks = [...current.checks] as LotState["checks"];
-              checks[index] = event.target.checked;
-              return { checks, orderConfirmed: false };
-            })} />
-          {text}
-        </label>
-      ))}
+      <label className="ck">
+        <input type="checkbox" checked={lot.checks.every(Boolean)} disabled={!!problem}
+          onChange={(event) => {
+            const checked = event.target.checked;
+            updateLot({ checks: [checked, checked, checked], orderConfirmed: false });
+          }} />
+        I confirm the source line, quantity, and matching catalog item.
+      </label>
       <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
         {problem && lot.extraction && <span className="sx wn" style={{ whiteSpace: "normal" }}><StatusIcon kind="warn" />{problem}</span>}
         <Button disabled={!ready} onClick={() => { updateLot({ orderConfirmed: true }); location.hash = "#/new-lot/conditions"; }}>Confirm order</Button>
