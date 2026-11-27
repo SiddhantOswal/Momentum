@@ -12,7 +12,7 @@ test('dashboard static integration preserves APIs and enforces real signed-sessi
   const child=spawn(process.execPath,['index.mjs'],{cwd:new URL('..',import.meta.url),env:{PATH:process.env.PATH,PORT:String(port),USTAAD_AUTHORIZATION_MODE:'HACKATHON_DEMO',USTAAD_DEMO_SESSION_SIGNING_KEY:'a'.repeat(64),USTAAD_ENABLE_APPROVAL_AUDIT:'true',USTAAD_SYNTHETIC_ONLY:'true'},stdio:['ignore','pipe','pipe']});
   try {
     await Promise.race([once(child.stdout,'data'),once(child,'exit').then(()=>{throw new Error('Server exited');}),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Startup timed out')),6000).unref())]);
-    const root=await fetch(origin+'/',{redirect:'manual'});assert.equal(root.status,302);assert.equal(root.headers.get('location'),'/app/');
+    const root=await fetch(origin+'/',{redirect:'manual'});assert.equal(root.status,200);assert.match(root.headers.get('content-type'),/text\/html/);assert.match(await root.text(),/href="\/login"/);
     const html=await(await fetch(origin+'/classic')).text();assert.match(html,/guided-dashboard/);assert.doesNotMatch(html,/js\/mock\.js|mockbar|workspace-switch|Open standard workspace/);
     for(const path of ['/dashboard.css','/ui/dashboard.js','/ui/workflow.js','/vendor/chart.umd.js','/fonts/plex-regular.woff2'])assert.equal((await fetch(origin+path)).status,200,path);
     for(const path of ['/ui/mock.js','/js/mock.js','/dashboard/.env'])assert.equal((await fetch(origin+path)).status,404,path);

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
+import { compress } from "hono/compress";
 import { bodyLimit } from "hono/body-limit";
 import { serve } from "@hono/node-server";
 import {
@@ -57,6 +58,7 @@ import { planLot } from "./src/commands/plan-lot.js";
 import { getJob } from "./src/commands/get-job.js";
 import { getLot } from "./src/commands/get-lot.js";
 import { updateLotConditions } from "./src/commands/update-conditions.js";
+import { ADMIN_COOKIE, createAdminLogin, createAdminSession } from "./src/admin-login.js";
 import { approveJob } from "./src/commands/approve-job.js";
 import { getCard } from "./src/commands/get-card.js";
 import { createWeatherCache, readWeather } from "./src/commands/read-weather.js";
@@ -492,7 +494,25 @@ const webAppTypes = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".woff2": "font/woff2", ".woff": "font/woff",
 };
+// Email and password for the owner's admin account. Off unless its two settings are present. On Cloud Run
+// it also needs the shared signing key: without it each instance would sign its own cookies and refuse the others'.
+const adminSigningKeyOk = /^[a-f0-9]{64}$/.test(process.env.USTAAD_DEMO_SESSION_SIGNING_KEY ?? "");
+const adminRequested = Boolean(process.env.MOMENTUM_ADMIN_EMAIL || process.env.MOMENTUM_ADMIN_PASSWORD_HASH);
+const adminAllowed = !isCloudRun || adminSigningKeyOk;
+if (adminRequested && !adminAllowed) console.error(JSON.stringify({ event: "admin_login_disabled", reason: "USTAAD_DEMO_SESSION_SIGNING_KEY is required on Cloud Run" }));
+const adminLogin = createAdminLogin(adminAllowed ? { email: process.env.MOMENTUM_ADMIN_EMAIL, passwordHash: process.env.MOMENTUM_ADMIN_PASSWORD_HASH } : {});
+const adminSession = createAdminSession({ key: process.env.USTAAD_DEMO_SESSION_SIGNING_KEY });
+
+// The app is for signed-in people. The gate is on whenever a sign-in method is set up (Google
+// sessions or the admin password); with neither, the app opens as it did before.
+async function signedIn(c) {
+  if (!userSessionAuth && !adminLogin.configured) return true;
+  // With Google sessions on, only a Google session counts: an older password cookie must not stand in for one.
+  if (userSessionAuth) return (await userSessionAuth.authenticate(getCookie(c, SESSION_COOKIE))).ok;
+  return adminSession.verify(getCookie(c, ADMIN_COOKIE)) !== undefined;
+}
 const webAppShell = async (c) => {
+  if (!(await signedIn(c))) return c.redirect("/login", 302);
   try {
     return c.body(await readFile(new URL("index.html", webAppRoot)), 200, { "Content-Type": webAppTypes[".html"], "Cache-Control": "no-store" });
   } catch {
@@ -505,6 +525,7 @@ app.get("/app/*", async (c) => {
   let relative = "";
   try { relative = decodeURIComponent(c.req.path.slice("/app/".length)); } catch { return c.notFound(); }
   const extension = relative.slice(relative.lastIndexOf(".")).toLowerCase();
+  if (relative === "index.html") return webAppShell(c);
   if (!/^[\w./-]+$/.test(relative) || relative.split("/").some((part) => part === ".." || part === "." || part === "") || !webAppTypes[extension]) {
     return webAppShell(c);
   }
@@ -630,8 +651,18 @@ for (const path of ["/dashboard", "/dashboard/", "/dasboard", "/dasboard/"]) {
 app.get("/dashboard.css", async (c) => c.body(await readFile(new URL("./public/dashboard.css", import.meta.url)), 200, {
   "Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-store",
 }));
-// 302, not 301: browsers cache a permanent redirect, and the root may change again.
-app.get("/", (c) => c.redirect("/app/", 302));
+// The landing page and sign-in page (built from site/ into public/site). If the build is missing,
+// the root keeps sending people to the app. 302, not 301: browsers cache a permanent redirect.
+const sitePage = (file, fallback) => async (c) => {
+  try {
+    return c.body(await readFile(new URL(`./public/site/${file}`, import.meta.url)), 200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=60" });
+  } catch {
+    return fallback(c);
+  }
+};
+app.get("/", compress(), sitePage("index.html", (c) => c.redirect("/app/", 302)));
+// No fallback for /login: a missing build is caught by test/site-build.test.js before it can ship.
+app.get("/login", compress(), sitePage("login.html", (c) => c.notFound()));
 // The previous interface, unlinked, until it is retired (ARC-M6-22).
 app.get("/classic", (c) => c.html(homePage));
 
@@ -694,6 +725,7 @@ app.post("/api/auth/pitch-claim", async (c) => {
 });
 
 app.post("/api/auth/demo-session", async (c) => {
+  if (!(await signedIn(c))) return c.json({ ok: false, error: { code: "SIGN_IN_REQUIRED", message: "Sign in to continue." } }, 401);
   if (!hackathonAuth.configured) return c.json({ ok: false, error: { code: "DEMO_AUTHORIZATION_NOT_CONFIGURED", message: "Sign-in is not set up on this deployment." } }, 503);
   if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
   const existing = getCookie(c, "__Host-ustaad-demo");
@@ -723,7 +755,31 @@ app.post("/api/auth/session", async (c) => {
 app.post("/api/auth/logout", (c) => {
   if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
   setCookie(c, SESSION_COOKIE, "", { secure: true, httpOnly: true, sameSite: "Lax", path: "/", maxAge: 0 });
+  setCookie(c, ADMIN_COOKIE, "", { secure: true, httpOnly: true, sameSite: "Lax", path: "/", maxAge: 0 });
+  setCookie(c, "__Host-ustaad-demo", "", { secure: true, httpOnly: true, sameSite: "Strict", path: "/", maxAge: 0 });
   return c.json({ ok: true }, 200, { "Cache-Control": "no-store" });
+});
+app.post("/api/auth/admin-login", async (c) => {
+  if (!adminLogin.configured) return c.json({ ok: false, error: { code: "ADMIN_LOGIN_NOT_ENABLED", message: "Email sign-in is not switched on for this server." } }, 404);
+  if (!sameOrigin(c)) return c.json({ ok: false, error: { code: "ORIGIN_REQUIRED", message: "A same-origin request is required." } }, 403);
+  // Google sessions carry a verified Google identity; a password session cannot stand in for one.
+  if (userSessionAuth) return c.json({ ok: false, error: { code: "ADMIN_LOGIN_NOT_AVAILABLE", message: "Email sign-in is not available while Google sign-in is on. Use Google." } }, 409);
+  const body = await c.req.json().catch(() => ({}));
+  const result = await adminLogin.verify({ email: body?.email, password: body?.password, clientKey: clientIpKey(c) ?? resolveClientKey(c) });
+  if (!result.ok) return c.json({ ok: false, error: result.error }, result.status, { "Cache-Control": "no-store" });
+  setCookie(c, ADMIN_COOKIE, adminSession.issue(result.email), { secure: true, httpOnly: true, sameSite: "Lax", path: "/", maxAge: adminSession.maxAge });
+  if (hackathonAuth.configured) {
+    const audience = sessionAudience(c.req.url);
+    const existing = getCookie(c, "__Host-ustaad-demo");
+    let token = existing;
+    if (!hackathonAuth.authenticate(existing, audience).ok) {
+      const refused = await refuseNewSession(c);
+      if (refused) return refused;
+      token = hackathonAuth.issue(audience);
+    }
+    setCookie(c, "__Host-ustaad-demo", token, { secure: true, httpOnly: true, sameSite: "Strict", path: "/" });
+  }
+  return c.json({ ok: true, user: { email: result.email, role: "admin" } }, 200, { "Cache-Control": "no-store" });
 });
 app.get("/api/auth/me", async (c) => {
   if (!userSessionAuth) return c.json({ ok: false, error: { code: "NOT_FOUND", message: "Google sign-in is not enabled here." } }, 404);
