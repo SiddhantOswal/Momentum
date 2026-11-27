@@ -36,8 +36,8 @@ These protect the project's credibility with the judges, and they override every
 
 - **No claim without evidence.** Every number shown to users or judges must trace to a source: a query, a test run, a stored record or a cited document.
 - **Keep provenance labels distinct.** Modeled is not measured, sample is not live, a model estimate is not a saving, a demo-session approval is not a named supervisor, and a passing software test is not plant validation.
-- **Data that does not exist must not appear.** No sensor feed exists today, so moisture, humidity and temperature come from the dataset or from operator entry. Arc says so with a short note on screen.
-- **New data needs a documented basis.** Any new data must come from a documented, reproducible generator or source (section 6) and carry a synthetic or source label in the data and in the UI.
+- **Data that does not exist must not appear.** No sensor feed exists today, so moisture, humidity and temperature come from the dataset or from operator entry. The UI must never present them as sensor readings, though it no longer carries a note saying so (section 4).
+- **New data needs a documented basis.** Any new data must come from a documented, reproducible generator or source (section 6) and carry a synthetic or source label in the data (not shown in the UI, section 4).
 - **Never mark something done that is not done.** If a test was not run, say NOT RUN. If something is blocked, say BLOCKED and why. Never invent test results, screenshots, metrics or approvals.
 - **Do not guess at something you can check.** Before changing an endpoint, schema, query, quota or deployment, read the code and inspect the live configuration.
 
@@ -74,8 +74,8 @@ Reviewers must be independent of the work they review. A reviewer never grades t
 
 - The real 117-item catalog and the existing BigQuery tables are the foundation. Do not alter or delete existing data. Add new tables or views alongside it.
 - Historical lots are modeled. New supporting data must match the shapes, units, ranges and distributions of what already exists. Document the generator, its seed, its assumptions and who signed off the domain assumptions (Om for plant realism).
-- Ambient conditions may come from real public weather records for the plant's location if Om confirms the location. Label them "public weather record, not a plant sensor".
-- A simulated sensor stream may reuse the existing Pub/Sub to BigQuery route, but it must be labelled simulated everywhere it appears.
+- Ambient conditions may come from real public weather records for the plant's location if Om confirms the location. Mark them "public weather record, not a plant sensor" in the data and the docs; the UI shows no tag (section 4).
+- A simulated sensor stream may reuse the existing Pub/Sub to BigQuery route, but it must be marked simulated in the data, the API and the docs, and never described as a plant sensor on screen.
 
 ## 7. Safety and change control
 
