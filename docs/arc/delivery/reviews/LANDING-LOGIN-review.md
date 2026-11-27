@@ -19,11 +19,11 @@ New `site/` source and built `public/site/` pages, `src/admin-login.js`, routes 
 
 ## Open conditions
 
-- `site/src/model/m01.glb`: origin undocumented. Founders to confirm it is theirs or licensed before the repository goes public.
+- `site/src/model/m01.glb`: founder confirmed on 2026-11-28 that they made it and own it. Closed.
 - Landing copy about the Insights and Maintenance pages not checked against the live app screens.
 - Link URLs (video, blog, team profiles) and Firebase keys are empty; the Google sign-in path is untested.
 - The gate is active only when a sign-in method is configured.
-- The admin password works only while Google sessions are off.
+- The admin password works only while Google sessions are off. It is removed once Firebase sign-in is set up end to end, before deploy.
 - The failed-attempt limiter is per instance. No content security policy on the new pages.
 - Click smoothness on a real GPU is not measured.
 

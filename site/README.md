@@ -30,4 +30,4 @@ values render as plain text.
 
 ## Model file
 
-`src/model/m01.glb` is the 3D model on the landing page. Its origin is not documented yet; the founders need to confirm it is their own or licensed before the repository goes public.
+`src/model/m01.glb` is the 3D model on the landing page. It was made by the Momentum founders, who own it.
