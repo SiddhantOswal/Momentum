@@ -1,12 +1,9 @@
 import { useRef, useState, type KeyboardEvent } from "react";
-import { Card, Chip, Icon, IdleMark, PageHeader } from "../components/m";
+import { Card, Icon, IdleMark, PageHeader } from "../components/m";
 import {
-  CAPABILITIES, CHAIN, DAYS, INTERFACES, LADDER, LINES, PREFLIGHT_CAVEAT, PREFLIGHT_LABELS, PREFLIGHT_STEPS,
-  SCHEDULE_NEEDS, STAGES, VALIDATION, VALIDATION_LABEL, WORN, WORN_LABEL, type Label,
+  CAPABILITIES, CHAIN, DAYS, INTERFACES, LADDER, LINES, PREFLIGHT_CAVEAT, PREFLIGHT_STEPS, SCHEDULE_NEEDS, STAGES, VALIDATION, WORN,
 } from "./planning/roadmap";
 import "./planning/planning.css";
-
-const LabelChip = ({ label }: { label: Label }) => <Chip tone={label.tone}>{label.text}</Chip>;
 
 function SectionHead({ title, note }: { title: string; note: string }) {
   return <div className="sh"><h2>{title}</h2><p>{note}</p></div>;
@@ -60,7 +57,7 @@ function CapabilityExplorer() {
             <button key={item.name} ref={(node) => { buttons.current[index] = node; }} type="button"
               className={`rl${index === picked ? " on" : ""}`} aria-pressed={index === picked} aria-controls="capability-detail"
               data-roadmap-item={item.name} onClick={() => setPicked(index)}>
-              <b>{item.name}</b><span>{item.rail.text}</span>
+              <b>{item.name}</b>
             </button>
           ))}
         </div>
@@ -68,7 +65,6 @@ function CapabilityExplorer() {
           <div className="dp" data-roadmap-item={capability.name}>
             <div className="top2">
               <div><h3>{capability.name}</h3><p className="hl">{capability.headline}</p></div>
-              <div className="chs">{capability.labels.map((label) => <LabelChip key={label.text} label={label} />)}</div>
             </div>
             <dl style={{ margin: 0 }}>
               {capability.rows.map(([term, text]) => <div key={term} className="dr2"><dt>{term}</dt><dd>{text}</dd></div>)}
@@ -93,7 +89,7 @@ function CapabilityExplorer() {
 export function Planning() {
   return (
     <div className="pl-page">
-      <PageHeader title="Planning" sub="The next phase of Momentum: what comes after preparation." actions={<Chip tone="example">Roadmap</Chip>} />
+      <PageHeader title="Planning" sub="The next phase of Momentum: what comes after preparation." />
       <div className="g">
         <Card span={12} title="Four stages" meta="Each stage needs the one before it. No dates.">
           <ol className="ev">
@@ -102,7 +98,6 @@ export function Planning() {
                 <small>{stage.when}</small>
                 <h3>{stage.title}</h3>
                 <p>{stage.text}</p>
-                <LabelChip label={stage.label} />
                 <div className="nf"><span>Needs first</span><b>{stage.needs}</b></div>
               </li>
             ))}
@@ -112,14 +107,13 @@ export function Planning() {
         <section className="cd c12" aria-labelledby="preflight-title" data-roadmap-item="Production Preflight scenario">
           <div className="fs">
             <div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{PREFLIGHT_LABELS.map((label) => <LabelChip key={label.text} label={label} />)}</div>
               <h2 id="preflight-title">Challenge the plan before production does.</h2>
               <p className="lead">Find where a plan breaks, before anyone signs it.</p>
               <ol className="sqs">{PREFLIGHT_STEPS.map((step, index) => <li key={step} className="sq"><b aria-hidden="true">{index + 1}</b>{step}</li>)}</ol>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
               <div className="sch">
-                <div className="ct"><h3 className="t">What Preflight looks for</h3><span className="mt">Illustration. Not real results.</span></div>
+                <div className="ct"><h3 className="t">What Preflight looks for</h3></div>
                 <PreflightSketch />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -139,7 +133,6 @@ export function Planning() {
             <div className="hd">
               <div className="gx"><svg viewBox="0 0 24 24" aria-hidden="true"><path d={item.icon} /></svg></div>
               <h3 id={`nx-${item.name}`}>{item.name}</h3>
-              <LabelChip label={item.label} />
             </div>
             <p className="lead">{item.lead}</p>
             <dl>
@@ -156,13 +149,12 @@ export function Planning() {
               <li key={rung.name} className={`lr${rung.today ? " td" : ""}${rung.out ? " out" : ""}`} {...(rung.today ? {} : { "data-roadmap-item": rung.name })}>
                 <div className="no" aria-hidden="true">{rung.n}</div>
                 <div><b>{rung.name}</b><span className="s">{rung.text}</span></div>
-                <LabelChip label={rung.label} />
               </li>
             ))}
           </ol>
         </Card>
         <section className="cd c5" aria-labelledby="worn-title" data-roadmap-item="Worn and camera capture">
-          <div className="ct"><h2 className="t" id="worn-title">Worn and camera capture</h2><LabelChip label={WORN_LABEL} /></div>
+          <div className="ct"><h2 className="t" id="worn-title">Worn and camera capture</h2></div>
           <ul className="hzs">
             {WORN.map((item) => <li key={item.name} className="hz"><div><b>{item.name}</b><span className="s">{item.text}</span></div></li>)}
             <li className="hz" style={{ minHeight: 52 }}><span className="sx wn wrap"><Icon name="warn" />Consent, privacy and safety come first.</span></li>
@@ -171,7 +163,7 @@ export function Planning() {
 
         <SectionHead title="Validation" note="The plant is a real corrugation line. Testing has not started." />
         <section className="cd c12" aria-labelledby="validation-title" data-roadmap-item="Real plant validation">
-          <div className="ct"><h2 className="t" id="validation-title">Real plant validation</h2><LabelChip label={VALIDATION_LABEL} /></div>
+          <div className="ct"><h2 className="t" id="validation-title">Real plant validation</h2></div>
           <ol className="vs">
             {VALIDATION.map((step, index) => <li key={step.name}><div className="no" aria-hidden="true">{index + 1}</div><b>{step.name}</b><span>{step.text}</span></li>)}
           </ol>
@@ -180,7 +172,7 @@ export function Planning() {
 
         <SectionHead title="Production scheduling" note="Scheduling comes later. This screen is a concept." />
         <section className="cd c8" aria-labelledby="week-title">
-          <div className="ct"><h2 className="t" id="week-title">Week view</h2><span className="mt" style={{ whiteSpace: "normal" }}>Example lot. Nothing here is from your plant.</span></div>
+          <div className="ct"><h2 className="t" id="week-title">Week view</h2></div>
           <div className="wkw"><div className="wk" role="presentation">
             <div className="wk0" />
             {DAYS.map((day) => <div key={day} className="th wd">{day}</div>)}
@@ -190,7 +182,7 @@ export function Planning() {
                 {DAYS.map((day, column) => (
                   <div key={day} className="wc">
                     <span className="wdn" aria-hidden="true">{day}</span>
-                    {row === 0 && column === 1 && <div className="wx"><div>PKBX0041</div><div className="lb" style={{ fontSize: 13, lineHeight: 1.3 }}>Example</div></div>}
+                    {row === 0 && column === 1 && <div className="wx"><div>PKBX0041</div></div>}
                   </div>
                 ))}
               </div>

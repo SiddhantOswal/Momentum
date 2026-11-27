@@ -86,7 +86,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByText('SKU-TEST-9, stage 3 of 5, glue')).toBeVisible();
     const panel = page.getByRole('tabpanel');
     await expect(panel.getByRole('heading', { name: 'Glue, stage 3' })).toBeVisible();
-    await expect(panel.getByText('Model estimate')).toBeVisible();
+    await expect(panel.getByText('Model estimate')).toHaveCount(0);
     await expect(panel.locator('.pe-row')).toHaveText([/Gum application\s*was HIGH\s*MEDIUM/, /Gum viscosity\s*was 33 s\s*44 s/, /Pasting pressure\s*No change\s*MEDIUM/]);
 
     const callouts = page.locator('.pe-call');
@@ -94,7 +94,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.locator('.pe-call.sel')).toHaveCount(2);
     await expect(page.locator('.pe-floor')).toHaveText(/Floor conditions\s*47% humidity confirmed/);
 
-    await expect(page.getByText('Modeled lots', { exact: true })).toBeVisible();
+    await expect(page.getByText('Modeled lots', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Open Insights' })).toHaveAttribute('href', '#/insights');
     await expect(page.getByText('0.64 on 219 test lots')).toBeVisible();
     await expect(page.getByText('Low confidence in humid months')).toBeVisible();
@@ -113,12 +113,13 @@ for (const theme of ['dark', 'light']) {
     await open(page, '#/photo', theme);
 
     await expect(page.getByRole('heading', { level: 1, name: 'Photo diagnosis' })).toBeVisible();
-    await expect(page.getByText('Reads the file once')).toBeVisible();
+    await expect(page.getByText('Reads the file once')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Approved photo 1 of 10' })).toBeVisible();
     const thumbs = page.getByRole('group', { name: 'Approved photos' }).getByRole('button');
     await expect(thumbs).toHaveCount(10);
     await expect(thumbs.first()).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByText('Example image, not the approved photo')).toBeVisible();
+    await expect(page.getByRole('img', { name: /^Example side view of a corrugated board cross-section, not the selected approved photo$/ })).toBeVisible();
+    await expect(page.getByText('Example image, not the approved photo')).toHaveCount(0);
 
     const diagnosis = page.locator('section', { has: page.getByRole('heading', { name: 'Diagnosis' }) });
     await expect(diagnosis.getByText('Not run yet')).toBeVisible();
@@ -129,7 +130,8 @@ for (const theme of ['dark', 'light']) {
     // No stored accuracy run exists, so the trust card names the gap instead of the design's count.
     const trust = page.locator('.kr');
     await expect(trust.getByRole('heading', { name: 'How far to trust this' })).toBeVisible();
-    await expect(trust.getByText('Not connected', { exact: true })).toBeVisible();
+    await expect(trust.getByText(/approved photos is not connected yet, so no match count is shown\./)).toBeVisible();
+    await expect(trust.getByText('Not connected', { exact: true })).toHaveCount(0);
     await expect(trust).not.toContainText('7 of 10');
     await expect(trust).toHaveCSS('background-color', 'rgb(215, 195, 154)');
     await expect(page.locator('.m')).toHaveCSS('background-color', theme === 'dark' ? 'rgb(18, 21, 25)' : 'rgb(238, 240, 242)');
@@ -144,7 +146,7 @@ test('the compare control shows not connected and sends nothing', async ({ page 
   await expect(compare).toBeVisible();
   await expect(compare).toBeDisabled();
   await expect(compare).toHaveAccessibleDescription('A comparison only. Changes go through New Lot. Comparing two estimates for one lot is not built yet.');
-  await expect(page.getByRole('tabpanel').getByText('Not connected', { exact: true })).toBeVisible();
+  await expect(page.getByRole('tabpanel').getByText('Not connected', { exact: true })).toHaveCount(0);
 
   const before = calls.length;
   await compare.click({ force: true });
@@ -168,7 +170,7 @@ test('stage tabs follow the keyboard and the stage card follows the tab', async 
   await page.keyboard.press('Home');
   await expect(page.getByRole('tab', { name: /Unwind/ })).toBeFocused();
   await expect(page.getByRole('tabpanel')).toContainText('The plan has no setting at this stage.');
-  await expect(page.getByRole('tabpanel').getByText('Model estimate')).toBeVisible();
+  await expect(page.getByRole('tabpanel').getByText('Model estimate')).toHaveCount(0);
 });
 
 test('without a lot in this session, the newest floor lot is shown from its changes only', async ({ page }) => {
@@ -194,7 +196,6 @@ test('Plant Explorer says so when no lot is planned', async ({ page }) => {
   });
   await open(page, '#/explorer');
   await expect(page.getByRole('tabpanel')).toContainText('No lot is planned yet, so there are no settings to show.');
-  await expect(page.getByRole('tabpanel').getByText('Model estimate')).toHaveCount(0);
   await expect(page.locator('.pe-call')).toHaveCount(0);
   await expect(page.locator('.pe-floor')).toHaveCount(0);
   expect(calls.filter(call => call.startsWith('GET /jobs/'))).toEqual([]);
@@ -213,7 +214,7 @@ test('Model watch never prints a missing sample count', async ({ page }) => {
   await expect(page.locator('main')).not.toContainText('null');
 });
 
-test('an approved photo result carries the approved label and Gemini chip from the response', async ({ page }) => {
+test('an approved photo result shows the label from the response and no source chips', async ({ page }) => {
   const posts = [];
   const calls = await mockBackend(page, {
     '/evidence/classify-photo': route => { posts.push(route.request().postDataJSON()); return route.fulfill(json(200, { ok: true, source: 'vertex-gemini', isRealModelPrediction: true, photoId: 'photo-03', label: 'STRENGTH', model: 'gemini' })); },
@@ -226,21 +227,22 @@ test('an approved photo result carries the approved label and Gemini chip from t
   const diagnosis = page.locator('section', { has: page.getByRole('heading', { name: 'Diagnosis' }) });
   await expect(diagnosis.getByText('Done')).toBeVisible();
   await expect(diagnosis.locator('.pd-field').first()).toHaveText(/Likely defect\s*Box strength/);
-  await expect(diagnosis.locator('.pd-chips .pv')).toHaveText(['Approved reference photo', 'Generated by Gemini']);
+  await expect(diagnosis.locator('.pd-chips')).toHaveCount(0);
+  await expect(diagnosis).not.toContainText(/Approved reference photo|Generated by Gemini/);
   await expect(diagnosis.getByText('Uploaded photo', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Run diagnosis' })).toBeDisabled();
   expect(posts).toEqual([{ photoId: 'photo-03' }]);
   expect(calls.filter(call => call === 'POST /evidence/diagnose-photo')).toEqual([]);
 });
 
-test('no Gemini chip when the response did not come from Gemini', async ({ page }) => {
+test('a result that did not come from Gemini shows no Gemini chip', async ({ page }) => {
   await mockBackend(page, {
     '/evidence/classify-photo': json(200, { ok: true, source: 'mock-demo', isRealModelPrediction: false, photoId: 'photo-01', label: 'CRACK' }),
   });
   await open(page, '#/photo');
   await page.getByRole('button', { name: 'Run diagnosis' }).click();
   const diagnosis = page.locator('section', { has: page.getByRole('heading', { name: 'Diagnosis' }) });
-  await expect(diagnosis.locator('.pd-chips .pv')).toHaveText(['Approved reference photo']);
+  await expect(diagnosis.locator('.pd-field').first()).toHaveText(/Crease cracking/);
   await expect(page.getByText('Generated by Gemini')).toHaveCount(0);
 });
 
@@ -263,7 +265,7 @@ test('an uploaded photo is labelled as uploaded, never as an approved reference'
   await page.getByRole('button', { name: 'Run diagnosis' }).click();
   const diagnosis = page.locator('section', { has: page.getByRole('heading', { name: 'Diagnosis' }) });
   await expect(diagnosis.locator('.pd-field')).toHaveText([/Warp, medium severity/, /Sheet edge lifts at one corner/, /Search past lots with this defect below\./]);
-  await expect(diagnosis.locator('.pd-chips .pv')).toHaveText(['Uploaded photo', 'Generated by Gemini']);
+  await expect(diagnosis.locator('.pd-chips')).toHaveCount(0);
   await expect(diagnosis.getByText('Approved reference photo', { exact: true })).toHaveCount(0);
   await expect(diagnosis.getByText('Your photo, not an approved reference photo.', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Run diagnosis' })).toBeDisabled();
@@ -329,7 +331,6 @@ test('a late approved-photo result stays with its photo', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Approved photo 1', exact: true }).click();
   await expect(diagnosis.locator('.pd-field').first()).toHaveText(/Crease cracking/);
-  await expect(diagnosis.locator('.pd-chips .pv')).toHaveText(['Approved reference photo', 'Generated by Gemini']);
 });
 
 test('a late upload result never shows under an approved photo', async ({ page }) => {
@@ -363,11 +364,10 @@ test('seen before lists past lots and shows the zero-result state', async ({ pag
   await page.getByRole('button', { name: 'Run diagnosis' }).click();
 
   const card = page.locator('section', { has: page.getByRole('heading', { name: 'Seen before' }) });
-  await expect(card.getByText('Modeled records')).toBeVisible();
+  await expect(card.getByText('Modeled records')).toHaveCount(0);
   await expect(card.getByLabel('Defect')).toHaveValue('CRACK');
   await expect(card.getByLabel('Humidity, %')).toHaveValue('52');
-  await expect(card.getByText('Weather record')).toBeVisible();
-  await expect(card.getByText(/Public weather record, not a plant sensor\. Pune, read at/)).toBeVisible();
+  await expect(card).not.toContainText(/Weather record|Public weather record/i);
   await expect(card.getByText('No search yet')).toBeVisible();
 
   await card.getByRole('button', { name: 'Search history' }).click();
@@ -381,7 +381,7 @@ test('seen before lists past lots and shows the zero-result state', async ({ pag
 
   reply = { ...reply, caseCount: 0, avgRateWhenMain: 0, costWhenMain: 0 };
   await card.getByLabel('Humidity, %').fill('91');
-  await expect(card.getByText('Entered by operator')).toBeVisible();
+  await expect(card.getByText('Entered by operator')).toHaveCount(0);
   await card.getByRole('button', { name: 'Search history' }).click();
   await expect(card.getByText('No past lots found')).toBeVisible();
   await expect(card).toContainText('No modeled lot near 91% humidity had crease cracking as its main defect.');
@@ -436,7 +436,7 @@ test('#/photo fits a phone screen with a diagnosis and a history result on it', 
 
   await page.locator('input[type=file]').setInputFiles({ name: 'sheet.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]) });
   await page.getByRole('button', { name: 'Run diagnosis' }).click();
-  await expect(page.locator('.pd-chips .pv')).toHaveText(['Uploaded photo', 'Generated by Gemini']);
+  await expect(page.locator('.pd-field').first()).toHaveText(/Delamination/);
   await page.getByRole('button', { name: 'Search history' }).click();
   await expect(page.locator('.pd-stats')).toContainText('₹12,34,567');
   expect(await sidewaysOverflow(page)).toEqual([]);

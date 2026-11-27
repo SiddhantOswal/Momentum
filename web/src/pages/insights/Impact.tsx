@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-import { Card, NotConnected, ProvenanceChip } from "../../components/m";
+import { Card, NotConnected } from "../../components/m";
 import { formatMoney, formatNumber, type ImpactSummary, type Result } from "../../lib/api";
 import type { LiveLot } from "../../lib/live";
 import { leverChange, leverLabel } from "../home/data";
@@ -13,13 +12,12 @@ const monthName = (month: string | undefined) => {
     : undefined;
 };
 
-function Kpi({ label, value, unit, sub, chip, good }: { label: string; value: string; unit?: string; sub: string; chip: ReactNode; good?: boolean }) {
+function Kpi({ label, value, unit, sub, good }: { label: string; value: string; unit?: string; sub: string; good?: boolean }) {
   return (
     <section className="cd c3 in-kpi" aria-label={label}>
       <h2 className="th" style={{ margin: 0 }}>{label}</h2>
       <div className="n" style={good ? { color: "var(--ok)" } : undefined}>{value}{unit && <small>{unit}</small>}</div>
       <div className="lb">{sub}</div>
-      {chip}
     </section>
   );
 }
@@ -34,13 +32,12 @@ export function ImpactTiles({ impact }: { impact?: Result<ImpactResponse> }) {
     return <NotConnected span={12} title="Impact" missing="The impact summary could not be read, so no saving or scrap figure is shown." />;
   }
   const { kpis } = impact.data;
-  const estimate = <ProvenanceChip kind="model-estimate" />;
   return (
     <>
-      <Kpi label="Lots scored" value={formatNumber(kpis.lotsScored)} unit="lots" sub={`${formatNumber(kpis.lotsChanged)} with changed settings`} chip={<ProvenanceChip kind="modeled-records" />} />
-      <Kpi label="Modeled scrap" value={formatNumber(kpis.scrapPctAfter, 2)} unit="%" sub={`Down from ${formatNumber(kpis.scrapPctBefore, 2)}%`} chip={estimate} good />
-      <Kpi label="Modeled saving" value={formatMoney(kpis.netSavingMonth, kpis.currency)} sub="In one held-out month. Not a measured saving." chip={estimate} good />
-      <Kpi label="Board saved" value={formatNumber(kpis.kgSavedMonth)} unit="kg" sub="In one held-out month" chip={estimate} />
+      <Kpi label="Lots scored" value={formatNumber(kpis.lotsScored)} unit="lots" sub={`${formatNumber(kpis.lotsChanged)} with changed settings`} />
+      <Kpi label="Modeled scrap" value={formatNumber(kpis.scrapPctAfter, 2)} unit="%" sub={`Down from ${formatNumber(kpis.scrapPctBefore, 2)}%`} good />
+      <Kpi label="Modeled saving" value={formatMoney(kpis.netSavingMonth, kpis.currency)} sub="In one held-out month. Not a measured saving." good />
+      <Kpi label="Board saved" value={formatNumber(kpis.kgSavedMonth)} unit="kg" sub="In one held-out month" />
     </>
   );
 }

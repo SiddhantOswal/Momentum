@@ -107,6 +107,10 @@ for (const theme of ['dark', 'light']) {
       await expect(page.getByText('Trust the models? Crack is low confidence.')).toBeVisible();
       await expect(page.locator('li[data-step="5"]')).toContainText('Up to 3 changes allowed');
       await expect(page.locator('main')).not.toContainText(/8,640|\+0\.078|Only Print passes|synthetic/i);
+      const selected = page.getByRole('region', { name: 'Selected: Review plan' });
+      await expect(selected).toContainText('Recommended settings beside your plan.');
+      await expect(selected).not.toContainText('Needs you');
+      await expect(page.locator('main')).not.toContainText('Software steps, not a factory network.');
     });
 
     test('Held at the catalog match renders only for a held lot with no job, with the toast', async ({ page }) => {
@@ -173,6 +177,9 @@ for (const [status, nowAt] of [['SUPERSEDED', 'Replaced, read only'], ['FAILED',
     await open(page, `/app/?job=${JOB_ID}#/prep-flow`);
     expect(await stepStates(page)).toEqual(['done', 'done', 'done', 'done', 'done', 'done', 'nc', 'nc', 'nc']);
     await expect(page.getByLabel('Lot status')).toContainText(nowAt);
+    const detail = page.getByRole('region', { name: 'Why it is read only' });
+    await expect(detail).toContainText(status === 'SUPERSEDED' ? 'A replaced revision cannot be approved.' : 'This revision did not finish.');
+    await expect(detail.locator('.ct')).toHaveText('Why it is read only');
     await expect(page.locator('main')).not.toContainText(/Needs a person|Needs you|Approve, then store PDF|Waiting on you/);
     await expect(page.getByRole('link', { name: 'Open this step in New Lot' })).toHaveCount(0);
   });
@@ -228,20 +235,22 @@ test('the flow drawing reflows at phone width without horizontal scroll', async 
   await noHorizontalScroll(page);
 });
 
-const ROADMAP_LABELS = ['Planned', 'Research direction', 'Conceptual scenario', 'Requires hardware', 'Requires validated data', 'Future integration', 'Not in scope', 'Planned, not done'];
+const ROADMAP_LABELS = ['Available now', 'Planned', 'Research direction', 'Conceptual scenario', 'Requires hardware', 'Requires validated data', 'Future integration', 'Not in scope', 'Planned, not done'];
 
 for (const theme of ['dark', 'light']) {
-  test(`Planning renders in the ${theme} theme and every roadmap item carries a roadmap label`, async ({ page }) => {
+  test(`Planning renders in the ${theme} theme and no roadmap item carries a label tag`, async ({ page }) => {
     await mockBackend(page);
     await open(page, '/app/#/planning', { theme });
     await expect(page.getByRole('heading', { name: 'Planning', level: 1 })).toBeVisible();
-    await expect(page.locator('.ph .pv')).toHaveText('Roadmap');
+    await expect(page.locator('.ph')).not.toContainText('Roadmap');
+    await expect(page.locator('main .pv')).toHaveCount(0);
     const items = page.locator('[data-roadmap-item]');
     expect(await items.count()).toBeGreaterThanOrEqual(20);
     const texts = await items.evaluateAll((nodes) => nodes.map((node) => ({ name: node.getAttribute('data-roadmap-item'), text: node.textContent })));
     for (const { name, text } of texts) {
-      expect(ROADMAP_LABELS.some((label) => text.includes(label)), `${name} has a roadmap label`).toBe(true);
+      expect(ROADMAP_LABELS.filter((label) => text.includes(label)), `${name} has no roadmap label`).toEqual([]);
     }
+    await expect(page.locator('main')).not.toContainText(/Illustration\. Not real results\.|Example lot\. Nothing here is from your plant\./);
     await expect(page.getByText('Scheduling comes later. This screen is a concept.')).toBeVisible();
     await expect(page.locator('main')).not.toContainText(/8,640|Four of five|holdout bar|1,300|synthetic/i);
   });
@@ -300,7 +309,9 @@ for (const theme of ['dark', 'light']) {
     const card = page.getByRole('region', { name: 'Approved job card' });
     await expect(card.getByRole('heading', { name: 'PKBX0041, Rev 1' })).toBeVisible();
     await expect(card).toContainText('Approved, latest revision');
-    await expect(card).toContainText('Modelled on our plant');
+    await expect(card).not.toContainText('Modelled on our plant');
+    await expect(card.locator('li', { hasText: 'Roll temperature' })).toContainText('Changed');
+    await expect(card.locator('li', { hasText: 'Roll temperature' }).locator('.sr-only')).toHaveText('Changed');
     await expect(card).toContainText('Set roll temperature to 170 °C at the single facer.');
     await expect(card).toContainText('was 32 s');
     await expect(card).toContainText('MEDIUM');
@@ -324,7 +335,7 @@ test('the receipt and mismatch buttons send nothing', async ({ page }) => {
   const receiptNote = card.getByText('Receipts are not recorded yet. This button sends nothing.');
   await expect(receiptNote).toBeVisible();
   await expect(receipt).toHaveAttribute('aria-disabled', 'true');
-  await expect(receipt).toHaveAccessibleDescription(/Not connected.*sends nothing/);
+  await expect(receipt).toHaveAccessibleDescription('Receipts are not recorded yet. This button sends nothing.');
   expect(Number(await receipt.evaluate((node) => getComputedStyle(node).opacity))).toBeLessThan(1);
   await receipt.click({ force: true });
 
@@ -369,7 +380,7 @@ test('the operator page says what is missing when no card is approved', async ({
   await open(page, '/app/#/operator', { width: 375, height: 812 });
   const card = page.getByRole('region', { name: 'Approved job card' });
   await expect(card).toContainText('No card has been approved yet.');
-  await expect(card).toContainText('Not connected');
+  await expect(card).not.toContainText('Not connected');
   await expect(card.getByRole('button')).toHaveCount(0);
 });
 
@@ -377,7 +388,8 @@ test('a draft card is not offered to the operator as approved', async ({ page })
   await mockBackend(page, operatorRoutes('DRAFT'));
   await open(page, `/app/?job=${JOB_ID}#/operator`, { width: 375, height: 812 });
   const card = page.getByRole('region', { name: 'Approved job card' });
-  await expect(card).toContainText('Draft, not approved');
+  await expect(card).toContainText('This card has not been approved. Do not run it.');
+  await expect(card).not.toContainText('Draft, not approved');
   await expect(card).not.toContainText('Approved, latest revision');
   await expect(card.getByRole('button', { name: 'I received this card' })).toHaveCount(0);
 });

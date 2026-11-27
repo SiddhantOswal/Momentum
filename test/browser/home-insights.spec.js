@@ -168,7 +168,8 @@ for (const theme of ['dark', 'light']) {
     await expect(saving).toContainText('In one held-out month. Not a measured saving.');
     await expect(saving).not.toContainText('a month');
     await expect(page.getByRole('region', { name: 'Board saved' })).toContainText('87kg');
-    await expect(main.getByText('Model estimate', { exact: true })).toHaveCount(3);
+    await expect(main.getByText('Model estimate', { exact: true })).toHaveCount(0);
+    await expect(main.getByText('Modeled records', { exact: true })).toHaveCount(0);
 
     const compare = page.getByRole('region', { name: 'Held-out month, September 2026' });
     for (const value of ['5.55%', '4.44%', '₹50,000', '₹45,679']) await expect(compare).toContainText(value);
@@ -190,7 +191,10 @@ for (const theme of ['dark', 'light']) {
     for (const title of ['Software checks', 'Photo diagnosis', 'Approved job card']) {
       await expect(page.getByRole('region', { name: title })).not.toContainText('Not connected');
     }
-    await expect(page.getByRole('region', { name: 'Capacity' })).toContainText('Not connected');
+    await expect(page.getByRole('region', { name: 'Capacity' })).toContainText('No machine or workforce data is read today.');
+    for (const title of ['Defect intelligence', 'Delivery timeline', 'Throughput', 'Capacity', 'Production planning']) {
+      await expect(page.getByRole('region', { name: title })).not.toContainText(/Not connected|Empty until lot history is connected|Sample|Future/);
+    }
     await expect(page.getByRole('status').filter({ hasText: 'Crack model: low confidence' })).toBeVisible();
     const text = await main.innerText();
     expect(text).not.toMatch(PASS_WORDING);

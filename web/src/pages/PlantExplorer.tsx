@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Icon, PageHeader, ProvenanceChip } from "../components/m";
+import { Button, Card, Icon, PageHeader } from "../components/m";
 import { href } from "../lib/routes";
 import "./explorer/explorer.css";
 import { leverLabel, leverValue, STAGES, useCurrentPlan, useModelScores, type PlanState, type PlanView, type StageId } from "./explorer/plan";
@@ -27,7 +27,7 @@ export function PlantExplorer() {
         <StageMap plan={view} selected={selected} onSelect={setSelected} />
         <div className="c4 pe-side">
           <StageCard plan={plan} stage={selected} />
-          <Card title="Historical evidence" meta="Modeled lots">
+          <Card title="Historical evidence">
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {HISTORY_CHIPS.map((name) => <span key={name} className="pe-chp">{name}</span>)}
             </div>
@@ -54,7 +54,7 @@ function StageCard({ plan, stage }: { plan: PlanState; stage: StageId }) {
 
   return (
     <section className="cd kr" id="pe-stage-panel" role="tabpanel" aria-labelledby={`pe-tab-${stage}`}>
-      <div className="ct"><h2 className="t">{name}, stage {stage}</h2>{view && <ProvenanceChip kind="model-estimate" />}</div>
+      <div className="ct"><h2 className="t">{name}, stage {stage}</h2></div>
       {plan.kind === "loading" && <p className="pe-msg" role="status">Reading the current lot.</p>}
       {plan.kind === "error" && <p className="pe-msg" role="alert">The current lot could not be read. {plan.message}</p>}
       {plan.kind === "none" && (
@@ -72,10 +72,7 @@ function StageCard({ plan, stage }: { plan: PlanState; stage: StageId }) {
       )}
       <div style={{ marginTop: 6 }}>
         {/* The compare command (ARC-M6-12) does not exist, so the control is shown but sends nothing. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Button variant="secondary" small disabled aria-describedby="pe-compare-note">{compareLabel}</Button>
-          <ProvenanceChip kind="not-connected" />
-        </div>
+        <Button variant="secondary" small disabled aria-describedby="pe-compare-note">{compareLabel}</Button>
         <div className="lb pe-note" id="pe-compare-note">A comparison only. Changes go through New Lot. Comparing two estimates for one lot is not built yet.</div>
       </div>
     </section>

@@ -1,5 +1,5 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
-import { ButtonLink, Card, Chip, Icon, IdleMark, NotConnected, PageHeader } from "../components/m";
+import { ButtonLink, Card, Icon, IdleMark, NotConnected, PageHeader } from "../components/m";
 import { DEFECTS, formatNumber } from "../lib/api";
 import { href } from "../lib/routes";
 import { deriveFlow, EDGES, edgeTone, STEPS, ZONES, type FlowSources, type FlowView, type StepState, type ZoneStatus } from "./prepflow/flow";
@@ -199,8 +199,8 @@ function Checks({ items }: { items: string[] }) {
 }
 
 function SidePanels({ view }: { view: FlowView }) {
-  const detail = (title: string, chip: ReactNode, lead: string, sections: [string, string[]][], action: ReactNode) => (
-    <Card span={6} title={title} meta={chip}>
+  const detail = (title: string, lead: string, sections: [string, string[]][], action: ReactNode) => (
+    <Card span={6} title={title}>
       <div style={{ fontSize: 15, lineHeight: 1.5, color: "var(--mu)" }}>{lead}</div>
       {sections.map(([heading, items]) => (
         <div key={heading}><div className="th" style={{ marginTop: 14 }}>{heading}</div><List items={items} /></div>
@@ -217,7 +217,7 @@ function SidePanels({ view }: { view: FlowView }) {
   if (view.kind === "held") {
     return (
       <>
-        {detail("Why it stopped", <Chip tone="accent">Held</Chip>, "The order is unclear. A supervisor picks the line.",
+        {detail("Why it stopped", "The order is unclear. A supervisor picks the line.",
           [["Not run", ["Conditions, defect estimate, search, explanation", "Approval and job card"]]],
           <ButtonLink href={href("new-lot/order")} arrow>Open this step in New Lot</ButtonLink>)}
         {choices("Ways out of a hold", ["Choose the right line, then confirm the order.", "Correct a field that was read wrongly.", "Leave the lot on hold. Nothing downstream is created."],
@@ -228,7 +228,7 @@ function SidePanels({ view }: { view: FlowView }) {
   if (view.kind === "held-job") {
     return (
       <>
-        {detail("Why it stopped", <Chip tone="accent">Held</Chip>, "The lot is on hold. Its record does not say at which step or why.",
+        {detail("Why it stopped", "The lot is on hold. Its record does not say at which step or why.",
           [["Stored", ["The draft job for this lot"]]],
           <ButtonLink href={href("new-lot/order")} arrow>Open New Lot</ButtonLink>)}
         {choices("Ways out of a hold", ["Continue the lot from New Lot.", "Leave the lot on hold."],
@@ -240,7 +240,7 @@ function SidePanels({ view }: { view: FlowView }) {
     const replaced = view.notCurrent === "replaced";
     return (
       <>
-        {detail("Why it is read only", <Chip tone="none">{replaced ? "Replaced, read only" : "Not current"}</Chip>,
+        {detail("Why it is read only",
           replaced ? "A replaced revision cannot be approved. Plan the lot again." : "This revision did not finish. It cannot be approved.",
           [["Stored", ["The draft job for this revision"]]],
           <ButtonLink href={href("new-lot/order")} arrow>Plan the lot again</ButtonLink>)}
@@ -252,8 +252,8 @@ function SidePanels({ view }: { view: FlowView }) {
   if (view.kind === "partial") {
     return (
       <>
-        {detail("Why it stopped", <Chip tone="accent">Partly done</Chip>, "The estimate and search finished. Approval is blocked.",
-          [["Finished", ["Defect estimate", "Setting search", "Similar past lots"]], ["Missing", ["Explanation"]]],
+        {detail("Why it stopped", "The estimate and search finished. Approval is blocked.",
+          [["Finished", ["Defect estimate", "Setting search", "Similar past lots"]], ["Not finished", ["Explanation"]]],
           <ButtonLink href={href("new-lot/settings")} arrow>Open recovery in New Lot</ButtonLink>)}
         {choices("Ways out", ["Retry the explanation.", "Continue without it, if plant rules allow.", "Hold the lot."],
           "Approval stays off until one is done.")}
@@ -264,7 +264,7 @@ function SidePanels({ view }: { view: FlowView }) {
     const operator = view.jobId ? `?job=${encodeURIComponent(view.jobId)}${href("operator")}` : href("operator");
     return (
       <>
-        {detail("Selected: Job record", <Chip>Done</Chip>,
+        {detail("Selected: Job record",
           view.steps[8].state === "done" ? "The approved card is stored with its PDF." : "The card is approved. Its stored PDF is not shown here.",
           [["Inputs", ["Approved plan"]], ["Output", ["Job card PDF"]]],
           <ButtonLink href={operator} arrow>Open on the operator's phone</ButtonLink>)}
@@ -277,7 +277,7 @@ function SidePanels({ view }: { view: FlowView }) {
   const lowConfidence = DEFECTS.filter(({ key }) => view.lowConfidence.includes(key)).map(({ short }) => short);
   return (
     <>
-      {detail("Selected: Review plan", <Chip tone="accent">Needs you</Chip>, "Recommended settings beside your plan.",
+      {detail("Selected: Review plan", "Recommended settings beside your plan.",
         [["Inputs", ["Entered plan and recommended plan", "Five modeled risks and how far to trust them", "Similar past lots"]], ["Output", ["Your decision: approve, or keep as draft"]]],
         <ButtonLink href={href("new-lot/approve")} arrow>Open this step in New Lot</ButtonLink>)}
       {choices("What you are deciding", [
@@ -351,7 +351,6 @@ export function PrepFlow() {
         <Card span={12} className="pf-card" title={CARD_TITLES[view.kind] ?? "From order to approved card"}
           meta={<div className="pf-legend">{legend.map((state) => <StateMark key={state} state={state} text={STATE_TEXT[state]} />)}</div>}>
           <FlowDrawing view={view} />
-          <div className="mt" style={{ marginTop: 10, padding: "0 4px", whiteSpace: "normal" }}>Software steps, not a factory network.</div>
         </Card>
         {!loading && view.kind !== "none" && <SidePanels view={view} />}
       </div>

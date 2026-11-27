@@ -1,37 +1,23 @@
 import { useEffect, useId, useState } from "react";
-import { Button, Card, IdleMark, ProvenanceChip, Stat } from "../../components/m";
+import { Button, Card, IdleMark, Stat } from "../../components/m";
 import { DEFECTS, formatMoney, formatNumber, getJson, type Defect } from "../../lib/api";
 import { defectName, findSeenBefore, type Label, type SeenBefore as Result, type Weather } from "./api";
 
 type Search = { state: "idle" } | { state: "busy" } | { state: "error"; message: string } | { state: "done"; defect: Defect; rh: number; result: Result };
 
-const timeOf = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : undefined);
-
-// Place and time only as the weather response gives them, for example " Pune, read at 10:00 am."
-function readAt(weather: Weather) {
-  const time = timeOf(weather.observedAt);
-  const parts = [weather.location, time && `read at ${time}`].filter(Boolean);
-  if (parts.length === 0) return "";
-  const text = parts.join(", ");
-  return ` ${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
-}
-
 /** Past modeled lots with the diagnosed defect at similar humidity, from `/evidence/seen-before`. */
 export function SeenBeforeCard({ label }: { label: Label }) {
   const [defect, setDefect] = useState<Defect | "">(label === "NONE" ? "" : label);
   const [rh, setRh] = useState("");
-  const [weather, setWeather] = useState<Weather>();
-  const [edited, setEdited] = useState(false);
   const [search, setSearch] = useState<Search>({ state: "idle" });
   const ids = { defect: useId(), rh: useId(), hint: useId() };
 
   useEffect(() => { setDefect(label === "NONE" ? "" : label); setSearch({ state: "idle" }); }, [label]);
-  // The humidity starts from the public weather record, labelled as such, and stays editable.
+  // The humidity starts from the public weather record and stays editable.
   useEffect(() => {
     const controller = new AbortController();
     getJson<Weather & { ok?: boolean }>("/conditions/weather", controller.signal).then((r) => {
       if (controller.signal.aborted || !r.ok || typeof r.data.ambientRhPct !== "number") return;
-      setWeather(r.data);
       setRh((current) => current || String(r.data.ambientRhPct));
     });
     return () => controller.abort();
@@ -49,7 +35,7 @@ export function SeenBeforeCard({ label }: { label: Label }) {
   };
 
   return (
-    <Card span={12} title="Seen before" meta={<ProvenanceChip kind="modeled-records" />}>
+    <Card span={12} title="Seen before">
       <div className="pd-form">
         <label htmlFor={ids.defect}>Defect
           <select id={ids.defect} value={defect} onChange={(e) => { setDefect(e.target.value as Defect | ""); setSearch({ state: "idle" }); }}>
@@ -60,11 +46,8 @@ export function SeenBeforeCard({ label }: { label: Label }) {
         <div>
           <label htmlFor={ids.rh}>Humidity, %
             <input id={ids.rh} inputMode="decimal" value={rh} aria-describedby={ids.hint}
-              onChange={(e) => { setRh(e.target.value); setEdited(true); setSearch({ state: "idle" }); }} />
+              onChange={(e) => { setRh(e.target.value); setSearch({ state: "idle" }); }} />
           </label>
-          {rh.trim() !== "" && (edited || !weather
-            ? <div className="pd-src"><ProvenanceChip kind="entered-by-operator" /></div>
-            : <div className="pd-src"><ProvenanceChip kind="weather-record" />Public weather record, not a plant sensor.{readAt(weather)}</div>)}
         </div>
       </div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16, flexWrap: "wrap" }}>

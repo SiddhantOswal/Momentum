@@ -1,6 +1,6 @@
 import { useState } from "react";
 import conveyor from "./conveyor.svg.html?raw";
-import { ButtonLink, Card, Chip, Icon, NotConnected, ProvenanceChip } from "../../components/m";
+import { ButtonLink, Card, Icon, NotConnected } from "../../components/m";
 import type { Defect } from "../../lib/api";
 import { href } from "../../lib/routes";
 import { DEFECT_NAME, DEFECT_ORDER } from "../home/data";
@@ -55,7 +55,7 @@ export function MeasuredSavings() {
 const MONTHS = ["May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov"];
 
 /** U6: trend, delivery, throughput, capacity and planning have no source data. Each keeps the
- * designed empty, sample or not-connected look and shows no figure. */
+ * designed empty look and shows no figure. */
 export function NotConnectedYet() {
   return (
     <>
@@ -63,7 +63,7 @@ export function NotConnectedYet() {
         <h2 className="t" style={{ margin: 0 }}>Not connected yet</h2>
         <div className="lb" style={{ fontSize: 14, marginTop: 2 }}>Sketches only. They need plant data.</div>
       </div>
-      <Card span={8} title="Defect intelligence" meta={<Chip tone="example">Empty until lot history is connected</Chip>}>
+      <Card span={8} title="Defect intelligence">
         <div className="in-chips" style={{ marginBottom: 10 }}>
           {DEFECT_ORDER.map((defect, index) => (
             <span key={defect} className="in-chip" aria-disabled="true" style={index === 0 ? { borderColor: "var(--tx)", color: "var(--inv)", background: "var(--tx)" } : undefined}>
@@ -81,7 +81,7 @@ export function NotConnectedYet() {
           <text x="363" y="142" textAnchor="middle" fontFamily="'Inter',sans-serif" fontSize="13" fill="var(--mu)">The trend appears when real lot outcomes are recorded.</text>
         </svg>
       </Card>
-      <Card span={4} title="Delivery timeline" meta={<ProvenanceChip kind="sample" />}>
+      <Card span={4} title="Delivery timeline">
         <ol style={{ listStyle: "none", margin: "6px 0 0", padding: 0 }}>
           {[
             ["Lot review completed", "Recorded reference case", true],
@@ -93,7 +93,7 @@ export function NotConnectedYet() {
         </ol>
         <div className="lb" style={{ fontSize: 13, lineHeight: 1.45 }}>Only step one is a recorded case.</div>
       </Card>
-      <Card span={4} title="Throughput" meta={<ProvenanceChip kind="sample" />}>
+      <Card span={4} title="Throughput">
         <div aria-hidden="true" style={{ display: "flex", gap: 10, height: 150, alignItems: "flex-end", paddingTop: 10 }}>
           {[["M", 46], ["T", 70], ["W", 90], ["T", 120], ["F", 76], ["S", 60], ["S", 98]].map(([day, height], index) => (
             <div key={index} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
@@ -104,7 +104,7 @@ export function NotConnectedYet() {
         </div>
         <div className="lb" style={{ fontSize: 13, marginTop: 12, lineHeight: 1.45 }}>Shape only. Needs a production log.</div>
       </Card>
-      <Card span={4} title="Capacity" meta={<ProvenanceChip kind="not-connected" />}>
+      <Card span={4} title="Capacity">
         {["Machine availability", "Operator capacity", "Production schedule"].map((name) => (
           <div key={name} style={{ marginTop: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span style={{ fontWeight: 600 }}>{name}</span><span className="lb">No feed</span></div>
@@ -114,7 +114,7 @@ export function NotConnectedYet() {
         <div className="lb" style={{ fontSize: 13, marginTop: 14, lineHeight: 1.45 }}>No machine or workforce data is read today.</div>
       </Card>
       <section className="cd c4" aria-labelledby="in-planning" style={{ display: "flex", flexDirection: "column" }}>
-        <div className="ct"><h2 className="t" id="in-planning" style={{ margin: 0 }}>Production planning</h2><Chip tone="example">Future</Chip></div>
+        <div className="ct"><h2 className="t" id="in-planning" style={{ margin: 0 }}>Production planning</h2></div>
         <div style={{ fontSize: 15, lineHeight: 1.5, color: "var(--mu)" }}>Needs plant schedule data. Concept only.</div>
         <div style={{ marginTop: "auto", paddingTop: 16 }}><ButtonLink href={href("planning")} variant="secondary">Open Planning</ButtonLink></div>
       </section>
