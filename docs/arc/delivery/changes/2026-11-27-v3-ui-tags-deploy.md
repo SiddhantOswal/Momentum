@@ -21,4 +21,10 @@ One Cloud Build; about four Gemini calls (two PO1 runs at about ₹2.29 each, if
 `gcloud run services update-traffic momentum --to-revisions=momentum-v3-prod1=100` (the previous v3 build), or `momentum-00023-yaz=100` for the build before v3.
 
 ## Result
-Not run.
+Run 2026-11-27.
+- Build: `v3` at `215e411`, manifest `f3fe4774…`, Cloud Build `8171c8c2` SUCCESS, image `prepagent@sha256:a170d375…`.
+- Test revision `momentum-v3-rc2` (tag `v3rc`): preflight passed (model versions verified, budget-v2 enforced, 40 calls for a session, counter 0). Route text scan of all 11 `/app` routes: no removed tag text; the only matches were the "Use weather record" button and the "From order to approved card" title. PO1 was not run on the test revision, to save Gemini calls.
+- Production revision `momentum-v3-prod2`: origin `https://momentum-ai.cloud.run`, limits unchanged, pitch secret set, 42 settings, Ready. Traffic moved: `momentum-v3-prod2` 100%.
+- Live checks: `/` 302 to `/app/`, `/health` 200, public `/api/status` with the 8 fields only, the route text scan clean as on the test revision, and PO1 through Arc to the Approve card (56.4 to 49.2 kg, ₹384 lower; not approved). The panel updated without a reload this time.
+- `v3rc` tag removed (404). `momentum-v3-prod1` and `momentum-00023-yaz` kept for rollback.
+- Gemini today: 6 attempts, ₹13.71 (₹2.29 an attempt).
