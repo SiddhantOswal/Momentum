@@ -28,8 +28,8 @@
 .m .in-attr .n { font-size: 20px; font-weight: 600; width: 70px; text-align: right; flex: none; }
 
 .m .in-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
-.m .in-pick select { height: 36px; border-radius: 10px; border: 1px solid var(--ln2); background: var(--cd); color: var(--tx); font: 500 14px 'Inter', sans-serif; padding: 0 10px; max-width: 100%; }
-.m .in-pick select:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.m .in-pick select { height: 36px; border-radius: 10px; border: 1px solid var(--ln2); background-color: var(--cd); color: var(--tx); font: 500 14px 'Inter', sans-serif; padding: 0 34px 0 10px; max-width: 100%; }
+.m .in-pick select:focus-visible { outline: 2px solid var(--arc-focus); outline-offset: 2px; }
 
 /* Model fit rows, on the design's grid: name 140 px, a 400 px track for 0.0 to 0.8, the value
    right-aligned at 618 px and the note after it. Below 768 px each row stacks. */
@@ -100,7 +100,7 @@
 
 /* The low-confidence notice, placed as the design's toast under the top bar. */
 .m .in-tsts { position: fixed; right: 24px; top: 68px; width: 400px; max-width: calc(100vw - 48px); display: flex; flex-direction: column; gap: 10px; z-index: 30; }
-.m .in-tst { display: flex; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--cd); border: 1px solid var(--ln2); border-left: 4px solid var(--wn); box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: in-tin .35s ease-out both; }
+.m .in-tst { display: flex; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--notice-surface); border: 1px solid var(--notice-edge); border-left: 4px solid var(--wn); box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: in-tin .35s ease-out both; }
 :root[data-theme="light"] .m .in-tst { box-shadow: 0 12px 28px -12px rgba(20,24,28,.35); }
 .m .in-tst > svg { width: 22px; height: 22px; flex: none; fill: none; stroke: var(--wn); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .m .in-tst div { flex: 1; min-width: 0; }

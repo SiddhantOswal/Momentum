@@ -4,7 +4,7 @@
  */
 
 /* lot identity bar */
-.m .nl .ids { display: flex; align-items: center; height: 56px; border: 1px solid var(--ln); border-radius: 12px; background: var(--cd); margin-bottom: 16px; padding: 0 4px; }
+.m .nl .ids { display: flex; align-items: center; height: 56px; border: 1px solid var(--emphasis-outline, var(--ln)); border-radius: 12px; background: var(--emphasis-background, var(--cd)); margin-bottom: 16px; padding: 0 4px; }
 .m .nl .ids > div { padding: 0 18px; border-left: 1px solid var(--ln); min-width: 0; }
 .m .nl .ids > div:first-child { border-left: 0; }
 .m .nl .ids small { display: block; font-size: 12px; color: var(--dim); line-height: 14px; }
@@ -20,7 +20,7 @@
 .m .nl .ck input { appearance: none; flex: none; width: 20px; height: 20px; margin: 1px 0 0; border-radius: 6px; border: 1.5px solid var(--ln2); background: transparent; display: grid; place-content: center; cursor: pointer; }
 .m .nl .ck input:checked { background: var(--tx); border-color: var(--tx); }
 .m .nl .ck input:checked::after { content: ""; width: 10px; height: 6px; border: solid var(--inv); border-width: 0 0 2.4px 2.4px; transform: translateY(-1px) rotate(-45deg); }
-.m .nl .ck input:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.m .nl .ck input:focus-visible { outline: 2px solid var(--arc-focus); outline-offset: 2px; }
 .m .nl .ck input:disabled { opacity: .45; cursor: default; }
 
 /* form rows and fields */
@@ -30,18 +30,29 @@
 .m .nl .fr .nm { font-size: 16px; font-weight: 600; }
 .m .nl .fr .sr { font-size: 13px; color: var(--mu); }
 .m .nl .fld { position: relative; height: 44px; border: 1px solid var(--ln2); border-radius: 10px; background: var(--bg); display: flex; align-items: center; padding: 0 14px; gap: 8px; }
-.m .nl .fld:focus-within { border-color: var(--ac); box-shadow: 0 0 0 1px var(--ac); }
+.m .nl .fld:focus-within { border-color: var(--arc-focus); box-shadow: 0 0 0 1px var(--arc-focus); }
 .m .nl .fld.rq { border-color: rgba(227,163,64,.65); }
 .m .nl .fld.bad { border-color: var(--bd); }
-.m .nl .fld input, .m .nl .fld select { flex: 1; width: 0; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--tx); font: 600 18px var(--arc-font-display); font-variant-numeric: tabular-nums; padding: 0; appearance: none; }
+.m .nl .fld input, .m .nl .fld select { flex: 1; width: 0; min-width: 0; height: 100%; border: 0; outline: 0; background-color: transparent; color: var(--tx); font: 600 18px var(--arc-font-display); font-variant-numeric: tabular-nums; padding: 0; }
 .m .nl .fld input::placeholder { color: var(--dim); opacity: 1; font: 500 16px var(--arc-font-body); }
+.m .nl .fld select { background-position: right center; padding-inline-end: 24px; }
+.m .nl .fld select:focus-visible { outline: none; }
 .m .nl .fld select:invalid { color: var(--dim); font: 500 16px var(--arc-font-body); }
 .m .nl .fld select option { color: var(--tx); background: var(--cd); }
 .m .nl .fld input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.6); }
 .m .nl .fld small { flex: none; font: 500 14px var(--arc-font-body); color: var(--mu); }
 .m .nl .lgd { width: 28px; height: 16px; border: 1.5px solid var(--wn); border-radius: 6px; flex: none; }
 
-/* order context inputs on the Purchase order card */
+/* Order source and context */
+.m .nl .purchase-order { container-type: inline-size; }
+.m .nl .sample-picker { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 10px 16px; margin-top: 14px; }
+.m .nl .sample-picker .chp { grid-column: 2; justify-self: end; }
+.m .nl .sample-picker select { font-size: 15px; }
+@container (max-width: 360px) {
+  .m .nl .sample-picker { grid-template-columns: minmax(0, 1fr); }
+  .m .nl .sample-picker .chp { grid-column: auto; }
+}
+
 .m .nl .ctx { display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 10px; margin-top: 14px; }
 .m .nl .ctx label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--mu); }
 .m .nl .ctx .fld input, .m .nl .ctx .fld select { font-size: 15px; }
@@ -62,15 +73,15 @@
 .m .nl .rd .ed .fld input { font-size: 15px; }
 
 /* the order excerpt on the Source card */
-.m .nl .po { background: #D7C39A; color: #1F1810; border-radius: 10px; padding: 20px 22px; min-height: 318px; display: flex; flex-direction: column; }
+.m .nl .po { background: color-mix(in srgb, var(--ac) 9%, var(--cd)); border: 1px solid rgba(var(--ac-rgb), .55); color: var(--tx); border-radius: 10px; padding: 20px 22px; min-height: 318px; display: flex; flex-direction: column; }
 .m .nl .po .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .m .nl .po .hd b { font: 700 15px var(--arc-font-display); letter-spacing: .06em; }
 .m .nl .po .row { display: grid; grid-template-columns: 44px 110px 1fr 90px; gap: 8px; align-items: center; }
-.m .nl .po .row.h { margin-top: 18px; font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid rgba(27,23,18,.35); padding-bottom: 6px; }
+.m .nl .po .row.h { margin-top: 18px; font-size: 12px; font-weight: 700; letter-spacing: .05em; border-bottom: 1px solid var(--ln2); padding-bottom: 6px; }
 .m .nl .po .row.l { margin-top: 8px; padding: 8px 6px; margin-left: -6px; margin-right: -6px; font-size: 14px; border: 2px solid transparent; border-radius: 6px; }
-.m .nl .po .row.l.on { border-color: #C4442F; background: rgba(196,68,47,.08); font-weight: 600; }
+.m .nl .po .row.l.on { border-color: var(--ac); background: rgba(var(--ac-rgb), .14); font-weight: 600; }
 .m .nl .po .row span:last-child { text-align: right; }
-.m .nl .po .ft { margin-top: auto; padding-top: 16px; font-size: 12.5px; color: rgba(27,23,18,.72); }
+.m .nl .po .ft { margin-top: auto; padding-top: 16px; font-size: 12.5px; color: var(--mu); }
 
 /* status rows (Approve, Recovery, Stale) */
 .m .nl .st { display: flex; align-items: center; gap: 12px; height: 42px; border-top: 1px solid var(--ln); }
@@ -89,20 +100,18 @@
 
 /* toasts */
 .m .nl .tsts { position: fixed; right: 24px; top: 68px; width: 400px; max-width: calc(100vw - 48px); display: flex; flex-direction: column; gap: 10px; z-index: 30; pointer-events: none; }
-.m .nl .tst { display: flex; pointer-events: auto; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--cd); border: 1px solid var(--ln2); border-left-width: 4px; box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: nl-tin .35s ease-out both; }
+.m .nl .tst { display: flex; pointer-events: auto; align-items: center; gap: 12px; padding: 12px 10px 12px 14px; border-radius: 12px; background: var(--notice-surface); border: 1px solid var(--notice-edge); border-left: 4px solid var(--notice-color); box-shadow: 0 16px 32px -14px rgba(0,0,0,.6); animation: nl-tin .35s ease-out both; }
 :root[data-theme="light"] .m .nl .tst { box-shadow: 0 12px 28px -12px rgba(20,24,28,.35); }
-.m .nl .tst.ok { border-left-color: var(--ok); } .m .nl .tst.wn { border-left-color: var(--wn); } .m .nl .tst.bd { border-left-color: var(--bd); }
 .m .nl .tst > svg { width: 22px; height: 22px; flex: none; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.m .nl .tst.ok > svg { stroke: var(--ok); } .m .nl .tst.wn > svg { stroke: var(--wn); } .m .nl .tst.bd > svg { stroke: var(--bd); }
 .m .nl .tst div { flex: 1; min-width: 0; }
 .m .nl .tst b { display: block; font: 600 16px/22px var(--arc-font-display); }
 .m .nl .tst span { display: block; font-size: 14px; line-height: 20px; color: var(--mu); }
 .m .nl .tst .x { flex: none; width: 32px; height: 32px; border: 0; border-radius: 10px; background: transparent; color: var(--mu); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .m .nl .tst .x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.m .nl .tst .x:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.m .nl .tst .x:focus-visible { outline: 2px solid var(--arc-focus); outline-offset: 2px; }
 @keyframes nl-tin { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
-.m .nl .chp:focus-visible, .m .nl .fld select:focus-visible { outline: 2px solid var(--ac); outline-offset: 3px; }
+.m .nl .chp:focus-visible { outline: 2px solid var(--arc-focus); outline-offset: 3px; }
 .m .nl .chp:disabled { opacity: .45; cursor: default; }
 .m .nl .busy { font-size: 15px; color: var(--mu); }
 /* Positioned so a visually hidden header row stays inside its table. */

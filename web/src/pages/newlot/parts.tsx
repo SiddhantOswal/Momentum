@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { PageHeader, PATHS, Stepper } from "../../components/m";
+import { useNotificationHistory, type Notice } from "../../components/Notifications";
 import { DEFECTS, formatMoney, formatNumber, type Defect } from "../../lib/api";
 import { LEVERS, type LeverKey } from "../../lib/session";
 import type { LotState } from "./store";
@@ -35,7 +36,7 @@ export function IdsBar({ lot, status, next, kraft, replaced }: { lot: LotState; 
   );
 }
 
-export type Toast = { id: string; tone: "ok" | "wn" | "bd"; title: string; text?: string };
+export type Toast = Notice;
 
 export function useToasts(initial: Toast[] = []) {
   const [toasts, setToasts] = useState(initial);
@@ -45,10 +46,11 @@ export function useToasts(initial: Toast[] = []) {
 }
 
 export function Toasts({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id: string) => void }) {
+  useNotificationHistory(toasts);
   return (
     <div className="tsts" aria-live="polite">
       {toasts.map((toast) => (
-        <div key={toast.id} className={`tst ${toast.tone}`} role={toast.tone === "ok" ? "status" : "alert"}>
+        <div key={toast.id} className={`tst notice-tone ${toast.tone}`} role={toast.tone === "ok" ? "status" : "alert"}>
           <StatusIcon kind={toast.tone === "ok" ? "ok" : toast.tone === "wn" ? "warn" : "bad"} />
           <div><b>{toast.title}</b>{toast.text && <span>{toast.text}</span>}</div>
           <button type="button" className="x" aria-label={`Dismiss: ${toast.title}`} onClick={() => dismiss(toast.id)}>

@@ -3,7 +3,7 @@
 @import "./arc-fonts.css";
 @import "./m.css";
 
-:root, .arc-kraft, .arc-glass {
+:root, .arc-glass {
   --panel: var(--cd);
   --panel-2: var(--rz);
   --raised: var(--rz);
@@ -78,5 +78,5 @@ body {
 }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .hairline { border-color: var(--line); }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--arc-focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

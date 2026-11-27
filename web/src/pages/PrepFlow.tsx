@@ -1,7 +1,8 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { ButtonLink, Card, Icon, IdleMark, NotConnected, PageHeader } from "../components/m";
 import { DEFECTS, formatNumber } from "../lib/api";
-import { href } from "../lib/routes";
+import { href, type RouteId } from "../lib/routes";
+import { useNotificationHistory } from "../components/Notifications";
 import { deriveFlow, EDGES, edgeTone, STEPS, ZONES, type FlowSources, type FlowView, type StepState, type ZoneStatus } from "./prepflow/flow";
 import { findReadableJob, pageParam, readJob, readLotHead, readLots, readTrace, type LotHead } from "./prepflow/records";
 import "./prepflow/prepflow.css";
@@ -101,9 +102,18 @@ const ZONE_STATUS: Record<ZoneStatus, [StepState, string]> = {
 const NODE_CLASS: Record<StepState, string> = { done: "", now: "cur", held: "cur w", failed: "cur b", idle: "pd", nc: "pd" };
 const TONE_NOTE = { ok: "", wn: ", low confidence", bd: ", no estimate", dim: "" } as const;
 
+const STEP_ROUTES: RouteId[] = [
+  "new-lot/order", "new-lot/order", "new-lot/conditions", "new-lot/settings", "new-lot/settings",
+  "new-lot/settings", "new-lot/approve", "new-lot/approve", "new-lot/approve",
+];
+
+function operatorCard(jobId: string) {
+  return `?job=${encodeURIComponent(jobId)}${href("operator")}`;
+}
+
 function FlowDrawing({ view }: { view: FlowView }) {
   const markerId = useId().replace(/:/g, "");
-  const tones = { g1: "var(--g1)", ac: "#E8664F", wn: "#E3A340", bd: "#F0707A", g2: "var(--g2)" } as const;
+  const tones = { g1: "var(--ok)", ac: "var(--ac)", wn: "var(--wn)", bd: "var(--bd)", g2: "var(--g2)" } as const;
   return (
     <div className="pf-wrap">
       <div className="pf">
@@ -116,10 +126,13 @@ function FlowDrawing({ view }: { view: FlowView }) {
               <ol start={zoneSteps[0].n}>
                 {zoneSteps.map((step) => {
                   const { state, sub } = view.steps[step.n - 1];
+                  const destination = step.n === 9 && view.kind === "approved" && view.jobId
+                    ? operatorCard(view.jobId)
+                    : href(STEP_ROUTES[step.n - 1]);
                   return (
                     <li key={step.n} className={`nd s${step.n} ${NODE_CLASS[state]}`.trim()} data-step={step.n} data-state={state}>
                       <div className="nr"><span>{step.n}</span><StateMark state={state} /></div>
-                      <div className="nt">{step.title}</div>
+                      <div className="nt"><a href={destination}>{step.title}</a></div>
                       <div className="ns">{sub}</div>
                       {step.n === 4
                         ? (
@@ -261,7 +274,7 @@ function SidePanels({ view }: { view: FlowView }) {
     );
   }
   if (view.kind === "approved") {
-    const operator = view.jobId ? `?job=${encodeURIComponent(view.jobId)}${href("operator")}` : href("operator");
+    const operator = view.jobId ? operatorCard(view.jobId) : href("operator");
     return (
       <>
         {detail("Selected: Job record",
@@ -298,10 +311,11 @@ const TOASTS = {
 function Toast({ kind }: { kind: keyof typeof TOASTS }) {
   const [open, setOpen] = useState(true);
   const toast = TOASTS[kind];
+  useNotificationHistory(open ? [{ id: `prep-flow-${kind}`, ...toast }] : []);
   return (
     <div className="tsts" aria-live="polite">
       {open && (
-        <div className={`tst ${toast.tone}`} role="alert">
+        <div className={`tst notice-tone ${toast.tone}`} role="alert">
           <Icon name={toast.icon} />
           <div><b>{toast.title}</b><span>{toast.text}</span></div>
           <button type="button" className="x" aria-label="Dismiss" onClick={() => setOpen(false)}><Icon name="close" /></button>

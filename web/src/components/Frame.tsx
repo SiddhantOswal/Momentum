@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import logo from "../assets/logo-momentum.jpg";
+import logoOnDark from "../assets/logo-on-dark.png";
+import logoOnLight from "../assets/logo-on-light.png";
 import { useBackendState } from "../lib/backend";
 import { href, type NavKey, type Route, type RouteId } from "../lib/routes";
 import type { Theme } from "../lib/useApp";
 import { ArcLauncher, ArcPanel } from "./arc/ArcPanel";
 import { useArcConversation } from "./arc/useArcConversation";
 import { Icon, type IconName } from "./m";
+import { NotificationBell } from "./Notifications";
 
 const NAV: { key: NavKey; to: RouteId; label: string; icon: IconName }[] = [
   { key: "home", to: "home", label: "Home", icon: "home" },
@@ -70,7 +72,7 @@ export function Frame({ route, theme, toggleTheme, children }: { route: Route; t
     <div className="m">
       <a className="sr-only skip" href="#main" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to content</a>
       <aside id="side-nav" className={`side${menuOpen ? " open" : ""}`} inert={arcOpen}>
-        <img className="brand" src={logo} alt="Momentum" />
+        <img className="brand" src={theme === "dark" ? logoOnDark : logoOnLight} alt="Momentum" />
         <nav aria-label="Main">
           {NAV.map((item) => <NavLink key={item.key} item={item} active={route.nav === item.key} />)}
           <div className="grp" id="nav-future">Future</div>
@@ -88,10 +90,7 @@ export function Frame({ route, theme, toggleTheme, children }: { route: Route; t
           <div className="bc">Plant / <b>{route.crumb}</b></div>
           <ArcLauncher ref={launcherRef} open={arcOpen} onToggle={() => (arcOpen ? closeArc() : setArcOpen(true))} />
           <div className="tr">
-            {/* No alert feed exists yet, so the bell is shown as designed but cannot be used. */}
-            <button type="button" className="bell" aria-label="Alerts, not connected yet" disabled>
-              <Icon name="bell" />
-            </button>
+            <NotificationBell key={route.id} disabled={arcOpen} />
             <BackendIndicator />
           </div>
         </header>
