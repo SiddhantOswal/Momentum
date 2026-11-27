@@ -52,7 +52,7 @@
 .m .ph { display: flex; justify-content: space-between; align-items: flex-end; padding: 22px 0 18px; }
 .m .ph h1 { margin: 0; font: 600 28px/34px var(--arc-font-display); letter-spacing: -.4px; }
 .m .ph p { margin: 4px 0 0; font-size: 15px; color: var(--mu); }
-.m .bell.menu { display: none; }
+.m .bell.menu, .m .bell.side-close { display: none; }
 .m .skip:focus { position: fixed; left: 12px; top: 12px; width: auto; height: auto; margin: 0; clip: auto; z-index: 60; padding: 10px 14px; border-radius: 10px; background: var(--cd); color: var(--tx); border: 1px solid var(--ac); }
 
 /* grid: 12 columns of 82 px with 16 px gaps at the 1440 px design width */
@@ -164,8 +164,7 @@
 
 /* Arc launcher */
 .m .arc { display: flex; align-items: center; gap: 12px; height: 40px; width: 372px; padding: 0 5px; border: 1px solid rgba(var(--ac-rgb), .55); border-radius: 12px; background: rgba(var(--ac-rgb), .09); text-decoration: none; color: var(--tx); flex: none; cursor: pointer; text-align: left; font: inherit; }
-/* The top bar starts after the sidebar, so subtract half its width to center on the viewport. */
-.m .top .arc { position: absolute; left: calc(50% - var(--arc-sidebar-width) / 2); top: 50%; transform: translate(-50%, -50%); }
+.m .top .arc { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .m .arc:hover { background: rgba(var(--ac-rgb), .16); border-color: var(--ac); }
 .m .arc .mk { flex: none; display: block; }
 .m .arc .at { display: flex; align-items: baseline; gap: 10px; min-width: 0; white-space: nowrap; }
@@ -256,7 +255,8 @@
   .m .tr { flex-wrap: wrap; }
   .m .notification-panel { right: 16px; }
   .m .bell.menu { display: flex; }
-  .m .top .arc { left: 50%; }
+  .m .side .brand { max-width: calc(100% - 48px); }
+  .m .side.open .side-close { display: flex; position: absolute; top: 20px; right: 12px; }
   .m .arc { width: min(372px, calc(100% - 480px)); }
   .m .scr { left: 0; }
   .m .g > * { grid-column: span 12; }

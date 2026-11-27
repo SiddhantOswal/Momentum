@@ -99,7 +99,6 @@ export function LotSource({ problem }: { problem?: StepProblem }) {
   );
 }
 
-const REVIEW_CHECKS = ["The source line is the one you want", "The quantity matches the order", "The catalog item is the right box"];
 const LINE_STATUS: Record<OrderReviewLine["status"], string> = {
   MATCHED: "Matched", AMBIGUOUS: "Pick an item", UNKNOWN_CODE: "Not in catalog",
   MISSING_ITEM_CODE: "No item code", MISSING_QTY: "No quantity", MALFORMED: "Check this line",
@@ -116,7 +115,7 @@ export function LotReview({ reviewId, problem, closed = false }: { reviewId: str
   const { send, busy } = useArcScreen();
   const [read, setRead] = useState<{ review?: OrderReview; words?: string } | null>(reviewId ? null : { words: arcWords("ORDER_REVIEW_EXPIRED") });
   const [lineIndex, setLineIndex] = useState<number | null>(null);
-  const [checks, setChecks] = useState<boolean[]>(REVIEW_CHECKS.map(() => false));
+  const [confirmed, setConfirmed] = useState<{ reviewId: string; lineIndex: number } | null>(null);
   const name = useId();
   useEffect(() => {
     if (!reviewId) return;
@@ -131,12 +130,13 @@ export function LotReview({ reviewId, problem, closed = false }: { reviewId: str
     return () => controller.abort();
   }, [reviewId]);
 
-  const review = read?.review;
+  const review = read?.review?.reviewId === reviewId ? read?.review : undefined;
   const chosen = review?.lines.find((line) => line.lineIndex === lineIndex && confirmable(line));
-  const ready = Boolean(review && chosen && checks.every(Boolean)) && !closed;
-  const choose = (index: number) => { setLineIndex(index); setChecks(REVIEW_CHECKS.map(() => false)); };
+  const checked = Boolean(confirmed && confirmed.reviewId === reviewId && confirmed.lineIndex === lineIndex);
+  const ready = Boolean(review && chosen && checked) && !closed;
+  const choose = (index: number) => { setLineIndex(index); setConfirmed(null); };
   const confirm = () => {
-    if (!review || !chosen) return;
+    if (busy || !ready || !review || !chosen) return;
     send({ kind: "action", actionId: "confirm_order", params: { reviewId: review.reviewId, lineIndex: chosen.lineIndex } },
       `Confirm line ${chosen.lineIndex + 1}, ${chosen.itemCode}`);
   };
@@ -172,10 +172,10 @@ export function LotReview({ reviewId, problem, closed = false }: { reviewId: str
         )}
       </section>
       <div className="stl">
-        {REVIEW_CHECKS.map((check, index) => (
-          <ReviewCheck key={check} checked={checks[index]} disabled={busy || closed || !chosen}
-            onChange={(on) => setChecks((list) => list.map((value, at) => (at === index ? on : value)))}>{check}</ReviewCheck>
-        ))}
+        <ReviewCheck checked={checked} disabled={busy || closed || !chosen}
+          onChange={(on) => setConfirmed(on && reviewId && chosen ? { reviewId, lineIndex: chosen.lineIndex } : null)}>
+          I confirm the source line, quantity, and matching catalog item.
+        </ReviewCheck>
       </div>
       {problem && <Problem {...problem} />}
       <div className="row">
@@ -183,7 +183,7 @@ export function LotReview({ reviewId, problem, closed = false }: { reviewId: str
         {review && !ready && (
           <span className="lb" style={{ fontSize: 14 }}>
             {closed ? "Arc has moved on from this card. Read the order again to confirm another line."
-              : chosen ? "Tick the three checks to confirm." : "Pick a matched line to confirm."}
+              : chosen ? "Tick the box to confirm." : "Pick a matched line to confirm."}
           </span>
         )}
       </div>

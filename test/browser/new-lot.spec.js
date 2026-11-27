@@ -190,7 +190,9 @@ test('the manual route reads the order, plans the lot and approves through the b
 
   const confirm = page.getByRole('button', { name: 'Confirm order' });
   await expect(confirm).toBeDisabled();
-  for (const label of ['The source line is the one you want', 'The quantity matches the order', 'The catalog item is the right box']) await page.getByLabel(label).check();
+  const review = page.getByRole('region', { name: 'Confirm the order' });
+  await expect(review.getByRole('checkbox')).toHaveCount(1);
+  await review.getByRole('checkbox', { name: 'I confirm the source line, quantity, and matching catalog item.' }).check();
   await confirm.click();
 
   await expect(page).toHaveURL(/#\/new-lot\/conditions$/);

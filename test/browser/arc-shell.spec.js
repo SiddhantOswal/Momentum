@@ -99,7 +99,7 @@ for (const theme of ['dark', 'light']) {
   });
 }
 
-test('Arc is centered across the viewport without covering the header controls', async ({ page }) => {
+test('Arc is centered in the area beside the sidebar without covering the header controls', async ({ page }) => {
   await page.route('**/health', route => route.fulfill(json(503, { ok: false })));
   await page.goto('/app/#/prep-flow');
   const launcher = page.getByRole('button', { name: 'Open Arc by Momentum' });
@@ -108,9 +108,9 @@ test('Arc is centered across the viewport without covering the header controls',
 
   for (const width of [1440, 1280, 1024, 768, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    const viewport = await page.evaluate(() => document.documentElement.clientWidth);
+    const header = await page.locator('header.top').boundingBox();
     const arc = await launcher.boundingBox();
-    expect(Math.abs(arc.x + arc.width / 2 - viewport / 2), `center at ${width}px`).toBeLessThanOrEqual(1);
+    expect(Math.abs(arc.x + arc.width / 2 - (header.x + header.width / 2)), `center at ${width}px`).toBeLessThanOrEqual(1);
 
     for (const neighbor of [
       page.locator('.bc'),
@@ -125,6 +125,19 @@ test('Arc is centered across the viewport without covering the header controls',
       expect(overlaps, `header controls overlap at ${width}px`).toBe(false);
     }
   }
+});
+
+test('the mobile sidebar closes with its back arrow and returns focus', async ({ page }) => {
+  await page.setViewportSize({ width: 440, height: 956 });
+  await page.goto('/app/#/home');
+  const menu = page.getByRole('button', { name: 'Menu' });
+  await menu.click();
+  const close = page.getByRole('button', { name: 'Close navigation' });
+  await expect(close).toBeFocused();
+  await close.click();
+  await expect(menu).toHaveAttribute('aria-expanded', 'false');
+  await expect(menu).toBeFocused();
+  await expect(close).toBeHidden();
 });
 
 test('the backend indicator shows a failed health check', async ({ page }) => {
