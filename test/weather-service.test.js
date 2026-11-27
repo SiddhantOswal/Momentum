@@ -91,7 +91,16 @@ test("weather provider times out to unavailable instead of hanging", async () =>
       init.signal.addEventListener("abort", () => reject(init.signal.reason), { once: true });
     }),
   });
-  const result = await provider();
-  assert.equal(result.ok, false);
-  assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+  // The mocked fetch has no socket to keep Node alive while the abort timer runs.
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Weather provider did not settle")), 1000);
+  });
+  try {
+    const result = await Promise.race([provider(), deadline]);
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "SERVICE_UNAVAILABLE");
+  } finally {
+    clearTimeout(timer);
+  }
 });
